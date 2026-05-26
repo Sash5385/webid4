@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 
 // ═══════════════════════════════════════════════════════════════
 // DESIGN TOKENS (v3 skin)
@@ -45,9 +45,13 @@ body, html, #root { margin:0; padding:0; }
 /* ─── 3D PILLOW SLOTS (from v4, color via CSS var) ─── */
 .slot-base {
   position: relative; overflow: hidden;
-  border-radius: 14px;
+  border-radius: 8px;
   transition: box-shadow .2s, transform .15s;
   cursor: grab; user-select: none;
+  touch-action: none;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  -webkit-user-drag: none;
 }
 .slot-base::before {
   content:''; position:absolute; pointer-events:none;
@@ -61,7 +65,7 @@ body, html, #root { margin:0; padding:0; }
   content:''; position:absolute; pointer-events:none;
   bottom: 0; left: 0; right: 0; height: 35%;
   background: linear-gradient(to bottom, transparent, rgba(0,0,0,0.18));
-  border-radius: 0 0 14px 14px;
+  border-radius: 0 0 8px 8px;
 }
 .slot-base:active { cursor: grabbing; }
 .slot-colored {
@@ -80,16 +84,11 @@ body, html, #root { margin:0; padding:0; }
   50%     { box-shadow: -2px 5px 14px rgba(0,0,0,0.5), inset 1px 1px 0 rgba(255,255,255,0.18), inset -1px -1px 0 rgba(0,0,0,0.25), 0 0 0 6px rgba(255,90,60,0); }
 }
 
-/* resize handles */
+/* resize handles — invisible hit area, no visual bar */
 .slot-handle {
-  position: absolute; left: 8px; right: 8px; height: 8px;
+  position: absolute; left: 0; right: 0; height: 20px;
   cursor: ns-resize; z-index: 5;
-}
-.slot-handle::after {
-  content:''; position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
-  width: 30px; height: 3px; border-radius: 2px;
-  background: rgba(255,255,255,0.5);
-  box-shadow: 0 0 4px rgba(0,0,0,0.3);
+  touch-action: none;
 }
 .slot-handle.top { top: 0; }
 .slot-handle.bottom { bottom: 0; }
@@ -138,6 +137,7 @@ body, html, #root { margin:0; padding:0; }
 ::-webkit-scrollbar-track { background: transparent; }
 input[type="range"] { accent-color: ${ACCENT}; }
 .tabular { font-variant-numeric: tabular-nums; }
+.drum-scroll::-webkit-scrollbar { display: none; }
 `;
 
 // ═══════════════════════════════════════════════════════════════
@@ -293,14 +293,28 @@ const initialBookings = [
   { id:"b12",day:5, startMin:10*60, durMin:120, name:"Ангеліна Коник", phone:"+380681746071", type:"private", tsc:"",              hoursDone:6,  status:"confirmed", serviceId:"sv4", categoryId:"cat-vip" },
 ];
 
-const DAYS_DATA = [
-  { num:25, label:"Пн", wk:false },
-  { num:26, label:"Вт", wk:false },
-  { num:27, label:"Ср", wk:false },
-  { num:28, label:"Чт", wk:false },
-  { num:29, label:"Пт", wk:false },
-  { num:30, label:"Сб", wk:true  },
-  { num:31, label:"Нд", wk:true  },
+const _DLABELS = ["Пн","Вт","Ср","Чт","Пт","Сб","Нд"];
+const _MLABELS = ["січ","лют","бер","кві","тра","чер","лип","сер","вер","жов","лис","гру"];
+const getDayInfo = (offsetFromToday) => {
+  const d = new Date();
+  d.setDate(d.getDate() + offsetFromToday);
+  const dow = (d.getDay() + 6) % 7; // Mon=0..Sun=6
+  return { num: d.getDate(), month: _MLABELS[d.getMonth()], label: _DLABELS[dow], wk: dow >= 5 };
+};
+
+const STUDENTS = [
+  { id:"s1",  name:"Марія Коваль",   phone:"+380671234567" },
+  { id:"s2",  name:"Іван Петренко",  phone:"+380509876543" },
+  { id:"s3",  name:"Олена Мороз",    phone:"+380631112233" },
+  { id:"s4",  name:"Дмитро Сало",    phone:"+380961234567" },
+  { id:"s5",  name:"Тетяна Кравець", phone:"+380731234567" },
+  { id:"s6",  name:"Антон Білий",    phone:"+380501112233" },
+  { id:"s7",  name:"Юлія Денисюк",  phone:"+380935023739" },
+  { id:"s8",  name:"Сергій Гук",     phone:"+380961234500" },
+  { id:"s9",  name:"Наталія Бондар", phone:"+380671112244" },
+  { id:"s10", name:"Андрій Чорний",  phone:"+380501234500" },
+  { id:"s11", name:"Ірина Лесник",   phone:"+380967240853" },
+  { id:"s12", name:"Ангеліна Коник", phone:"+380681746071" },
 ];
 
 // ═══════════════════════════════════════════════════════════════
@@ -319,7 +333,7 @@ const DEFAULT_SETTINGS = {
   workStart: 7,
   workEnd: 20,
   weekends: [6], // 0=Mon..6=Sun
-  daysShown: 7,  // 1..30
+  daysShown: 5,  // 1..30
   snapMin: 30,
   hourHeightPx: 60, // resizable via pinch
   // breaks
@@ -345,6 +359,8 @@ const DEFAULT_SETTINGS = {
   stickyTime: "both",       // before | after | both
   // notifications display
   notifLocation: "topbar",  // topbar | tab | profile
+  // bottom nav visibility
+  navTabs: ["schedule","bookings","students","services","chats","templates","stats","settings"],
   // auto messages
   autoReminder: { enabled:true, hoursBefore:24 },
   autoWelcome: { enabled:true },
@@ -411,71 +427,190 @@ function statusPill(s) {
   return <Pill label={l} color={c} bg={b}/>;
 }
 const fmtTime = (m) => `${String(Math.floor(m/60)).padStart(2,"0")}:${String(m%60).padStart(2,"0")}`;
+const fmtDur = (m) => { const h=Math.floor(m/60),min=m%60; return h===0?`${min}хв`:min===0?`${h}год`:`${h}год ${min}хв`; };
 const colorOf = (id) => PALETTE.find(p=>p.id===id)?.color || GREEN;
 
 // ═══════════════════════════════════════════════════════════════
 // SCHEDULE VIEW with drag/resize + pinch-to-zoom + day-count
 // ═══════════════════════════════════════════════════════════════
-function ScheduleView({ settings, setSettings, onSlotClick, bookings, setBookings }) {
-  const [drag, setDrag] = useState(null);
+function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bookings, setBookings }) {
+  const [dragId, setDragId] = useState(null);
+  const [holdId, setHoldId] = useState(null);
+  const [windowW, setWindowW] = useState(window.innerWidth);
+  const [dayOffset, setDayOffset] = useState(0);
+  const dragRef = useRef(null);
+  const calcRef = useRef({});
   const gridRef = useRef(null);
+  const holdTimerRef = useRef(null);
+  const pendingDragRef = useRef(null);
+  const dragEndedRef = useRef(false);
+  const swipeRef = useRef(null);
+  const gridWrapRef = useRef(null);
   const [pinch, setPinch] = useState(null);
+  const [bubbleData, setBubbleData] = useState(null);
+  const [formData, setFormData] = useState(null);
+  const [localSelectedBooking, setLocalSelectedBooking] = useState(null);
 
   const PX_PER_MIN = settings.hourHeightPx / 60;
-  const TIME_COL_W = 54;
-  const COL_W = settings.daysShown <= 3 ? 200 : settings.daysShown <= 7 ? 110 : 70;
+  const TIME_COL_W = 42;
+  const COL_W = Math.max(44, Math.floor((windowW - 28 - TIME_COL_W - Math.max(0, settings.daysShown - 1) * 4) / settings.daysShown));
   const totalMin = (settings.workEnd - settings.workStart) * 60;
   const gridHeight = totalMin * PX_PER_MIN;
+  const days = Array.from({length: settings.daysShown}, (_, i) => getDayInfo(dayOffset + i));
+
+  // Keep calc values fresh for always-on window listeners (avoids stale closure)
+  calcRef.current = { PX_PER_MIN, snapMin: settings.snapMin, workStart: settings.workStart, workEnd: settings.workEnd, COL_W, dayOffset, daysShown: settings.daysShown };
 
   const minToPx = (m) => (m - settings.workStart*60) * PX_PER_MIN;
-  const snap = (m) => Math.round(m / settings.snapMin) * settings.snapMin;
 
   const onPointerDown = (e, b, mode) => {
     e.preventDefault(); e.stopPropagation();
-    setDrag({
+    pendingDragRef.current = {
       id:b.id, mode,
       startClientY:e.clientY, startClientX:e.clientX,
       startMinutes:b.startMin, startDur:b.durMin, startDay:b.day,
-    });
+    };
+    setHoldId(b.id);
+    holdTimerRef.current = setTimeout(() => {
+      if (!pendingDragRef.current) return;
+      dragRef.current = {...pendingDragRef.current};
+      pendingDragRef.current = null;
+      setHoldId(null);
+      setDragId(b.id);
+      navigator.vibrate?.(35);
+    }, 1000);
   };
 
+  // Listeners always attached — dragRef gives instant access without useEffect re-fire
   useEffect(() => {
-    if (!drag) return;
     const onMove = (e) => {
+      if (swipeRef.current) {
+        swipeRef.current.endX = e.clientX;
+        swipeRef.current.endY = e.clientY;
+        // Real-time visual tracking (only when not dragging a slot)
+        if (!dragRef.current && !pendingDragRef.current && gridWrapRef.current) {
+          const dx = e.clientX - swipeRef.current.startX;
+          const dy = e.clientY - swipeRef.current.startY;
+          if (Math.abs(dx) > Math.abs(dy) * 0.7 && Math.abs(dx) > 6) {
+            gridWrapRef.current.style.transform = `translateX(${dx * 0.88}px)`;
+          }
+        }
+      }
+      if (pendingDragRef.current) {
+        const pd = pendingDragRef.current;
+        const moved = Math.hypot(e.clientY - pd.startClientY, e.clientX - pd.startClientX);
+        if (moved > 15) {
+          clearTimeout(holdTimerRef.current);
+          holdTimerRef.current = null;
+          pendingDragRef.current = null;
+          setHoldId(null);
+        }
+        return;
+      }
+      if (!dragRef.current) return;
+      const drag = dragRef.current;
+      const { PX_PER_MIN, snapMin, workStart, workEnd, COL_W, dayOffset, daysShown } = calcRef.current;
+      const snap = (m) => Math.round(m / snapMin) * snapMin;
       const dy = e.clientY - drag.startClientY;
       const dxRaw = e.clientX - drag.startClientX;
       const deltaMin = dy / PX_PER_MIN;
       setBookings(bs => bs.map(b => {
         if (b.id !== drag.id) return b;
         if (drag.mode === "move") {
-          const newDay = Math.max(0, Math.min(DAYS_DATA.length-1, drag.startDay + Math.round(dxRaw/(COL_W+6))));
+          const newDay = Math.max(dayOffset, Math.min(dayOffset + daysShown - 1, drag.startDay + Math.round(dxRaw/(COL_W+4))));
           let s = snap(drag.startMinutes + deltaMin);
-          s = Math.max(settings.workStart*60, Math.min(settings.workEnd*60 - b.durMin, s));
+          s = Math.max(workStart*60, Math.min(workEnd*60 - b.durMin, s));
+          const wouldOverlap = bs.some(x => x.id!==b.id && x.day===newDay && s<x.startMin+x.durMin && s+b.durMin>x.startMin);
+          if (wouldOverlap) return b;
           return {...b, startMin:s, day:newDay};
         } else if (drag.mode === "bottom") {
           let d = snap(drag.startDur + deltaMin);
-          d = Math.max(settings.snapMin, Math.min(settings.workEnd*60 - b.startMin, d));
+          const nextStart = bs.filter(x=>x.id!==b.id&&x.day===b.day&&x.startMin>b.startMin)
+            .reduce((mn,x)=>Math.min(mn,x.startMin), workEnd*60);
+          d = Math.max(60, Math.min(d, nextStart - b.startMin));
           return {...b, durMin:d};
         } else if (drag.mode === "top") {
           let s = snap(drag.startMinutes + deltaMin);
-          const maxS = drag.startMinutes + drag.startDur - settings.snapMin;
-          s = Math.max(settings.workStart*60, Math.min(maxS, s));
+          const maxS = drag.startMinutes + drag.startDur - 60;
+          const floorStart = bs.filter(x=>x.id!==b.id&&x.day===b.day&&x.startMin+x.durMin<=drag.startMinutes)
+            .reduce((mx,x)=>Math.max(mx,x.startMin+x.durMin), workStart*60);
+          s = Math.max(floorStart, Math.min(maxS, s));
           const diff = s - drag.startMinutes;
           return {...b, startMin:s, durMin: drag.startDur - diff};
         }
         return b;
       }));
     };
-    const onUp = () => setDrag(null);
+    const onUp = () => {
+      const wasDragging = !!dragRef.current;
+      dragRef.current = null;
+      setDragId(null);
+      clearTimeout(holdTimerRef.current);
+      holdTimerRef.current = null;
+      pendingDragRef.current = null;
+      setHoldId(null);
+      if (wasDragging) {
+        dragEndedRef.current = true;
+        requestAnimationFrame(() => { dragEndedRef.current = false; });
+      }
+      // Swipe navigation with slide animation
+      const sw = swipeRef.current;
+      swipeRef.current = null;
+      const el = gridWrapRef.current;
+      if (sw && !wasDragging && el) {
+        const dx = sw.endX - sw.startX;
+        const dy = sw.endY - sw.startY;
+        const isHSwipe = Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) * 1.2;
+        if (isHSwipe) {
+          const { COL_W } = calcRef.current;
+          const daysToShift = Math.max(1, Math.min(3, Math.round(Math.abs(dx) / COL_W)));
+          const dir = dx < 0 ? 1 : -1; // +1=forward(left swipe) -1=back(right swipe)
+          const slideOut = dir > 0 ? `-${COL_W * daysToShift * 1.1}px` : `${COL_W * daysToShift * 1.1}px`;
+          const slideIn  = dir > 0 ? `${COL_W * daysToShift * 1.1}px` : `-${COL_W * daysToShift * 1.1}px`;
+          // Phase 1: slide current content out
+          el.style.transition = "transform 0.18s ease-in";
+          el.style.transform = `translateX(${slideOut})`;
+          const phase2 = () => {
+            el.removeEventListener("transitionend", phase2);
+            // Update content + position off-screen on opposite side
+            el.style.transition = "none";
+            el.style.transform = `translateX(${slideIn})`;
+            setDayOffset(o => Math.max(0, o + dir * daysToShift));
+            // Phase 3: slide new content in
+            requestAnimationFrame(() => requestAnimationFrame(() => {
+              el.style.transition = "transform 0.22s ease-out";
+              el.style.transform = "translateX(0)";
+              const phase3 = () => { el.removeEventListener("transitionend", phase3); el.style.transition = ""; };
+              el.addEventListener("transitionend", phase3);
+            }));
+          };
+          el.addEventListener("transitionend", phase2);
+        } else {
+          // Snap back if threshold not met
+          el.style.transition = "transform 0.2s ease-out";
+          el.style.transform = "translateX(0)";
+          const snap = () => { el.removeEventListener("transitionend", snap); el.style.transition = ""; };
+          el.addEventListener("transitionend", snap);
+        }
+      } else if (el && el.style.transform) {
+        el.style.transition = "";
+        el.style.transform = "";
+      }
+    };
+    const onResize = () => setWindowW(window.innerWidth);
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onUp);
+    window.addEventListener("resize", onResize);
     return () => {
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
+      window.removeEventListener("resize", onResize);
+      clearTimeout(holdTimerRef.current);
     };
-  }, [drag, settings.snapMin, settings.workStart, settings.workEnd, PX_PER_MIN, COL_W, setBookings]);
+  }, [setBookings, setDayOffset]);
 
-  // Pinch zoom: 2 fingers vertically -> change hourHeightPx
   const touchesRef = useRef([]);
   const onTouchStart = (e) => {
     if (e.touches.length === 2) {
@@ -487,13 +622,11 @@ function ScheduleView({ settings, setSettings, onSlotClick, bookings, setBooking
     if (e.touches.length === 2 && pinch) {
       const dist = Math.abs(e.touches[0].clientY - e.touches[1].clientY);
       const ratio = dist / pinch.startDist;
-      const newH = Math.max(30, Math.min(160, Math.round(pinch.startH * ratio)));
-      setSettings(s => ({...s, hourHeightPx: newH}));
+      setSettings(s => ({...s, hourHeightPx: Math.max(30, Math.min(160, Math.round(pinch.startH * ratio)))}));
     }
   };
   const onTouchEnd = () => setPinch(null);
 
-  // mouse wheel + ctrl = zoom
   const onWheel = (e) => {
     if (e.ctrlKey || e.metaKey) {
       e.preventDefault();
@@ -504,70 +637,113 @@ function ScheduleView({ settings, setSettings, onSlotClick, bookings, setBooking
   const hours = [];
   for (let h = settings.workStart; h <= settings.workEnd; h++) hours.push(h);
 
-  const days = DAYS_DATA.slice(0, settings.daysShown);
-
-  // service color helper
   const slotColor = (b) => {
     const svc = settings.services.find(s=>s.id===b.serviceId);
     return colorOf(svc?.colorId);
   };
 
+  const handleColumnClick = (e, absDay) => {
+    if (dragRef.current || dragEndedRef.current || pendingDragRef.current) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const yRel = e.clientY - rect.top;
+    const { snapMin, workStart, PX_PER_MIN } = calcRef.current;
+    const rawMin = workStart * 60 + yRel / PX_PER_MIN;
+    const minute = Math.round(rawMin / snapMin) * snapMin;
+    const bData = { day: absDay, startMin: minute, clientX: e.clientX, clientY: e.clientY };
+    setBubbleData(bData);
+    onEmptySlotClick?.(bData);
+  };
+  const handleAction = (action, b) => {
+    if (action === "confirm") setBookings(bs=>bs.map(x=>x.id===b.id?{...x,status:"confirmed"}:x));
+    if (action === "cancel")  setBookings(bs=>bs.map(x=>x.id===b.id?{...x,status:"cancelled"}:x));
+    if (action === "noshow")  setBookings(bs=>bs.map(x=>x.id===b.id?{...x,status:"noshow"}:x));
+    if (action === "call")    window.location.href=`tel:${b.phone}`;
+    if (action === "sms")     window.location.href=`sms:${b.phone}`;
+    setLocalSelectedBooking(null);
+  };
+  const handleBlock = ({ day, startMin }) => {
+    setBookings(bs=>[...bs,{
+      id:`block-${Date.now()}`, day, startMin, durMin:60,
+      name:"ЗАБЛОКОВАНО", phone:"", type:"block", tsc:"",
+      hoursDone:0, status:"cancelled", serviceId:""
+    }]);
+  };
+
   return (
-    <Card style={{padding:14}}>
-      {/* Day headers */}
-      <div style={{display:"flex", paddingLeft:TIME_COL_W, gap:6, marginBottom:8, overflowX:"auto"}}>
-        {days.map((d,i)=>(
-          <div key={i} className="pillow" style={{
-            width:COL_W, padding:"8px 0", textAlign:"center",
-            background:`linear-gradient(135deg,${SURFACE_HI},${SURFACE})`,
-            borderRadius:12, boxShadow:SHADOW_OUT, flexShrink:0
-          }}>
-            <div style={{fontSize:20,fontWeight:800,color:d.wk?ACCENT:TEXT,letterSpacing:-0.5}}>{d.num}</div>
-            <div style={{fontSize:10,color:TEXT_DIM,marginTop:1}}>{d.label}</div>
-          </div>
+    <>
+    <style>{GLOBAL_CSS}</style>
+    <Card style={{padding:"8px 8px 12px"}}>
+      {/* Day header */}
+      <div style={{display:"flex",marginBottom:4,paddingLeft:TIME_COL_W+4}}>
+        {days.map((day,i)=>(
+          <div key={i} style={{
+            width:COL_W,marginRight:i<days.length-1?4:0,flexShrink:0,
+            textAlign:"center",fontSize:10,fontWeight:800,
+            color:day.wk?ACCENT:TEXT_DIM
+          }}>{day.label} {day.num}</div>
         ))}
       </div>
-
-      {/* Grid */}
       <div
         ref={gridRef}
+        onPointerDownCapture={e=>{
+          swipeRef.current={startX:e.clientX,startY:e.clientY,endX:e.clientX,endY:e.clientY};
+        }}
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
         onWheel={onWheel}
-        style={{display:"flex", overflowX:"auto", overflowY:"auto", maxHeight:560, touchAction:"pan-x pan-y"}}
+        style={{display:"flex", overflowX:"hidden", overflowY:"auto", maxHeight:"calc(100vh - 200px)", touchAction:"pan-y"}}
       >
+        <div ref={gridWrapRef} style={{display:"flex", flexShrink:0}}>
+        {/* Time column */}
         <div style={{width:TIME_COL_W, flexShrink:0, position:"relative", height:gridHeight}}>
-          {hours.map(h=>(
-            <div key={h} style={{
-              position:"absolute", top:(h-settings.workStart)*60*PX_PER_MIN - 6,
-              right:8, fontSize:11, color:TEXT_FAINT, fontWeight:700
-            }}>{String(h).padStart(2,"0")}:00</div>
-          ))}
+          {Array.from({length:(settings.workEnd-settings.workStart)*2+1},(_,i)=>{
+            const totalMins = i*30;
+            const h = settings.workStart + Math.floor(totalMins/60);
+            const m = totalMins % 60;
+            if (h > settings.workEnd) return null;
+            const isHour = m===0;
+            return (
+              <div key={i} style={{
+                position:"absolute", top:totalMins*PX_PER_MIN-6,
+                right:2, fontSize:isHour?10:8,
+                color:isHour?TEXT_FAINT:"rgba(90,92,98,0.45)",
+                fontWeight:700, lineHeight:1
+              }}>{h}:{String(m).padStart(2,'0')}</div>
+            );
+          })}
         </div>
 
-        {days.map((day,dayIdx)=>(
-          <div key={dayIdx} style={{
-            width:COL_W, flexShrink:0, height:gridHeight,
-            position:"relative", marginRight:6, padding:"0 4px",
-            background:`linear-gradient(135deg,${BG_DEEP},${SURFACE_LO})`,
-            borderRadius:14, boxShadow:SHADOW_IN
-          }}>
-            {/* hour lines */}
-            {hours.slice(0,-1).map(h=>(
-              <div key={h} style={{
-                position:"absolute",left:0,right:0,
-                top:(h-settings.workStart+1)*60*PX_PER_MIN,
-                height:1, background:"rgba(255,255,255,0.04)"
-              }}/>
-            ))}
+        {/* Day columns */}
+        {days.map((day,colIdx)=>{
+          const absDay = dayOffset + colIdx;
+          return (
+          <div key={absDay}
+            onClick={e=>handleColumnClick(e, absDay)}
+            style={{
+              width:COL_W, flexShrink:0, height:gridHeight,
+              position:"relative", marginRight:colIdx<days.length-1?4:0, padding:"0 4px",
+              background:`linear-gradient(135deg,${BG_DEEP},${SURFACE_LO})`,
+              borderRadius:14, boxShadow:SHADOW_IN, cursor:"cell"
+            }}>
 
-            {/* lunch block */}
-            {settings.lunchEnabled && day.label !== "Нд" && (
+            {/* 30-min grid lines */}
+            {Array.from({length:(settings.workEnd-settings.workStart)*2-1},(_,i)=>{
+              const isHour=(i+1)%2===0;
+              return <div key={i} style={{
+                position:"absolute",left:0,right:0,
+                top:(i+1)*30*PX_PER_MIN,
+                height:1,
+                background:isHour?"rgba(255,255,255,0.07)":"rgba(255,255,255,0.025)"
+              }}/>;
+            })}
+
+
+            {/* Lunch block */}
+            {settings.lunchEnabled && !day.wk && (
               <div style={{
                 position:"absolute",
-                top:minToPx(settings.lunchStart*60),
-                left:4, right:4,
+                top:minToPx(settings.lunchStart*60), left:4, right:4,
                 height:(settings.lunchEnd - settings.lunchStart)*60*PX_PER_MIN,
                 background:`repeating-linear-gradient(135deg, transparent, transparent 6px, rgba(255,255,255,0.04) 6px, rgba(255,255,255,0.04) 12px)`,
                 borderRadius:8, pointerEvents:"none",
@@ -576,70 +752,114 @@ function ScheduleView({ settings, setSettings, onSlotClick, bookings, setBooking
               }}>ОБІД</div>
             )}
 
-            {/* bookings */}
-            {bookings.filter(b=>b.day===dayIdx).map(b=>{
+            {/* Bookings */}
+            {bookings.filter(b=>b.day===absDay).map(b=>{
               const top = minToPx(b.startMin);
               const height = b.durMin * PX_PER_MIN;
               const c = slotColor(b);
               const isPending = b.status==="pending" && settings.pendingEnabled;
+              const svc = settings.services.find(s=>s.id===b.serviceId);
+              const price = svc ? Math.round((svc.price / svc.duration) * b.durMin) : 0;
               return (
                 <div key={b.id}
                   className={`slot-base slot-colored ${isPending?"slot-pending-ring":""}`}
                   onPointerDown={e=>onPointerDown(e,b,"move")}
-                  onClick={(e)=>{ if(!drag) onSlotClick(b); }}
+                  onContextMenu={e=>e.preventDefault()}
+                  onClick={e=>{ e.stopPropagation(); if(!dragRef.current){ setLocalSelectedBooking(b); onSlotClick?.(b); }}}
                   style={{
                     "--c": c,
                     position:"absolute", top:top+2, left:4, right:4,
-                    height:height-4, padding:"7px 9px",
-                    display:"flex", flexDirection:"column", gap:2,
-                    zIndex: drag?.id===b.id?10:2
+                    height:height-4, padding:"2px 6px",
+                    display:"flex", flexDirection:"column", justifyContent:"center", gap:0,
+                    zIndex: dragId===b.id?10:2,
+                    transition:"transform 0.12s",
+                    transform: holdId===b.id ? "scale(0.95)" : "none",
+                    outline: holdId===b.id ? `2px solid ${c}` : "none",
                   }}>
                   <div className="slot-handle top" onPointerDown={e=>onPointerDown(e,b,"top")}/>
-                  <div style={{
-                    fontSize:11, fontWeight:800, color:"#fff",
-                    lineHeight:1.15, textShadow:"0 1px 2px rgba(0,0,0,0.5)",
-                    zIndex:2, position:"relative"
-                  }}>{b.name}</div>
-                  {b.type==="school" ? (
-                    <>
-                      {b.tsc && <div style={{
-                        fontSize:9, color:"rgba(255,255,255,0.9)", lineHeight:1.1,
-                        zIndex:2, position:"relative", textShadow:"0 1px 2px rgba(0,0,0,0.5)"
-                      }}>{b.tsc}</div>}
+                  {height >= 16 && (() => {
+                    const nSz = Math.max(8, Math.min(12, Math.floor(Math.min(COL_W/5.5, height/4.8))));
+                    const sSz = Math.max(7, Math.min(10, Math.floor(Math.min(COL_W/7.5, height/7))));
+                    const [fName, ...lParts] = b.name.split(' ');
+                    const lName = lParts.join(' ');
+                    return <>
                       <div style={{
-                        fontSize:9, color:"rgba(255,255,255,0.85)", fontWeight:700,
-                        zIndex:2, position:"relative", textShadow:"0 1px 2px rgba(0,0,0,0.5)"
-                      }} className="tabular">
-                        {b.hoursDone}/40 год
-                      </div>
-                    </>
-                  ) : null}
-                  <div style={{
-                    fontSize:10, color:"rgba(255,255,255,0.8)",
-                    marginTop:"auto", zIndex:2, position:"relative",
-                    fontWeight:700, textShadow:"0 1px 2px rgba(0,0,0,0.5)"
-                  }} className="tabular">
-                    {fmtTime(b.startMin)}–{fmtTime(b.startMin+b.durMin)}
-                  </div>
+                        fontSize:nSz, fontWeight:800, color:"#fff",
+                        lineHeight:1.1, textShadow:"0 1px 2px rgba(0,0,0,0.5)",
+                        zIndex:2, position:"relative",
+                        overflow:"hidden",
+                      }}>{fName}{lName&&<><br/><span style={{fontWeight:700}}>{lName}</span></>}</div>
+                      {height >= 36 && b.type==="school" && b.tsc && (
+                        <div style={{
+                          fontSize:sSz, color:"rgba(255,255,255,0.85)", lineHeight:1.1,
+                          zIndex:2, position:"relative", textShadow:"0 1px 2px rgba(0,0,0,0.5)",
+                          overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap"
+                        }}>{b.tsc}</div>
+                      )}
+                      {height >= 28 && (
+                        <div style={{
+                          fontSize:sSz, color:"rgba(255,255,255,0.7)",
+                          zIndex:2, position:"relative", fontWeight:700,
+                          textShadow:"0 1px 2px rgba(0,0,0,0.5)"
+                        }}>{fmtDur(b.durMin)}</div>
+                      )}
+                      {height >= 42 && price > 0 && (
+                        <div style={{
+                          fontSize:sSz, color:"rgba(255,255,255,0.9)",
+                          zIndex:2, position:"relative", fontWeight:800,
+                          textShadow:"0 1px 3px rgba(0,0,0,0.6)"
+                        }}>{price} ₴</div>
+                      )}
+                    </>;
+                  })()}
                   <div className="slot-handle bottom" onPointerDown={e=>onPointerDown(e,b,"bottom")}/>
                 </div>
               );
             })}
           </div>
-        ))}
-      </div>
-
-      {/* Footer / info */}
-      <div style={{
-        display:"flex",gap:16,marginTop:14,paddingLeft:TIME_COL_W,
-        fontSize:11,color:TEXT_FAINT,flexWrap:"wrap"
-      }}>
-        <span>↕ Тягни за блок щоб перемістити</span>
-        <span>↕ Тягни за край щоб змінити час</span>
-        <span>⤡ Ctrl+коліщатко або pinch — масштаб годин</span>
-        <span style={{marginLeft:"auto"}}>snap: <b style={{color:ACCENT}}>{settings.snapMin}хв</b> · висота: <b style={{color:ACCENT}}>{settings.hourHeightPx}px/год</b></span>
+          );
+        })}
+        </div>{/* /gridWrapRef */}
       </div>
     </Card>
+
+    <BookingModal booking={localSelectedBooking} onClose={()=>setLocalSelectedBooking(null)}
+      onAction={handleAction} settings={settings}/>
+
+    {bubbleData && (
+      <div onClick={()=>setBubbleData(null)} style={{position:"fixed",inset:0,zIndex:100}}>
+        <div onClick={e=>e.stopPropagation()} style={{
+          position:"absolute",
+          top: Math.max(60, Math.min(bubbleData.clientY - 80, window.innerHeight - 170)),
+          left: Math.max(10, Math.min(bubbleData.clientX - 10, window.innerWidth - 210)),
+          width:196,
+          background:`linear-gradient(135deg,${SURFACE},${BG_DEEP})`,
+          borderRadius:16, padding:"14px",
+          boxShadow:"0 8px 32px rgba(0,0,0,0.65),inset 1px 1px 0 rgba(255,255,255,0.08)",
+          border:`1px solid ${BORDER}`
+        }}>
+          <div style={{fontSize:11,fontWeight:700,color:TEXT_DIM,marginBottom:10}}>
+            {getDayInfo(bubbleData.day).label} {getDayInfo(bubbleData.day).num} · {fmtTime(bubbleData.startMin)}
+          </div>
+          <button onClick={()=>{setFormData(bubbleData);setBubbleData(null);}} style={{
+            width:"100%",padding:"10px 12px",borderRadius:10,border:"none",cursor:"pointer",marginBottom:6,
+            background:`linear-gradient(165deg,${ACCENT_HI},${ACCENT})`,
+            color:"#fff",fontSize:12,fontWeight:800,
+            boxShadow:`0 4px 12px ${ACCENT}44`
+          }}>+ Записати учня</button>
+          <button onClick={()=>{handleBlock(bubbleData);setBubbleData(null);}} style={{
+            width:"100%",padding:"10px 12px",borderRadius:10,border:"none",cursor:"pointer",
+            background:`linear-gradient(135deg,${SURFACE_HI},${SURFACE})`,
+            color:TEXT_DIM,fontSize:12,fontWeight:700,
+            boxShadow:SHADOW_OUT
+          }}>Заблокувати</button>
+        </div>
+      </div>
+    )}
+
+    <NewBookingModal data={formData} onClose={()=>setFormData(null)}
+      onConfirm={b=>{setBookings(bs=>[...bs,b]);setFormData(null);}} settings={settings}/>
+    </>
   );
 }
 
@@ -770,6 +990,207 @@ function BookingModal({ booking, onClose, onAction, settings }) {
 }
 
 // ═══════════════════════════════════════════════════════════════
+// DRUM ROLL PICKER (iOS-style scroll wheel)
+// ═══════════════════════════════════════════════════════════════
+function DrumRoll({ items, currentIdx, onChange, label, itemH=42, visible=4 }) {
+  const ref = useRef(null);
+  const timerRef = useRef(null);
+  const containerH = itemH * visible;
+  const padV = Math.floor(visible / 2) * itemH;
+
+  useEffect(() => {
+    if (ref.current) ref.current.scrollTop = currentIdx * itemH;
+  }, [currentIdx, itemH]);
+
+  const handleScroll = () => {
+    clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => {
+      if (!ref.current) return;
+      const idx = Math.max(0, Math.min(items.length - 1, Math.round(ref.current.scrollTop / itemH)));
+      onChange(idx);
+    }, 80);
+  };
+
+  return (
+    <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"stretch"}}>
+      {label && <div style={{fontSize:9,color:TEXT_FAINT,letterSpacing:1.5,textTransform:"uppercase",fontWeight:700,textAlign:"center",marginBottom:5}}>{label}</div>}
+      <div style={{position:"relative",height:containerH,borderRadius:14,overflow:"hidden",
+        background:`linear-gradient(135deg,${BG_DEEP},${SURFACE_LO})`,boxShadow:SHADOW_IN}}>
+        {/* Center green highlight */}
+        <div style={{
+          position:"absolute",zIndex:2,pointerEvents:"none",
+          top:Math.floor(visible/2)*itemH, left:4, right:4, height:itemH,
+          borderRadius:10,
+          background:"rgba(126,217,87,0.13)",
+          border:"1.5px solid rgba(126,217,87,0.4)"
+        }}/>
+        {/* Top/bottom fade */}
+        <div style={{
+          position:"absolute",zIndex:3,inset:0,pointerEvents:"none",
+          background:`linear-gradient(to bottom,${BG_DEEP}EE 0%,transparent 36%,transparent 64%,${BG_DEEP}EE 100%)`
+        }}/>
+        {/* Scrollable list */}
+        <div ref={ref} className="drum-scroll" onScroll={handleScroll} style={{
+          position:"absolute",inset:0,
+          overflowY:"scroll",overflowX:"hidden",
+          scrollSnapType:"y mandatory",
+          WebkitOverflowScrolling:"touch",
+          scrollbarWidth:"none",
+          paddingTop:padV, paddingBottom:padV,
+        }}>
+          {items.map((item,i)=>{
+            const dist = Math.abs(i - currentIdx);
+            return (
+              <div key={i} onClick={()=>{
+                ref.current?.scrollTo({top:i*itemH,behavior:"smooth"});
+                onChange(i);
+              }} style={{
+                height:itemH, flexShrink:0,
+                display:"flex",alignItems:"center",justifyContent:"center",
+                scrollSnapAlign:"center",
+                fontSize:dist===0?14:11,
+                fontWeight:dist===0?800:500,
+                color:dist===0?GREEN:TEXT_DIM,
+                opacity:dist===0?1:Math.max(0.2,1-dist*0.3),
+                userSelect:"none",cursor:"pointer",
+                textAlign:"center",padding:"0 4px",lineHeight:1.3,
+              }}>{item.label}</div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// NEW BOOKING MODAL (drum roll pickers)
+// ═══════════════════════════════════════════════════════════════
+function NewBookingModal({ data, onClose, onConfirm, settings }) {
+  const dateItems = useMemo(()=>{
+    return Array.from({length:42},(_,i)=>{
+      const d=new Date(); d.setDate(d.getDate()+i);
+      const dow=(d.getDay()+6)%7;
+      return {label:`${_DLABELS[dow]} ${d.getDate()} ${_MLABELS[d.getMonth()]}`};
+    });
+  },[]);
+
+  const timeItems = useMemo(()=>{
+    const arr=[];
+    for(let m=settings.workStart*60; m<settings.workEnd*60; m+=30)
+      arr.push({label:`${Math.floor(m/60)}:${String(m%60).padStart(2,'0')}`,value:m});
+    return arr;
+  },[settings.workStart,settings.workEnd]);
+
+  const studentItems = useMemo(()=>STUDENTS.map(s=>({label:s.name,phone:s.phone})),[]);
+
+  const serviceItems = useMemo(()=>
+    settings.services.filter(s=>s.active).map(s=>({label:s.name,id:s.id,duration:s.duration,price:s.price,type:s.type||"private"})),
+  [settings.services]);
+
+  const [dateIdx, setDateIdx] = useState(0);
+  const [timeIdx, setTimeIdx] = useState(0);
+  const [studentIdx, setStudentIdx] = useState(0);
+  const [svcIdx, setSvcIdx] = useState(0);
+
+  useEffect(()=>{
+    if(data){
+      setDateIdx(Math.max(0, Math.min(dateItems.length-1, data.day??0)));
+      const ti=timeItems.findIndex(t=>t.value>=(data.startMin??settings.workStart*60));
+      setTimeIdx(Math.max(0, ti<0?0:ti));
+      setStudentIdx(0);
+      setSvcIdx(0);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[!!data]);
+
+  if(!data) return null;
+
+  const selStudent = studentItems[studentIdx] || studentItems[0];
+  const selSvc = serviceItems[svcIdx] || serviceItems[0];
+  const selTime = timeItems[timeIdx];
+
+  return (
+    <div onClick={onClose} style={{
+      position:"fixed",inset:0,background:"rgba(0,0,0,0.75)",zIndex:200,
+      display:"flex",alignItems:"flex-end",justifyContent:"center",
+      backdropFilter:"blur(10px)"
+    }}>
+      <div onClick={e=>e.stopPropagation()} style={{
+        width:"100%",maxWidth:520,
+        background:`linear-gradient(180deg,${SURFACE},${BG})`,
+        borderRadius:"24px 24px 0 0",padding:"14px 14px 28px",
+        boxShadow:"0 -12px 40px rgba(0,0,0,0.7)",
+        maxHeight:"90vh",overflowY:"auto",display:"flex",flexDirection:"column",gap:10
+      }}>
+        {/* handle */}
+        <div style={{width:40,height:4,borderRadius:2,background:"rgba(255,255,255,0.12)",margin:"0 auto 4px",flexShrink:0}}/>
+        <div style={{fontSize:16,fontWeight:800,color:TEXT,textAlign:"center",letterSpacing:-0.3,flexShrink:0}}>Новий запис</div>
+
+        {/* Date + Time side by side */}
+        <div style={{display:"flex",gap:8,flexShrink:0}}>
+          <DrumRoll items={dateItems} currentIdx={dateIdx} onChange={setDateIdx} label="ДАТА" itemH={42} visible={4}/>
+          <DrumRoll items={timeItems} currentIdx={timeIdx} onChange={setTimeIdx} label="ЧАС" itemH={42} visible={4}/>
+        </div>
+
+        {/* Student */}
+        <div style={{flexShrink:0}}>
+          <DrumRoll items={studentItems} currentIdx={studentIdx} onChange={setStudentIdx} label="УЧЕНЬ" itemH={48} visible={3}/>
+        </div>
+
+        {/* Service */}
+        <div style={{flexShrink:0}}>
+          <DrumRoll items={serviceItems} currentIdx={svcIdx} onChange={setSvcIdx} label="ПОСЛУГА" itemH={42} visible={3}/>
+        </div>
+
+        {/* Summary */}
+        {selSvc && selStudent && (
+          <div style={{
+            display:"flex",justifyContent:"space-between",alignItems:"center",
+            padding:"9px 12px",borderRadius:12,flexShrink:0,
+            background:`linear-gradient(135deg,${BG_DEEP},${SURFACE_LO})`,boxShadow:SHADOW_IN
+          }}>
+            <div style={{fontSize:11,color:TEXT_DIM,flex:1,marginRight:8,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+              {selStudent.label} · {selTime?.label}
+            </div>
+            <div style={{fontSize:15,fontWeight:800,color:GOLD,flexShrink:0}}>{selSvc.price} ₴</div>
+          </div>
+        )}
+
+        {/* Actions */}
+        <div style={{display:"flex",gap:10,flexShrink:0}}>
+          <button onClick={onClose} style={{
+            flex:1,padding:"13px",borderRadius:14,border:"none",cursor:"pointer",
+            background:`linear-gradient(135deg,${SURFACE_HI},${SURFACE})`,
+            color:TEXT_DIM,fontSize:13,fontWeight:700,boxShadow:SHADOW_OUT
+          }}>Скасувати</button>
+          <button onClick={()=>{
+            if(!selStudent||!selSvc||!selTime) return;
+            onConfirm({
+              id:`b-${Date.now()}`,
+              day:dateIdx,
+              startMin:selTime.value,
+              durMin:selSvc.duration,
+              name:selStudent.label,
+              phone:selStudent.phone,
+              serviceId:selSvc.id,
+              type:selSvc.type,
+              status:"confirmed",tsc:"",hoursDone:0
+            });
+            onClose();
+          }} style={{
+            flex:2,padding:"13px",borderRadius:14,border:"none",cursor:"pointer",
+            background:`linear-gradient(165deg,${ACCENT_HI},${ACCENT})`,
+            color:"#fff",fontSize:13,fontWeight:800,
+            boxShadow:`0 4px 16px ${ACCENT}44`
+          }}>Записати</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
 // SETTINGS — все настройки
 // ═══════════════════════════════════════════════════════════════
 function SettingsView({ settings, setSettings }) {
@@ -805,6 +1226,8 @@ function SettingsView({ settings, setSettings }) {
   );
 
   return (
+    <>
+    <style>{GLOBAL_CSS}</style>
     <div style={{display:"flex",flexDirection:"column",gap:14}}>
 
       {/* ── PROFILE ── */}
@@ -1056,6 +1479,26 @@ function SettingsView({ settings, setSettings }) {
         }}>{ICONS.plus(28)} Додати категорію</button>
       </Card>
 
+      {/* ── NAVIGATION ── */}
+      <Card style={{padding:"20px"}}>
+        <SectionTitle>Нижня навігація</SectionTitle>
+        <div style={{fontSize:12,color:TEXT_DIM,marginBottom:12}}>
+          Оберіть вкладки, які відображаються в нижньому меню. «Налашт.» завжди активні.
+        </div>
+        {TABS.map(t=>(
+          <Row key={t.id} label={t.label}>
+            <Toggle
+              on={settings.navTabs?.includes(t.id) ?? true}
+              onChange={v=>{
+                if(t.id==="settings") return;
+                upd("navTabs", v
+                  ? [...(settings.navTabs||[]), t.id]
+                  : (settings.navTabs||[]).filter(x=>x!==t.id));
+              }}/>
+          </Row>
+        ))}
+      </Card>
+
       {/* ── AUTO MESSAGES ── */}
       <Card style={{padding:"20px"}}>
         <SectionTitle>Автоматичні повідомлення</SectionTitle>
@@ -1151,6 +1594,7 @@ function SettingsView({ settings, setSettings }) {
 
       <div style={{height:30}}/>
     </div>
+    </>
   );
 }
 
@@ -1190,6 +1634,7 @@ export default function App() {
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
   const [bookings, setBookings] = useState(initialBookings);
   const [selectedBooking, setSelectedBooking] = useState(null);
+  const [newBookingData, setNewBookingData] = useState(null);
 
   const handleAction = (action, b) => {
     if (action === "confirm")  setBookings(bs=>bs.map(x=>x.id===b.id?{...x,status:"confirmed"}:x));
@@ -1197,14 +1642,16 @@ export default function App() {
     if (action === "noshow")   setBookings(bs=>bs.map(x=>x.id===b.id?{...x,status:"noshow"}:x));
     if (action === "call")     window.location.href = `tel:${b.phone}`;
     if (action === "sms")      window.location.href = `sms:${b.phone}`;
-    // chat, reschedule, repeat — заглушки до фідбеку
     setSelectedBooking(null);
   };
+
+  const handleNewBooking = (b) => setBookings(bs=>[...bs, b]);
 
   const renderView = () => {
     switch(tab) {
       case "schedule":  return <ScheduleView settings={settings} setSettings={setSettings}
                                 onSlotClick={setSelectedBooking}
+                                onEmptySlotClick={setNewBookingData}
                                 bookings={bookings} setBookings={setBookings}/>;
       case "settings":  return <SettingsView settings={settings} setSettings={setSettings}/>;
       default: return <StubView title={TITLES[tab]}/>;
@@ -1260,30 +1707,29 @@ export default function App() {
           }}>+</button>
         )}
 
-        {/* BOTTOM NAV — 8 tabs scrollable */}
+        {/* BOTTOM NAV */}
         <div style={{
           position:"fixed",bottom:0,left:0,right:0,
           background:`linear-gradient(180deg,${SURFACE},${SURFACE_LO})`,
           borderTop:`1px solid ${BORDER}`,
           boxShadow:"0 -8px 24px rgba(0,0,0,0.35)",
-          zIndex:30, overflowX:"auto",
-          display:"flex"
+          zIndex:30, display:"flex"
         }}>
-          {TABS.map(t=>(
+          {TABS.filter(t=>settings.navTabs?.includes(t.id)??true).map(t=>(
             <button key={t.id} onClick={()=>setTab(t.id)} style={{
-              flex:"0 0 auto", minWidth:78,
-              padding:"8px 6px",
+              flex:"1 1 0", minWidth:0,
+              padding:"7px 2px",
               background:"transparent",border:"none",cursor:"pointer",
               color: tab===t.id?ACCENT:TEXT_FAINT,
-              display:"flex",flexDirection:"column",alignItems:"center",gap:3,
+              display:"flex",flexDirection:"column",alignItems:"center",gap:2,
               position:"relative"
             }}>
               <div style={{
-                transform: tab===t.id?"scale(1.05)":"scale(0.92)",
+                transform: tab===t.id?"scale(1.05)":"scale(0.9)",
                 transition:"transform .15s",
-                opacity:tab===t.id?1:0.55
-              }}>{t.icon(34)}</div>
-              <span style={{fontSize:9,fontWeight:700}}>{t.label}</span>
+                opacity:tab===t.id?1:0.5
+              }}>{t.icon(28)}</div>
+              <span style={{fontSize:8,fontWeight:700}}>{t.label}</span>
               {tab===t.id && (
                 <div style={{
                   position:"absolute",bottom:0,left:"50%",transform:"translateX(-50%)",
@@ -1295,9 +1741,11 @@ export default function App() {
           ))}
         </div>
 
-        {/* MODAL */}
+        {/* MODALS */}
         <BookingModal booking={selectedBooking} onClose={()=>setSelectedBooking(null)}
           onAction={handleAction} settings={settings}/>
+        <NewBookingModal data={newBookingData} onClose={()=>setNewBookingData(null)}
+          onConfirm={handleNewBooking} settings={settings}/>
       </div>
     </>
   );
