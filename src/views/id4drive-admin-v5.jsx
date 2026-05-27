@@ -939,11 +939,16 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                       }}>
                       {!isBlock && <div className="slot-handle top" onPointerDown={e=>onPointerDown(e,b,"top")}/>}
                       {!isBlock && <div className="shine-layer"/>}
-                      {isBlock && height >= 18 && (
-                        <div style={{fontSize:Math.min(9,Math.floor(height/4)),fontWeight:700,
-                          color:"rgba(255,255,255,0.2)",letterSpacing:1,textTransform:"uppercase",
-                          userSelect:"none"}}>Блок</div>
-                      )}
+                      {isBlock && height >= 18 && (() => {
+                        const sz = Math.min(height * 0.62, 36);
+                        return (
+                          <svg width={sz} height={sz} viewBox="0 0 100 100" style={{opacity:0.55,flexShrink:0}}>
+                            <polygon points="30,5 70,5 95,30 95,70 70,95 30,95 5,70 5,30"
+                              fill="#ef4444" stroke="#ff6b6b" strokeWidth="3"/>
+                            <rect x="20" y="43" width="60" height="14" rx="7" fill="white"/>
+                          </svg>
+                        );
+                      })()}
                       {!isBlock && height >= 12 && (() => {
                         const [fName, ...lParts] = b.name.split(' ');
                         const lName = lParts.join(' ');
