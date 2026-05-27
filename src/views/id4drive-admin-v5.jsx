@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useRef, useEffect, useLayoutEffect, useMemo } from "react";
 
 // ═══════════════════════════════════════════════════════════════
 // DESIGN TOKENS (v3 skin)
@@ -279,27 +279,28 @@ const ICONS = {
 // MOCK DATA
 // ═══════════════════════════════════════════════════════════════
 const initialBookings = [
-  { id:"b1", day:0, startMin:8*60,  durMin:120, name:"Марія Коваль",   phone:"+380671234567", type:"school",  tsc:"ТСЦ Оболонь",   hoursDone:12, status:"confirmed", serviceId:"sv1" },
+  { id:"b1", day:0, startMin:8*60,  durMin:120, name:"Марія Коваль",   phone:"+380671234567", type:"school",  tsc:"ТСЦ 8041",   hoursDone:12, status:"confirmed", serviceId:"sv1" },
   { id:"b2", day:0, startMin:11*60, durMin:60,  name:"Іван Петренко",  phone:"+380509876543", type:"private", tsc:"",              hoursDone:5,  status:"pending",   serviceId:"sv3", categoryId:"cat-std" },
-  { id:"b3", day:0, startMin:14*60, durMin:120, name:"Олена Мороз",    phone:"+380631112233", type:"school",  tsc:"ТСЦ Дарниця",  hoursDone:38, status:"confirmed", serviceId:"sv1" },
+  { id:"b3", day:0, startMin:14*60, durMin:120, name:"Олена Мороз",    phone:"+380631112233", type:"school",  tsc:"ТСЦ 8042",  hoursDone:38, status:"confirmed", serviceId:"sv1" },
   { id:"b4", day:1, startMin:9*60,  durMin:60,  name:"Дмитро Сало",    phone:"+380961234567", type:"private", tsc:"",              hoursDone:9,  status:"confirmed", serviceId:"sv3", categoryId:"cat-vip" },
-  { id:"b5", day:1, startMin:13*60, durMin:60,  name:"Тетяна Кравець", phone:"+380731234567", type:"school",  tsc:"ТСЦ Оболонь",   hoursDone:40, status:"confirmed", serviceId:"sv1" },
-  { id:"b6", day:2, startMin:10*60, durMin:120, name:"Антон Білий",    phone:"+380501112233", type:"school",  tsc:"ТСЦ Лівобережна", hoursDone:22, status:"confirmed", serviceId:"sv1" },
+  { id:"b5", day:1, startMin:13*60, durMin:60,  name:"Тетяна Кравець", phone:"+380731234567", type:"school",  tsc:"ТСЦ 8041",   hoursDone:40, status:"confirmed", serviceId:"sv1" },
+  { id:"b6", day:2, startMin:10*60, durMin:120, name:"Антон Білий",    phone:"+380501112233", type:"school",  tsc:"ТСЦ 8041", hoursDone:22, status:"confirmed", serviceId:"sv1" },
   { id:"b7", day:2, startMin:15*60, durMin:120, name:"Юлія Денисюк",   phone:"+380935023739", type:"private", tsc:"",              hoursDone:3,  status:"pending",   serviceId:"sv4", categoryId:"cat-new" },
   { id:"b8", day:3, startMin:8*60,  durMin:60,  name:"Сергій Гук",     phone:"+380961234500", type:"private", tsc:"",              hoursDone:14, status:"confirmed", serviceId:"sv3", categoryId:"cat-std" },
-  { id:"b9", day:3, startMin:11*60, durMin:120, name:"Наталія Бондар", phone:"+380671112244", type:"school",  tsc:"ТСЦ Дарниця",  hoursDone:18, status:"confirmed", serviceId:"sv1" },
-  { id:"b10",day:4, startMin:9*60,  durMin:120, name:"Андрій Чорний",  phone:"+380501234500", type:"school",  tsc:"ТСЦ Оболонь",   hoursDone:30, status:"confirmed", serviceId:"sv1" },
+  { id:"b9", day:3, startMin:11*60, durMin:120, name:"Наталія Бондар", phone:"+380671112244", type:"school",  tsc:"ТСЦ 8042",  hoursDone:18, status:"confirmed", serviceId:"sv1" },
+  { id:"b10",day:4, startMin:9*60,  durMin:120, name:"Андрій Чорний",  phone:"+380501234500", type:"school",  tsc:"ТСЦ 8041",   hoursDone:30, status:"confirmed", serviceId:"sv1" },
   { id:"b11",day:4, startMin:14*60, durMin:60,  name:"Ірина Лесник",   phone:"+380967240853", type:"private", tsc:"",              hoursDone:1,  status:"pending",   serviceId:"sv3", categoryId:"cat-new" },
   { id:"b12",day:5, startMin:10*60, durMin:120, name:"Ангеліна Коник", phone:"+380681746071", type:"private", tsc:"",              hoursDone:6,  status:"confirmed", serviceId:"sv4", categoryId:"cat-vip" },
 ];
 
 const _DLABELS = ["Пн","Вт","Ср","Чт","Пт","Сб","Нд"];
+const _DLABELS_FULL = ["Понеділок","Вівторок","Середа","Четвер","П'ятниця","Субота","Неділя"];
 const _MLABELS = ["січ","лют","бер","кві","тра","чер","лип","сер","вер","жов","лис","гру"];
 const getDayInfo = (offsetFromToday) => {
   const d = new Date();
   d.setDate(d.getDate() + offsetFromToday);
   const dow = (d.getDay() + 6) % 7; // Mon=0..Sun=6
-  return { num: d.getDate(), month: _MLABELS[d.getMonth()], label: _DLABELS[dow], wk: dow >= 5 };
+  return { num: d.getDate(), month: _MLABELS[d.getMonth()], label: _DLABELS[dow], fullLabel: _DLABELS_FULL[dow], wk: dow >= 5 };
 };
 
 const STUDENTS = [
@@ -446,17 +447,29 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   const dragEndedRef = useRef(false);
   const swipeRef = useRef(null);
   const gridWrapRef = useRef(null);
+  const snapTimerRef = useRef(null);
+  const timeColRef = useRef(null);
   const [pinch, setPinch] = useState(null);
+
+  // Скидаємо transform після зміни dayOffset (контент оновився — повертаємо в 0)
+  useLayoutEffect(() => {
+    const el = gridWrapRef.current;
+    if (!el) return;
+    el.style.transition = "none";
+    el.style.transform = "";
+  }, [dayOffset]);
   const [bubbleData, setBubbleData] = useState(null);
   const [formData, setFormData] = useState(null);
   const [localSelectedBooking, setLocalSelectedBooking] = useState(null);
 
   const PX_PER_MIN = settings.hourHeightPx / 60;
-  const TIME_COL_W = 42;
-  const COL_W = Math.max(44, Math.floor((windowW - 28 - TIME_COL_W - Math.max(0, settings.daysShown - 1) * 4) / settings.daysShown));
+  const TIME_COL_W = 48;
+  const N_DAYS = 21; // скільки днів рендеримо для скролу
+  const COL_W = Math.max(70, Math.floor((windowW - 28 - TIME_COL_W) / Math.min(settings.daysShown, 5)));
   const totalMin = (settings.workEnd - settings.workStart) * 60;
   const gridHeight = totalMin * PX_PER_MIN;
-  const days = Array.from({length: settings.daysShown}, (_, i) => getDayInfo(dayOffset + i));
+  const HEADER_H = 36;
+  const days = Array.from({length: N_DAYS}, (_, i) => getDayInfo(dayOffset + i));
 
   // Keep calc values fresh for always-on window listeners (avoids stale closure)
   calcRef.current = { PX_PER_MIN, snapMin: settings.snapMin, workStart: settings.workStart, workEnd: settings.workEnd, COL_W, dayOffset, daysShown: settings.daysShown };
@@ -492,7 +505,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
           const dx = e.clientX - swipeRef.current.startX;
           const dy = e.clientY - swipeRef.current.startY;
           if (Math.abs(dx) > Math.abs(dy) * 0.7 && Math.abs(dx) > 6) {
-            gridWrapRef.current.style.transform = `translateX(${dx * 0.88}px)`;
+            gridWrapRef.current.style.transform = `translateX(${dx}px)`;
           }
         }
       }
@@ -553,49 +566,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
         dragEndedRef.current = true;
         requestAnimationFrame(() => { dragEndedRef.current = false; });
       }
-      // Swipe navigation with slide animation
-      const sw = swipeRef.current;
       swipeRef.current = null;
-      const el = gridWrapRef.current;
-      if (sw && !wasDragging && el) {
-        const dx = sw.endX - sw.startX;
-        const dy = sw.endY - sw.startY;
-        const isHSwipe = Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) * 1.2;
-        if (isHSwipe) {
-          const { COL_W } = calcRef.current;
-          const daysToShift = Math.max(1, Math.min(3, Math.round(Math.abs(dx) / COL_W)));
-          const dir = dx < 0 ? 1 : -1; // +1=forward(left swipe) -1=back(right swipe)
-          const slideOut = dir > 0 ? `-${COL_W * daysToShift * 1.1}px` : `${COL_W * daysToShift * 1.1}px`;
-          const slideIn  = dir > 0 ? `${COL_W * daysToShift * 1.1}px` : `-${COL_W * daysToShift * 1.1}px`;
-          // Phase 1: slide current content out
-          el.style.transition = "transform 0.18s ease-in";
-          el.style.transform = `translateX(${slideOut})`;
-          const phase2 = () => {
-            el.removeEventListener("transitionend", phase2);
-            // Update content + position off-screen on opposite side
-            el.style.transition = "none";
-            el.style.transform = `translateX(${slideIn})`;
-            setDayOffset(o => Math.max(0, o + dir * daysToShift));
-            // Phase 3: slide new content in
-            requestAnimationFrame(() => requestAnimationFrame(() => {
-              el.style.transition = "transform 0.22s ease-out";
-              el.style.transform = "translateX(0)";
-              const phase3 = () => { el.removeEventListener("transitionend", phase3); el.style.transition = ""; };
-              el.addEventListener("transitionend", phase3);
-            }));
-          };
-          el.addEventListener("transitionend", phase2);
-        } else {
-          // Snap back if threshold not met
-          el.style.transition = "transform 0.2s ease-out";
-          el.style.transform = "translateX(0)";
-          const snap = () => { el.removeEventListener("transitionend", snap); el.style.transition = ""; };
-          el.addEventListener("transitionend", snap);
-        }
-      } else if (el && el.style.transform) {
-        el.style.transition = "";
-        el.style.transform = "";
-      }
     };
     const onResize = () => setWindowW(window.innerWidth);
     window.addEventListener("pointermove", onMove);
@@ -673,156 +644,199 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
     <>
     <style>{GLOBAL_CSS}</style>
     <Card style={{padding:"8px 8px 12px"}}>
-      {/* Day header */}
-      <div style={{display:"flex",marginBottom:4,paddingLeft:TIME_COL_W+4}}>
-        {days.map((day,i)=>(
-          <div key={i} style={{
-            width:COL_W,marginRight:i<days.length-1?4:0,flexShrink:0,
-            textAlign:"center",fontSize:10,fontWeight:800,
-            color:day.wk?ACCENT:TEXT_DIM
-          }}>{day.label} {day.num}</div>
-        ))}
-      </div>
-      <div
-        ref={gridRef}
-        onPointerDownCapture={e=>{
-          swipeRef.current={startX:e.clientX,startY:e.clientY,endX:e.clientX,endY:e.clientY};
-        }}
-        onTouchStart={onTouchStart}
-        onTouchMove={onTouchMove}
-        onTouchEnd={onTouchEnd}
-        onWheel={onWheel}
-        style={{display:"flex", overflowX:"hidden", overflowY:"auto", maxHeight:"calc(100vh - 200px)", touchAction:"pan-y"}}
-      >
-        <div ref={gridWrapRef} style={{display:"flex", flexShrink:0}}>
-        {/* Time column */}
-        <div style={{width:TIME_COL_W, flexShrink:0, position:"relative", height:gridHeight}}>
-          {Array.from({length:(settings.workEnd-settings.workStart)*2+1},(_,i)=>{
-            const totalMins = i*30;
-            const h = settings.workStart + Math.floor(totalMins/60);
-            const m = totalMins % 60;
-            if (h > settings.workEnd) return null;
-            const isHour = m===0;
-            return (
-              <div key={i} style={{
-                position:"absolute", top:totalMins*PX_PER_MIN-6,
-                right:2, fontSize:isHour?10:8,
-                color:isHour?TEXT_FAINT:"rgba(90,92,98,0.45)",
-                fontWeight:700, lineHeight:1
-              }}>{h}:{String(m).padStart(2,'0')}</div>
-            );
-          })}
+      <div style={{display:"flex", maxHeight:"calc(100vh - 180px)", overflow:"hidden"}}>
+
+        {/* TIME COLUMN — fixed, outside horizontal scroll */}
+        <div style={{
+          width:TIME_COL_W, flexShrink:0, zIndex:10,
+          display:"flex", flexDirection:"column",
+          borderRight:`1px solid rgba(255,255,255,0.07)`,
+        }}>
+          {/* Spacer matches the day-header row height */}
+          <div style={{height:HEADER_H, flexShrink:0}}/>
+          {/* Clipping wrapper — translateY syncs scroll */}
+          <div style={{overflow:"hidden", flex:1, position:"relative"}}>
+            <div ref={timeColRef} style={{position:"absolute", top:0, left:0, right:0, height:gridHeight}}>
+              {Array.from({length:(settings.workEnd-settings.workStart)*2+1},(_,i)=>{
+                const totalMins = i*30;
+                const h = settings.workStart + Math.floor(totalMins/60);
+                const m = totalMins % 60;
+                if (h > settings.workEnd) return null;
+                const isHour = m===0;
+                if (isHour) {
+                  return (
+                    <div key={i} style={{
+                      position:"absolute", top:Math.max(2, totalMins*PX_PER_MIN - 7),
+                      left:0, right:0, textAlign:"center",
+                      fontSize:14, fontWeight:700, lineHeight:1,
+                      color:TEXT_DIM,
+                    }}>{h}:00</div>
+                  );
+                } else {
+                  return (
+                    <div key={i} style={{
+                      position:"absolute", top:totalMins*PX_PER_MIN - 5,
+                      left:0, right:0, textAlign:"center",
+                      fontSize:10, fontWeight:600, lineHeight:1,
+                      color:"rgba(139,141,147,0.55)",
+                    }}>{h}:30</div>
+                  );
+                }
+              })}
+            </div>
+          </div>
         </div>
 
-        {/* Day columns */}
-        {days.map((day,colIdx)=>{
-          const absDay = dayOffset + colIdx;
-          return (
-          <div key={absDay}
-            onClick={e=>handleColumnClick(e, absDay)}
-            style={{
-              width:COL_W, flexShrink:0, height:gridHeight,
-              position:"relative", marginRight:colIdx<days.length-1?4:0, padding:"0 4px",
-              background:`linear-gradient(135deg,${BG_DEEP},${SURFACE_LO})`,
-              borderRadius:14, boxShadow:SHADOW_IN, cursor:"cell"
-            }}>
-
-            {/* 30-min grid lines */}
-            {Array.from({length:(settings.workEnd-settings.workStart)*2-1},(_,i)=>{
-              const isHour=(i+1)%2===0;
-              return <div key={i} style={{
-                position:"absolute",left:0,right:0,
-                top:(i+1)*30*PX_PER_MIN,
-                height:1,
-                background:isHour?"rgba(255,255,255,0.07)":"rgba(255,255,255,0.025)"
-              }}/>;
-            })}
-
-
-            {/* Lunch block */}
-            {settings.lunchEnabled && (
-              <div style={{
-                position:"absolute",
-                top:minToPx(settings.lunchStart*60), left:4, right:4,
-                height:(settings.lunchEnd - settings.lunchStart)*60*PX_PER_MIN,
-                background:`repeating-linear-gradient(135deg, transparent, transparent 6px, rgba(255,255,255,0.04) 6px, rgba(255,255,255,0.04) 12px)`,
-                borderRadius:8, pointerEvents:"none",
-                display:"flex",alignItems:"center",justifyContent:"center",
-                fontSize:9,color:TEXT_FAINT,fontWeight:700,letterSpacing:1
-              }}>ОБІД</div>
-            )}
-
-            {/* Bookings */}
-            {bookings.filter(b=>b.day===absDay).map(b=>{
-              const top = minToPx(b.startMin);
-              const height = b.durMin * PX_PER_MIN;
-              const c = slotColor(b);
-              const isPending = b.status==="pending" && settings.pendingEnabled;
-              const svc = settings.services.find(s=>s.id===b.serviceId);
-              const price = svc ? Math.round((svc.price / svc.duration) * b.durMin) : 0;
-              return (
-                <div key={b.id}
-                  className={`slot-base slot-colored ${isPending?"slot-pending-ring":""}`}
-                  onPointerDown={e=>onPointerDown(e,b,"move")}
-                  onContextMenu={e=>e.preventDefault()}
-                  onClick={e=>{ e.stopPropagation(); if(!dragRef.current){ setLocalSelectedBooking(b); onSlotClick?.(b); }}}
-                  style={{
-                    "--c": c,
-                    position:"absolute", top:top+2, left:4, right:4,
-                    height:height-4, padding:"2px 6px",
-                    display:"flex", flexDirection:"column", justifyContent:"center", gap:0,
-                    zIndex: dragId===b.id?10:2,
-                    transition:"transform 0.12s",
-                    transform: holdId===b.id ? "scale(0.95)" : "none",
-                    outline: holdId===b.id ? `2px solid ${c}` : "none",
-                  }}>
-                  <div className="slot-handle top" onPointerDown={e=>onPointerDown(e,b,"top")}/>
-                  {height >= 16 && (() => {
-                    const nSz = Math.max(7, Math.min(10, Math.floor(Math.min(COL_W/7, height/6))));
-                    const sSz = Math.max(6, Math.min(8, Math.floor(Math.min(COL_W/9, height/8.5))));
-                    const [fName, ...lParts] = b.name.split(' ');
-                    const lName = lParts.join(' ');
-                    // Each text row ≈ nSz*1.15px tall. Thresholds keep total rows within slot height.
-                    const showLName  = lName  && height >= 34;
-                    const showDur    = height >= 44;
-                    const showTsc    = b.type==="school" && b.tsc && height >= 54;
-                    const showPrice  = price > 0 && height >= 70;
-                    const textStyle  = { zIndex:2, position:"relative", textAlign:"center",
-                                         overflow:"hidden", whiteSpace:"nowrap" };
-                    return <>
-                      <div style={{
-                        ...textStyle, fontSize:nSz, fontWeight:800, color:"#fff",
-                        lineHeight:1.15, textShadow:"0 1px 2px rgba(0,0,0,0.5)",
-                      }}>{fName}{showLName&&<><br/><span style={{fontWeight:700}}>{lName}</span></>}</div>
-                      {showTsc && (
-                        <div style={{
-                          ...textStyle, fontSize:sSz, color:"rgba(255,255,255,0.85)",
-                          lineHeight:1.1, textShadow:"0 1px 2px rgba(0,0,0,0.5)",
-                        }}>{b.tsc}</div>
-                      )}
-                      {showDur && (
-                        <div style={{
-                          ...textStyle, fontSize:sSz, color:"rgba(255,255,255,0.7)",
-                          fontWeight:700, textShadow:"0 1px 2px rgba(0,0,0,0.5)",
-                        }}>{fmtDur(b.durMin)}</div>
-                      )}
-                      {showPrice && (
-                        <div style={{
-                          ...textStyle, fontSize:sSz, color:"rgba(255,255,255,0.9)",
-                          fontWeight:800, textShadow:"0 1px 3px rgba(0,0,0,0.6)",
-                        }}>{price} ₴</div>
-                      )}
-                    </>;
-                  })()}
-                  <div className="slot-handle bottom" onPointerDown={e=>onPointerDown(e,b,"bottom")}/>
-                </div>
-              );
-            })}
+        {/* SCROLLABLE AREA — horizontal + vertical */}
+        <div
+          ref={gridRef}
+          onPointerDownCapture={e=>{
+            swipeRef.current={startX:e.clientX,startY:e.clientY,endX:e.clientX,endY:e.clientY,startTime:Date.now()};
+          }}
+          onTouchStart={onTouchStart}
+          onTouchMove={onTouchMove}
+          onTouchEnd={onTouchEnd}
+          onWheel={onWheel}
+          onScroll={e=>{
+            if (timeColRef.current)
+              timeColRef.current.style.transform = `translateY(-${e.currentTarget.scrollTop}px)`;
+          }}
+          style={{flex:1, overflowX:"auto", overflowY:"auto", touchAction:"pan-x pan-y", WebkitOverflowScrolling:"touch"}}
+        >
+          {/* Day headers */}
+          <div style={{display:"flex", height:HEADER_H, alignItems:"stretch", minWidth:"max-content", marginBottom:4}}>
+            {days.map((day,i)=>(
+              <div key={i} style={{
+                width:COL_W, marginRight:i<days.length-1?4:0, flexShrink:0,
+                display:"flex", flexDirection:"column",
+                alignItems:"center", justifyContent:"center",
+                overflow:"hidden",
+              }}>
+                <div style={{
+                  fontSize:9, fontWeight:700, lineHeight:1.2,
+                  color:day.wk ? ACCENT : TEXT_FAINT,
+                  letterSpacing:0.3,
+                  overflow:"hidden", whiteSpace:"nowrap", maxWidth:"100%",
+                  textOverflow:"ellipsis",
+                }}>{day.fullLabel}</div>
+                <div style={{
+                  fontSize:14, fontWeight:800, lineHeight:1.2,
+                  color:day.wk ? ACCENT : TEXT_DIM,
+                }}>{day.num}</div>
+              </div>
+            ))}
           </div>
-          );
-        })}
-        </div>{/* /gridWrapRef */}
-      </div>
+
+          {/* Day columns — no time column inside here */}
+          <div ref={gridWrapRef} style={{display:"flex", flexShrink:0}}>
+          {days.map((day,colIdx)=>{
+            const absDay = dayOffset + colIdx; // dayOffset + 0..N_DAYS-1
+            return (
+            <div key={absDay}
+              onClick={e=>handleColumnClick(e, absDay)}
+              style={{
+                width:COL_W, flexShrink:0, height:gridHeight,
+                position:"relative", marginRight:colIdx<days.length-1?4:0, padding:"0 4px",
+                background:`linear-gradient(135deg,${BG_DEEP},${SURFACE_LO})`,
+                borderRadius:14, boxShadow:SHADOW_IN, cursor:"cell"
+              }}>
+
+              {/* 30-min grid lines */}
+              {Array.from({length:(settings.workEnd-settings.workStart)*2-1},(_,i)=>{
+                const isHour=(i+1)%2===0;
+                return <div key={i} style={{
+                  position:"absolute",left:0,right:0,
+                  top:(i+1)*30*PX_PER_MIN,
+                  height:1,
+                  background:isHour?"rgba(255,255,255,0.07)":"rgba(255,255,255,0.025)"
+                }}/>;
+              })}
+
+              {/* Lunch block */}
+              {settings.lunchEnabled && (
+                <div style={{
+                  position:"absolute",
+                  top:minToPx(settings.lunchStart*60), left:4, right:4,
+                  height:(settings.lunchEnd - settings.lunchStart)*60*PX_PER_MIN,
+                  background:`repeating-linear-gradient(135deg, transparent, transparent 6px, rgba(255,255,255,0.04) 6px, rgba(255,255,255,0.04) 12px)`,
+                  borderRadius:8, pointerEvents:"none",
+                  display:"flex",alignItems:"center",justifyContent:"center",
+                  fontSize:9,color:TEXT_FAINT,fontWeight:700,letterSpacing:1
+                }}>ОБІД</div>
+              )}
+
+              {/* Bookings */}
+              {bookings.filter(b=>b.day===absDay).map(b=>{
+                const top = minToPx(b.startMin);
+                const height = b.durMin * PX_PER_MIN;
+                const c = slotColor(b);
+                const isPending = b.status==="pending" && settings.pendingEnabled;
+                const svc = settings.services.find(s=>s.id===b.serviceId);
+                const price = svc ? Math.round((svc.price / svc.duration) * b.durMin) : 0;
+                return (
+                  <div key={b.id}
+                    className={`slot-base slot-colored ${isPending?"slot-pending-ring":""}`}
+                    onPointerDown={e=>onPointerDown(e,b,"move")}
+                    onContextMenu={e=>e.preventDefault()}
+                    onClick={e=>{ e.stopPropagation(); if(!dragRef.current){ setLocalSelectedBooking(b); onSlotClick?.(b); }}}
+                    style={{
+                      "--c": c,
+                      position:"absolute", top:top+2, left:4, right:4,
+                      height:height-4, padding:"2px 6px",
+                      display:"flex", flexDirection:"column", justifyContent:"center", gap:0,
+                      zIndex: dragId===b.id?10:2,
+                      transition:"transform 0.12s",
+                      transform: holdId===b.id ? "scale(0.95)" : "none",
+                      outline: holdId===b.id ? `2px solid ${c}` : "none",
+                    }}>
+                    <div className="slot-handle top" onPointerDown={e=>onPointerDown(e,b,"top")}/>
+                    {height >= 16 && (() => {
+                      const nSz = Math.max(7, Math.min(10, Math.floor(Math.min(COL_W/7, height/6))));
+                      const sSz = Math.max(6, Math.min(8, Math.floor(Math.min(COL_W/9, height/8.5))));
+                      const [fName, ...lParts] = b.name.split(' ');
+                      const lName = lParts.join(' ');
+                      const showLName  = lName  && height >= 34;
+                      const showDur    = height >= 44;
+                      const showTsc    = b.type==="school" && b.tsc && height >= 54;
+                      const showPrice  = price > 0 && height >= 70;
+                      const textStyle  = { zIndex:2, position:"relative", textAlign:"center",
+                                           overflow:"hidden", whiteSpace:"nowrap" };
+                      return <>
+                        <div style={{
+                          ...textStyle, fontSize:nSz, fontWeight:800, color:"#fff",
+                          lineHeight:1.15, textShadow:"0 1px 2px rgba(0,0,0,0.5)",
+                        }}>{fName}{showLName&&<><br/><span style={{fontWeight:700}}>{lName}</span></>}</div>
+                        {showTsc && (
+                          <div style={{
+                            ...textStyle, fontSize:sSz, color:"rgba(255,255,255,0.85)",
+                            lineHeight:1.1, textShadow:"0 1px 2px rgba(0,0,0,0.5)",
+                          }}>{b.tsc}</div>
+                        )}
+                        {showDur && (
+                          <div style={{
+                            ...textStyle, fontSize:sSz, color:"rgba(255,255,255,0.7)",
+                            fontWeight:700, textShadow:"0 1px 2px rgba(0,0,0,0.5)",
+                          }}>{fmtDur(b.durMin)}</div>
+                        )}
+                        {showPrice && (
+                          <div style={{
+                            ...textStyle, fontSize:sSz, color:"rgba(255,255,255,0.9)",
+                            fontWeight:800, textShadow:"0 1px 3px rgba(0,0,0,0.6)",
+                          }}>{price} ₴</div>
+                        )}
+                      </>;
+                    })()}
+                    <div className="slot-handle bottom" onPointerDown={e=>onPointerDown(e,b,"bottom")}/>
+                  </div>
+                );
+              })}
+            </div>
+            );
+          })}
+          </div>{/* /gridWrapRef */}
+        </div>{/* /gridRef scroll area */}
+
+      </div>{/* /outer flex */}
     </Card>
 
     <BookingModal booking={localSelectedBooking} onClose={()=>setLocalSelectedBooking(null)}

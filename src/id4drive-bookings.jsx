@@ -76,16 +76,16 @@ const CATEGORIES = {
 };
 
 const RAW = [
-  { id:"b01", date:"2026-05-23", startMin:8*60,  durMin:120, name:"Марія Коваль",    phone:"+380671234567", type:"school",  tsc:"ТСЦ Оболонь",      svcId:"sv1", catId:null,      status:"pending",   hours:12 },
+  { id:"b01", date:"2026-05-23", startMin:8*60,  durMin:120, name:"Марія Коваль",    phone:"+380671234567", type:"school",  tsc:"ТСЦ 8041",      svcId:"sv1", catId:null,      status:"pending",   hours:12 },
   { id:"b02", date:"2026-05-23", startMin:11*60, durMin:60,  name:"Іван Петренко",   phone:"+380509876543", type:"private", tsc:"",                 svcId:"sv3", catId:"cat-std", status:"pending",   hours:5  },
-  { id:"b03", date:"2026-05-23", startMin:14*60, durMin:120, name:"Олена Мороз",     phone:"+380631112233", type:"school",  tsc:"ТСЦ Дарниця",      svcId:"sv1", catId:null,      status:"confirmed", hours:38 },
+  { id:"b03", date:"2026-05-23", startMin:14*60, durMin:120, name:"Олена Мороз",     phone:"+380631112233", type:"school",  tsc:"ТСЦ 8042",      svcId:"sv1", catId:null,      status:"confirmed", hours:38 },
   { id:"b04", date:"2026-05-24", startMin:9*60,  durMin:60,  name:"Дмитро Сало",     phone:"+380961234567", type:"private", tsc:"",                 svcId:"sv3", catId:"cat-vip", status:"confirmed", hours:9  },
-  { id:"b05", date:"2026-05-24", startMin:13*60, durMin:60,  name:"Тетяна Кравець",  phone:"+380731234567", type:"school",  tsc:"ТСЦ Оболонь",      svcId:"sv2", catId:null,      status:"confirmed", hours:40 },
-  { id:"b06", date:"2026-05-25", startMin:10*60, durMin:120, name:"Антон Білий",     phone:"+380501112233", type:"school",  tsc:"ТСЦ Лівобережна",  svcId:"sv1", catId:null,      status:"confirmed", hours:22 },
+  { id:"b05", date:"2026-05-24", startMin:13*60, durMin:60,  name:"Тетяна Кравець",  phone:"+380731234567", type:"school",  tsc:"ТСЦ 8041",      svcId:"sv2", catId:null,      status:"confirmed", hours:40 },
+  { id:"b06", date:"2026-05-25", startMin:10*60, durMin:120, name:"Антон Білий",     phone:"+380501112233", type:"school",  tsc:"ТСЦ 8041",  svcId:"sv1", catId:null,      status:"confirmed", hours:22 },
   { id:"b07", date:"2026-05-25", startMin:15*60, durMin:120, name:"Юлія Денисюк",    phone:"+380935023739", type:"private", tsc:"",                 svcId:"sv4", catId:"cat-new", status:"pending",   hours:3  },
   { id:"b08", date:"2026-05-26", startMin:8*60,  durMin:60,  name:"Сергій Гук",      phone:"+380961234500", type:"private", tsc:"",                 svcId:"sv3", catId:"cat-std", status:"confirmed", hours:14 },
-  { id:"b09", date:"2026-05-26", startMin:11*60, durMin:120, name:"Наталія Бондар",  phone:"+380671112244", type:"school",  tsc:"ТСЦ Дарниця",      svcId:"sv2", catId:null,      status:"noshow",    hours:18 },
-  { id:"b10", date:"2026-05-27", startMin:9*60,  durMin:120, name:"Андрій Чорний",   phone:"+380501234500", type:"school",  tsc:"ТСЦ Оболонь",      svcId:"sv1", catId:null,      status:"confirmed", hours:30 },
+  { id:"b09", date:"2026-05-26", startMin:11*60, durMin:120, name:"Наталія Бондар",  phone:"+380671112244", type:"school",  tsc:"ТСЦ 8042",      svcId:"sv2", catId:null,      status:"noshow",    hours:18 },
+  { id:"b10", date:"2026-05-27", startMin:9*60,  durMin:120, name:"Андрій Чорний",   phone:"+380501234500", type:"school",  tsc:"ТСЦ 8041",      svcId:"sv1", catId:null,      status:"confirmed", hours:30 },
   { id:"b11", date:"2026-05-27", startMin:14*60, durMin:60,  name:"Ірина Лесник",    phone:"+380967240853", type:"private", tsc:"",                 svcId:"sv3", catId:"cat-new", status:"cancelled", hours:1  },
   { id:"b12", date:"2026-05-28", startMin:10*60, durMin:120, name:"Ангеліна Коник",  phone:"+380681746071", type:"private", tsc:"",                 svcId:"sv4", catId:"cat-vip", status:"confirmed", hours:6  },
 ];

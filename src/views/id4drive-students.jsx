@@ -71,7 +71,7 @@ const CATEGORIES = {
   "cat-new": { name:"Новачок",  color:TEAL   },
 };
 const STUDENTS = [
-  { id:"s1",  name:"Марія Коваль",   phone:"+380671234567", type:"school",  tsc:"ТСЦ Оболонь",      catId:"cat-std", hours:12, totalPaid:7200,  noshow:0, rating:4.8, blocked:false, active:true,
+  { id:"s1",  name:"Марія Коваль",   phone:"+380671234567", type:"school",  tsc:"ТСЦ 8041",      catId:"cat-std", hours:12, totalPaid:7200,  noshow:0, rating:4.8, blocked:false, active:true,
     lastLesson:"2026-05-20", address:"Київ, вул. Польова 3", born:"1995-03-14",
     passport:"АА123456", license:"", notes:"Добре реагує на критику. Слабке місце — паркування.", tags:["старанна","пунктуальна"],
     bookings:[
@@ -88,7 +88,7 @@ const STUDENTS = [
       {date:"2026-05-14",time:"18:00",svc:"Приватний 1г",status:"noshow",   price:700},
     ]
   },
-  { id:"s3",  name:"Олена Мороз",    phone:"+380631112233", type:"school",  tsc:"ТСЦ Дарниця",     catId:"cat-std", hours:38, totalPaid:22800, noshow:0, rating:5.0, blocked:false, active:true,
+  { id:"s3",  name:"Олена Мороз",    phone:"+380631112233", type:"school",  tsc:"ТСЦ 8042",     catId:"cat-std", hours:38, totalPaid:22800, noshow:0, rating:5.0, blocked:false, active:true,
     lastLesson:"2026-05-19", address:"Київ, вул. Дарницька 7", born:"1998-11-05",
     passport:"СС111222", license:"", notes:"38 годин — скоро завершить автошколу.", tags:["відмінниця"],
     bookings:[
@@ -102,7 +102,7 @@ const STUDENTS = [
       {date:"2026-05-18",time:"14:00",svc:"Приватний 2г",status:"confirmed",price:1300},
     ]
   },
-  { id:"s5",  name:"Тетяна Кравець", phone:"+380731234567", type:"school",  tsc:"ТСЦ Оболонь",      catId:"cat-std", hours:40, totalPaid:24000, noshow:1, rating:4.2, blocked:false, active:true,
+  { id:"s5",  name:"Тетяна Кравець", phone:"+380731234567", type:"school",  tsc:"ТСЦ 8041",      catId:"cat-std", hours:40, totalPaid:24000, noshow:1, rating:4.2, blocked:false, active:true,
     lastLesson:"2026-05-15", address:"Київ, просп. Перемоги 44", born:"2000-06-18",
     passport:"ЕЕ222333", license:"", notes:"40 годин автошколи завершено.", tags:["завершила"],
     bookings:[

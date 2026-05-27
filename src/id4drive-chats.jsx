@@ -99,7 +99,7 @@ const CONTACTS = [
   { id:"c3", name:"Олена Мороз",    phone:"+380631112233", avatar:"ОМ", hue:30,
     channel:"sms",  unread:0, online:false, lastMsg:"Ок, зрозуміла 👌",  lastTime:"вчора",
     messages:[
-      {id:"m1",from:"instructor",text:"Нагадую: урок завтра о 9:00 на ТСЦ Дарниця",time:"вчора 18:00",status:"read"},
+      {id:"m1",from:"instructor",text:"Нагадую: урок завтра о 9:00 на ТСЦ 8042",time:"вчора 18:00",status:"read"},
       {id:"m2",from:"student",text:"Ок, зрозуміла 👌",time:"вчора 18:05",status:"read"},
     ]
   },
