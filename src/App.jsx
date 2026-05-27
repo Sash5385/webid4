@@ -243,44 +243,53 @@ function BottomNav({ active, onChange, settings }) {
   return (
     <div style={{
       position:"fixed",bottom:0,left:0,right:0,
-      background:`linear-gradient(180deg,${SURFACE},${SURF_LO})`,
-      borderTop:`1px solid ${BORDER}`,
-      boxShadow:"0 -8px 24px rgba(0,0,0,0.35)",
-      zIndex:50,display:"flex",
+      padding:"0 3px 10px",
+      background:"transparent",
+      zIndex:50,
+      pointerEvents:"none",
     }}>
-      {visible.map(t=>(
-        <button key={t.id} onClick={()=>onChange(t.id)} style={{
-          flex:"1 1 0",minWidth:0,padding:"7px 2px",
-          background:"transparent",border:"none",cursor:"pointer",
-          display:"flex",flexDirection:"column",alignItems:"center",gap:3,
-          position:"relative"
-        }}>
-          <div style={{
-            transform:active===t.id?"scale(1.08)":"scale(0.9)",
-            transition:"transform .15s",
-            opacity:active===t.id?1:0.5,
+      <div style={{
+        background:`linear-gradient(180deg,${SURFACE},${SURF_LO})`,
+        borderRadius:26,
+        border:`1px solid rgba(255,255,255,0.08)`,
+        boxShadow:"0 12px 40px rgba(0,0,0,0.65), 0 4px 16px rgba(0,0,0,0.4), 0 -1px 0 rgba(255,255,255,0.05)",
+        display:"flex", overflow:"hidden",
+        pointerEvents:"auto",
+      }}>
+        {visible.map(t=>(
+          <button key={t.id} onClick={()=>onChange(t.id)} style={{
+            flex:"1 1 0",minWidth:0,padding:"13px 4px 11px",
+            background:"transparent",border:"none",cursor:"pointer",
+            display:"flex",flexDirection:"column",alignItems:"center",gap:5,
             position:"relative"
           }}>
-            {TabIcons[t.id]?.(28,active===t.id)}
-            {t.badge && (
-              <div style={{
-                position:"absolute",top:-4,right:-4,
-                background:ACCENT,color:"#fff",borderRadius:10,
-                padding:"1px 5px",fontSize:9,fontWeight:800,
-                boxShadow:`0 0 8px ${ACCENT}88`,lineHeight:1.4
-              }}>{t.badge}</div>
-            )}
-          </div>
-          <span style={{fontSize:9,fontWeight:700,color:active===t.id?ACCENT:FAINT,whiteSpace:"nowrap"}}>{t.label}</span>
-          {active===t.id && (
             <div style={{
-              position:"absolute",bottom:0,left:"50%",transform:"translateX(-50%)",
-              width:28,height:3,borderRadius:"3px 3px 0 0",
-              background:ACCENT,boxShadow:`0 0 8px ${ACCENT}88`
-            }}/>
-          )}
-        </button>
-      ))}
+              transform:active===t.id?"scale(1.1)":"scale(0.94)",
+              transition:"transform .15s",
+              opacity:active===t.id?1:0.52,
+              position:"relative"
+            }}>
+              {TabIcons[t.id]?.(34,active===t.id)}
+              {t.badge && (
+                <div style={{
+                  position:"absolute",top:-4,right:-4,
+                  background:ACCENT,color:"#fff",borderRadius:10,
+                  padding:"1px 5px",fontSize:9,fontWeight:800,
+                  boxShadow:`0 0 8px ${ACCENT}88`,lineHeight:1.4
+                }}>{t.badge}</div>
+              )}
+            </div>
+            <span style={{fontSize:9,fontWeight:700,color:active===t.id?ACCENT:FAINT,whiteSpace:"nowrap"}}>{t.label}</span>
+            {active===t.id && (
+              <div style={{
+                position:"absolute",bottom:5,left:"50%",transform:"translateX(-50%)",
+                width:28,height:3,borderRadius:2,
+                background:ACCENT,boxShadow:`0 0 10px ${ACCENT}99`
+              }}/>
+            )}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
@@ -393,10 +402,10 @@ export default function App() {
       <div style={{
         minHeight:"100vh",background:BG,color:TEXT,
         fontFamily:"ui-sans-serif,-apple-system,BlinkMacSystemFont,system-ui,sans-serif",
-        paddingBottom:92
+        paddingBottom:90
       }}>
         <TopBar tab={tab}/>
-        <div className="tab-anim" key={tab} style={{padding:"14px 14px 0"}}>
+        <div className="tab-anim" key={tab} style={{padding: tab==="schedule" ? "4px 3px 0" : "14px 14px 0"}}>
           <Suspense fallback={<Loader/>}>
             <ViewRenderer tab={tab} settings={settings} setSettings={setSettings} bookings={bookings} setBookings={setBookings} onSlotClick={setSelectedBooking} onEmptySlotClick={setNewBookingData}/>
           </Suspense>

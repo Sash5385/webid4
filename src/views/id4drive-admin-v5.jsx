@@ -93,6 +93,42 @@ body, html, #root { margin:0; padding:0; }
 .slot-handle.top { top: 0; }
 .slot-handle.bottom { bottom: 0; }
 
+/* corner glint — top-right specular highlight, like light on a rounded button */
+@keyframes shine-corner {
+  0%   { opacity: 0; transform: scale(0.7); }
+  35%  { opacity: 1; transform: scale(1); }
+  65%  { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(0.8); }
+}
+.shine-layer {
+  position:absolute; inset:0;
+  pointer-events:none; overflow:hidden;
+  border-radius:inherit; z-index:6;
+}
+.shine-layer::after {
+  content:'';
+  position:absolute;
+  top:-25%; right:-15%;
+  width:65%; height:65%;
+  background: radial-gradient(ellipse at 70% 30%, rgba(255,255,255,0.72) 0%, rgba(255,255,255,0.22) 45%, transparent 70%);
+  border-radius: 50%;
+  filter: blur(3px);
+  opacity: 0;
+}
+.shine-active .shine-layer::after {
+  animation: shine-corner 0.9s ease-in-out forwards;
+}
+
+/* hold-to-drag: ripple expands exactly over 1s, synced with timer */
+@keyframes hold-charge {
+  0%   { box-shadow: -2px 5px 14px rgba(0,0,0,0.5), inset 1px 1px 0 rgba(255,255,255,0.18), inset -1px -1px 0 rgba(0,0,0,0.25), 0 0 0 0px rgba(255,255,255,0.55); transform: scale(1); }
+  60%  { transform: scale(0.96); }
+  100% { box-shadow: -2px 5px 14px rgba(0,0,0,0.5), inset 1px 1px 0 rgba(255,255,255,0.18), inset -1px -1px 0 rgba(0,0,0,0.25), 0 0 0 10px rgba(255,255,255,0); transform: scale(0.96); }
+}
+.slot-holding {
+  animation: hold-charge 1s ease-out forwards;
+}
+
 /* 3D icons (from v4) */
 .icon3d {
   display: inline-flex; align-items: center; justify-content: center;
@@ -437,8 +473,14 @@ const colorOf = (id) => PALETTE.find(p=>p.id===id)?.color || GREEN;
 function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bookings, setBookings }) {
   const [dragId, setDragId] = useState(null);
   const [holdId, setHoldId] = useState(null);
+  const [quickCancelId, setQuickCancelId] = useState(null);
+  const quickCancelRef = useRef(null);
+  const [cancellingSet, setCancellingSet] = useState(new Set());
+  const cancelTimers = useRef({});
   const [windowW, setWindowW] = useState(window.innerWidth);
-  const [dayOffset, setDayOffset] = useState(0);
+  const [windowH, setWindowH] = useState(window.innerHeight);
+  const PAST_DAYS = 7;
+  const [dayOffset, setDayOffset] = useState(-7);
   const dragRef = useRef(null);
   const calcRef = useRef({});
   const gridRef = useRef(null);
@@ -450,6 +492,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   const snapTimerRef = useRef(null);
   const timeColRef = useRef(null);
   const [pinch, setPinch] = useState(null);
+  const [shineId, setShineId] = useState(null);
 
   // Скидаємо transform після зміни dayOffset (контент оновився — повертаємо в 0)
   useLayoutEffect(() => {
@@ -458,40 +501,75 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
     el.style.transition = "none";
     el.style.transform = "";
   }, [dayOffset]);
+
+  // При маунті скролимо до сьогодні (PAST_DAYS колонок від початку)
+  useEffect(() => {
+    if (gridRef.current) {
+      const colW = calcRef.current.COL_W || 70;
+      gridRef.current.scrollLeft = PAST_DAYS * (colW + 4);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [bubbleData, setBubbleData] = useState(null);
   const [formData, setFormData] = useState(null);
   const [localSelectedBooking, setLocalSelectedBooking] = useState(null);
 
-  const PX_PER_MIN = settings.hourHeightPx / 60;
-  const TIME_COL_W = 48;
-  const N_DAYS = 21; // скільки днів рендеримо для скролу
-  const COL_W = Math.max(70, Math.floor((windowW - 28 - TIME_COL_W) / Math.min(settings.daysShown, 5)));
-  const totalMin = (settings.workEnd - settings.workStart) * 60;
-  const gridHeight = totalMin * PX_PER_MIN;
+  // Shine glint animation — one booking at a time, random, every 3s
+  const bookingsRef = useRef(bookings);
+  useEffect(() => { bookingsRef.current = bookings; }, [bookings]);
+  useEffect(() => { quickCancelRef.current = quickCancelId; }, [quickCancelId]);
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const bks = bookingsRef.current;
+      if (!bks.length) return;
+      const b = bks[Math.floor(Math.random() * bks.length)];
+      setShineId(b.id);
+      setTimeout(() => setShineId(id => id === b.id ? null : id), 950);
+    }, 3000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const TIME_COL_W = 34;
   const HEADER_H = 36;
+  const N_DAYS = PAST_DAYS + 28; // 7 минулих + 28 майбутніх
+  const COL_W = Math.max(48, Math.floor((windowW - 28 - TIME_COL_W) / Math.max(1, settings.daysShown)));
+  const totalMin = Math.max(60, (settings.workEnd - settings.workStart) * 60);
+  // Авто-підлаштування: вся висота розкладу = доступна висота viewport
+  // hourHeightPx / 60 використовується як zoom-множник (pinch)
+  const availGridH = Math.max(120, windowH - 156 - HEADER_H - 4);
+  const autoPxPerMin = availGridH / totalMin;
+  const PX_PER_MIN = autoPxPerMin * (settings.hourHeightPx / 60);
+  const gridHeight = totalMin * PX_PER_MIN;
   const days = Array.from({length: N_DAYS}, (_, i) => getDayInfo(dayOffset + i));
 
   // Keep calc values fresh for always-on window listeners (avoids stale closure)
-  calcRef.current = { PX_PER_MIN, snapMin: settings.snapMin, workStart: settings.workStart, workEnd: settings.workEnd, COL_W, dayOffset, daysShown: settings.daysShown };
+  calcRef.current = { PX_PER_MIN, snapMin: settings.snapMin, workStart: settings.workStart, workEnd: settings.workEnd, COL_W, dayOffset, daysShown: settings.daysShown, N_DAYS };
 
   const minToPx = (m) => (m - settings.workStart*60) * PX_PER_MIN;
 
   const onPointerDown = (e, b, mode) => {
     e.preventDefault(); e.stopPropagation();
-    pendingDragRef.current = {
-      id:b.id, mode,
-      startClientY:e.clientY, startClientX:e.clientX,
-      startMinutes:b.startMin, startDur:b.durMin, startDay:b.day,
-    };
+    const dragData = { id:b.id, mode, startClientY:e.clientY, startClientX:e.clientX, startMinutes:b.startMin, startDur:b.durMin, startDay:b.day };
+
+    if (mode === "top" || mode === "bottom") {
+      // Resize: через pendingDragRef — активується лише при русі >4px
+      // (миттєва активація блокувала onClick на коротких слотах)
+      navigator.vibrate?.(6);
+      pendingDragRef.current = dragData;
+      return;
+    }
+
+    // Move: довге натискання 1с
+    navigator.vibrate?.(6); // підтвердження дотику
+    pendingDragRef.current = dragData;
     setHoldId(b.id);
     holdTimerRef.current = setTimeout(() => {
       if (!pendingDragRef.current) return;
-      dragRef.current = {...pendingDragRef.current};
-      pendingDragRef.current = null;
+      // НЕ очищаємо pendingDragRef — рух пальця після значка запускає drag
       setHoldId(null);
-      setDragId(b.id);
-      navigator.vibrate?.(35);
-    }, 1000);
+      setQuickCancelId(b.id);
+      navigator.vibrate?.([30, 40, 60]);
+    }, 700);
   };
 
   // Listeners always attached — dragRef gives instant access without useEffect re-fire
@@ -512,17 +590,37 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
       if (pendingDragRef.current) {
         const pd = pendingDragRef.current;
         const moved = Math.hypot(e.clientY - pd.startClientY, e.clientX - pd.startClientX);
+        if (pd.mode === "top" || pd.mode === "bottom") {
+          // Resize: активуємо щойно є реальний рух
+          if (moved > 4) {
+            dragRef.current = {...pd};
+            pendingDragRef.current = null;
+            setDragId(pd.id);
+            navigator.vibrate?.(18);
+          }
+          return;
+        }
+        // Move: якщо значок вже показано — починаємо drag; інакше — скасовуємо (скрол)
         if (moved > 15) {
           clearTimeout(holdTimerRef.current);
           holdTimerRef.current = null;
-          pendingDragRef.current = null;
-          setHoldId(null);
+          if (quickCancelRef.current !== null) {
+            // Значок показано, юзер потягнув — запускаємо drag
+            dragRef.current = {...pd};
+            pendingDragRef.current = null;
+            setQuickCancelId(null);
+            setDragId(pd.id);
+            navigator.vibrate?.(55);
+          } else {
+            pendingDragRef.current = null;
+            setHoldId(null);
+          }
         }
         return;
       }
       if (!dragRef.current) return;
       const drag = dragRef.current;
-      const { PX_PER_MIN, snapMin, workStart, workEnd, COL_W, dayOffset, daysShown } = calcRef.current;
+      const { PX_PER_MIN, snapMin, workStart, workEnd, COL_W, dayOffset, N_DAYS } = calcRef.current;
       const snap = (m) => Math.round(m / snapMin) * snapMin;
       const dy = e.clientY - drag.startClientY;
       const dxRaw = e.clientX - drag.startClientX;
@@ -530,7 +628,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
       setBookings(bs => bs.map(b => {
         if (b.id !== drag.id) return b;
         if (drag.mode === "move") {
-          const newDay = Math.max(dayOffset, Math.min(dayOffset + daysShown - 1, drag.startDay + Math.round(dxRaw/(COL_W+4))));
+          const newDay = Math.max(dayOffset, Math.min(dayOffset + N_DAYS - 1, drag.startDay + Math.round(dxRaw/(COL_W+4))));
           let s = snap(drag.startMinutes + deltaMin);
           s = Math.max(workStart*60, Math.min(workEnd*60 - b.durMin, s));
           const wouldOverlap = bs.some(x => x.id!==b.id && x.day===newDay && s<x.startMin+x.durMin && s+b.durMin>x.startMin);
@@ -564,11 +662,12 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
       setHoldId(null);
       if (wasDragging) {
         dragEndedRef.current = true;
-        requestAnimationFrame(() => { dragEndedRef.current = false; });
+        setTimeout(() => { dragEndedRef.current = false; }, 400);
       }
       swipeRef.current = null;
+      // не скидаємо quickCancelId тут — він гасне кліком на X або зовні
     };
-    const onResize = () => setWindowW(window.innerWidth);
+    const onResize = () => { setWindowW(window.innerWidth); setWindowH(window.innerHeight); };
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp);
     window.addEventListener("pointercancel", onUp);
@@ -628,8 +727,12 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
     if (action === "confirm") setBookings(bs=>bs.map(x=>x.id===b.id?{...x,status:"confirmed"}:x));
     if (action === "cancel")  setBookings(bs=>bs.map(x=>x.id===b.id?{...x,status:"cancelled"}:x));
     if (action === "noshow")  setBookings(bs=>bs.map(x=>x.id===b.id?{...x,status:"noshow"}:x));
-    if (action === "call")    window.location.href=`tel:${b.phone}`;
-    if (action === "sms")     window.location.href=`sms:${b.phone}`;
+    if (action === "delete")  setBookings(bs=>bs.filter(x=>x.id!==b.id));
+    if (action === "repeat")  setBookings(bs=>[...bs,{...b, id:`b-${Date.now()}`, day:b.day+7, status:"confirmed"}]);
+    if (action === "call")     window.location.href=`tel:${b.phone}`;
+    if (action === "sms")      window.location.href=`sms:${b.phone}`;
+    if (action === "viber")    window.location.href=`viber://chat?number=%2B${b.phone.replace(/\D/g,"")}`;
+    if (action === "telegram") window.location.href=`https://t.me/${b.phone.replace(/\D/g,"")}`;
     setLocalSelectedBooking(null);
   };
   const handleBlock = ({ day, startMin }) => {
@@ -643,8 +746,8 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   return (
     <>
     <style>{GLOBAL_CSS}</style>
-    <Card style={{padding:"8px 8px 12px"}}>
-      <div style={{display:"flex", maxHeight:"calc(100vh - 180px)", overflow:"hidden"}}>
+    <Card style={{padding:"6px 3px 10px", overflow:"hidden"}}>
+      <div style={{display:"flex", maxHeight:"calc(100vh - 156px)", overflow:"hidden"}}>
 
         {/* TIME COLUMN — fixed, outside horizontal scroll */}
         <div style={{
@@ -666,19 +769,19 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                 if (isHour) {
                   return (
                     <div key={i} style={{
-                      position:"absolute", top:Math.max(2, totalMins*PX_PER_MIN - 7),
+                      position:"absolute", top:Math.max(2, totalMins*PX_PER_MIN - 5),
                       left:0, right:0, textAlign:"center",
-                      fontSize:14, fontWeight:700, lineHeight:1,
+                      fontSize:10, fontWeight:700, lineHeight:1,
                       color:TEXT_DIM,
                     }}>{h}:00</div>
                   );
                 } else {
                   return (
                     <div key={i} style={{
-                      position:"absolute", top:totalMins*PX_PER_MIN - 5,
+                      position:"absolute", top:totalMins*PX_PER_MIN - 3,
                       left:0, right:0, textAlign:"center",
-                      fontSize:10, fontWeight:600, lineHeight:1,
-                      color:"rgba(139,141,147,0.55)",
+                      fontSize:7, fontWeight:600, lineHeight:1,
+                      color:"rgba(139,141,147,0.5)",
                     }}>{h}:30</div>
                   );
                 }
@@ -703,28 +806,35 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
           }}
           style={{flex:1, overflowX:"auto", overflowY:"auto", touchAction:"pan-x pan-y", WebkitOverflowScrolling:"touch"}}
         >
-          {/* Day headers */}
-          <div style={{display:"flex", height:HEADER_H, alignItems:"stretch", minWidth:"max-content", marginBottom:4}}>
-            {days.map((day,i)=>(
+          {/* Day headers — sticky so never scrolls out of view */}
+          <div style={{display:"flex", height:HEADER_H, alignItems:"stretch", minWidth:"max-content", marginBottom:4, paddingTop:2,
+            position:"sticky", top:0, zIndex:5, background:BG}}>
+            {days.map((day,i)=>{
+              const isToday = (dayOffset + i) === 0;
+              return (
               <div key={i} style={{
                 width:COL_W, marginRight:i<days.length-1?4:0, flexShrink:0,
                 display:"flex", flexDirection:"column",
                 alignItems:"center", justifyContent:"center",
                 overflow:"hidden",
+                borderRadius:10,
+                background: isToday ? `rgba(247,201,72,0.13)` : "transparent",
+                boxShadow: isToday ? `inset 0 0 0 1.5px rgba(247,201,72,0.55)` : "none",
               }}>
                 <div style={{
                   fontSize:9, fontWeight:700, lineHeight:1.2,
-                  color:day.wk ? ACCENT : TEXT_FAINT,
+                  color: isToday ? GOLD : day.wk ? ACCENT : TEXT_FAINT,
                   letterSpacing:0.3,
                   overflow:"hidden", whiteSpace:"nowrap", maxWidth:"100%",
                   textOverflow:"ellipsis",
                 }}>{day.fullLabel}</div>
                 <div style={{
                   fontSize:14, fontWeight:800, lineHeight:1.2,
-                  color:day.wk ? ACCENT : TEXT_DIM,
+                  color: isToday ? GOLD : day.wk ? ACCENT : TEXT_DIM,
                 }}>{day.num}</div>
               </div>
-            ))}
+              );
+            })}
           </div>
 
           {/* Day columns — no time column inside here */}
@@ -733,7 +843,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
             const absDay = dayOffset + colIdx; // dayOffset + 0..N_DAYS-1
             return (
             <div key={absDay}
-              onClick={e=>handleColumnClick(e, absDay)}
+              onClick={e=>{ if(quickCancelId){ setQuickCancelId(null); return; } handleColumnClick(e, absDay); }}
               style={{
                 width:COL_W, flexShrink:0, height:gridHeight,
                 position:"relative", marginRight:colIdx<days.length-1?4:0, padding:"0 4px",
@@ -771,62 +881,106 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                 const height = b.durMin * PX_PER_MIN;
                 const c = slotColor(b);
                 const isPending = b.status==="pending" && settings.pendingEnabled;
+                const isCancelling = cancellingSet.has(b.id);
+                const isDimmed = b.status==="cancelled" || b.status==="noshow" || isCancelling;
                 const svc = settings.services.find(s=>s.id===b.serviceId);
                 const price = svc ? Math.round((svc.price / svc.duration) * b.durMin) : 0;
                 return (
-                  <div key={b.id}
-                    className={`slot-base slot-colored ${isPending?"slot-pending-ring":""}`}
-                    onPointerDown={e=>onPointerDown(e,b,"move")}
-                    onContextMenu={e=>e.preventDefault()}
-                    onClick={e=>{ e.stopPropagation(); if(!dragRef.current){ setLocalSelectedBooking(b); onSlotClick?.(b); }}}
-                    style={{
-                      "--c": c,
-                      position:"absolute", top:top+2, left:4, right:4,
-                      height:height-4, padding:"2px 6px",
-                      display:"flex", flexDirection:"column", justifyContent:"center", gap:0,
-                      zIndex: dragId===b.id?10:2,
-                      transition:"transform 0.12s",
-                      transform: holdId===b.id ? "scale(0.95)" : "none",
-                      outline: holdId===b.id ? `2px solid ${c}` : "none",
-                    }}>
-                    <div className="slot-handle top" onPointerDown={e=>onPointerDown(e,b,"top")}/>
-                    {height >= 16 && (() => {
-                      const nSz = Math.max(7, Math.min(10, Math.floor(Math.min(COL_W/7, height/6))));
-                      const sSz = Math.max(6, Math.min(8, Math.floor(Math.min(COL_W/9, height/8.5))));
-                      const [fName, ...lParts] = b.name.split(' ');
-                      const lName = lParts.join(' ');
-                      const showLName  = lName  && height >= 34;
-                      const showDur    = height >= 44;
-                      const showTsc    = b.type==="school" && b.tsc && height >= 54;
-                      const showPrice  = price > 0 && height >= 70;
-                      const textStyle  = { zIndex:2, position:"relative", textAlign:"center",
-                                           overflow:"hidden", whiteSpace:"nowrap" };
-                      return <>
-                        <div style={{
-                          ...textStyle, fontSize:nSz, fontWeight:800, color:"#fff",
-                          lineHeight:1.15, textShadow:"0 1px 2px rgba(0,0,0,0.5)",
-                        }}>{fName}{showLName&&<><br/><span style={{fontWeight:700}}>{lName}</span></>}</div>
-                        {showTsc && (
+                  /* Обгортка — overflow:visible щоб значок не обрізався */
+                  <div key={b.id} style={{
+                    position:"absolute", top:top+1, left:0, right:0,
+                    height:height-2, overflow:"visible",
+                    zIndex: dragId===b.id?10:2,
+                  }}>
+                    {/* Сам слот */}
+                    <div
+                      className={`slot-base slot-colored ${isPending?"slot-pending-ring":""} ${holdId===b.id?"slot-holding":""} ${shineId===b.id&&!isDimmed?"shine-active":""}`}
+                      onPointerDown={e=>onPointerDown(e,b,"move")}
+                      onContextMenu={e=>e.preventDefault()}
+                      onClick={e=>{
+                        e.stopPropagation();
+                        if(quickCancelId){ setQuickCancelId(null); return; }
+                        if(isCancelling){
+                          // Скасовуємо видалення — ундо
+                          clearTimeout(cancelTimers.current[b.id]);
+                          delete cancelTimers.current[b.id];
+                          setCancellingSet(s=>{ const ns=new Set(s); ns.delete(b.id); return ns; });
+                          return;
+                        }
+                        if(!dragRef.current && !dragEndedRef.current){ setLocalSelectedBooking(b); onSlotClick?.(b); }
+                      }}
+                      style={{
+                        "--c": c,
+                        position:"relative", width:"100%", height:"100%",
+                        padding:"2px 6px",
+                        display:"flex", flexDirection:"column",
+                        opacity: isDimmed ? 0.38 : 1,
+                        filter: isDimmed ? "grayscale(0.6)" : "none",
+                        transition:"opacity 0.4s, filter 0.4s",
+                      }}>
+                      <div className="slot-handle top" onPointerDown={e=>onPointerDown(e,b,"top")}/>
+                      <div className="shine-layer"/>
+                      {height >= 12 && (() => {
+                        const [fName, ...lParts] = b.name.split(' ');
+                        const lName = lParts.join(' ');
+                        const lines = [
+                          { text: fName, w: 800, c: "#fff" },
+                          ...(lName ? [{ text: lName, w: 700, c: "#fff" }] : []),
+                          ...(b.type==="school"&&b.tsc ? [{ text: b.tsc, w: 600, c: "rgba(255,255,255,0.82)" }] : []),
+                          ...(price > 0 ? [{ text: `${price}₴`, w: 800, c: "rgba(255,255,255,0.95)" }] : []),
+                        ];
+                        const maxFs = Math.min(11, Math.floor(COL_W / 5.5));
+                        const fs = Math.max(6, Math.min(maxFs, Math.floor((height - 6) / (lines.length * 1.25))));
+                        return (
                           <div style={{
-                            ...textStyle, fontSize:sSz, color:"rgba(255,255,255,0.85)",
-                            lineHeight:1.1, textShadow:"0 1px 2px rgba(0,0,0,0.5)",
-                          }}>{b.tsc}</div>
-                        )}
-                        {showDur && (
-                          <div style={{
-                            ...textStyle, fontSize:sSz, color:"rgba(255,255,255,0.7)",
-                            fontWeight:700, textShadow:"0 1px 2px rgba(0,0,0,0.5)",
-                          }}>{fmtDur(b.durMin)}</div>
-                        )}
-                        {showPrice && (
-                          <div style={{
-                            ...textStyle, fontSize:sSz, color:"rgba(255,255,255,0.9)",
-                            fontWeight:800, textShadow:"0 1px 3px rgba(0,0,0,0.6)",
-                          }}>{price} ₴</div>
-                        )}
-                      </>;
-                    })()}
-                    <div className="slot-handle bottom" onPointerDown={e=>onPointerDown(e,b,"bottom")}/>
+                            position:"absolute", top:2, left:2, right:2, bottom:2,
+                            display:"flex", flexDirection:"column", justifyContent:"space-evenly",
+                            overflow:"hidden", zIndex:2,
+                          }}>
+                            {lines.map((ln, i) => (
+                              <div key={i} style={{
+                                fontSize: fs, fontWeight: ln.w, color: ln.c,
+                                lineHeight: 1.2, textAlign:"center",
+                                whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis",
+                                textShadow:"0 1px 2px rgba(0,0,0,0.55)",
+                              }}>{ln.text}</div>
+                            ))}
+                          </div>
+                        );
+                      })()}
+                      <div className="slot-handle bottom" onPointerDown={e=>onPointerDown(e,b,"bottom")}/>
+                    </div>
+
+                    {/* ── Значок скасування (довге натискання) — поза slot-base щоб не обрізатись ── */}
+                    {quickCancelId===b.id && (
+                      <div
+                        onPointerDown={e=>e.stopPropagation()}
+                        onClick={e=>{
+                          e.stopPropagation();
+                          setQuickCancelId(null);
+                          // Починаємо 2с відлік — затемнення → видалення
+                          setCancellingSet(s=>new Set([...s, b.id]));
+                          cancelTimers.current[b.id] = setTimeout(()=>{
+                            setCancellingSet(s=>{ const ns=new Set(s); ns.delete(b.id); return ns; });
+                            setBookings(bs=>bs.filter(x=>x.id!==b.id));
+                            delete cancelTimers.current[b.id];
+                          }, 2000);
+                        }}
+                        style={{
+                          position:"absolute", top:-11, right:-11, zIndex:30,
+                          width:30, height:30, borderRadius:"50%",
+                          background:"linear-gradient(145deg,#f87171,#b91c1c)",
+                          boxShadow:"0 0 0 3px rgba(30,30,40,0.85), 0 4px 12px #b91c1c99",
+                          display:"flex", alignItems:"center", justifyContent:"center",
+                          cursor:"pointer",
+                        }}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                          stroke="#fff" strokeWidth="3.2" strokeLinecap="round">
+                          <line x1="18" y1="6" x2="6" y2="18"/>
+                          <line x1="6" y1="6" x2="18" y2="18"/>
+                        </svg>
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -884,122 +1038,294 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
 // ═══════════════════════════════════════════════════════════════
 function BookingModal({ booking, onClose, onAction, settings }) {
   if (!booking) return null;
-  const svc = settings.services.find(s=>s.id===booking.serviceId);
-  const cat = booking.categoryId ? settings.categories.find(c=>c.id===booking.categoryId) : null;
 
-  const Btn = ({ icon, label, onClick, color }) => (
+  const svc   = settings.services.find(s=>s.id===booking.serviceId);
+  const cat   = booking.categoryId ? settings.categories?.find(c=>c.id===booking.categoryId) : null;
+  const c     = colorOf(svc?.colorId);
+  const day   = getDayInfo(booking.day);
+  const price = svc ? Math.round((svc.price/svc.duration)*booking.durMin) : 0;
+  const prog  = booking.type==="school" ? Math.min(1, booking.hoursDone/40) : null;
+
+  const ST = {
+    pending:   { label:"Очікує",       color:ACCENT, dot:"#ff8f77" },
+    confirmed: { label:"Підтверджено", color:GREEN,  dot:"#a8f075" },
+    cancelled: { label:"Скасовано",    color:"#666", dot:"#555"    },
+    noshow:    { label:"Не прийшов",   color:RED,    dot:"#f87171" },
+  }[booking.status] || { label:"—", color:TEXT_DIM, dot:TEXT_FAINT };
+
+  // SVGs (inline, no extra component)
+  const Ico = (d, w="2.2") => <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={w} strokeLinecap="round" strokeLinejoin="round">{d}</svg>;
+
+  const IcoPhone    = Ico(<path d="M22 16.92v3a2 2 0 0 1-2.18 2A19.79 19.79 0 0 1 4.14 6.18 2 2 0 0 1 6.12 4h3a2 2 0 0 1 2 1.72c.13 1 .37 1.98.72 2.91a2 2 0 0 1-.45 2.11L10 12a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.93.35 1.91.59 2.91.72A2 2 0 0 1 22 16.92z"/>);
+  const IcoSms      = Ico(<><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></>);
+  const IcoCheck    = Ico(<polyline points="5 12 10 17 19 8"/>, "3");
+  const IcoX        = Ico(<><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></>, "2.5");
+  const IcoTrash    = Ico(<><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></>);
+  // Viber — фіолетова бульбашка
+  const IcoViber    = <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.03 2 11c0 2.7 1.22 5.13 3.17 6.82L4 20l2.34-1.17C7.46 19.6 9.16 20 11 20h1c5.52 0 10-4.03 10-9S17.52 2 12 2zm-1.5 6h3a.5.5 0 0 1 0 1h-1v1.5a.5.5 0 0 1-1 0V9h-1a.5.5 0 0 1 0-1zm-.75 4.5c.28 0 .5.22.5.5v.5h.5a.5.5 0 0 1 0 1H10v-.5a.5.5 0 0 1-.5-.5v-.5h.25zm4.5 2a.5.5 0 0 1-.5.5h-1.5a.5.5 0 0 1 0-1h.5v-1a.5.5 0 0 1 1 0v1h.5a.5.5 0 0 1 .5.5z"/></svg>;
+  // Telegram — паперовий літак
+  const IcoTelegram = <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M21.95 4.27L18.38 20.2c-.26 1.15-1.56 1.65-2.44.93l-4.7-3.6-2.27 2.19c-.25.25-.66.25-.91 0l-.37-4.85L17.6 6.5c.4-.38-.08-.6-.55-.27L5.47 14.18 1.73 13c-.86-.27-.87-1.48 0-1.77L20.39 3.4c.83-.3 1.73.27 1.56 1.17L21.95 4.27z"/></svg>;
+
+  // Small secondary button
+  const SecBtn = ({ ico, label, grad, col, onClick }) => (
     <button onClick={onClick} style={{
-      flex:"1 1 100px", padding:"12px 8px", borderRadius:12, border:"none", cursor:"pointer",
-      background:`linear-gradient(135deg,${SURFACE_HI},${SURFACE})`,
-      color: color||TEXT, fontSize:11, fontWeight:700,
-      display:"flex",flexDirection:"column",alignItems:"center",gap:6,
-      boxShadow:SHADOW_OUT
+      flex:1, display:"flex", flexDirection:"column", alignItems:"center", gap:6,
+      padding:"11px 4px 9px", borderRadius:16, border:"none", cursor:"pointer",
+      background:`linear-gradient(160deg,${SURFACE_HI},${SURFACE_LO})`,
+      boxShadow:SHADOW_OUT,
     }}>
-      {icon}
-      <span>{label}</span>
+      <div style={{
+        width:34, height:34, borderRadius:10, display:"flex", alignItems:"center", justifyContent:"center",
+        background:grad, boxShadow:`0 3px 10px ${col}55`,
+        color:"#fff",
+      }}>{ico}</div>
+      <span style={{fontSize:9,fontWeight:700,color:TEXT_DIM,textAlign:"center",lineHeight:1.2,letterSpacing:0.1}}>{label}</span>
     </button>
   );
 
   return (
     <div onClick={onClose} style={{
-      position:"fixed",inset:0,background:"rgba(0,0,0,0.7)",zIndex:100,
-      display:"flex",alignItems:"flex-end",justifyContent:"center",
-      backdropFilter:"blur(8px)"
+      position:"fixed", inset:0, zIndex:100,
+      background:"rgba(0,0,0,0.78)",
+      display:"flex", alignItems:"flex-end", justifyContent:"center",
+      backdropFilter:"blur(12px)"
     }}>
       <div onClick={e=>e.stopPropagation()} style={{
-        width:"100%",maxWidth:520,background:`linear-gradient(180deg,${SURFACE},${BG})`,
-        borderRadius:"24px 24px 0 0", padding:"22px 20px 30px",
-        boxShadow:"0 -10px 40px rgba(0,0,0,0.6)",
-        maxHeight:"90vh", overflowY:"auto"
+        width:"100%", maxWidth:480,
+        background:BG_DEEP,
+        borderRadius:"28px 28px 0 0",
+        boxShadow:`0 -2px 0 ${c}44, 0 -16px 60px rgba(0,0,0,0.8)`,
+        maxHeight:"96vh", overflowY:"auto",
+        display:"flex", flexDirection:"column",
       }}>
-        {/* drag handle */}
-        <div style={{width:40,height:4,borderRadius:2,background:"rgba(255,255,255,0.15)",margin:"0 auto 16px"}}/>
 
-        {/* header */}
-        <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:18}}>
-          {ICONS.user(54)}
-          <div style={{flex:1}}>
-            <div style={{fontSize:18,fontWeight:800,color:TEXT}}>{booking.name}</div>
-            <div style={{fontSize:12,color:TEXT_DIM,marginTop:2}}>{booking.phone}</div>
-            <div style={{display:"flex",gap:6,marginTop:6,flexWrap:"wrap"}}>
-              {statusPill(booking.status)}
-              {cat && <Pill label={cat.name} color={colorOf(cat.colorId)} bg={`${colorOf(cat.colorId)}22`}/>}
-              {booking.type==="school" && (
-                <Pill label={`${booking.hoursDone}/40 год`} color={booking.hoursDone>=40?ACCENT:GREEN} bg="rgba(255,255,255,0.05)"/>
-              )}
+        {/* ══ HERO ══════════════════════════════════════════════ */}
+        <div style={{
+          position:"relative", overflow:"hidden",
+          padding:"16px 16px 16px",
+          background:`linear-gradient(160deg, ${c}30 0%, ${c}10 60%, transparent 100%)`,
+          borderRadius:"28px 28px 0 0",
+        }}>
+          {/* big background glow blob */}
+          <div style={{
+            position:"absolute", top:-40, right:-30,
+            width:180, height:180, borderRadius:"50%",
+            background:`radial-gradient(circle, ${c}40 0%, transparent 68%)`,
+            pointerEvents:"none",
+          }}/>
+
+          {/* handle */}
+          <div style={{width:38,height:4,borderRadius:2,background:"rgba(255,255,255,0.1)",margin:"0 auto 12px"}}/>
+
+          {/* Avatar + name */}
+          <div style={{display:"flex", alignItems:"center", gap:16}}>
+
+            {/* Avatar */}
+            <div style={{position:"relative", flexShrink:0}}>
+              <div style={{
+                width:54, height:54, borderRadius:27,
+                background:`linear-gradient(150deg, ${c}, color-mix(in srgb, ${c} 55%, #000))`,
+                boxShadow:`0 0 0 3px ${c}33, 0 6px 24px ${c}55`,
+                display:"flex", alignItems:"center", justifyContent:"center",
+                fontSize:22, fontWeight:900, color:"#fff",
+                letterSpacing:-1,
+              }}>
+                {booking.name.trim().split(" ").slice(0,2).map(w=>w[0]).join("")}
+              </div>
+              {/* status dot */}
+              <div style={{
+                position:"absolute", bottom:1, right:1,
+                width:16, height:16, borderRadius:8,
+                background:ST.dot, border:`2px solid ${BG_DEEP}`,
+                boxShadow:`0 0 6px ${ST.dot}`,
+              }}/>
+            </div>
+
+            {/* Name block */}
+            <div style={{flex:1, minWidth:0}}>
+              <div style={{
+                fontSize:20, fontWeight:900, color:"#fff",
+                letterSpacing:-0.5, lineHeight:1.2,
+                overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap",
+              }}>{booking.name}</div>
+              <div style={{fontSize:13, color:"rgba(255,255,255,0.5)", marginTop:3, letterSpacing:0.2}}>
+                {booking.phone}
+              </div>
+              {/* status + type row */}
+              <div style={{display:"flex", gap:6, marginTop:10, flexWrap:"wrap"}}>
+                <span style={{
+                  display:"inline-flex", alignItems:"center", gap:4,
+                  padding:"4px 11px", borderRadius:20,
+                  background:`${ST.color}20`, color:ST.color,
+                  fontSize:11, fontWeight:800, letterSpacing:0.2,
+                  border:`1px solid ${ST.color}40`,
+                }}>
+                  <span style={{width:6,height:6,borderRadius:3,background:ST.color,display:"inline-block"}}/>
+                  {ST.label}
+                </span>
+                <span style={{
+                  padding:"4px 11px", borderRadius:20,
+                  background:`${c}20`, color:c,
+                  fontSize:11, fontWeight:700,
+                  border:`1px solid ${c}35`,
+                }}>{booking.type==="school"?"🎓 Школа":"🚗 Приватне"}</span>
+                {cat && (
+                  <span style={{
+                    padding:"4px 11px", borderRadius:20,
+                    background:`${colorOf(cat.colorId)}20`, color:colorOf(cat.colorId),
+                    fontSize:11, fontWeight:700,
+                  }}>{cat.name}</span>
+                )}
+              </div>
             </div>
           </div>
         </div>
 
-        {/* info grid */}
-        <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:10,marginBottom:16}}>
-          <div style={{padding:"10px 12px",borderRadius:12,boxShadow:SHADOW_IN,background:`linear-gradient(135deg,${BG_DEEP},${SURFACE_LO})`}}>
-            <div style={{fontSize:10,color:TEXT_FAINT,letterSpacing:1}}>ДАТА</div>
-            <div style={{fontSize:14,fontWeight:700,marginTop:3}}>25 трав 2026</div>
+        {/* ══ BODY ══════════════════════════════════════════════ */}
+        <div style={{padding:"12px 14px 24px", display:"flex", flexDirection:"column", gap:8}}>
+
+          {/* ── Date / Time / Price strip ── */}
+          <div style={{display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8}}>
+            {[
+              {
+                label:"Дата",
+                val:<>{day.num} {day.month}</>,
+                sub:day.label,
+                col:TEXT,
+              },
+              {
+                label:"Час",
+                val:<span className="tabular" style={{color:BLUE}}>{fmtTime(booking.startMin)}<span style={{color:TEXT_FAINT,fontWeight:500}}>–</span>{fmtTime(booking.startMin+booking.durMin)}</span>,
+                sub:fmtDur(booking.durMin),
+                col:BLUE,
+              },
+              {
+                label:"Ціна",
+                val:<span style={{color:GOLD}}>{price}<span style={{fontSize:11,fontWeight:600,color:TEXT_FAINT}}> ₴</span></span>,
+                sub: svc ? `${svc.duration} хв` : "—",
+                col:GOLD,
+              },
+            ].map(({label,val,sub},i)=>(
+              <div key={i} style={{
+                padding:"10px 8px 8px",
+                borderRadius:14,
+                background:`linear-gradient(145deg,${SURFACE_LO},${BG_DEEP})`,
+                boxShadow:SHADOW_IN,
+                display:"flex", flexDirection:"column", alignItems:"center", textAlign:"center",
+              }}>
+                <div style={{fontSize:8,fontWeight:700,letterSpacing:1.3,color:TEXT_FAINT,textTransform:"uppercase",marginBottom:6}}>{label}</div>
+                <div style={{fontSize:15,fontWeight:900,lineHeight:1.15}}>{val}</div>
+                <div style={{fontSize:10,color:TEXT_FAINT,marginTop:4,fontWeight:600}}>{sub}</div>
+              </div>
+            ))}
           </div>
-          <div style={{padding:"10px 12px",borderRadius:12,boxShadow:SHADOW_IN,background:`linear-gradient(135deg,${BG_DEEP},${SURFACE_LO})`}}>
-            <div style={{fontSize:10,color:TEXT_FAINT,letterSpacing:1}}>ЧАС</div>
-            <div style={{fontSize:14,fontWeight:700,marginTop:3,color:BLUE}} className="tabular">
-              {fmtTime(booking.startMin)}–{fmtTime(booking.startMin+booking.durMin)}
+
+          {/* ── Service card ── */}
+          <div style={{
+            padding:"13px 16px",
+            borderRadius:18,
+            background:`linear-gradient(145deg, ${c}18, ${c}08)`,
+            border:`1px solid ${c}30`,
+            display:"flex", alignItems:"center", gap:12,
+          }}>
+            {/* Color blob */}
+            <div style={{
+              width:40, height:40, borderRadius:12, flexShrink:0,
+              background:`linear-gradient(145deg,${c},color-mix(in srgb,${c} 60%,#000))`,
+              boxShadow:`0 4px 12px ${c}55`,
+              display:"flex", alignItems:"center", justifyContent:"center",
+            }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 10l9-5 9 5-9 5-9-5z"/><path d="M7 12v5a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2v-5"/>
+              </svg>
+            </div>
+            <div style={{flex:1, minWidth:0}}>
+              <div style={{fontSize:14,fontWeight:800,color:c,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{svc?.name||"—"}</div>
+              {booking.tsc && <div style={{fontSize:11,color:TEXT_DIM,marginTop:2}}>ТСЦ · {booking.tsc}</div>}
             </div>
           </div>
-          <div style={{padding:"10px 12px",borderRadius:12,boxShadow:SHADOW_IN,background:`linear-gradient(135deg,${BG_DEEP},${SURFACE_LO})`}}>
-            <div style={{fontSize:10,color:TEXT_FAINT,letterSpacing:1}}>ПОСЛУГА</div>
-            <div style={{fontSize:13,fontWeight:700,marginTop:3,color:svc?colorOf(svc.colorId):TEXT}}>{svc?.name || "—"}</div>
-          </div>
-          <div style={{padding:"10px 12px",borderRadius:12,boxShadow:SHADOW_IN,background:`linear-gradient(135deg,${BG_DEEP},${SURFACE_LO})`}}>
-            <div style={{fontSize:10,color:TEXT_FAINT,letterSpacing:1}}>ЦІНА</div>
-            <div style={{fontSize:14,fontWeight:700,marginTop:3,color:GOLD}}>{svc?.price || 0} ₴</div>
-          </div>
-          {booking.tsc && (
-            <div style={{padding:"10px 12px",borderRadius:12,boxShadow:SHADOW_IN,background:`linear-gradient(135deg,${BG_DEEP},${SURFACE_LO})`,gridColumn:"span 2"}}>
-              <div style={{fontSize:10,color:TEXT_FAINT,letterSpacing:1}}>ТСЦ</div>
-              <div style={{fontSize:13,fontWeight:700,marginTop:3}}>{booking.tsc}</div>
+
+          {/* ── School progress ── */}
+          {prog !== null && (
+            <div style={{
+              padding:"13px 16px", borderRadius:18,
+              background:`linear-gradient(145deg,${SURFACE_LO},${BG_DEEP})`,
+              boxShadow:SHADOW_IN,
+            }}>
+              <div style={{display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10}}>
+                <div style={{fontSize:9,fontWeight:700,letterSpacing:1.2,color:TEXT_FAINT,textTransform:"uppercase"}}>
+                  Прогрес навчання
+                </div>
+                <div style={{
+                  fontSize:13, fontWeight:900,
+                  color: prog>=1 ? GOLD : GREEN,
+                }}>{booking.hoursDone} <span style={{fontSize:10,fontWeight:600,color:TEXT_FAINT}}>/ 40 год</span></div>
+              </div>
+              {/* track */}
+              <div style={{height:10, borderRadius:5, background:"rgba(255,255,255,0.05)", overflow:"hidden", position:"relative"}}>
+                <div style={{
+                  position:"absolute", left:0, top:0, bottom:0,
+                  width:`${Math.round(prog*100)}%`,
+                  borderRadius:5,
+                  background: prog>=1
+                    ? `linear-gradient(90deg,${GOLD},#e6a800)`
+                    : `linear-gradient(90deg,${c},color-mix(in srgb,${c} 70%,#fff))`,
+                  boxShadow: `0 0 10px ${prog>=1?GOLD:c}88`,
+                }}/>
+              </div>
+              <div style={{
+                display:"flex", justifyContent:"space-between",
+                marginTop:7, fontSize:10, color:TEXT_FAINT, fontWeight:600,
+              }}>
+                <span>0</span>
+                <span style={{color: prog>=1?GOLD:GREEN, fontWeight:700}}>{Math.round(prog*100)}%</span>
+                <span>40 год</span>
+              </div>
             </div>
           )}
-        </div>
 
-        {/* notes (instructor private) */}
-        <div style={{padding:"10px 12px",borderRadius:12,boxShadow:SHADOW_IN,background:`linear-gradient(135deg,${BG_DEEP},${SURFACE_LO})`,marginBottom:16}}>
-          <div style={{fontSize:10,color:TEXT_FAINT,letterSpacing:1,marginBottom:6}}>НОТАТКИ ІНСТРУКТОРА (ПРИВАТНІ)</div>
-          <textarea placeholder="Додай нотатку про учня..." rows={2} style={{
-            width:"100%",background:"transparent",border:"none",outline:"none",
-            color:TEXT,fontSize:13,resize:"none",fontFamily:"inherit"
-          }}/>
-        </div>
+          {/* ── Primary action(s) ── */}
+          <div style={{display:"flex", gap:10, marginTop:4}}>
+            <button onClick={()=>onAction("call",booking)} style={{
+              flex:1, display:"flex", alignItems:"center", justifyContent:"center", gap:8,
+              padding:"14px", borderRadius:18, border:"none", cursor:"pointer",
+              background:"linear-gradient(160deg,#34d399,#059669)",
+              boxShadow:"0 6px 20px rgba(52,211,153,0.45)",
+              color:"#fff", fontSize:14, fontWeight:800,
+            }}>
+              {IcoPhone} Дзвонити
+            </button>
+            {booking.status==="pending" && (
+              <button onClick={()=>onAction("confirm",booking)} style={{
+                flex:1, display:"flex", alignItems:"center", justifyContent:"center", gap:8,
+                padding:"14px", borderRadius:18, border:"none", cursor:"pointer",
+                background:`linear-gradient(160deg,${GREEN},#4ade80)`,
+                boxShadow:`0 6px 20px ${GREEN}55`,
+                color:"#fff", fontSize:14, fontWeight:800,
+              }}>
+                {IcoCheck} Підтвердити
+              </button>
+            )}
+          </div>
 
-        {/* actions grid */}
-        <div style={{fontSize:10,color:TEXT_FAINT,letterSpacing:1,marginBottom:8}}>ДІЇ</div>
-        <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8,marginBottom:10}}>
-          {booking.status==="pending" && <Btn icon={ICONS.check(34)} label="Підтвердити" color={GREEN} onClick={()=>onAction("confirm",booking)}/>}
-          <Btn icon={ICONS.clock(34)} label="Перенести" onClick={()=>onAction("reschedule",booking)}/>
-          <Btn icon={
-            <Icon3D size={34} gradient="linear-gradient(165deg,#34d399,#047857)">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
-              </svg>
-            </Icon3D>
-          } label="Дзвонити" onClick={()=>onAction("call",booking)}/>
-          <Btn icon={ICONS.chat(34)} label="Чат" onClick={()=>onAction("chat",booking)}/>
-          <Btn icon={ICONS.bell(34)} label="SMS" onClick={()=>onAction("sms",booking)}/>
-          <Btn icon={ICONS.calendar(34)} label="Повторити" onClick={()=>onAction("repeat",booking)}/>
-          <Btn icon={ICONS.cross(34)} label="Не прийшов" color={RED} onClick={()=>onAction("noshow",booking)}/>
-          <Btn icon={
-            <Icon3D size={34} gradient="linear-gradient(165deg,#ef4444,#b91c1c)">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.4" strokeLinecap="round">
-                <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/>
-              </svg>
-            </Icon3D>
-          } label="Скасувати" color={RED} onClick={()=>onAction("cancel",booking)}/>
-        </div>
+          {/* ── Secondary actions ── */}
+          <div style={{display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:8}}>
+            <SecBtn ico={IcoSms}      label="SMS"      grad="linear-gradient(145deg,#60a5fa,#2563eb)" col="#60a5fa" onClick={()=>onAction("sms",booking)}/>
+            <SecBtn ico={IcoViber}    label="Viber"    grad="linear-gradient(145deg,#a78bfa,#7c3aed)" col="#a78bfa" onClick={()=>onAction("viber",booking)}/>
+            <SecBtn ico={IcoTelegram} label="Telegram" grad="linear-gradient(145deg,#38bdf8,#0284c7)" col="#38bdf8" onClick={()=>onAction("telegram",booking)}/>
+            <SecBtn ico={IcoTrash}    label="Скасувати" grad="linear-gradient(145deg,#f87171,#b91c1c)" col="#f87171" onClick={()=>onAction("cancel",booking)}/>
+          </div>
 
-        {/* close */}
-        <button onClick={onClose} style={{
-          width:"100%",padding:"14px",borderRadius:14,border:"none",cursor:"pointer",
-          background:`linear-gradient(135deg,${SURFACE_HI},${SURFACE})`,
-          color:TEXT_DIM,fontSize:13,fontWeight:700,
-          boxShadow:SHADOW_OUT,marginTop:8
-        }}>Закрити</button>
+          {/* ── Close ── */}
+          <button onClick={onClose} style={{
+            marginTop:4,
+            width:"100%", padding:"13px", borderRadius:18, border:"none", cursor:"pointer",
+            background:"linear-gradient(145deg,#f87171,#b91c1c)",
+            color:"#fff", fontSize:13, fontWeight:700,
+            boxShadow:"0 4px 14px #b91c1c66", letterSpacing:0.2,
+          }}>Закрити</button>
+
+        </div>
       </div>
     </div>
   );
@@ -1080,41 +1406,40 @@ function DrumRoll({ items, currentIdx, onChange, label, itemH=42, visible=4 }) {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// NEW BOOKING MODAL (drum roll pickers)
+// NEW BOOKING MODAL v3 — drum rolls for student + service
 // ═══════════════════════════════════════════════════════════════
 function NewBookingModal({ data, onClose, onConfirm, settings }) {
-  const dateItems = useMemo(()=>{
-    return Array.from({length:42},(_,i)=>{
-      const d=new Date(); d.setDate(d.getDate()+i);
-      const dow=(d.getDay()+6)%7;
-      return {label:`${_DLABELS[dow]} ${d.getDate()} ${_MLABELS[d.getMonth()]}`};
-    });
-  },[]);
-
   const timeItems = useMemo(()=>{
     const arr=[];
-    for(let m=settings.workStart*60; m<settings.workEnd*60; m+=30)
-      arr.push({label:`${Math.floor(m/60)}:${String(m%60).padStart(2,'0')}`,value:m});
+    for(let m=settings.workStart*60; m<settings.workEnd*60; m+=settings.snapMin||30)
+      arr.push({label:fmtTime(m), value:m});
     return arr;
-  },[settings.workStart,settings.workEnd]);
+  },[settings.workStart, settings.workEnd, settings.snapMin]);
 
-  const studentItems = useMemo(()=>STUDENTS.map(s=>({label:s.name,phone:s.phone})),[]);
+  const activeServices = useMemo(()=>
+    settings.services.filter(s=>s.active)
+  ,[settings.services]);
 
   const serviceItems = useMemo(()=>
-    settings.services.filter(s=>s.active).map(s=>({label:s.name,id:s.id,duration:s.duration,price:s.price,type:s.type||"private"})),
-  [settings.services]);
+    activeServices.map(s=>({ label:s.name, id:s.id, duration:s.duration, price:s.price, type:s.type||"private" }))
+  ,[activeServices]);
 
-  const [dateIdx, setDateIdx] = useState(0);
-  const [timeIdx, setTimeIdx] = useState(0);
-  const [studentIdx, setStudentIdx] = useState(0);
-  const [svcIdx, setSvcIdx] = useState(0);
+  const [search,      setSearch]      = useState("");
+  const [selStudent,  setSelStudent]  = useState(null);
+  const [phone,       setPhone]       = useState("");
+  const [newName,     setNewName]     = useState("");
+  const [newPhone,    setNewPhone]    = useState("");
+  const [dateOffset,  setDateOffset]  = useState(0);
+  const [timeIdx,     setTimeIdx]     = useState(0);
+  const [svcIdx,      setSvcIdx]      = useState(0);
 
   useEffect(()=>{
     if(data){
-      setDateIdx(Math.max(0, Math.min(dateItems.length-1, data.day??0)));
       const ti=timeItems.findIndex(t=>t.value>=(data.startMin??settings.workStart*60));
       setTimeIdx(Math.max(0, ti<0?0:ti));
-      setStudentIdx(0);
+      setDateOffset(Math.max(0, data.day??0));
+      setSearch(""); setSelStudent(null); setPhone("");
+      setNewName(""); setNewPhone("");
       setSvcIdx(0);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1122,86 +1447,328 @@ function NewBookingModal({ data, onClose, onConfirm, settings }) {
 
   if(!data) return null;
 
-  const selStudent = studentItems[studentIdx] || studentItems[0];
-  const selSvc = serviceItems[svcIdx] || serviceItems[0];
-  const selTime = timeItems[timeIdx];
+  const isNewStudent = selStudent?.id === "new";
+  const selSvc     = serviceItems[svcIdx];
+  const selTime    = timeItems[timeIdx];
+  const q          = search.toLowerCase().trim();
+  const filtered   = q ? STUDENTS.filter(s=>s.name.toLowerCase().includes(q)||s.phone.includes(q)) : STUDENTS;
+  const finalName  = isNewStudent ? newName.trim() : selStudent ? selStudent.name : search.trim();
+  const finalPhone = isNewStudent ? newPhone.trim() : phone || (selStudent ? selStudent.phone : "");
+  const canConfirm = finalName.length > 1 && !!selSvc && !!selTime;
+
+  const dayChips = Array.from({length:14},(_,i)=>{
+    const info = getDayInfo(i);
+    return { lbl: i===0?"Сьогодні":i===1?"Завтра":`${info.label} ${info.num}`, info, i };
+  });
+
+  const SL = ({children})=>(
+    <div style={{fontSize:9,fontWeight:700,letterSpacing:1.4,color:TEXT_FAINT,
+      textTransform:"uppercase",marginBottom:6}}>{children}</div>
+  );
+
+  const inputRow = (icon, value, onChange, placeholder, type="text") => (
+    <div style={{
+      display:"flex",alignItems:"center",gap:8,
+      padding:"10px 13px",borderRadius:13,
+      background:`linear-gradient(135deg,${BG_DEEP},${SURFACE_LO})`,boxShadow:SHADOW_IN
+    }}>
+      {icon}
+      <input type={type} placeholder={placeholder} value={value}
+        onChange={e=>onChange(e.target.value)}
+        style={{flex:1,background:"none",border:"none",outline:"none",
+          color:TEXT,fontSize:14,fontWeight:600}}/>
+    </div>
+  );
+
+  const IcoUser = <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke={TEXT_FAINT} strokeWidth="2.5" strokeLinecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-7 8-7s8 3 8 7"/></svg>;
+  const IcoPhone= <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke={TEXT_FAINT} strokeWidth="2.5" strokeLinecap="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2A19.79 19.79 0 0 1 4.14 6.18 2 2 0 0 1 6.12 4h3a2 2 0 0 1 2 1.72c.13 1 .37 1.98.72 2.91a2 2 0 0 1-.45 2.11L10 12a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.93.35 1.91.59 2.91.72A2 2 0 0 1 22 16.92z"/></svg>;
+
+  // Колір героя — береться з вибраної послуги
+  const heroC = selSvc ? colorOf(selSvc.type==="school" ? "green" : "yellow") : ACCENT;
+
+  // Ініціали для аватара
+  const avatarInitials = (() => {
+    const nm = finalName.trim();
+    if (!nm) return null;
+    const parts = nm.split(" ").filter(Boolean);
+    return parts.length >= 2 ? parts[0][0]+parts[1][0] : parts[0].slice(0,2);
+  })();
+
+  const Tile = ({label, value, color}) => (
+    <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:4,
+      padding:"10px 6px 8px",borderRadius:14,
+      background:`linear-gradient(145deg,${SURFACE_HI},${SURFACE_LO})`,boxShadow:SHADOW_OUT}}>
+      <div style={{fontSize:13,fontWeight:800,color:color||TEXT,letterSpacing:-0.2}}>{value}</div>
+      <div style={{fontSize:9,fontWeight:700,color:TEXT_FAINT,letterSpacing:0.8,textTransform:"uppercase"}}>{label}</div>
+    </div>
+  );
 
   return (
     <div onClick={onClose} style={{
-      position:"fixed",inset:0,background:"rgba(0,0,0,0.75)",zIndex:200,
+      position:"fixed",inset:0,background:"rgba(0,0,0,0.78)",zIndex:200,
       display:"flex",alignItems:"flex-end",justifyContent:"center",
-      backdropFilter:"blur(10px)"
+      backdropFilter:"blur(12px)"
     }}>
       <div onClick={e=>e.stopPropagation()} style={{
-        width:"100%",maxWidth:520,
-        background:`linear-gradient(180deg,${SURFACE},${BG})`,
-        borderRadius:"24px 24px 0 0",padding:"14px 14px 28px",
-        boxShadow:"0 -12px 40px rgba(0,0,0,0.7)",
-        maxHeight:"90vh",overflowY:"auto",display:"flex",flexDirection:"column",gap:10
+        width:"100%",maxWidth:480,background:BG_DEEP,
+        borderRadius:"28px 28px 0 0",
+        boxShadow:`0 -2px 0 ${heroC}44, 0 -16px 60px rgba(0,0,0,0.8)`,
+        maxHeight:"93vh",overflowY:"auto",
+        display:"flex",flexDirection:"column",
       }}>
-        {/* handle */}
-        <div style={{width:40,height:4,borderRadius:2,background:"rgba(255,255,255,0.12)",margin:"0 auto 4px",flexShrink:0}}/>
-        <div style={{fontSize:16,fontWeight:800,color:TEXT,textAlign:"center",letterSpacing:-0.3,flexShrink:0}}>Новий запис</div>
 
-        {/* Date + Time side by side */}
-        <div style={{display:"flex",gap:8,flexShrink:0}}>
-          <DrumRoll items={dateItems} currentIdx={dateIdx} onChange={setDateIdx} label="ДАТА" itemH={42} visible={4}/>
-          <DrumRoll items={timeItems} currentIdx={timeIdx} onChange={setTimeIdx} label="ЧАС" itemH={42} visible={4}/>
-        </div>
+        {/* ══ HERO ══ */}
+        <div style={{
+          position:"relative",overflow:"hidden",
+          padding:"14px 16px 18px",
+          background:`linear-gradient(160deg,${heroC}32 0%,${heroC}12 60%,transparent 100%)`,
+          borderRadius:"28px 28px 0 0",
+          flexShrink:0,
+        }}>
+          {/* glow blob */}
+          <div style={{position:"absolute",top:-40,right:-30,width:160,height:160,borderRadius:"50%",
+            background:`radial-gradient(circle,${heroC}44 0%,transparent 68%)`,pointerEvents:"none"}}/>
 
-        {/* Student */}
-        <div style={{flexShrink:0}}>
-          <DrumRoll items={studentItems} currentIdx={studentIdx} onChange={setStudentIdx} label="УЧЕНЬ" itemH={48} visible={3}/>
-        </div>
+          {/* handle */}
+          <div style={{width:38,height:4,borderRadius:2,background:"rgba(255,255,255,0.1)",margin:"0 auto 14px"}}/>
 
-        {/* Service */}
-        <div style={{flexShrink:0}}>
-          <DrumRoll items={serviceItems} currentIdx={svcIdx} onChange={setSvcIdx} label="ПОСЛУГА" itemH={42} visible={3}/>
-        </div>
-
-        {/* Summary */}
-        {selSvc && selStudent && (
-          <div style={{
-            display:"flex",justifyContent:"space-between",alignItems:"center",
-            padding:"9px 12px",borderRadius:12,flexShrink:0,
-            background:`linear-gradient(135deg,${BG_DEEP},${SURFACE_LO})`,boxShadow:SHADOW_IN
-          }}>
-            <div style={{fontSize:11,color:TEXT_DIM,flex:1,marginRight:8,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
-              {selStudent.label} · {selTime?.label}
+          {/* avatar row */}
+          <div style={{display:"flex",alignItems:"center",gap:14}}>
+            {/* avatar */}
+            <div style={{
+              width:54,height:54,borderRadius:27,flexShrink:0,
+              background:avatarInitials
+                ? `linear-gradient(145deg,${heroC}cc,${heroC}88)`
+                : `linear-gradient(145deg,${SURFACE_HI},${SURFACE_LO})`,
+              boxShadow:`0 4px 16px ${heroC}55`,
+              display:"flex",alignItems:"center",justifyContent:"center",
+              fontSize:avatarInitials?20:22,fontWeight:800,color:"#fff",
+              border:`2px solid ${heroC}66`,
+            }}>
+              {avatarInitials || "＋"}
             </div>
-            <div style={{fontSize:15,fontWeight:800,color:GOLD,flexShrink:0}}>{selSvc.price} ₴</div>
-          </div>
-        )}
 
-        {/* Actions */}
-        <div style={{display:"flex",gap:10,flexShrink:0}}>
-          <button onClick={onClose} style={{
-            flex:1,padding:"13px",borderRadius:14,border:"none",cursor:"pointer",
-            background:`linear-gradient(135deg,${SURFACE_HI},${SURFACE})`,
-            color:TEXT_DIM,fontSize:13,fontWeight:700,boxShadow:SHADOW_OUT
-          }}>Скасувати</button>
-          <button onClick={()=>{
-            if(!selStudent||!selSvc||!selTime) return;
+            {/* name + status */}
+            <div style={{flex:1,minWidth:0}}>
+              {finalName ? (
+                <>
+                  <div style={{fontSize:18,fontWeight:900,color:TEXT,letterSpacing:-0.4,
+                    whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{finalName}</div>
+                  {finalPhone&&<div style={{fontSize:12,color:TEXT_DIM,marginTop:2}}>{finalPhone}</div>}
+                </>
+              ) : (
+                <div style={{fontSize:15,fontWeight:700,color:TEXT_FAINT}}>Новий запис</div>
+              )}
+              {selSvc && (
+                <div style={{marginTop:5,display:"inline-flex",alignItems:"center",gap:5,
+                  padding:"3px 10px",borderRadius:20,
+                  background:`${heroC}22`,border:`1px solid ${heroC}44`}}>
+                  <div style={{width:7,height:7,borderRadius:"50%",background:heroC,flexShrink:0}}/>
+                  <span style={{fontSize:10,fontWeight:700,color:heroC}}>{selSvc.label}</span>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* ══ BODY ══ */}
+        <div style={{padding:"12px 14px 24px",display:"flex",flexDirection:"column",gap:12,flexShrink:0}}>
+
+          {/* ── Тайли дата/час/ціна якщо все вибрано ── */}
+          {canConfirm && (
+            <div style={{display:"flex",gap:8}}>
+              <Tile label="Дата"  value={dayChips[dateOffset]?.lbl} color={GOLD}/>
+              <Tile label="Час"   value={selTime?.label}            color={BLUE}/>
+              <Tile label="Ціна"  value={`${selSvc.price}₴`}        color={GOLD}/>
+            </div>
+          )}
+
+          {/* ── УЧЕНЬ ── */}
+          <div>
+            <SL>Учень</SL>
+            {isNewStudent ? (
+              <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",
+                  padding:"8px 14px",borderRadius:12,
+                  background:`${GREEN}18`,border:`1.5px solid ${GREEN}44`}}>
+                  <div style={{fontSize:12,fontWeight:700,color:GREEN}}>Новий учень</div>
+                  <button onClick={()=>{setSelStudent(null);setNewName("");setNewPhone("");}}
+                    style={{background:"none",border:"none",cursor:"pointer",color:TEXT_FAINT,fontSize:20,padding:"0 2px",lineHeight:1}}>×</button>
+                </div>
+                {inputRow(IcoUser,  newName,  setNewName,  "Ім'я та прізвище")}
+                {inputRow(IcoPhone, newPhone, setNewPhone, "+380...", "tel")}
+              </div>
+            ) : selStudent ? (
+              <>
+                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",
+                  padding:"10px 14px",borderRadius:14,
+                  background:`${GREEN}20`,border:`1.5px solid ${GREEN}50`}}>
+                  <div>
+                    <div style={{fontSize:14,fontWeight:800,color:TEXT}}>{selStudent.name}</div>
+                    <div style={{fontSize:11,color:TEXT_DIM,marginTop:1}}>{selStudent.phone}</div>
+                  </div>
+                  <button onClick={()=>{setSelStudent(null);setPhone("");setSearch("");}}
+                    style={{background:"none",border:"none",cursor:"pointer",color:TEXT_FAINT,fontSize:20,padding:"0 4px",lineHeight:1}}>×</button>
+                </div>
+                <div style={{display:"flex",alignItems:"center",gap:8,marginTop:8,
+                  padding:"10px 13px",borderRadius:13,
+                  background:`linear-gradient(135deg,${BG_DEEP},${SURFACE_LO})`,boxShadow:SHADOW_IN}}>
+                  {IcoPhone}
+                  <input type="tel" placeholder="+380..." value={finalPhone}
+                    onChange={e=>setPhone(e.target.value)}
+                    style={{flex:1,background:"none",border:"none",outline:"none",color:TEXT_DIM,fontSize:13,fontWeight:600}}/>
+                </div>
+              </>
+            ) : (
+              <>
+                <div style={{display:"flex",alignItems:"center",gap:8,
+                  padding:"10px 13px",borderRadius:14,marginBottom:6,
+                  background:`linear-gradient(135deg,${BG_DEEP},${SURFACE_LO})`,boxShadow:SHADOW_IN}}>
+                  {IcoUser}
+                  <input type="text" placeholder="Пошук за ім'ям..."
+                    value={search} onChange={e=>setSearch(e.target.value)}
+                    style={{flex:1,background:"none",border:"none",outline:"none",color:TEXT,fontSize:14,fontWeight:600}}/>
+                  {search&&<button onClick={()=>setSearch("")}
+                    style={{background:"none",border:"none",cursor:"pointer",color:TEXT_FAINT,fontSize:18,padding:0,lineHeight:1}}>×</button>}
+                </div>
+                <div style={{borderRadius:14,overflow:"hidden",
+                  background:`linear-gradient(135deg,${BG_DEEP},${SURFACE_LO})`,
+                  boxShadow:SHADOW_IN,maxHeight:148,overflowY:"auto"}}>
+                  {!q&&(
+                    <div onClick={()=>{setSelStudent({id:"new",name:"",phone:""});setNewName("");setNewPhone("");}}
+                      style={{display:"flex",alignItems:"center",gap:10,
+                        padding:"10px 14px",cursor:"pointer",borderBottom:`1px solid ${BORDER}`}}>
+                      <div style={{width:22,height:22,borderRadius:11,flexShrink:0,
+                        background:`${GREEN}33`,border:`1.5px solid ${GREEN}55`,
+                        display:"flex",alignItems:"center",justifyContent:"center",
+                        fontSize:15,color:GREEN,fontWeight:800}}>+</div>
+                      <div style={{fontSize:13,fontWeight:700,color:GREEN}}>Новий учень</div>
+                    </div>
+                  )}
+                  {filtered.slice(0,7).map(s=>(
+                    <div key={s.id}
+                      onClick={()=>{setSelStudent(s);setPhone(s.phone);setSearch("");}}
+                      style={{display:"flex",alignItems:"center",justifyContent:"space-between",
+                        padding:"10px 14px",cursor:"pointer",borderBottom:`1px solid ${BORDER}`}}>
+                      <div style={{fontSize:13,fontWeight:700,color:TEXT}}>{s.name}</div>
+                      <div style={{fontSize:11,color:TEXT_FAINT}}>{s.phone.slice(-7)}</div>
+                    </div>
+                  ))}
+                  {q&&!filtered.length&&(
+                    <div style={{padding:"12px 14px",fontSize:12,color:TEXT_FAINT,textAlign:"center"}}>Не знайдено</div>
+                  )}
+                  {q.length>1&&!filtered.find(s=>s.name.toLowerCase()===q)&&(
+                    <div onClick={()=>{setSelStudent({id:"new",name:"",phone:""});setNewName(search.trim());setNewPhone("");setSearch("");}}
+                      style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",cursor:"pointer"}}>
+                      <div style={{width:22,height:22,borderRadius:11,flexShrink:0,
+                        background:`${GREEN}33`,border:`1.5px solid ${GREEN}55`,
+                        display:"flex",alignItems:"center",justifyContent:"center",
+                        fontSize:15,color:GREEN,fontWeight:800}}>+</div>
+                      <div style={{fontSize:13,fontWeight:700,color:GREEN}}>Додати «{search.trim()}»</div>
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* ── ДАТА ── */}
+          <div>
+            <SL>Дата</SL>
+            <div style={{display:"flex",gap:6,overflowX:"auto",paddingBottom:4,scrollbarWidth:"none"}}>
+              {dayChips.map(({lbl,info,i})=>{
+                const active=i===dateOffset;
+                return (
+                  <button key={i} onClick={()=>setDateOffset(i)} style={{
+                    flexShrink:0,padding:"7px 12px",borderRadius:12,border:"none",cursor:"pointer",
+                    background:active?`linear-gradient(165deg,${GOLD},#e6a800)`:`linear-gradient(135deg,${SURFACE_HI},${SURFACE_LO})`,
+                    color:active?"#1a1200":info.wk?ACCENT:TEXT_DIM,
+                    fontSize:12,fontWeight:active?800:600,
+                    boxShadow:active?`0 4px 12px ${GOLD}55`:SHADOW_OUT,
+                    transition:"all .15s"
+                  }}>
+                    <div>{lbl}</div>
+                    {i>1&&<div style={{fontSize:9,opacity:0.7,marginTop:1}}>{info.month}</div>}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* ── ЧАС + ПОСЛУГА ── */}
+          <div style={{display:"flex",gap:10,alignItems:"flex-start"}}>
+            <div style={{flex:1}}>
+              <SL>Час початку</SL>
+              <DrumRoll items={timeItems} currentIdx={timeIdx} onChange={setTimeIdx} itemH={40} visible={3}/>
+            </div>
+            <div style={{flex:1}}>
+              <SL>Послуга</SL>
+              <DrumRoll items={serviceItems} currentIdx={svcIdx} onChange={setSvcIdx} itemH={40} visible={3}/>
+            </div>
+          </div>
+
+          {/* ── КНОПКИ ── */}
+          <button disabled={!canConfirm} onClick={()=>{
+            if(!canConfirm) return;
             onConfirm({
               id:`b-${Date.now()}`,
-              day:dateIdx,
-              startMin:selTime.value,
-              durMin:selSvc.duration,
-              name:selStudent.label,
-              phone:selStudent.phone,
-              serviceId:selSvc.id,
-              type:selSvc.type,
-              status:"confirmed",tsc:"",hoursDone:0
+              day:dateOffset, startMin:selTime.value, durMin:selSvc.duration,
+              name:finalName, phone:finalPhone, serviceId:selSvc.id,
+              type:selSvc.type||"private", status:"confirmed", tsc:"", hoursDone:0
             });
             onClose();
           }} style={{
-            flex:2,padding:"13px",borderRadius:14,border:"none",cursor:"pointer",
-            background:`linear-gradient(165deg,${ACCENT_HI},${ACCENT})`,
-            color:"#fff",fontSize:13,fontWeight:800,
-            boxShadow:`0 4px 16px ${ACCENT}44`
-          }}>Записати</button>
+            width:"100%",padding:"14px",borderRadius:18,border:"none",cursor:"pointer",
+            background:canConfirm?`linear-gradient(160deg,${GREEN},#4ade80)`:`linear-gradient(135deg,${SURFACE_HI},${SURFACE_LO})`,
+            color:canConfirm?"#fff":TEXT_FAINT,
+            fontSize:14,fontWeight:800,letterSpacing:0.2,
+            boxShadow:canConfirm?`0 6px 20px ${GREEN}55`:SHADOW_OUT,
+            transition:"all .2s"
+          }}>✓ Записати</button>
+
+          <button onClick={onClose} style={{
+            width:"100%",padding:"13px",borderRadius:18,border:"none",cursor:"pointer",
+            background:"linear-gradient(145deg,#f87171,#b91c1c)",
+            color:"#fff",fontSize:13,fontWeight:700,
+            boxShadow:"0 4px 14px #b91c1c66",letterSpacing:0.2,
+          }}>Скасувати</button>
+
         </div>
       </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// NUM INPUT — локальний стан, не скаче при наборі
+// ═══════════════════════════════════════════════════════════════
+function NumInput({ value, onChange, min, max, suffix }) {
+  const [draft, setDraft] = useState(String(value));
+  useEffect(() => { setDraft(String(value)); }, [value]);
+  const commit = (raw) => {
+    const n = parseInt(raw ?? draft, 10);
+    if (!isNaN(n) && n >= (min ?? -Infinity) && n <= (max ?? Infinity)) onChange(n);
+    else setDraft(String(value));
+  };
+  return (
+    <div style={{
+      display:"flex", alignItems:"center", gap:6,
+      padding:"6px 12px", borderRadius:10,
+      background:`linear-gradient(135deg,${BG_DEEP},${SURFACE_LO})`,
+      boxShadow:SHADOW_IN
+    }}>
+      <input
+        type="number" inputMode="numeric"
+        value={draft} min={min} max={max}
+        onChange={e => setDraft(e.target.value)}
+        onBlur={() => commit()}
+        onKeyDown={e => { if (e.key === "Enter") { commit(); e.target.blur(); } }}
+        style={{
+          width:50, background:"transparent", border:"none", outline:"none",
+          color:TEXT, fontSize:14, fontWeight:800, textAlign:"center"
+        }}
+      />
+      {suffix && <span style={{fontSize:11, color:TEXT_DIM, fontWeight:700}}>{suffix}</span>}
     </div>
   );
 }
@@ -1224,22 +1791,6 @@ function SettingsView({ settings, setSettings }) {
     </div>
   );
 
-  const NumInput = ({ value, onChange, min, max, suffix }) => (
-    <div style={{
-      display:"flex",alignItems:"center",gap:6,
-      padding:"6px 12px",borderRadius:10,
-      background:`linear-gradient(135deg,${BG_DEEP},${SURFACE_LO})`,
-      boxShadow:SHADOW_IN
-    }}>
-      <input type="number" value={value} min={min} max={max}
-        onChange={e=>onChange(Number(e.target.value))}
-        style={{
-          width:50,background:"transparent",border:"none",outline:"none",
-          color:TEXT,fontSize:14,fontWeight:800,textAlign:"center"
-        }}/>
-      {suffix && <span style={{fontSize:11,color:TEXT_DIM,fontWeight:700}}>{suffix}</span>}
-    </div>
-  );
 
   return (
     <>
@@ -1680,7 +2231,7 @@ export default function App() {
       <div style={{
         minHeight:"100vh", background:BG, color:TEXT,
         fontFamily:"ui-sans-serif,-apple-system,BlinkMacSystemFont,system-ui,sans-serif",
-        paddingBottom:90
+        paddingBottom:100
       }}>
         {/* TOP BAR */}
         <div style={{
@@ -1713,7 +2264,7 @@ export default function App() {
         {/* FAB on schedule */}
         {tab==="schedule" && (
           <button style={{
-            position:"fixed",bottom:96,right:18,
+            position:"fixed",bottom:118,right:18,
             width:60,height:60,borderRadius:30,
             background:`linear-gradient(165deg,${ACCENT_HI},${ACCENT})`,
             color:"#fff",border:"none",fontSize:30,cursor:"pointer",
@@ -1726,35 +2277,45 @@ export default function App() {
         {/* BOTTOM NAV */}
         <div style={{
           position:"fixed",bottom:0,left:0,right:0,
-          background:`linear-gradient(180deg,${SURFACE},${SURFACE_LO})`,
-          borderTop:`1px solid ${BORDER}`,
-          boxShadow:"0 -8px 24px rgba(0,0,0,0.35)",
-          zIndex:30, display:"flex"
+          padding:"0 16px 14px",
+          background:"transparent",
+          zIndex:30,
+          pointerEvents:"none",
         }}>
+          <div style={{
+            background:`linear-gradient(180deg,${SURFACE},${SURFACE_LO})`,
+            borderRadius:26,
+            border:`1px solid rgba(255,255,255,0.08)`,
+            boxShadow:"0 -1px 0 rgba(255,255,255,0.05), 0 12px 40px rgba(0,0,0,0.65), 0 4px 16px rgba(0,0,0,0.4)",
+            display:"flex", overflow:"hidden",
+            pointerEvents:"auto",
+            justifyContent:"center", gap:0,
+          }}>
           {TABS.filter(t=>settings.navTabs?.includes(t.id)??true).map(t=>(
             <button key={t.id} onClick={()=>setTab(t.id)} style={{
-              flex:"1 1 0", minWidth:0,
-              padding:"7px 2px",
+              flex:"1 1 0", minWidth:0, maxWidth:90,
+              padding:"12px 6px 10px",
               background:"transparent",border:"none",cursor:"pointer",
               color: tab===t.id?ACCENT:TEXT_FAINT,
-              display:"flex",flexDirection:"column",alignItems:"center",gap:2,
-              position:"relative"
+              display:"flex",flexDirection:"column",alignItems:"center",gap:4,
+              position:"relative",
             }}>
               <div style={{
-                transform: tab===t.id?"scale(1.05)":"scale(0.9)",
+                transform: tab===t.id?"scale(1.1)":"scale(0.95)",
                 transition:"transform .15s",
-                opacity:tab===t.id?1:0.5
-              }}>{t.icon(28)}</div>
-              <span style={{fontSize:8,fontWeight:700}}>{t.label}</span>
+                opacity:tab===t.id?1:0.52,
+              }}>{t.icon(33)}</div>
+              <span style={{fontSize:9,fontWeight:700,letterSpacing:0.2}}>{t.label}</span>
               {tab===t.id && (
                 <div style={{
-                  position:"absolute",bottom:0,left:"50%",transform:"translateX(-50%)",
-                  width:30,height:3,borderRadius:"3px 3px 0 0",background:ACCENT,
-                  boxShadow:`0 0 8px ${ACCENT}88`
+                  position:"absolute",bottom:5,left:"50%",transform:"translateX(-50%)",
+                  width:28,height:3,borderRadius:2,background:ACCENT,
+                  boxShadow:`0 0 10px ${ACCENT}99`
                 }}/>
               )}
             </button>
           ))}
+          </div>
         </div>
 
         {/* MODALS */}
