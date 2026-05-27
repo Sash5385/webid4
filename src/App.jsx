@@ -289,39 +289,37 @@ function BottomNav({ active, onChange, settings }) {
 function TopBar({ tab }) {
   return (
     <div style={{
-      padding:"14px 18px",
+      padding:"6px 12px",
       display:"flex",alignItems:"center",justifyContent:"space-between",
       position:"sticky",top:0,
       background:`linear-gradient(180deg,${BG} 60%,rgba(28,29,33,0.9))`,
       backdropFilter:"blur(20px)",zIndex:20,
       borderBottom:`1px solid ${BORDER}`
     }}>
-      <div style={{display:"flex",alignItems:"center",gap:10}}>
-        <I3 s={34} r={10} gr="linear-gradient(165deg,#ff7a5c,#ff5a3c)">
-          <span style={{fontSize:18,position:"relative",zIndex:1}}>🚗</span>
+      <div style={{display:"flex",alignItems:"center",gap:7}}>
+        <I3 s={22} r={7} gr="linear-gradient(165deg,#ff7a5c,#ff5a3c)">
+          <span style={{fontSize:12,position:"relative",zIndex:1}}>🚗</span>
         </I3>
-        <div style={{fontSize:17,fontWeight:800,letterSpacing:-0.3,color:TEXT}}>{TAB_TITLES[tab]}</div>
+        <div style={{fontSize:13,fontWeight:800,letterSpacing:-0.3,color:TEXT}}>{TAB_TITLES[tab]}</div>
       </div>
-      <div style={{display:"flex",gap:8,alignItems:"center"}}>
-        {/* notification bell */}
+      <div style={{display:"flex",gap:6,alignItems:"center"}}>
         <button style={{background:"none",border:"none",cursor:"pointer",position:"relative",padding:0}}>
-          <I3 s={36} r={10} gr="linear-gradient(135deg,#2e3034,#26282c)">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={TEXT} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          <I3 s={24} r={7} gr="linear-gradient(135deg,#2e3034,#26282c)">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={TEXT} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0"/></svg>
           </I3>
           <div style={{
             position:"absolute",top:-2,right:-2,
             background:ACCENT,color:"#fff",borderRadius:10,
-            padding:"1px 5px",fontSize:9,fontWeight:800,
-            boxShadow:`0 0 8px ${ACCENT}88`
+            padding:"0 4px",fontSize:8,fontWeight:800,lineHeight:"14px",
+            boxShadow:`0 0 6px ${ACCENT}88`
           }}>3</div>
         </button>
-        {/* profile */}
         <button style={{background:"none",border:"none",cursor:"pointer",padding:0}}>
           <div style={{
-            width:36,height:36,borderRadius:18,
+            width:24,height:24,borderRadius:12,
             background:"linear-gradient(165deg,#9ee07a,#5fb83d)",
             display:"flex",alignItems:"center",justifyContent:"center",
-            fontSize:13,fontWeight:800,color:"#fff",
+            fontSize:9,fontWeight:800,color:"#fff",
             boxShadow:"-2px 3px 8px rgba(0,0,0,0.4),inset 1px 1px 0 rgba(255,255,255,0.2)"
           }}>ОЛ</div>
         </button>

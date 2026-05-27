@@ -740,7 +740,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
 
 
             {/* Lunch block */}
-            {settings.lunchEnabled && !day.wk && (
+            {settings.lunchEnabled && (
               <div style={{
                 position:"absolute",
                 top:minToPx(settings.lunchStart*60), left:4, right:4,
@@ -778,36 +778,38 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                   }}>
                   <div className="slot-handle top" onPointerDown={e=>onPointerDown(e,b,"top")}/>
                   {height >= 16 && (() => {
-                    const nSz = Math.max(8, Math.min(12, Math.floor(Math.min(COL_W/5.5, height/4.8))));
-                    const sSz = Math.max(7, Math.min(10, Math.floor(Math.min(COL_W/7.5, height/7))));
+                    const nSz = Math.max(7, Math.min(10, Math.floor(Math.min(COL_W/7, height/6))));
+                    const sSz = Math.max(6, Math.min(8, Math.floor(Math.min(COL_W/9, height/8.5))));
                     const [fName, ...lParts] = b.name.split(' ');
                     const lName = lParts.join(' ');
+                    // Each text row ≈ nSz*1.15px tall. Thresholds keep total rows within slot height.
+                    const showLName  = lName  && height >= 34;
+                    const showDur    = height >= 44;
+                    const showTsc    = b.type==="school" && b.tsc && height >= 54;
+                    const showPrice  = price > 0 && height >= 70;
+                    const textStyle  = { zIndex:2, position:"relative", textAlign:"center",
+                                         overflow:"hidden", whiteSpace:"nowrap" };
                     return <>
                       <div style={{
-                        fontSize:nSz, fontWeight:800, color:"#fff",
-                        lineHeight:1.1, textShadow:"0 1px 2px rgba(0,0,0,0.5)",
-                        zIndex:2, position:"relative",
-                        overflow:"hidden",
-                      }}>{fName}{lName&&<><br/><span style={{fontWeight:700}}>{lName}</span></>}</div>
-                      {height >= 36 && b.type==="school" && b.tsc && (
+                        ...textStyle, fontSize:nSz, fontWeight:800, color:"#fff",
+                        lineHeight:1.15, textShadow:"0 1px 2px rgba(0,0,0,0.5)",
+                      }}>{fName}{showLName&&<><br/><span style={{fontWeight:700}}>{lName}</span></>}</div>
+                      {showTsc && (
                         <div style={{
-                          fontSize:sSz, color:"rgba(255,255,255,0.85)", lineHeight:1.1,
-                          zIndex:2, position:"relative", textShadow:"0 1px 2px rgba(0,0,0,0.5)",
-                          overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap"
+                          ...textStyle, fontSize:sSz, color:"rgba(255,255,255,0.85)",
+                          lineHeight:1.1, textShadow:"0 1px 2px rgba(0,0,0,0.5)",
                         }}>{b.tsc}</div>
                       )}
-                      {height >= 28 && (
+                      {showDur && (
                         <div style={{
-                          fontSize:sSz, color:"rgba(255,255,255,0.7)",
-                          zIndex:2, position:"relative", fontWeight:700,
-                          textShadow:"0 1px 2px rgba(0,0,0,0.5)"
+                          ...textStyle, fontSize:sSz, color:"rgba(255,255,255,0.7)",
+                          fontWeight:700, textShadow:"0 1px 2px rgba(0,0,0,0.5)",
                         }}>{fmtDur(b.durMin)}</div>
                       )}
-                      {height >= 42 && price > 0 && (
+                      {showPrice && (
                         <div style={{
-                          fontSize:sSz, color:"rgba(255,255,255,0.9)",
-                          zIndex:2, position:"relative", fontWeight:800,
-                          textShadow:"0 1px 3px rgba(0,0,0,0.6)"
+                          ...textStyle, fontSize:sSz, color:"rgba(255,255,255,0.9)",
+                          fontWeight:800, textShadow:"0 1px 3px rgba(0,0,0,0.6)",
                         }}>{price} ₴</div>
                       )}
                     </>;
