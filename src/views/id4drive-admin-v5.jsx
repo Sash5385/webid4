@@ -532,7 +532,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   const TIME_COL_W = 34;
   const HEADER_H = 36;
   const N_DAYS = PAST_DAYS + 28; // 7 минулих + 28 майбутніх
-  const COL_W = Math.max(48, Math.floor((windowW - 28 - TIME_COL_W) / Math.max(1, settings.daysShown)));
+  const COL_W = Math.max(48, Math.floor((windowW - 14 - TIME_COL_W - (settings.daysShown - 1) * 4) / Math.max(1, settings.daysShown)));
   const totalMin = Math.max(60, (settings.workEnd - settings.workStart) * 60);
   // Авто-підлаштування: вся висота розкладу = доступна висота viewport
   // hourHeightPx / 60 використовується як zoom-множник (pinch)
@@ -725,7 +725,15 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   };
   const handleAction = (action, b) => {
     if (action === "confirm") setBookings(bs=>bs.map(x=>x.id===b.id?{...x,status:"confirmed"}:x));
-    if (action === "cancel")  setBookings(bs=>bs.map(x=>x.id===b.id?{...x,status:"cancelled"}:x));
+    if (action === "cancel") {
+      // Затемнення 2с → видалення (так само як значок ×)
+      setCancellingSet(s=>new Set([...s, b.id]));
+      cancelTimers.current[b.id] = setTimeout(()=>{
+        setCancellingSet(s=>{ const ns=new Set(s); ns.delete(b.id); return ns; });
+        setBookings(bs=>bs.filter(x=>x.id!==b.id));
+        delete cancelTimers.current[b.id];
+      }, 2000);
+    }
     if (action === "noshow")  setBookings(bs=>bs.map(x=>x.id===b.id?{...x,status:"noshow"}:x));
     if (action === "delete")  setBookings(bs=>bs.filter(x=>x.id!==b.id));
     if (action === "repeat")  setBookings(bs=>[...bs,{...b, id:`b-${Date.now()}`, day:b.day+7, status:"confirmed"}]);
@@ -735,11 +743,13 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
     if (action === "telegram") window.location.href=`https://t.me/${b.phone.replace(/\D/g,"")}`;
     setLocalSelectedBooking(null);
   };
+  const [blockModal, setBlockModal] = useState(null); // {id, day, startMin, durMin}
+
   const handleBlock = ({ day, startMin }) => {
     setBookings(bs=>[...bs,{
       id:`block-${Date.now()}`, day, startMin, durMin:60,
       name:"ЗАБЛОКОВАНО", phone:"", type:"block", tsc:"",
-      hoursDone:0, status:"cancelled", serviceId:""
+      hoursDone:0, status:"blocked", serviceId:""
     }]);
   };
 
@@ -882,7 +892,8 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                 const c = slotColor(b);
                 const isPending = b.status==="pending" && settings.pendingEnabled;
                 const isCancelling = cancellingSet.has(b.id);
-                const isDimmed = b.status==="cancelled" || b.status==="noshow" || isCancelling;
+                const isBlock = b.type === "block";
+                const isDimmed = !isBlock && (b.status==="cancelled" || b.status==="noshow" || isCancelling);
                 const svc = settings.services.find(s=>s.id===b.serviceId);
                 const price = svc ? Math.round((svc.price / svc.duration) * b.durMin) : 0;
                 return (
@@ -894,14 +905,14 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                   }}>
                     {/* Сам слот */}
                     <div
-                      className={`slot-base slot-colored ${isPending?"slot-pending-ring":""} ${holdId===b.id?"slot-holding":""} ${shineId===b.id&&!isDimmed?"shine-active":""}`}
-                      onPointerDown={e=>onPointerDown(e,b,"move")}
+                      className={`${isBlock?"":"slot-base slot-colored"} ${!isBlock&&isPending?"slot-pending-ring":""} ${!isBlock&&holdId===b.id?"slot-holding":""} ${!isBlock&&shineId===b.id&&!isDimmed?"shine-active":""}`}
+                      onPointerDown={e=>{ if(!isBlock) onPointerDown(e,b,"move"); }}
                       onContextMenu={e=>e.preventDefault()}
                       onClick={e=>{
                         e.stopPropagation();
                         if(quickCancelId){ setQuickCancelId(null); return; }
+                        if(isBlock){ setBlockModal(b); return; }
                         if(isCancelling){
-                          // Скасовуємо видалення — ундо
                           clearTimeout(cancelTimers.current[b.id]);
                           delete cancelTimers.current[b.id];
                           setCancellingSet(s=>{ const ns=new Set(s); ns.delete(b.id); return ns; });
@@ -909,7 +920,15 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                         }
                         if(!dragRef.current && !dragEndedRef.current){ setLocalSelectedBooking(b); onSlotClick?.(b); }
                       }}
-                      style={{
+                      style={isBlock ? {
+                        position:"relative", width:"100%", height:"100%",
+                        borderRadius:8, cursor:"pointer",
+                        background:"repeating-linear-gradient(45deg,#1a1b1f,#1a1b1f 6px,#222428 6px,#222428 12px)",
+                        border:"1px solid rgba(255,255,255,0.08)",
+                        boxShadow:"inset 0 1px 0 rgba(255,255,255,0.04)",
+                        display:"flex", alignItems:"center", justifyContent:"center",
+                        overflow:"hidden",
+                      } : {
                         "--c": c,
                         position:"relative", width:"100%", height:"100%",
                         padding:"2px 6px",
@@ -918,9 +937,14 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                         filter: isDimmed ? "grayscale(0.6)" : "none",
                         transition:"opacity 0.4s, filter 0.4s",
                       }}>
-                      <div className="slot-handle top" onPointerDown={e=>onPointerDown(e,b,"top")}/>
-                      <div className="shine-layer"/>
-                      {height >= 12 && (() => {
+                      {!isBlock && <div className="slot-handle top" onPointerDown={e=>onPointerDown(e,b,"top")}/>}
+                      {!isBlock && <div className="shine-layer"/>}
+                      {isBlock && height >= 18 && (
+                        <div style={{fontSize:Math.min(9,Math.floor(height/4)),fontWeight:700,
+                          color:"rgba(255,255,255,0.2)",letterSpacing:1,textTransform:"uppercase",
+                          userSelect:"none"}}>Блок</div>
+                      )}
+                      {!isBlock && height >= 12 && (() => {
                         const [fName, ...lParts] = b.name.split(' ');
                         const lName = lParts.join(' ');
                         const lines = [
@@ -948,7 +972,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                           </div>
                         );
                       })()}
-                      <div className="slot-handle bottom" onPointerDown={e=>onPointerDown(e,b,"bottom")}/>
+                      {!isBlock && <div className="slot-handle bottom" onPointerDown={e=>onPointerDown(e,b,"bottom")}/>}
                     </div>
 
                     {/* ── Значок скасування (довге натискання) — поза slot-base щоб не обрізатись ── */}
@@ -995,6 +1019,68 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
 
     <BookingModal booking={localSelectedBooking} onClose={()=>setLocalSelectedBooking(null)}
       onAction={handleAction} settings={settings}/>
+
+    {/* ── Модалка блокування ── */}
+    {blockModal && (
+      <div onClick={()=>setBlockModal(null)} style={{
+        position:"fixed",inset:0,zIndex:200,background:"rgba(0,0,0,0.78)",
+        display:"flex",alignItems:"flex-end",justifyContent:"center",
+        backdropFilter:"blur(12px)"
+      }}>
+        <div onClick={e=>e.stopPropagation()} style={{
+          width:"100%",maxWidth:480,background:BG_DEEP,
+          borderRadius:"28px 28px 0 0",
+          boxShadow:"0 -2px 0 rgba(255,255,255,0.08), 0 -16px 60px rgba(0,0,0,0.8)",
+          display:"flex",flexDirection:"column",overflow:"hidden",
+        }}>
+          {/* Hero */}
+          <div style={{
+            padding:"14px 16px 18px",
+            background:"repeating-linear-gradient(45deg,#1e1f23,#1e1f23 8px,#232428 8px,#232428 16px)",
+            position:"relative",
+          }}>
+            <div style={{width:38,height:4,borderRadius:2,background:"rgba(255,255,255,0.1)",margin:"0 auto 14px"}}/>
+            <div style={{display:"flex",alignItems:"center",gap:14}}>
+              <div style={{
+                width:50,height:50,borderRadius:25,flexShrink:0,
+                background:"rgba(255,255,255,0.06)",border:"1.5px solid rgba(255,255,255,0.1)",
+                display:"flex",alignItems:"center",justifyContent:"center",
+              }}>
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.35)" strokeWidth="2" strokeLinecap="round">
+                  <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                </svg>
+              </div>
+              <div>
+                <div style={{fontSize:18,fontWeight:900,color:"rgba(255,255,255,0.5)",letterSpacing:-0.4}}>Заблоковано</div>
+                <div style={{fontSize:12,color:"rgba(255,255,255,0.25)",marginTop:3}}>
+                  {getDayInfo(blockModal.day).fullLabel} · {fmtTime(blockModal.startMin)} · {fmtDur(blockModal.durMin)}
+                </div>
+              </div>
+            </div>
+          </div>
+          {/* Buttons */}
+          <div style={{padding:"14px 16px 28px",display:"flex",flexDirection:"column",gap:10}}>
+            <button onClick={()=>{
+              setBookings(bs=>bs.filter(x=>x.id!==blockModal.id));
+              setBlockModal(null);
+            }} style={{
+              width:"100%",padding:"14px",borderRadius:18,border:"none",cursor:"pointer",
+              background:`linear-gradient(160deg,${GREEN},#4ade80)`,
+              color:"#fff",fontSize:14,fontWeight:800,
+              boxShadow:`0 6px 20px ${GREEN}55`,
+            }}>
+              🔓 Розблокувати
+            </button>
+            <button onClick={()=>setBlockModal(null)} style={{
+              width:"100%",padding:"13px",borderRadius:18,border:"none",cursor:"pointer",
+              background:"linear-gradient(145deg,#f87171,#b91c1c)",
+              color:"#fff",fontSize:13,fontWeight:700,
+              boxShadow:"0 4px 14px #b91c1c66",
+            }}>Закрити</button>
+          </div>
+        </div>
+      </div>
+    )}
 
     {bubbleData && (
       <div onClick={()=>setBubbleData(null)} style={{position:"fixed",inset:0,zIndex:100}}>

@@ -295,7 +295,7 @@ function BottomNav({ active, onChange, settings }) {
 }
 
 // ─── TOP BAR ─────────────────────────────────────────────────────
-function TopBar({ tab }) {
+function TopBar({ tab, onChange }) {
   return (
     <div style={{
       padding:"6px 12px",
@@ -312,8 +312,8 @@ function TopBar({ tab }) {
         <div style={{fontSize:13,fontWeight:800,letterSpacing:-0.3,color:TEXT}}>{TAB_TITLES[tab]}</div>
       </div>
       <div style={{display:"flex",gap:6,alignItems:"center"}}>
-        <button style={{background:"none",border:"none",cursor:"pointer",position:"relative",padding:0}}>
-          <I3 s={24} r={7} gr="linear-gradient(135deg,#2e3034,#26282c)">
+        <button onClick={()=>onChange?.("bookings")} style={{background:"none",border:"none",cursor:"pointer",position:"relative",padding:0}}>
+          <I3 s={24} r={7} gr={tab==="bookings"?"linear-gradient(165deg,#ff7a5c,#ff5a3c)":"linear-gradient(135deg,#2e3034,#26282c)"}>
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={TEXT} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0"/></svg>
           </I3>
           <div style={{
@@ -323,10 +323,12 @@ function TopBar({ tab }) {
             boxShadow:`0 0 6px ${ACCENT}88`
           }}>3</div>
         </button>
-        <button style={{background:"none",border:"none",cursor:"pointer",padding:0}}>
+        <button onClick={()=>onChange?.("settings")} style={{background:"none",border:"none",cursor:"pointer",padding:0}}>
           <div style={{
             width:24,height:24,borderRadius:12,
-            background:"linear-gradient(165deg,#9ee07a,#5fb83d)",
+            background: tab==="settings"
+              ? "linear-gradient(165deg,#ff7a5c,#ff5a3c)"
+              : "linear-gradient(165deg,#9ee07a,#5fb83d)",
             display:"flex",alignItems:"center",justifyContent:"center",
             fontSize:9,fontWeight:800,color:"#fff",
             boxShadow:"-2px 3px 8px rgba(0,0,0,0.4),inset 1px 1px 0 rgba(255,255,255,0.2)"
@@ -404,7 +406,7 @@ export default function App() {
         fontFamily:"ui-sans-serif,-apple-system,BlinkMacSystemFont,system-ui,sans-serif",
         paddingBottom:90
       }}>
-        <TopBar tab={tab}/>
+        <TopBar tab={tab} onChange={setTab}/>
         <div className="tab-anim" key={tab} style={{padding: tab==="schedule" ? "4px 3px 0" : "14px 14px 0"}}>
           <Suspense fallback={<Loader/>}>
             <ViewRenderer tab={tab} settings={settings} setSettings={setSettings} bookings={bookings} setBookings={setBookings} onSlotClick={setSelectedBooking} onEmptySlotClick={setNewBookingData}/>
