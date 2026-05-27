@@ -549,27 +549,28 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
 
   const onPointerDown = (e, b, mode) => {
     e.preventDefault(); e.stopPropagation();
-    const dragData = { id:b.id, mode, startClientY:e.clientY, startClientX:e.clientX, startMinutes:b.startMin, startDur:b.durMin, startDay:b.day };
+    const isBlock = b.type === "block";
+    const dragData = { id:b.id, mode, isBlock, startClientY:e.clientY, startClientX:e.clientX, startMinutes:b.startMin, startDur:b.durMin, startDay:b.day };
 
     if (mode === "top" || mode === "bottom") {
-      // Resize: через pendingDragRef — активується лише при русі >4px
-      // (миттєва активація блокувала onClick на коротких слотах)
       navigator.vibrate?.(6);
       pendingDragRef.current = dragData;
       return;
     }
 
-    // Move: довге натискання 1с
-    navigator.vibrate?.(6); // підтвердження дотику
+    navigator.vibrate?.(6);
     pendingDragRef.current = dragData;
-    setHoldId(b.id);
-    holdTimerRef.current = setTimeout(() => {
-      if (!pendingDragRef.current) return;
-      // НЕ очищаємо pendingDragRef — рух пальця після значка запускає drag
-      setHoldId(null);
-      setQuickCancelId(b.id);
-      navigator.vibrate?.([30, 40, 60]);
-    }, 700);
+    if (!isBlock) {
+      // Звичайні слоти: 700мс утримання → значок скасування
+      setHoldId(b.id);
+      holdTimerRef.current = setTimeout(() => {
+        if (!pendingDragRef.current) return;
+        setHoldId(null);
+        setQuickCancelId(b.id);
+        navigator.vibrate?.([30, 40, 60]);
+      }, 700);
+    }
+    // Блоки: жодного hold-таймера — drag активується одразу при русі >4px в onMove
   };
 
   // Listeners always attached — dragRef gives instant access without useEffect re-fire
@@ -590,9 +591,10 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
       if (pendingDragRef.current) {
         const pd = pendingDragRef.current;
         const moved = Math.hypot(e.clientY - pd.startClientY, e.clientX - pd.startClientX);
-        if (pd.mode === "top" || pd.mode === "bottom") {
-          // Resize: активуємо щойно є реальний рух
+        if (pd.mode === "top" || pd.mode === "bottom" || pd.isBlock) {
+          // Resize або блок: активуємо drag відразу при русі >4px
           if (moved > 4) {
+            clearTimeout(holdTimerRef.current);
             dragRef.current = {...pd};
             pendingDragRef.current = null;
             setDragId(pd.id);
@@ -600,12 +602,11 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
           }
           return;
         }
-        // Move: якщо значок вже показано — починаємо drag; інакше — скасовуємо (скрол)
+        // Звичайний move: якщо значок вже показано — drag; інакше — скасовуємо (скрол)
         if (moved > 15) {
           clearTimeout(holdTimerRef.current);
           holdTimerRef.current = null;
           if (quickCancelRef.current !== null) {
-            // Значок показано, юзер потягнув — запускаємо drag
             dragRef.current = {...pd};
             pendingDragRef.current = null;
             setQuickCancelId(null);
@@ -905,12 +906,13 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                   }}>
                     {/* Сам слот */}
                     <div
-                      className={`${isBlock?"":"slot-base slot-colored"} ${!isBlock&&isPending?"slot-pending-ring":""} ${!isBlock&&holdId===b.id?"slot-holding":""} ${!isBlock&&shineId===b.id&&!isDimmed?"shine-active":""}`}
-                      onPointerDown={e=>{ if(!isBlock) onPointerDown(e,b,"move"); }}
+                      className={`slot-base ${isBlock?"":"slot-colored"} ${!isBlock&&isPending?"slot-pending-ring":""} ${!isBlock&&holdId===b.id?"slot-holding":""} ${!isBlock&&shineId===b.id&&!isDimmed?"shine-active":""}`}
+                      onPointerDown={e=>onPointerDown(e,b,"move")}
                       onContextMenu={e=>e.preventDefault()}
                       onClick={e=>{
                         e.stopPropagation();
                         if(quickCancelId){ setQuickCancelId(null); return; }
+                        if(dragEndedRef.current) return;
                         if(isBlock){ setBlockModal(b); return; }
                         if(isCancelling){
                           clearTimeout(cancelTimers.current[b.id]);
@@ -918,11 +920,11 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                           setCancellingSet(s=>{ const ns=new Set(s); ns.delete(b.id); return ns; });
                           return;
                         }
-                        if(!dragRef.current && !dragEndedRef.current){ setLocalSelectedBooking(b); onSlotClick?.(b); }
+                        if(!dragRef.current){ setLocalSelectedBooking(b); onSlotClick?.(b); }
                       }}
                       style={isBlock ? {
                         position:"relative", width:"100%", height:"100%",
-                        borderRadius:8, cursor:"pointer",
+                        borderRadius:8,
                         background:"repeating-linear-gradient(45deg,#1a1b1f,#1a1b1f 6px,#222428 6px,#222428 12px)",
                         border:"1px solid rgba(255,255,255,0.08)",
                         boxShadow:"inset 0 1px 0 rgba(255,255,255,0.04)",
@@ -937,7 +939,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                         filter: isDimmed ? "grayscale(0.6)" : "none",
                         transition:"opacity 0.4s, filter 0.4s",
                       }}>
-                      {!isBlock && <div className="slot-handle top" onPointerDown={e=>onPointerDown(e,b,"top")}/>}
+                      <div className="slot-handle top" onPointerDown={e=>onPointerDown(e,b,"top")}/>
                       {!isBlock && <div className="shine-layer"/>}
                       {isBlock && height >= 18 && (() => {
                         const sz = Math.min(height * 0.62, 36);
@@ -977,7 +979,8 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                           </div>
                         );
                       })()}
-                      {!isBlock && <div className="slot-handle bottom" onPointerDown={e=>onPointerDown(e,b,"bottom")}/>}
+                      <div className="slot-handle bottom" onPointerDown={e=>onPointerDown(e,b,"bottom")}/>
+
                     </div>
 
                     {/* ── Значок скасування (довге натискання) — поза slot-base щоб не обрізатись ── */}
