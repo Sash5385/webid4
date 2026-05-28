@@ -471,9 +471,8 @@ export default function BookingsView() {
     return 0;
   });
 
+  const [showInfo, setShowInfo] = useState(true);
   const pendingCount = data.filter(b=>b.status==="pending").length;
-  const totalPrice   = list.reduce((s,b)=>s+priceOf(b),0);
-  const totalHours   = list.reduce((s,b)=>s+(b.durMin/60),0);
 
   const grouped = (() => {
     if (!groupBy) return [{key:null,items:list}];
@@ -498,6 +497,18 @@ export default function BookingsView() {
     <>
       <style>{CSS}</style>
       <div style={{display:"flex",flexDirection:"column",gap:10,fontFamily:"ui-sans-serif,-apple-system,system-ui,sans-serif",color:TEXT}}>
+
+        {/* ── INFO ── */}
+        {showInfo && (
+          <div style={{background:`linear-gradient(145deg,${ACCENT}0d,${ACCENT}05)`,border:`1px solid ${ACCENT}30`,borderRadius:10,padding:"10px 12px",position:"relative"}}>
+            <button onClick={()=>setShowInfo(false)} style={{position:"absolute",top:7,right:8,background:"none",border:"none",cursor:"pointer",color:FAINT,fontSize:16,lineHeight:1,padding:"0 2px"}}>×</button>
+            <div style={{fontSize:11,fontWeight:700,color:ACCENT,marginBottom:4}}>💡 Бюкінги</div>
+            <div style={{fontSize:11,color:DIM,lineHeight:1.6,paddingRight:16}}>
+              Список записів учнів. Натисніть на картку — побачите деталі, телефон і кнопки дій.
+              Очікуючі записи підтвердіть або скасуйте. Використовуйте пошук і фільтр для швидкого доступу.
+            </div>
+          </div>
+        )}
 
         {/* ── PENDING ALERT ── */}
         {pendingCount>0 && (
@@ -546,26 +557,6 @@ export default function BookingsView() {
               <span style={{position:"absolute",top:-5,right:-5,background:ACCENT,color:"#fff",borderRadius:8,padding:"0 5px",fontSize:8,fontWeight:800,lineHeight:"14px"}}>{activeFiltersCount}</span>
             )}
           </button>
-        </div>
-
-        {/* ── QUICK STATUS FILTERS ── */}
-        <QuickFilters active={filters.status} onChange={s=>setFilters(f=>({...f,status:s}))}/>
-
-        {/* ── STATS ── */}
-        <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8}}>
-          {[
-            {label:"Записів",val:list.length,          c:TEXT},
-            {label:"Годин",  val:totalHours.toFixed(1), c:BLUE},
-            {label:"Сума",   val:`${totalPrice.toLocaleString()} ₴`, c:GOLD},
-          ].map(s=>(
-            <div key={s.label} style={{
-              background:`linear-gradient(135deg,${BG_DEEP},${SURF_LO})`,
-              borderRadius:12,padding:"10px",textAlign:"center",boxShadow:SI,
-            }}>
-              <div style={{fontSize:9,color:FAINT,letterSpacing:1,textTransform:"uppercase"}}>{s.label}</div>
-              <div style={{fontSize:17,fontWeight:900,color:s.c,marginTop:3}}>{s.val}</div>
-            </div>
-          ))}
         </div>
 
         {/* ── GROUPED CARD LIST ── */}
