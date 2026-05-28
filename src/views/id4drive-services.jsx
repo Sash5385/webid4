@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef } from "react";
 
 // ─── TOKENS ─────────────────────────────────────────────────────
 const BG      = "#1c1d21";
@@ -19,8 +19,8 @@ const GOLD    = "#f7c948";
 const RED     = "#ef4444";
 const TEAL    = "#2dd4bf";
 
-const SO = "6px 6px 16px rgba(0,0,0,0.45),-3px -3px 10px rgba(255,255,255,0.025)";
-const SI = "inset 3px 3px 8px rgba(0,0,0,0.4),inset -2px -2px 6px rgba(255,255,255,0.025)";
+const SO = "0 2px 10px rgba(0,0,0,0.4)";
+const SI = "inset 2px 2px 6px rgba(0,0,0,0.45),inset -1px -1px 3px rgba(255,255,255,0.02)";
 
 const PALETTE = [
   { id:"green",   name:"Зелений",    color:GREEN  },
@@ -48,8 +48,7 @@ const CSS = `
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 ::-webkit-scrollbar{width:5px;height:5px}
 ::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.1);border-radius:3px}
-.pillow{background:linear-gradient(135deg,${SURF_HI} 0%,${SURFACE} 50%,${SURF_LO} 100%);border:1px solid rgba(255,255,255,0.04);border-radius:18px;position:relative;overflow:hidden;box-shadow:-2px 6px 16px rgba(0,0,0,0.45),inset 1px 1px 0 rgba(255,255,255,0.08),inset -1px -1px 0 rgba(0,0,0,0.25)}
-.pillow::before{content:'';position:absolute;pointer-events:none;top:0;right:0;width:60%;height:35%;background:radial-gradient(ellipse at top right,rgba(255,255,255,0.07) 0%,transparent 70%);border-radius:18px}
+.pillow{background:linear-gradient(155deg,${SURF_HI},${SURFACE});border:1px solid rgba(255,255,255,0.06);border-radius:13px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.35)}
 .icon3d{display:inline-flex;align-items:center;justify-content:center;border-radius:14px;position:relative;overflow:hidden;flex-shrink:0;box-shadow:-2px 4px 10px rgba(0,0,0,0.5),inset 1px 1px 0 rgba(255,255,255,0.25),inset -1px -1px 0 rgba(0,0,0,0.3)}
 .icon3d::before{content:'';position:absolute;top:0;right:0;width:60%;height:50%;background:radial-gradient(ellipse at top right,rgba(255,255,255,0.4) 0%,transparent 70%);pointer-events:none}
 .icon3d>svg{position:relative;z-index:1;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.4))}
@@ -72,11 +71,11 @@ const CSS = `
 
 // ─── MOCK DATA ───────────────────────────────────────────────────
 const INIT_SERVICES = [
-  { id:"sv1", name:"Автошкола 1 год",  type:"school",  duration:60,  price:600,  colorId:"green",  active:true,  archived:false, description:"Стандартний урок для учнів автошколи", accessCats:["cat-all"], lessons:47, income:28200  },
-  { id:"sv2", name:"Автошкола 2 год",  type:"school",  duration:120, price:1100, colorId:"green",  active:true,  archived:false, description:"Подвійний урок для автошколи",          accessCats:["cat-all"], lessons:31, income:34100  },
-  { id:"sv3", name:"Приватний 1 год",  type:"private", duration:60,  price:700,  colorId:"yellow", active:true,  archived:false, description:"Приватний урок для будь-якого учня",    accessCats:["cat-all"], lessons:28, income:19600  },
-  { id:"sv4", name:"Приватний 2 год",  type:"private", duration:120, price:1300, colorId:"yellow", active:true,  archived:false, description:"Подвійний приватний урок",              accessCats:["cat-vip","cat-std"], lessons:14, income:18200 },
-  { id:"sv5", name:"VIP інтенсив",     type:"private", duration:180, price:2200, colorId:"purple", active:true,  archived:false, description:"3-годинний VIP урок для досвідчених",  accessCats:["cat-vip"], lessons:6,  income:13200  },
+  { id:"sv1", name:"Автошкола 1 год",  type:"school",  duration:60,  price:600,  colorId:"green",  active:true,  archived:false, description:"Стандартний урок для учнів автошколи", accessCats:["cat-all"], lessons:47, income:28200, instructions:"Мати при собі свідоцтво учня автошколи. Зустріч біля головного входу ТСЦ за 5 хвилин до початку." },
+  { id:"sv2", name:"Автошкола 2 год",  type:"school",  duration:120, price:1100, colorId:"green",  active:true,  archived:false, description:"Подвійний урок для автошколи",          accessCats:["cat-all"], lessons:31, income:34100, instructions:"Мати при собі свідоцтво учня. Взяти воду. Підходить для відпрацювання складних маневрів." },
+  { id:"sv3", name:"Приватний 1 год",  type:"private", duration:60,  price:700,  colorId:"yellow", active:true,  archived:false, description:"Приватний урок для будь-якого учня",    accessCats:["cat-all"], lessons:28, income:19600, instructions:"Документ, що посвідчує особу. Зручний одяг та взуття." },
+  { id:"sv4", name:"Приватний 2 год",  type:"private", duration:120, price:1300, colorId:"yellow", active:true,  archived:false, description:"Подвійний приватний урок",              accessCats:["cat-vip","cat-std"], lessons:14, income:18200, instructions:"Для досвідченіших учнів. Відпрацьовуємо маршрути ТСЦ та паркування." },
+  { id:"sv5", name:"VIP інтенсив",     type:"private", duration:180, price:2200, colorId:"purple", active:true,  archived:false, description:"3-годинний VIP урок для досвідчених",  accessCats:["cat-vip"], lessons:6,  income:13200, instructions:"Індивідуальна програма. Включає розбір помилок, складні маршрути та нічне водіння за бажанням." },
 ];
 
 // ─── HELPERS ────────────────────────────────────────────────────
@@ -137,7 +136,7 @@ function ServiceFormModal({ svc, onSave, onClose }) {
     id: `sv-${Date.now()}`,
     name:"", type:"school", duration:60, price:0,
     colorId:"green", active:true, archived:false,
-    description:"", accessCats:["cat-all"],
+    description:"", instructions:"", accessCats:["cat-all"],
     lessons:0, income:0
   });
 
@@ -253,6 +252,16 @@ function ServiceFormModal({ svc, onSave, onClose }) {
             <textarea value={form.description} onChange={e=>upd("description",e.target.value)}
               placeholder="Короткий опис послуги..." rows={2}
               style={{width:"100%",background:"transparent",border:"none",outline:"none",color:TEXT,fontSize:13,resize:"none",fontFamily:"inherit"}}/>
+          </Inset>
+        </div>
+
+        {/* instructions */}
+        <div style={{marginBottom:14}}>
+          <div style={{fontSize:10,color:FAINT,letterSpacing:1,marginBottom:6}}>ІНСТРУКЦІЇ ДЛЯ УЧНЯ</div>
+          <Inset style={{padding:"10px 14px"}}>
+            <textarea value={form.instructions||""} onChange={e=>upd("instructions",e.target.value)}
+              placeholder="Що взяти, куди прийти, що очікувати на уроці…" rows={3}
+              style={{width:"100%",background:"transparent",border:"none",outline:"none",color:TEXT,fontSize:13,resize:"none",fontFamily:"inherit",lineHeight:1.5}}/>
           </Inset>
         </div>
 
@@ -405,7 +414,7 @@ function ServiceCard({ svc, isDragging, onEdit, onToggle, onDelete, dragHandlePr
           padding:"11px 0",border:"none",borderRight:`1px solid ${BORDER}`,cursor:"pointer",
           background:"transparent",color:BLUE,fontSize:12,fontWeight:700,
           display:"flex",alignItems:"center",justifyContent:"center",gap:6,
-          borderRadius:"0 0 0 18px"
+          borderRadius:"0 0 0 13px"
         }}>
           {Ic.edit(20)} Редагувати
         </button>
@@ -413,7 +422,7 @@ function ServiceCard({ svc, isDragging, onEdit, onToggle, onDelete, dragHandlePr
           padding:"11px 0",border:"none",cursor:"pointer",
           background:"transparent",color:RED,fontSize:12,fontWeight:700,
           display:"flex",alignItems:"center",justifyContent:"center",gap:6,
-          borderRadius:"0 0 18px 0"
+          borderRadius:"0 0 13px 0"
         }}>
           {Ic.trash(20)} Видалити
         </button>
@@ -424,25 +433,45 @@ function ServiceCard({ svc, isDragging, onEdit, onToggle, onDelete, dragHandlePr
 
 // ─── ROW MODE ────────────────────────────────────────────────────
 function ServiceRow({ svc, onEdit, onToggle, onDelete, dragHandleProps, isDragging }) {
+  const [open, setOpen] = useState(false);
   const c = colorOf(svc.colorId);
+  const hasInstructions = svc.instructions && svc.instructions.trim();
   return (
     <div className={`drag-item ${isDragging?"dragging":""}`} style={{
-      background:`linear-gradient(135deg,${SURF_HI},${SURFACE})`,
-      borderRadius:14,padding:"10px 12px",marginBottom:8,
-      display:"flex",alignItems:"center",gap:10,
+      background:`linear-gradient(155deg,${SURF_HI},${SURFACE})`,
+      borderRadius:13,marginBottom:8,overflow:"hidden",
       boxShadow:SO,opacity:svc.active&&!svc.archived?1:0.55
     }}>
-      <div {...dragHandleProps} style={{cursor:"grab",touchAction:"none"}}>{Ic.drag(24)}</div>
-      <div style={{width:8,height:36,borderRadius:4,background:c,boxShadow:`0 0 8px ${c}88`,flexShrink:0}}/>
-      <div style={{flex:1,minWidth:0}}>
-        <div style={{fontSize:13,fontWeight:800,color:TEXT,marginBottom:2}}>{svc.name}</div>
-        <div style={{fontSize:11,color:DIM}}>{fmtDur(svc.duration)} · {svc.price}₴ · {svc.lessons} уроків</div>
+      {/* main row */}
+      <div style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px"}}>
+        <div {...dragHandleProps} style={{cursor:"grab",touchAction:"none"}}>{Ic.drag(24)}</div>
+        <div style={{width:8,height:36,borderRadius:4,background:c,boxShadow:`0 0 8px ${c}88`,flexShrink:0}}/>
+        <div style={{flex:1,minWidth:0}} onClick={()=>hasInstructions&&setOpen(v=>!v)}>
+          <div style={{fontSize:13,fontWeight:800,color:TEXT,marginBottom:2}}>{svc.name}</div>
+          <div style={{fontSize:11,color:DIM}}>{fmtDur(svc.duration)} · {svc.price}₴ · {svc.lessons} уроків</div>
+        </div>
+        {!svc.active&&<Pill label="Вимк." color={DIM} bg="rgba(255,255,255,0.06)"/>}
+        {svc.archived&&<Pill label="Архів" color="#fb923c" bg="rgba(251,146,60,0.15)"/>}
+        {hasInstructions && (
+          <button onClick={()=>setOpen(v=>!v)} style={{background:"none",border:"none",cursor:"pointer",padding:"0 2px",color:FAINT,fontSize:11,flexShrink:0}}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"
+              style={{display:"block",transform:open?"rotate(180deg)":"none",transition:"transform .2s"}}>
+              <polyline points="6 9 12 15 18 9"/>
+            </svg>
+          </button>
+        )}
+        <Toggle on={svc.active&&!svc.archived} onChange={v=>onToggle(svc.id,v)}/>
+        <button onClick={()=>onEdit(svc)} style={{background:"none",border:"none",cursor:"pointer",padding:0}}>{Ic.edit(28)}</button>
+        <button onClick={()=>onDelete(svc)} style={{background:"none",border:"none",cursor:"pointer",padding:0}}>{Ic.trash(28)}</button>
       </div>
-      {!svc.active&&<Pill label="Вимк." color={DIM} bg="rgba(255,255,255,0.06)"/>}
-      {svc.archived&&<Pill label="Архів" color="#fb923c" bg="rgba(251,146,60,0.15)"/>}
-      <Toggle on={svc.active&&!svc.archived} onChange={v=>onToggle(svc.id,v)}/>
-      <button onClick={()=>onEdit(svc)} style={{background:"none",border:"none",cursor:"pointer",padding:0}}>{Ic.edit(28)}</button>
-      <button onClick={()=>onDelete(svc)} style={{background:"none",border:"none",cursor:"pointer",padding:0}}>{Ic.trash(28)}</button>
+
+      {/* instructions panel */}
+      {open && hasInstructions && (
+        <div style={{padding:"10px 14px 12px",borderTop:`1px solid ${BORDER}`,display:"flex",gap:8,alignItems:"flex-start"}}>
+          <span style={{fontSize:16,flexShrink:0}}>📋</span>
+          <div style={{fontSize:12,color:DIM,lineHeight:1.55}}>{svc.instructions}</div>
+        </div>
+      )}
     </div>
   );
 }
@@ -485,7 +514,6 @@ function useDragReorder(items, setItems) {
 // ─── MAIN ────────────────────────────────────────────────────────
 export default function ServicesView() {
   const [services, setServices] = useState(INIT_SERVICES);
-  const [mode, setMode]         = useState("cards");
   const [showArchived, setShowArchived] = useState(false);
   const [editSvc, setEditSvc]   = useState(null);  // null=closed, false=new, obj=edit
   const [deleteSvc, setDeleteSvc] = useState(null);
@@ -494,9 +522,6 @@ export default function ServicesView() {
   const active   = services.filter(s=>!s.archived);
   const archived = services.filter(s=>s.archived);
   const shown    = showArchived ? services : active;
-
-  const totalLessons = active.filter(s=>s.active).reduce((a,s)=>a+s.lessons,0);
-  const totalIncome  = active.filter(s=>s.active).reduce((a,s)=>a+s.income,0);
 
   const onToggle = (id, val) => setServices(ss=>ss.map(s=>s.id===id?{...s,active:val,archived:false}:s));
   const onSave   = (form) => {
@@ -513,61 +538,20 @@ export default function ServicesView() {
   return (
     <>
       <style>{CSS}</style>
-      <div style={{display:"flex",flexDirection:"column",gap:12,fontFamily:"ui-sans-serif,-apple-system,system-ui,sans-serif",color:TEXT}}>
-
-        {/* ── SUMMARY ── */}
-        <div style={{display:"flex",gap:8}}>
-          {[
-            {label:"Активних послуг", val:active.filter(s=>s.active).length, c:GREEN},
-            {label:"Уроків всього",   val:totalLessons,                      c:BLUE},
-            {label:"Дохід ₴",         val:totalIncome.toLocaleString(),       c:GOLD},
-          ].map(s=>(
-            <div key={s.label} style={{flex:1,background:`linear-gradient(135deg,${BG_DEEP},${SURF_LO})`,borderRadius:12,boxShadow:SI,padding:"8px 10px",textAlign:"center"}}>
-              <div style={{fontSize:9,color:FAINT,letterSpacing:1}}>{s.label}</div>
-              <div style={{fontSize:15,fontWeight:900,color:s.c,marginTop:2}}>{s.val}</div>
-            </div>
-          ))}
-        </div>
-
-        {/* ── CONTROLS ── */}
-        <div style={{display:"flex",gap:8,alignItems:"center"}}>
-          <div style={{flex:1,fontSize:13,color:DIM}}>
-            {active.length} послуг · тягни ☰ для зміни порядку
-          </div>
-          {archived.length>0 && (
-            <button onClick={()=>setShowArchived(v=>!v)} style={{
-              padding:"7px 12px",borderRadius:10,border:"none",cursor:"pointer",fontSize:11,fontWeight:700,
-              background:showArchived?`linear-gradient(165deg,#fb923c,#ea580c)`:`linear-gradient(135deg,${SURF_HI},${SURFACE})`,
-              color:showArchived?"#fff":DIM, boxShadow:SO
-            }}>📦 Архів ({archived.length})</button>
-          )}
-          <button onClick={()=>setMode(m=>m==="cards"?"rows":"cards")} style={{background:"none",border:"none",cursor:"pointer",padding:0}}>
-            {mode==="cards"?Ic.rows(38):Ic.grid(38)}
-          </button>
-        </div>
+      <div style={{display:"flex",flexDirection:"column",gap:8,fontFamily:"ui-sans-serif,-apple-system,system-ui,sans-serif",color:TEXT}}>
 
         {/* ── LIST ── */}
         <div onPointerMove={e=>getHandlers(0).onPointerMove(e)} onPointerUp={()=>getHandlers(0).onPointerUp()}>
           {shown.map((svc, idx) => (
             <div key={svc.id} data-drag-idx={idx}>
-              {mode==="cards"
-                ? <ServiceCard
-                    svc={svc}
-                    isDragging={false}
-                    onEdit={setEditSvc}
-                    onToggle={onToggle}
-                    onDelete={setDeleteSvc}
-                    dragHandleProps={getHandlers(idx)}
-                  />
-                : <ServiceRow
-                    svc={svc}
-                    isDragging={false}
-                    onEdit={setEditSvc}
-                    onToggle={onToggle}
-                    onDelete={setDeleteSvc}
-                    dragHandleProps={getHandlers(idx)}
-                  />
-              }
+              <ServiceRow
+                svc={svc}
+                isDragging={false}
+                onEdit={setEditSvc}
+                onToggle={onToggle}
+                onDelete={setDeleteSvc}
+                dragHandleProps={getHandlers(idx)}
+              />
             </div>
           ))}
         </div>
@@ -577,6 +561,16 @@ export default function ServicesView() {
             <div style={{fontSize:32,marginBottom:10}}>📋</div>
             <div style={{fontSize:14,fontWeight:700}}>Немає послуг</div>
           </div>
+        )}
+
+        {/* ── ARCHIVE ── */}
+        {archived.length>0 && (
+          <button onClick={()=>setShowArchived(v=>!v)} style={{
+            width:"100%",padding:"11px",borderRadius:12,border:"none",cursor:"pointer",fontSize:12,fontWeight:700,
+            background:showArchived?`linear-gradient(165deg,#fb923c,#ea580c)`:`linear-gradient(135deg,${SURF_HI},${SURFACE})`,
+            color:showArchived?"#fff":DIM,boxShadow:SO,
+            display:"flex",alignItems:"center",justifyContent:"center",gap:8
+          }}>📦 Архів ({archived.length})</button>
         )}
 
         {/* ── ADD BUTTON ── */}
