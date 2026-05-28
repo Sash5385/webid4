@@ -404,15 +404,21 @@ function dateToDayIdx(dateStr) {
 // ─── MAIN APP ────────────────────────────────────────────────────
 export default function App() {
   const adminUser = useAdminAuth();
-  const [tab,      setTab]      = useState("schedule");
-  const [settings, setSettings] = useState(DEFAULT_SETTINGS);
-  const [bookings, setBookings] = useState(INITIAL_BOOKINGS);
+  const [tab,        setTab]      = useState("schedule");
+  const [tabVisits,  setTabVisits]= useState({});
+  const [settings,   setSettings] = useState(DEFAULT_SETTINGS);
+  const [bookings,   setBookings] = useState(INITIAL_BOOKINGS);
   const [selectedBooking,  setSelectedBooking]  = useState(null);
   const [newBookingData,   setNewBookingData]    = useState(null);
 
+  const switchTab = t => {
+    setTab(t);
+    setTabVisits(v => ({...v, [t]: (v[t]||0) + 1}));
+  };
+
   // Tab navigation via custom event (from child components)
   useEffect(() => {
-    const nav = e => setTab(e.detail);
+    const nav = e => switchTab(e.detail);
     window.addEventListener("id4drive-nav", nav);
     return () => window.removeEventListener("id4drive-nav", nav);
   }, []);
@@ -505,13 +511,13 @@ export default function App() {
         fontFamily:"ui-sans-serif,-apple-system,BlinkMacSystemFont,system-ui,sans-serif",
         paddingBottom:90
       }}>
-        <TopBar tab={tab} onChange={setTab}/>
-        <div className="tab-anim" key={tab} style={{padding: tab==="schedule" ? "4px 3px 0" : "14px 14px 0"}}>
+        <TopBar tab={tab} onChange={switchTab}/>
+        <div className="tab-anim" key={`${tab}-${tabVisits[tab]||0}`} style={{padding: tab==="schedule" ? "4px 3px 0" : "14px 14px 0"}}>
           <Suspense fallback={<Loader/>}>
             <ViewRenderer tab={tab} settings={settings} setSettings={setSettings} bookings={bookings} setBookings={handleSetBookings} onSlotClick={setSelectedBooking} onEmptySlotClick={setNewBookingData}/>
           </Suspense>
         </div>
-        <BottomNav active={tab} onChange={setTab} settings={settings}/>
+        <BottomNav active={tab} onChange={switchTab} settings={settings}/>
       </div>
     </>
     </LangContext.Provider>

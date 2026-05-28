@@ -502,7 +502,7 @@ export default function BookingsView() {
         {showInfo && (
           <div style={{background:`linear-gradient(145deg,${ACCENT}0d,${ACCENT}05)`,border:`1px solid ${ACCENT}30`,borderRadius:10,padding:"10px 12px",position:"relative"}}>
             <button onClick={()=>setShowInfo(false)} style={{position:"absolute",top:7,right:8,background:"none",border:"none",cursor:"pointer",color:FAINT,fontSize:16,lineHeight:1,padding:"0 2px"}}>×</button>
-            <div style={{fontSize:11,fontWeight:700,color:ACCENT,marginBottom:4}}>💡 Бюкінги</div>
+            <div style={{fontSize:11,fontWeight:700,color:ACCENT,marginBottom:4}}>💡 Букінги</div>
             <div style={{fontSize:11,color:DIM,lineHeight:1.6,paddingRight:16}}>
               Список записів учнів. Натисніть на картку — побачите деталі, телефон і кнопки дій.
               Очікуючі записи підтвердіть або скасуйте. Використовуйте пошук і фільтр для швидкого доступу.
