@@ -1,26 +1,6 @@
 import { useState, useRef } from "react";
 
-// ─── TOKENS ─────────────────────────────────────────────────────
-const BG      = "#1c1d21";
-const BG_DEEP = "#161719";
-const SURFACE = "#26282c";
-const SURF_HI = "#2e3034";
-const SURF_LO = "#1f2125";
-const BORDER  = "rgba(255,255,255,0.05)";
-const TEXT    = "#e8e8ea";
-const DIM     = "#8b8d93";
-const FAINT   = "#5a5c62";
-const ACCENT  = "#ff5a3c";
-const ACC_HI  = "#ff7a5c";
-const GREEN   = "#7ed957";
-const BLUE    = "#5b9bff";
-const PURPLE  = "#c084fc";
-const GOLD    = "#f7c948";
-const RED     = "#ef4444";
-const TEAL    = "#2dd4bf";
-
-const SO = "0 2px 10px rgba(0,0,0,0.4)";
-const SI = "inset 2px 2px 6px rgba(0,0,0,0.45),inset -1px -1px 3px rgba(255,255,255,0.02)";
+import { BG, BG_DEEP, SURFACE, SURF_HI, SURF_LO, BORDER, TEXT, DIM, FAINT, ACCENT, ACC_HI, GREEN, BLUE, PURPLE, GOLD, RED, TEAL, SO, SI } from "../theme.js";
 
 const PALETTE = [
   { id:"green",   name:"Зелений",    color:GREEN  },
@@ -504,6 +484,7 @@ function useDragReorder(items, setItems) {
 // ─── MAIN ────────────────────────────────────────────────────────
 export default function ServicesView() {
   const [services, setServices] = useState(INIT_SERVICES);
+  const [showInfo, setShowInfo] = useState(true);
   const [showArchived, setShowArchived] = useState(false);
   const [editSvc, setEditSvc]   = useState(null);  // null=closed, false=new, obj=edit
   const [deleteSvc, setDeleteSvc] = useState(null);
@@ -531,18 +512,24 @@ export default function ServicesView() {
       <div style={{display:"flex",flexDirection:"column",gap:8,fontFamily:"ui-sans-serif,-apple-system,system-ui,sans-serif",color:TEXT}}>
 
         {/* ── INFO ── */}
-        <div style={{
-          background:`linear-gradient(145deg,${GREEN}0d,${GREEN}05)`,
-          border:`1px solid ${GREEN}30`,
-          borderRadius:10,padding:"10px 12px",
-        }}>
-          <div style={{fontSize:11,fontWeight:700,color:GREEN,marginBottom:4}}>💡 Послуги</div>
-          <div style={{fontSize:11,color:DIM,lineHeight:1.6}}>
-            Тут ви керуєте типами уроків. Кожна послуга — окремий тип заняття з ціною та тривалістю.
-            Вмикайте/вимикайте послуги перемикачем. Тягніть ☰ щоб змінити порядок.
-            Натисніть ✏️ щоб відредагувати або додати нову послугу внизу.
+        {showInfo && (
+          <div style={{
+            background:`linear-gradient(145deg,${GREEN}0d,${GREEN}05)`,
+            border:`1px solid ${GREEN}30`,
+            borderRadius:10,padding:"10px 12px",position:"relative",
+          }}>
+            <button onClick={()=>setShowInfo(false)} style={{
+              position:"absolute",top:7,right:8,background:"none",border:"none",
+              cursor:"pointer",color:FAINT,fontSize:16,lineHeight:1,padding:"0 2px",
+            }}>×</button>
+            <div style={{fontSize:11,fontWeight:700,color:GREEN,marginBottom:4}}>💡 Послуги</div>
+            <div style={{fontSize:11,color:DIM,lineHeight:1.6,paddingRight:16}}>
+              Тут ви керуєте типами уроків. Кожна послуга — окремий тип заняття з ціною та тривалістю.
+              Вмикайте/вимикайте послуги перемикачем. Тягніть ☰ щоб змінити порядок.
+              Натисніть ✏️ щоб відредагувати або додати нову послугу внизу.
+            </div>
           </div>
-        </div>
+        )}
 
         {/* ── LIST ── */}
         <div onPointerMove={e=>getHandlers(0).onPointerMove(e)} onPointerUp={()=>getHandlers(0).onPointerUp()}>

@@ -1,27 +1,14 @@
 import { useState, useRef, useEffect, useLayoutEffect, useMemo } from "react";
 
-// ═══════════════════════════════════════════════════════════════
-// DESIGN TOKENS (v3 skin)
-// ═══════════════════════════════════════════════════════════════
-const BG = "#1c1d21";
-const BG_DEEP = "#161719";
-const SURFACE = "#26282c";
-const SURFACE_HI = "#2e3034";
-const SURFACE_LO = "#1f2125";
-const BORDER = "rgba(255,255,255,0.05)";
-const TEXT = "#e8e8ea";
-const TEXT_DIM = "#8b8d93";
-const TEXT_FAINT = "#5a5c62";
-const ACCENT = "#ff5a3c";
-const ACCENT_HI = "#ff7a5c";
-const GREEN = "#7ed957";
-const BLUE = "#5b9bff";
-const PURPLE = "#c084fc";
-const GOLD = "#f7c948";
-const RED = "#ef4444";
-
-const SHADOW_OUT = "6px 6px 16px rgba(0,0,0,0.45), -3px -3px 10px rgba(255,255,255,0.025)";
-const SHADOW_IN = "inset 3px 3px 8px rgba(0,0,0,0.4), inset -2px -2px 6px rgba(255,255,255,0.025)";
+import { BG, BG_DEEP, SURFACE, SURF_HI, SURF_LO, BORDER, TEXT, DIM, FAINT, ACCENT, ACC_HI, GREEN, BLUE, PURPLE, GOLD, RED, SO, SI } from "../theme.js";
+// local aliases for legacy names used in this file
+const SURFACE_HI = SURF_HI;
+const SURFACE_LO = SURF_LO;
+const TEXT_DIM   = DIM;
+const TEXT_FAINT = FAINT;
+const ACCENT_HI  = ACC_HI;
+const SHADOW_OUT = SO;
+const SHADOW_IN  = SI;
 
 // Palette for service colors
 const PALETTE = [
@@ -1526,6 +1513,7 @@ function NewBookingModal({ data, onClose, onConfirm, settings }) {
   const [dateOffset,  setDateOffset]  = useState(0);
   const [timeIdx,     setTimeIdx]     = useState(0);
   const [svcIdx,      setSvcIdx]      = useState(0);
+  const [isVip,       setIsVip]       = useState(false);
 
   useEffect(()=>{
     if(data){
@@ -1801,6 +1789,29 @@ function NewBookingModal({ data, onClose, onConfirm, settings }) {
             </div>
           </div>
 
+          {/* ── VIP SLOT TOGGLE ── */}
+          <div onClick={()=>setIsVip(v=>!v)} style={{
+            display:"flex",alignItems:"center",gap:12,cursor:"pointer",
+            padding:"11px 14px",borderRadius:13,
+            background:isVip?`linear-gradient(145deg,rgba(192,132,252,0.18),rgba(124,58,237,0.1))`:`linear-gradient(135deg,${SURFACE_HI},${SURFACE_LO})`,
+            border:isVip?`1px solid rgba(192,132,252,0.35)`:`1px solid transparent`,
+            boxShadow:SHADOW_OUT,
+          }}>
+            <span style={{fontSize:20}}>👑</span>
+            <div style={{flex:1}}>
+              <div style={{fontSize:13,fontWeight:700,color:isVip?"#c084fc":TEXT}}>VIP-слот</div>
+              <div style={{fontSize:10,color:TEXT_FAINT}}>Тільки для учнів категорії VIP</div>
+            </div>
+            <div style={{
+              width:44,height:24,borderRadius:12,position:"relative",
+              background:isVip?"linear-gradient(145deg,#c084fc,#7c3aed)":"linear-gradient(145deg,#1f2125,#161719)",
+              boxShadow:isVip?"0 0 8px rgba(192,132,252,0.4)":SHADOW_IN,
+              transition:"background .2s",
+            }}>
+              <div style={{position:"absolute",top:3,left:isVip?21:3,width:18,height:18,borderRadius:9,background:"#fff",transition:"left .2s"}}/>
+            </div>
+          </div>
+
           {/* ── КНОПКИ ── */}
           <button disabled={!canConfirm} onClick={()=>{
             if(!canConfirm) return;
@@ -1808,7 +1819,9 @@ function NewBookingModal({ data, onClose, onConfirm, settings }) {
               id:`b-${Date.now()}`,
               day:dateOffset, startMin:selTime.value, durMin:selSvc.duration,
               name:finalName, phone:finalPhone, serviceId:selSvc.id,
-              type:selSvc.type||"private", status:"confirmed", tsc:"", hoursDone:0
+              type:selSvc.type||"private", status:"confirmed", tsc:"", hoursDone:0,
+              categoryId: isVip ? "cat-vip" : null,
+              isVipOnly:  isVip,
             });
             onClose();
           }} style={{

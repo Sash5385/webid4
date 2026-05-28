@@ -1,24 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect, useContext } from "react";
+import { ref, onValue, update } from "firebase/database";
+import { db } from "../firebase";
+import { LangContext } from "../App";
+import { createT, T } from "../lang";
 
-// ─── TOKENS ────────────────────────────────────────────────────
-const BG      = "#1c1d21";
-const BG_DEEP = "#161719";
-const SURFACE = "#26282c";
-const SURF_HI = "#2e3034";
-const SURF_LO = "#1f2125";
-const BORDER  = "rgba(255,255,255,0.05)";
-const TEXT    = "#e8e8ea";
-const DIM     = "#8b8d93";
-const FAINT   = "#5a5c62";
-const ACCENT  = "#ff5a3c";
-const ACC_HI  = "#ff7a5c";
-const GREEN   = "#7ed957";
-const BLUE    = "#5b9bff";
-const GOLD    = "#f7c948";
-const RED     = "#ef4444";
-
-const SO = "6px 6px 16px rgba(0,0,0,0.45),-3px -3px 10px rgba(255,255,255,0.025)";
-const SI = "inset 3px 3px 8px rgba(0,0,0,0.4),inset -2px -2px 6px rgba(255,255,255,0.025)";
+import { BG, BG_DEEP, SURFACE, SURF_HI, SURF_LO, BORDER, TEXT, DIM, FAINT, ACCENT, ACC_HI, GREEN, BLUE, GOLD, RED, SO, SI } from "../theme.js";
 
 const CSS = `
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -72,12 +58,18 @@ const typeGrad  = t => t==="school"
   ? "linear-gradient(145deg,#223020,#182215)"
   : "linear-gradient(145deg,#352d10,#211c08)";
 
-const STATUS_MAP = {
-  pending:   { color:ACCENT,  bg:"rgba(255,90,60,0.15)",   label:"Очікує"        },
-  confirmed: { color:GREEN,   bg:"rgba(126,217,87,0.15)",  label:"Підтверджено"  },
-  cancelled: { color:FAINT,   bg:"rgba(255,255,255,0.07)", label:"Скасовано"     },
-  noshow:    { color:RED,     bg:"rgba(239,68,68,0.18)",   label:"Не прийшов"    },
+const STATUS_MAP_BASE = {
+  pending:   { color:ACCENT,  bg:"rgba(255,90,60,0.15)"   },
+  confirmed: { color:GREEN,   bg:"rgba(126,217,87,0.15)"  },
+  cancelled: { color:FAINT,   bg:"rgba(255,255,255,0.07)" },
+  noshow:    { color:RED,     bg:"rgba(239,68,68,0.18)"   },
 };
+const getStatusMap = t => ({
+  pending:   { ...STATUS_MAP_BASE.pending,   label:t('bk.status.pending')   },
+  confirmed: { ...STATUS_MAP_BASE.confirmed, label:t('bk.status.confirmed') },
+  cancelled: { ...STATUS_MAP_BASE.cancelled, label:t('bk.status.cancelled') },
+  noshow:    { ...STATUS_MAP_BASE.noshow,    label:t('bk.status.noshow')    },
+});
 
 // ─── SHARED UI ─────────────────────────────────────────────────
 function Chip({ label, color, bg }) {
@@ -147,6 +139,7 @@ const Ico = {
 function BookingCard({ b, expanded, onToggle, onConfirm, onCancel, onNoshow }) {
   const svc   = SERVICES[b.svcId];
   const cat   = b.catId ? CATEGORIES[b.catId] : null;
+  const STATUS_MAP = getStatusMap(T);
   const st    = STATUS_MAP[b.status] || STATUS_MAP.confirmed;
   const tc    = typeColor(b.type);
   const price = priceOf(b);
@@ -393,7 +386,40 @@ function FilterSheet({ filters, setFilters, sortBy, setSortBy, groupBy, setGroup
 
 // ─── MAIN VIEW ─────────────────────────────────────────────────
 export default function BookingsView() {
-  const [data,       setData]       = useState(RAW);
+  const lang = useContext(LangContext);
+  const t = createT(lang);
+  const [data,       setData]       = useState(RAW); // RAW as initial fallback
+
+  useEffect(() => {
+    return onValue(ref(db, "bookings"), snap => {
+      const d = snap.val();
+      if (!d) return;
+      const all = [];
+      Object.entries(d).forEach(([uid, userBkgs]) => {
+        Object.values(userBkgs).forEach(raw => {
+          const timeStr = raw.time || "00:00";
+          const [hh, mm] = timeStr.split(":").map(Number);
+          all.push({
+            ...raw,
+            userId:   uid,
+            name:     raw.studentName || raw.name || "Без імені",
+            phone:    raw.phone    || "",
+            tsc:      raw.tsc      || "",
+            date:     raw.date     || "",
+            startMin: raw.startMin ?? (hh * 60 + (mm || 0)),
+            durMin:   raw.durMin   ?? (raw.durationHours ? raw.durationHours * 60 : 60),
+            type:     raw.serviceType || raw.type || "private",
+            svcId:    raw.svcId    || ((raw.serviceType || raw.type) === "school" ? "sv1" : "sv3"),
+            catId:    raw.catId    || null,
+            status:   raw.status   || "pending",
+            hours:    raw.hours    || 0,
+          });
+        });
+      });
+      all.sort((a, b) => (a.date || "").localeCompare(b.date || "") || (a.startMin || 0) - (b.startMin || 0));
+      setData(all);
+    }, () => {}); // on error keep mock data
+  }, []);
   const [filters,    setFilters]    = useState({status:"all",type:"all",svcId:null,catId:null,datePreset:"all"});
   const [sortBy,     setSortBy]     = useState("date-asc");
   const [groupBy,    setGroupBy]    = useState("date");
@@ -402,9 +428,15 @@ export default function BookingsView() {
   const [expandedId, setExpandedId] = useState(null); // one card open at a time
 
   const toggle  = id => setExpandedId(prev => prev===id ? null : id);
-  const confirm = id => { setData(d=>d.map(b=>b.id===id?{...b,status:"confirmed"}:b)); setExpandedId(null); };
-  const cancel  = id => { setData(d=>d.map(b=>b.id===id?{...b,status:"cancelled"}:b)); setExpandedId(null); };
-  const noshow  = id => { setData(d=>d.map(b=>b.id===id?{...b,status:"noshow"}:b));   setExpandedId(null); };
+  const setStatus = (id, status) => {
+    setData(d => d.map(b => b.id===id ? {...b, status} : b));
+    setExpandedId(null);
+    const bk = data.find(b => b.id === id);
+    if (bk?.userId) update(ref(db, `bookings/${bk.userId}/${id}`), { status });
+  };
+  const confirm = id => setStatus(id, "confirmed");
+  const cancel  = id => setStatus(id, "cancelled");
+  const noshow  = id => setStatus(id, "noshow");
 
   const applyDate = b => {
     const today = new Date().toISOString().split("T")[0];
@@ -427,14 +459,14 @@ export default function BookingsView() {
     (!filters.svcId  || b.svcId===filters.svcId) &&
     (!filters.catId  || b.catId===filters.catId) &&
     applyDate(b) &&
-    (!search || b.name.toLowerCase().includes(search.toLowerCase()) ||
-      b.phone.includes(search) || b.tsc.toLowerCase().includes(search.toLowerCase()) ||
-      b.date.includes(search))
+    (!search || (b.name||"").toLowerCase().includes(search.toLowerCase()) ||
+      (b.phone||"").includes(search) || (b.tsc||"").toLowerCase().includes(search.toLowerCase()) ||
+      (b.date||"").includes(search))
   );
   list = [...list].sort((a,b) => {
-    if (sortBy==="date-asc")  return a.date.localeCompare(b.date)||a.startMin-b.startMin;
-    if (sortBy==="date-desc") return b.date.localeCompare(a.date)||a.startMin-b.startMin;
-    if (sortBy==="name-asc")  return a.name.localeCompare(b.name);
+    if (sortBy==="date-asc")  return (a.date||"").localeCompare(b.date||"")||(a.startMin||0)-(b.startMin||0);
+    if (sortBy==="date-desc") return (b.date||"").localeCompare(a.date||"")||(a.startMin||0)-(b.startMin||0);
+    if (sortBy==="name-asc")  return (a.name||"").localeCompare(b.name||"");
     if (sortBy==="price-desc")return priceOf(b)-priceOf(a);
     return 0;
   });

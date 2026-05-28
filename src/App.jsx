@@ -1,8 +1,14 @@
-import React, { useState, lazy, Suspense } from "react";
+import React, { useState, useEffect, lazy, Suspense, createContext, useContext } from "react";
+import { ref, onValue, update, push, remove } from "firebase/database";
+import { db } from "./firebase";
+import { useAdminAuth, LoginScreen } from "./AdminAuth";
+import { setGlobalLang, createT } from "./lang";
+
+export const LangContext = createContext('uk');
 
 // ─── LAZY VIEWS
 const ScheduleView  = lazy(()=>import("./views/id4drive-admin-v5").then(m=>({default:m.ScheduleView})))
-const SettingsView  = lazy(()=>import("./views/id4drive-admin-v5").then(m=>({default:m.SettingsView})))
+const SettingsView  = lazy(()=>import("./views/id4drive-settings"))
 const BookingsView  = lazy(()=>import("./views/id4drive-bookings"))
 const StudentsView  = lazy(()=>import("./views/id4drive-students"))
 const ServicesView  = lazy(()=>import("./views/id4drive-services"))
@@ -12,23 +18,7 @@ const StatsView     = lazy(()=>import("./views/id4drive-stats"))
 
 const Loader = () => <div style={{color: "white", padding: "20px"}}>Завантаження...</div>;
 
-// ─── TOKENS ─────────────────────────────────────────────────────
-const BG      = "#1c1d21";
-const BG_DEEP = "#161719";
-const SURFACE = "#26282c";
-const SURF_HI = "#2e3034";
-const SURF_LO = "#1f2125";
-const BORDER  = "rgba(255,255,255,0.05)";
-const TEXT    = "#e8e8ea";
-const DIM     = "#8b8d93";
-const FAINT   = "#5a5c62";
-const ACCENT  = "#ff5a3c";
-const ACC_HI  = "#ff7a5c";
-const GREEN   = "#7ed957";
-const BLUE    = "#5b9bff";
-const GOLD    = "#f7c948";
-
-const SO = "6px 6px 16px rgba(0,0,0,0.45),-3px -3px 10px rgba(255,255,255,0.025)";
+import { BG, BG_DEEP, SURFACE, SURF_HI, SURF_LO, BORDER, TEXT, DIM, FAINT, ACCENT, ACC_HI, GREEN, BLUE, GOLD, SO } from "./theme.js";
 
 // ─── CSS ────────────────────────────────────────────────────────
 const CSS = `
@@ -91,15 +81,15 @@ const TabIcons = {
 };
 
 // ─── TABS CONFIG ─────────────────────────────────────────────────
-const TABS = [
-  { id:"schedule",  label:"Записи",   badge:null },
-  { id:"bookings",  label:"Букінги",  badge:3    },
-  { id:"students",  label:"Учні",     badge:null },
-  { id:"services",  label:"Послуги",  badge:null },
-  { id:"chats",     label:"Чати",     badge:8    },
-  { id:"templates", label:"Шаблони",  badge:null },
-  { id:"stats",     label:"Статист.", badge:null },
-  { id:"settings",  label:"Налашт.",  badge:null },
+const TAB_IDS = [
+  { id:"schedule",  lk:"nav.schedule",  badge:null },
+  { id:"bookings",  lk:"nav.bookings",  badge:3    },
+  { id:"students",  lk:"nav.students",  badge:null },
+  { id:"services",  lk:"nav.services",  badge:null },
+  { id:"chats",     lk:"nav.chats",     badge:8    },
+  { id:"templates", lk:"nav.templates", badge:null },
+  { id:"stats",     lk:"nav.stats",     badge:null },
+  { id:"settings",  lk:"nav.settings",  badge:null },
 ];
 
 const TAB_TITLES = {
@@ -199,7 +189,7 @@ function ScheduleInfo() {
             background:`linear-gradient(135deg,${BG_DEEP},${SURF_LO})`,
             boxShadow:"inset 2px 2px 6px rgba(0,0,0,0.35)"
           }}>
-            {TabIcons[TABS[i]?.id]?.(32,false)}
+            {TabIcons[TAB_IDS[i]?.id]?.(32,false)}
             <div style={{flex:1,minWidth:0}}>
               <div style={{fontSize:11,color:ACCENT,fontWeight:700,fontFamily:"monospace",marginBottom:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{f.file}</div>
               <div style={{fontSize:10,color:DIM}}>{f.comp}</div>
@@ -239,7 +229,9 @@ function ScheduleInfo() {
 
 // ─── BOTTOM NAV ──────────────────────────────────────────────────
 function BottomNav({ active, onChange, settings }) {
-  const visible = TABS.filter(t => settings?.navTabs?.includes(t.id) ?? true);
+  const lang = useContext(LangContext);
+  const tl = createT(lang);
+  const visible = TAB_IDS.filter(t => settings?.navTabs?.includes(t.id) ?? true);
   return (
     <div style={{
       position:"fixed",bottom:0,left:0,right:0,
@@ -279,7 +271,7 @@ function BottomNav({ active, onChange, settings }) {
                 }}>{t.badge}</div>
               )}
             </div>
-            <span style={{fontSize:9,fontWeight:700,color:active===t.id?ACCENT:FAINT,whiteSpace:"nowrap"}}>{t.label}</span>
+            <span style={{fontSize:9,fontWeight:700,color:active===t.id?ACCENT:FAINT,whiteSpace:"nowrap"}}>{tl(t.lk)}</span>
             {active===t.id && (
               <div style={{
                 position:"absolute",bottom:5,left:"50%",transform:"translateX(-50%)",
@@ -296,6 +288,9 @@ function BottomNav({ active, onChange, settings }) {
 
 // ─── TOP BAR ─────────────────────────────────────────────────────
 function TopBar({ tab, onChange }) {
+  const lang = useContext(LangContext);
+  const tl = createT(lang);
+  const tabLabel = tl(TAB_IDS.find(x=>x.id===tab)?.lk || tab);
   return (
     <div style={{
       padding:"6px 12px",
@@ -309,7 +304,7 @@ function TopBar({ tab, onChange }) {
         <I3 s={22} r={7} gr="linear-gradient(165deg,#ff7a5c,#ff5a3c)">
           <span style={{fontSize:12,position:"relative",zIndex:1}}>🚗</span>
         </I3>
-        <div style={{fontSize:13,fontWeight:800,letterSpacing:-0.3,color:TEXT}}>{TAB_TITLES[tab]}</div>
+        <div style={{fontSize:13,fontWeight:800,letterSpacing:-0.3,color:TEXT}}>{tabLabel}</div>
       </div>
       <div style={{display:"flex",gap:6,alignItems:"center"}}>
         <button onClick={()=>onChange?.("bookings")} style={{background:"none",border:"none",cursor:"pointer",position:"relative",padding:0}}>
@@ -362,7 +357,12 @@ const DEFAULT_SETTINGS = {
   studentCanReschedule:true, studentCanCancel:true, bookCutoffHours:2, calendarOpenDays:30,
   stickyTime:"both", notifLocation:"topbar",
   navTabs:["schedule","bookings","students","services","chats","templates","stats","settings"],
-  autoReminder:{enabled:true, hoursBefore:24}, autoWelcome:{enabled:true}, autoConfirm:{enabled:true},
+  autoReminders:[
+    {enabled:true,  hoursBefore:24},
+    {enabled:false, hoursBefore:2},
+    {enabled:false, hoursBefore:1},
+  ],
+  autoWelcome:{enabled:true}, autoConfirm:{enabled:true},
   autoCancel:{enabled:true}, autoQueueOffer:{enabled:true},
   services: [
     { id:"sv1", name:"Автошкола 1 год", type:"school",  duration:60,  price:600,  colorId:"green",  active:true,  description:"Урок з автошколи" },
@@ -373,7 +373,6 @@ const DEFAULT_SETTINGS = {
   categories: [
     { id:"cat-vip", name:"VIP",      colorId:"purple" },
     { id:"cat-std", name:"Стандарт", colorId:"blue" },
-    { id:"cat-new", name:"Новачок",  colorId:"teal" },
   ],
 };
 
@@ -390,15 +389,115 @@ function ViewRenderer({ tab, settings, setSettings, bookings, setBookings, onSlo
   return null;
 }
 
+// ─── DATE HELPERS ────────────────────────────────────────────────
+// Convert Firebase date string ("2026-05-27") → day index relative to today's week start
+function dateToDayIdx(dateStr) {
+  if (!dateStr) return -1;
+  const today = new Date(); today.setHours(0,0,0,0);
+  const dow = today.getDay(); // 0=Sun
+  const weekStart = new Date(today); weekStart.setDate(today.getDate() - (dow === 0 ? 6 : dow - 1));
+  const d = new Date(dateStr); d.setHours(0,0,0,0);
+  const diff = Math.round((d - weekStart) / 86400000);
+  return diff; // 0=Mon, 1=Tue … can be negative (past) or >6 (future)
+}
+
 // ─── MAIN APP ────────────────────────────────────────────────────
 export default function App() {
-  const [tab, setTab] = useState("schedule");
+  const adminUser = useAdminAuth();
+  const [tab,      setTab]      = useState("schedule");
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
   const [bookings, setBookings] = useState(INITIAL_BOOKINGS);
-  const [selectedBooking, setSelectedBooking] = useState(null);
-  const [newBookingData, setNewBookingData] = useState(null);
+  const [selectedBooking,  setSelectedBooking]  = useState(null);
+  const [newBookingData,   setNewBookingData]    = useState(null);
+
+  // Tab navigation via custom event (from child components)
+  useEffect(() => {
+    const nav = e => setTab(e.detail);
+    window.addEventListener("id4drive-nav", nav);
+    return () => window.removeEventListener("id4drive-nav", nav);
+  }, []);
+
+  // Load bookings from Firebase
+  useEffect(() => {
+    if (!adminUser) return;
+    return onValue(ref(db, "bookings"), snap => {
+      const data = snap.val();
+      if (!data) return;
+      const all = [];
+      Object.entries(data).forEach(([uid, userBkgs]) => {
+        Object.values(userBkgs).forEach(b => {
+          all.push({
+            ...b,
+            id:        b.id || `fb_${uid}_${Math.random()}`,
+            userId:    uid,
+            day:       dateToDayIdx(b.date),
+            startMin:  b.startMin ?? (parseInt((b.time||"0:0").split(":")[0])*60 + parseInt((b.time||"0:0").split(":")[1])),
+            durMin:    b.durMin   ?? (b.durationHours ? b.durationHours*60 : 60),
+            name:      b.studentName || b.name || "Без імені",
+            type:      b.serviceType || b.type || "private",
+          });
+        });
+      });
+      setBookings(all);
+    });
+  }, [adminUser]);
+
+  // Debounce map for move/resize saves (avoids Firebase write on every pointermove)
+  const moveSaveTimers = React.useRef({});
+
+  const handleSetBookings = fn => {
+    setBookings(prev => {
+      const next = typeof fn === "function" ? fn(prev) : fn;
+      const prevMap = new Map(prev.map(b => [b.id, b]));
+      const nextIds  = new Set(next.map(b => b.id));
+
+      // 1. Deleted bookings → remove from Firebase
+      prev.forEach(b => {
+        if (!nextIds.has(b.id) && b.userId && b.id) {
+          remove(ref(db, `bookings/${b.userId}/${b.id}`)).catch(() => {});
+        }
+      });
+
+      // 2. Changed bookings
+      next.forEach(b => {
+        if (!b.userId || !b.id) return;
+        const p = prevMap.get(b.id);
+        if (!p) return;
+
+        if (p.status !== b.status) {
+          // Status change → save immediately
+          update(ref(db, `bookings/${b.userId}/${b.id}`), { status: b.status }).catch(() => {});
+
+        } else if (p.startMin !== b.startMin || p.durMin !== b.durMin || p.day !== b.day) {
+          // Move/resize → debounce 600ms so we don't spam Firebase on every pointermove
+          clearTimeout(moveSaveTimers.current[b.id]);
+          moveSaveTimers.current[b.id] = setTimeout(() => {
+            const hh = String(Math.floor(b.startMin / 60)).padStart(2, "0");
+            const mm = String(b.startMin % 60).padStart(2, "0");
+            update(ref(db, `bookings/${b.userId}/${b.id}`), {
+              startMin: b.startMin,
+              durMin:   b.durMin,
+              durationHours: b.durMin / 60,
+              day:      b.day,
+              time:     `${hh}:${mm}`,
+            }).catch(() => {});
+            delete moveSaveTimers.current[b.id];
+          }, 600);
+        }
+      });
+
+      return next;
+    });
+  };
+
+  const lang = settings.language || 'uk';
+  useEffect(() => { setGlobalLang(lang); }, [lang]);
+
+  if (adminUser === undefined) return null;
+  if (adminUser === null) return <LoginScreen/>;
 
   return (
+    <LangContext.Provider value={lang}>
     <>
       <style>{CSS}</style>
       <div style={{
@@ -409,11 +508,12 @@ export default function App() {
         <TopBar tab={tab} onChange={setTab}/>
         <div className="tab-anim" key={tab} style={{padding: tab==="schedule" ? "4px 3px 0" : "14px 14px 0"}}>
           <Suspense fallback={<Loader/>}>
-            <ViewRenderer tab={tab} settings={settings} setSettings={setSettings} bookings={bookings} setBookings={setBookings} onSlotClick={setSelectedBooking} onEmptySlotClick={setNewBookingData}/>
+            <ViewRenderer tab={tab} settings={settings} setSettings={setSettings} bookings={bookings} setBookings={handleSetBookings} onSlotClick={setSelectedBooking} onEmptySlotClick={setNewBookingData}/>
           </Suspense>
         </div>
         <BottomNav active={tab} onChange={setTab} settings={settings}/>
       </div>
     </>
+    </LangContext.Provider>
   );
 }

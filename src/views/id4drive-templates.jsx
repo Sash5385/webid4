@@ -2,27 +2,7 @@ import { useState, useRef, useContext } from "react";
 import { LangContext } from "../App";
 import { createT } from "../lang";
 
-// ─── TOKENS ─────────────────────────────────────────────────────
-const BG      = "#1c1d21";
-const BG_DEEP = "#161719";
-const SURFACE = "#26282c";
-const SURF_HI = "#2e3034";
-const SURF_LO = "#1f2125";
-const BORDER  = "rgba(255,255,255,0.05)";
-const TEXT    = "#e8e8ea";
-const DIM     = "#8b8d93";
-const FAINT   = "#5a5c62";
-const ACCENT  = "#ff5a3c";
-const ACC_HI  = "#ff7a5c";
-const GREEN   = "#7ed957";
-const BLUE    = "#5b9bff";
-const PURPLE  = "#c084fc";
-const GOLD    = "#f7c948";
-const RED     = "#ef4444";
-const TEAL    = "#2dd4bf";
-
-const SO = "0 2px 10px rgba(0,0,0,0.4)";
-const SI = "inset 2px 2px 6px rgba(0,0,0,0.45),inset -1px -1px 3px rgba(255,255,255,0.02)";
+import { BG, BG_DEEP, SURFACE, SURF_HI, SURF_LO, BORDER, TEXT, DIM, FAINT, ACCENT, ACC_HI, GREEN, BLUE, PURPLE, GOLD, RED, TEAL, SO, SI } from "../theme.js";
 
 // ─── CSS ────────────────────────────────────────────────────────
 const CSS = `

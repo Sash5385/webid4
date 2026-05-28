@@ -1,21 +1,6 @@
 import { useState } from "react";
 
-const BG_DEEP = "#161719";
-const SURFACE = "#26282c";
-const SURF_HI = "#2e3034";
-const BORDER  = "rgba(255,255,255,0.06)";
-const TEXT    = "#e8e8ea";
-const DIM     = "#8b8d93";
-const FAINT   = "#5a5c62";
-const ACCENT  = "#ff5a3c";
-const ACC_HI  = "#ff7a5c";
-const GREEN   = "#7ed957";
-const BLUE    = "#5b9bff";
-const GOLD    = "#f7c948";
-const RED     = "#ef4444";
-
-const SO = "0 2px 10px rgba(0,0,0,0.4)";
-const SI = "inset 2px 2px 6px rgba(0,0,0,0.5),inset -1px -1px 3px rgba(255,255,255,0.02)";
+import { BG_DEEP, SURFACE, SURF_HI, BORDER, TEXT, DIM, FAINT, ACCENT, ACC_HI, GREEN, BLUE, GOLD, RED, SO, SI } from "../theme.js";
 
 const CSS = `
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -275,6 +260,7 @@ function Card({ s, expanded, onToggle, onBlock, onUpdate }) {
 // ─── MAIN ────────────────────────────────────────────────────────
 export default function StudentsView() {
   const [students,   setStudents]   = useState(STUDENTS);
+  const [showInfo,   setShowInfo]   = useState(true);
   const [expanded,   setExpanded]   = useState(new Set());
   const [search,     setSearch]     = useState("");
   const [filterType, setFilterType] = useState("all");
@@ -297,32 +283,38 @@ export default function StudentsView() {
       <div style={{display:"flex",flexDirection:"column",gap:7,fontFamily:"ui-sans-serif,-apple-system,system-ui,sans-serif",color:TEXT}}>
 
         {/* ── INFO ── */}
-        <div style={{
-          background:`linear-gradient(145deg,${BLUE}0d,${BLUE}05)`,
-          border:`1px solid ${BLUE}30`,
-          borderRadius:10,padding:"10px 12px",
-        }}>
-          <div style={{fontSize:11,fontWeight:700,color:BLUE,marginBottom:4}}>💡 Учні</div>
-          <div style={{fontSize:11,color:DIM,lineHeight:1.6}}>
-            Список ваших учнів. Натисніть на картку — побачите телефон, знижку, прогрес та історію записів.
-            Використовуйте пошук або фільтр за типом. Щоб зателефонувати або написати — розгорніть картку і натисніть потрібну кнопку.
+        {showInfo && (
+          <div style={{
+            background:`linear-gradient(145deg,${BLUE}0d,${BLUE}05)`,
+            border:`1px solid ${BLUE}30`,
+            borderRadius:10,padding:"10px 12px",position:"relative",
+          }}>
+            <button onClick={()=>setShowInfo(false)} style={{
+              position:"absolute",top:7,right:8,background:"none",border:"none",
+              cursor:"pointer",color:FAINT,fontSize:16,lineHeight:1,padding:"0 2px",
+            }}>×</button>
+            <div style={{fontSize:11,fontWeight:700,color:BLUE,marginBottom:4}}>💡 Учні</div>
+            <div style={{fontSize:11,color:DIM,lineHeight:1.6,paddingRight:16}}>
+              Список ваших учнів. Натисніть на картку — побачите телефон, знижку, прогрес та історію записів.
+              Використовуйте пошук або фільтр за типом. Щоб зателефонувати або написати — розгорніть картку і натисніть потрібну кнопку.
+            </div>
           </div>
+        )}
+
+        {/* search */}
+        <div style={{background:BG_DEEP,borderRadius:11,boxShadow:SI,padding:"3px 11px",display:"flex",alignItems:"center",gap:7}}>
+          {ICONS.search}
+          <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Ім'я або телефон…"
+            style={{flex:1,background:"transparent",border:"none",outline:"none",color:TEXT,padding:"9px 0",fontSize:13,minWidth:0}}/>
+          {search&&<button onClick={()=>setSearch("")} style={{background:"none",border:"none",cursor:"pointer",color:FAINT,fontSize:16,padding:0,lineHeight:1}}>×</button>}
         </div>
 
-        {/* search + filter */}
-        <div style={{display:"flex",gap:7,alignItems:"center"}}>
-          <div style={{flex:1,background:BG_DEEP,borderRadius:11,boxShadow:SI,padding:"3px 11px",display:"flex",alignItems:"center",gap:7}}>
-            {ICONS.search}
-            <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Ім'я або телефон…"
-              style={{flex:1,background:"transparent",border:"none",outline:"none",color:TEXT,padding:"9px 0",fontSize:13}}/>
-            {search&&<button onClick={()=>setSearch("")} style={{background:"none",border:"none",cursor:"pointer",color:FAINT,fontSize:16,padding:0,lineHeight:1}}>×</button>}
-          </div>
-
-          {/* type filter pills */}
+        {/* filter pills */}
+        <div style={{display:"flex",gap:7}}>
           {[["all","Всі"],["school","Автошкола"],["private","Приватний"]].map(([k,l])=>(
             <button key={k} onClick={()=>setFilterType(k)} style={{
-              padding:"0 11px",height:40,borderRadius:11,border:"none",cursor:"pointer",
-              fontSize:11,fontWeight:700,whiteSpace:"nowrap",
+              flex:1,padding:"9px 4px",borderRadius:11,border:"none",cursor:"pointer",
+              fontSize:11,fontWeight:700,
               background:filterType===k?`linear-gradient(145deg,${ACC_HI},${ACCENT})`:`linear-gradient(145deg,${SURF_HI},${SURFACE})`,
               color:filterType===k?"#fff":DIM,boxShadow:SO,
             }}>{l}</button>
