@@ -258,9 +258,8 @@ function Card({ s, expanded, onToggle, onBlock, onUpdate }) {
 }
 
 // ─── MAIN ────────────────────────────────────────────────────────
-export default function StudentsView() {
+export default function StudentsView({ showInfo = true, onDismissInfo }) {
   const [students,   setStudents]   = useState(STUDENTS);
-  const [showInfo,   setShowInfo]   = useState(true);
   const [expanded,   setExpanded]   = useState(new Set());
   const [search,     setSearch]     = useState("");
   const [filterType, setFilterType] = useState("all");
@@ -289,7 +288,7 @@ export default function StudentsView() {
             border:`1px solid ${BLUE}30`,
             borderRadius:10,padding:"10px 12px",position:"relative",
           }}>
-            <button onClick={()=>setShowInfo(false)} style={{
+            <button onClick={onDismissInfo} style={{
               position:"absolute",top:7,right:8,background:"none",border:"none",
               cursor:"pointer",color:FAINT,fontSize:16,lineHeight:1,padding:"0 2px",
             }}>×</button>

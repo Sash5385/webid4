@@ -385,7 +385,7 @@ function FilterSheet({ filters, setFilters, sortBy, setSortBy, groupBy, setGroup
 }
 
 // ─── MAIN VIEW ─────────────────────────────────────────────────
-export default function BookingsView() {
+export default function BookingsView({ showInfo = true, onDismissInfo }) {
   const lang = useContext(LangContext);
   const t = createT(lang);
   const [data,       setData]       = useState(RAW); // RAW as initial fallback
@@ -471,7 +471,6 @@ export default function BookingsView() {
     return 0;
   });
 
-  const [showInfo, setShowInfo] = useState(true);
   const pendingCount = data.filter(b=>b.status==="pending").length;
 
   const grouped = (() => {
@@ -501,7 +500,7 @@ export default function BookingsView() {
         {/* ── INFO ── */}
         {showInfo && (
           <div style={{background:`linear-gradient(145deg,${ACCENT}0d,${ACCENT}05)`,border:`1px solid ${ACCENT}30`,borderRadius:10,padding:"10px 12px",position:"relative"}}>
-            <button onClick={()=>setShowInfo(false)} style={{position:"absolute",top:7,right:8,background:"none",border:"none",cursor:"pointer",color:FAINT,fontSize:16,lineHeight:1,padding:"0 2px"}}>×</button>
+            <button onClick={onDismissInfo} style={{position:"absolute",top:7,right:8,background:"none",border:"none",cursor:"pointer",color:FAINT,fontSize:16,lineHeight:1,padding:"0 2px"}}>×</button>
             <div style={{fontSize:11,fontWeight:700,color:ACCENT,marginBottom:4}}>💡 Букінги</div>
             <div style={{fontSize:11,color:DIM,lineHeight:1.6,paddingRight:16}}>
               Список записів учнів. Натисніть на картку — побачите деталі, телефон і кнопки дій.

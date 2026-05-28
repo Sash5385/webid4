@@ -377,12 +377,12 @@ const DEFAULT_SETTINGS = {
 };
 
 // ─── VIEW RENDERER ───────────────────────────────────────────────
-function ViewRenderer({ tab, settings, setSettings, bookings, setBookings, onSlotClick, onEmptySlotClick }) {
+function ViewRenderer({ tab, settings, setSettings, bookings, setBookings, onSlotClick, onEmptySlotClick, showInfos, dismissInfo }) {
   if (tab === "schedule")  return <ScheduleView settings={settings} setSettings={setSettings} bookings={bookings} setBookings={setBookings} onSlotClick={onSlotClick} onEmptySlotClick={onEmptySlotClick}/>;
   if (tab === "settings")  return <SettingsView settings={settings} setSettings={setSettings}/>;
-  if (tab === "bookings")  return <BookingsView/>;
-  if (tab === "students")  return <StudentsView/>;
-  if (tab === "services")  return <ServicesView/>;
+  if (tab === "bookings")  return <BookingsView showInfo={showInfos.bookings !== false} onDismissInfo={()=>dismissInfo('bookings')}/>;
+  if (tab === "students")  return <StudentsView showInfo={showInfos.students !== false} onDismissInfo={()=>dismissInfo('students')}/>;
+  if (tab === "services")  return <ServicesView showInfo={showInfos.services !== false} onDismissInfo={()=>dismissInfo('services')}/>;
   if (tab === "chats")     return <ChatsView/>;
   if (tab === "templates") return <TemplatesView/>;
   if (tab === "stats")     return <StatsView/>;
@@ -406,6 +406,7 @@ export default function App() {
   const adminUser = useAdminAuth();
   const [tab,        setTab]      = useState("schedule");
   const [tabVisits,  setTabVisits]= useState({});
+  const [showInfos,  setShowInfos]= useState({});
   const [settings,   setSettings] = useState(DEFAULT_SETTINGS);
   const [bookings,   setBookings] = useState(INITIAL_BOOKINGS);
   const [selectedBooking,  setSelectedBooking]  = useState(null);
@@ -414,7 +415,9 @@ export default function App() {
   const switchTab = t => {
     setTab(t);
     setTabVisits(v => ({...v, [t]: (v[t]||0) + 1}));
+    setShowInfos({});
   };
+  const dismissInfo = key => setShowInfos(s => ({...s, [key]: false}));
 
   // Tab navigation via custom event (from child components)
   useEffect(() => {
@@ -514,7 +517,7 @@ export default function App() {
         <TopBar tab={tab} onChange={switchTab}/>
         <div className="tab-anim" key={`${tab}-${tabVisits[tab]||0}`} style={{padding: tab==="schedule" ? "4px 3px 0" : "14px 14px 0"}}>
           <Suspense fallback={<Loader/>}>
-            <ViewRenderer tab={tab} settings={settings} setSettings={setSettings} bookings={bookings} setBookings={handleSetBookings} onSlotClick={setSelectedBooking} onEmptySlotClick={setNewBookingData}/>
+            <ViewRenderer tab={tab} settings={settings} setSettings={setSettings} bookings={bookings} setBookings={handleSetBookings} onSlotClick={setSelectedBooking} onEmptySlotClick={setNewBookingData} showInfos={showInfos} dismissInfo={dismissInfo}/>
           </Suspense>
         </div>
         <BottomNav active={tab} onChange={switchTab} settings={settings}/>

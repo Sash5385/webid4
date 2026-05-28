@@ -482,9 +482,8 @@ function useDragReorder(items, setItems) {
 }
 
 // ─── MAIN ────────────────────────────────────────────────────────
-export default function ServicesView() {
+export default function ServicesView({ showInfo = true, onDismissInfo }) {
   const [services, setServices] = useState(INIT_SERVICES);
-  const [showInfo, setShowInfo] = useState(true);
   const [showArchived, setShowArchived] = useState(false);
   const [editSvc, setEditSvc]   = useState(null);  // null=closed, false=new, obj=edit
   const [deleteSvc, setDeleteSvc] = useState(null);
@@ -518,7 +517,7 @@ export default function ServicesView() {
             border:`1px solid ${GREEN}30`,
             borderRadius:10,padding:"10px 12px",position:"relative",
           }}>
-            <button onClick={()=>setShowInfo(false)} style={{
+            <button onClick={onDismissInfo} style={{
               position:"absolute",top:7,right:8,background:"none",border:"none",
               cursor:"pointer",color:FAINT,fontSize:16,lineHeight:1,padding:"0 2px",
             }}>×</button>
