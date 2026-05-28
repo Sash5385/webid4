@@ -729,6 +729,12 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
     if (action === "sms")      window.location.href=`sms:${b.phone}`;
     if (action === "viber")    window.location.href=`viber://chat?number=%2B${b.phone.replace(/\D/g,"")}`;
     if (action === "telegram") window.location.href=`https://t.me/${b.phone.replace(/\D/g,"")}`;
+    if (action === "toggleVip") {
+      const next = !b.isVipOnly;
+      setBookings(bs=>bs.map(x=>x.id===b.id?{...x,isVipOnly:next,categoryId:next?"cat-vip":null}:x));
+      setLocalSelectedBooking(prev=>prev?{...prev,isVipOnly:next,categoryId:next?"cat-vip":null}:null);
+      return;
+    }
     setLocalSelectedBooking(null);
   };
   const [blockModal, setBlockModal] = useState(null); // {id, day, startMin, durMin}
@@ -966,6 +972,15 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                           </div>
                         );
                       })()}
+                      {/* VIP crown badge */}
+                      {b.isVipOnly && (
+                        <div style={{
+                          position:"absolute",top:2,right:2,zIndex:4,
+                          fontSize:Math.min(10, Math.max(7, height/8)),
+                          lineHeight:1,pointerEvents:"none",
+                          filter:"drop-shadow(0 1px 2px rgba(0,0,0,0.6))",
+                        }}>👑</div>
+                      )}
                       <div className="slot-handle bottom" onPointerDown={e=>onPointerDown(e,b,"bottom")}/>
 
                     </div>
@@ -1395,6 +1410,31 @@ function BookingModal({ booking, onClose, onAction, settings }) {
             <SecBtn ico={IcoViber}    label="Viber"    grad="linear-gradient(145deg,#a78bfa,#7c3aed)" col="#a78bfa" onClick={()=>onAction("viber",booking)}/>
             <SecBtn ico={IcoTelegram} label="Telegram" grad="linear-gradient(145deg,#38bdf8,#0284c7)" col="#38bdf8" onClick={()=>onAction("telegram",booking)}/>
             <SecBtn ico={IcoTrash}    label="Скасувати" grad="linear-gradient(145deg,#f87171,#b91c1c)" col="#f87171" onClick={()=>onAction("cancel",booking)}/>
+          </div>
+
+          {/* ── VIP toggle ── */}
+          <div onClick={()=>onAction("toggleVip",booking)} style={{
+            display:"flex", alignItems:"center", gap:12, cursor:"pointer",
+            padding:"12px 14px", borderRadius:16,
+            background: booking.isVipOnly
+              ? "linear-gradient(145deg,rgba(192,132,252,0.18),rgba(124,58,237,0.1))"
+              : `linear-gradient(145deg,${SURFACE_HI},${SURFACE_LO})`,
+            border: booking.isVipOnly ? "1px solid rgba(192,132,252,0.4)" : "1px solid transparent",
+            boxShadow: SHADOW_OUT,
+          }}>
+            <span style={{fontSize:20}}>👑</span>
+            <div style={{flex:1}}>
+              <div style={{fontSize:13,fontWeight:700,color:booking.isVipOnly?PURPLE:TEXT}}>VIP-слот</div>
+              <div style={{fontSize:10,color:TEXT_FAINT}}>Тільки для учнів категорії VIP</div>
+            </div>
+            <div style={{
+              width:44,height:24,borderRadius:12,position:"relative",flexShrink:0,
+              background:booking.isVipOnly?"linear-gradient(145deg,#c084fc,#7c3aed)":"linear-gradient(145deg,#1f2125,#161719)",
+              boxShadow:booking.isVipOnly?"0 0 8px rgba(192,132,252,0.45)":SHADOW_IN,
+              transition:"background .2s",
+            }}>
+              <div style={{position:"absolute",top:3,left:booking.isVipOnly?21:3,width:18,height:18,borderRadius:9,background:"#fff",transition:"left .2s"}}/>
+            </div>
           </div>
 
           {/* ── Close ── */}
