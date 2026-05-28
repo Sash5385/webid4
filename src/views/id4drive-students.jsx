@@ -35,29 +35,7 @@ const ICONS = {
   filter:   Svg(<><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></>, 16),
 };
 
-const STUDENTS = [
-  { id:"s1", name:"Марія Коваль",   phone:"+380671234567", type:"school",  discount:10, hours:12,
-    lastLesson:"2026-05-20", blocked:false, notes:"",
-    bookings:[{date:"2026-05-20",time:"10:00",svc:"Автошкола 1г",status:"confirmed"},{date:"2026-05-13",time:"12:00",svc:"Автошкола 1г",status:"confirmed"},{date:"2026-05-06",time:"10:00",svc:"Автошкола 2г",status:"confirmed"}] },
-  { id:"s2", name:"Іван Петренко",  phone:"+380509876543", type:"private", discount:0,  hours:5,
-    lastLesson:"2026-05-21", blocked:false, notes:"Зручний час — вечір.",
-    bookings:[{date:"2026-05-21",time:"17:00",svc:"Приватний 1г",status:"confirmed"},{date:"2026-05-14",time:"18:00",svc:"Приватний 1г",status:"noshow"}] },
-  { id:"s3", name:"Олена Мороз",    phone:"+380631112233", type:"school",  discount:15, hours:38,
-    lastLesson:"2026-05-19", blocked:false, notes:"",
-    bookings:[{date:"2026-05-19",time:"09:00",svc:"Автошкола 2г",status:"confirmed"},{date:"2026-05-12",time:"09:00",svc:"Автошкола 2г",status:"confirmed"}] },
-  { id:"s4", name:"Дмитро Сало",    phone:"+380961234567", type:"private", discount:20, hours:9,
-    lastLesson:"2026-05-18", blocked:false, notes:"",
-    bookings:[{date:"2026-05-18",time:"14:00",svc:"Приватний 2г",status:"confirmed"}] },
-  { id:"s5", name:"Тетяна Кравець", phone:"+380731234567", type:"school",  discount:0,  hours:40,
-    lastLesson:"2026-05-15", blocked:false, notes:"",
-    bookings:[{date:"2026-05-15",time:"11:00",svc:"Автошкола 1г",status:"noshow"}] },
-  { id:"s6", name:"Богдан Сірий",   phone:"+380501010101", type:"private", discount:0,  hours:2,
-    lastLesson:"2026-04-01", blocked:true,  notes:"Систематично не з'являється.",
-    bookings:[{date:"2026-04-01",time:"10:00",svc:"Приватний 1г",status:"noshow"}] },
-  { id:"s7", name:"Юлія Денисюк",   phone:"+380935023739", type:"private", discount:5,  hours:3,
-    lastLesson:"2026-05-22", blocked:false, notes:"",
-    bookings:[{date:"2026-05-22",time:"15:00",svc:"Приватний 2г",status:"pending"}] },
-];
+const STUDENTS = [];
 
 // ─── ACTION BUTTON ───────────────────────────────────────────────
 function Btn({ icon, label, onClick, color, danger }) {

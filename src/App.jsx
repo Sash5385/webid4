@@ -334,20 +334,7 @@ function TopBar({ tab, onChange }) {
   );
 }
 
-const INITIAL_BOOKINGS = [
-  { id:"b1", day:0, startMin:8*60,  durMin:120, name:"Марія Коваль",   phone:"+380671234567", type:"school",  tsc:"ТСЦ 8041",     hoursDone:12, status:"confirmed", serviceId:"sv1" },
-  { id:"b2", day:0, startMin:11*60, durMin:60,  name:"Іван Петренко",  phone:"+380509876543", type:"private", tsc:"",                hoursDone:5,  status:"pending",   serviceId:"sv3", categoryId:"cat-std" },
-  { id:"b3", day:0, startMin:14*60, durMin:120, name:"Олена Мороз",    phone:"+380631112233", type:"school",  tsc:"ТСЦ 8042",    hoursDone:38, status:"confirmed", serviceId:"sv1" },
-  { id:"b4", day:1, startMin:9*60,  durMin:60,  name:"Дмитро Сало",    phone:"+380961234567", type:"private", tsc:"",                hoursDone:9,  status:"confirmed", serviceId:"sv3", categoryId:"cat-vip" },
-  { id:"b5", day:1, startMin:13*60, durMin:60,  name:"Тетяна Кравець", phone:"+380731234567", type:"school",  tsc:"ТСЦ 8041",     hoursDone:40, status:"confirmed", serviceId:"sv1" },
-  { id:"b6", day:2, startMin:10*60, durMin:120, name:"Антон Білий",    phone:"+380501112233", type:"school",  tsc:"ТСЦ 8041", hoursDone:22, status:"confirmed", serviceId:"sv1" },
-  { id:"b7", day:2, startMin:15*60, durMin:120, name:"Юлія Денисюк",   phone:"+380935023739", type:"private", tsc:"",                hoursDone:3,  status:"pending",   serviceId:"sv4", categoryId:"cat-new" },
-  { id:"b8", day:3, startMin:8*60,  durMin:60,  name:"Сергій Гук",     phone:"+380961234500", type:"private", tsc:"",                hoursDone:14, status:"confirmed", serviceId:"sv3", categoryId:"cat-std" },
-  { id:"b9", day:3, startMin:11*60, durMin:120, name:"Наталія Бондар", phone:"+380671112244", type:"school",  tsc:"ТСЦ 8042",    hoursDone:18, status:"confirmed", serviceId:"sv1" },
-  { id:"b10",day:4, startMin:9*60,  durMin:120, name:"Андрій Чорний",  phone:"+380501234500", type:"school",  tsc:"ТСЦ 8041",     hoursDone:30, status:"confirmed", serviceId:"sv1" },
-  { id:"b11",day:4, startMin:14*60, durMin:60,  name:"Ірина Лесник",   phone:"+380967240853", type:"private", tsc:"",                hoursDone:1,  status:"pending",   serviceId:"sv3", categoryId:"cat-new" },
-  { id:"b12",day:5, startMin:10*60, durMin:120, name:"Ангеліна Коник", phone:"+380681746071", type:"private", tsc:"",                hoursDone:6,  status:"confirmed", serviceId:"sv4", categoryId:"cat-vip" },
-];
+const INITIAL_BOOKINGS = [];
 
 const DEFAULT_SETTINGS = {
   profile: { name:"Олександр", phone:"+380989225442", address:"Київ", experience:8, photo:null },
