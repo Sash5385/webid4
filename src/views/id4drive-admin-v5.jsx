@@ -747,6 +747,16 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
     }]);
   };
 
+  const handleVipSlot = ({ day, startMin }) => {
+    setBookings(bs=>[...bs,{
+      id:`vip-${Date.now()}`, day, startMin, durMin:60,
+      name:"VIP Слот", phone:"", type:"vip-slot", tsc:"",
+      hoursDone:0, status:"vip-open", serviceId:"", categoryId:"cat-vip"
+    }]);
+  };
+
+  const [vipSlotModal, setVipSlotModal] = useState(null);
+
   return (
     <>
     <style>{GLOBAL_CSS}</style>
@@ -887,7 +897,8 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                 const isPending = b.status==="pending" && settings.pendingEnabled;
                 const isCancelling = cancellingSet.has(b.id);
                 const isBlock = b.type === "block";
-                const isDimmed = !isBlock && (b.status==="cancelled" || b.status==="noshow" || isCancelling);
+                const isVipSlot = b.type === "vip-slot";
+                const isDimmed = !isBlock && !isVipSlot && (b.status==="cancelled" || b.status==="noshow" || isCancelling);
                 const svc = settings.services.find(s=>s.id===b.serviceId);
                 const price = svc ? Math.round((svc.price / svc.duration) * b.durMin) : 0;
                 return (
@@ -906,6 +917,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                         e.stopPropagation();
                         if(quickCancelId){ setQuickCancelId(null); return; }
                         if(dragEndedRef.current) return;
+                        if(isVipSlot){ setVipSlotModal(b); return; }
                         if(isBlock){ setBlockModal(b); return; }
                         if(isCancelling){
                           clearTimeout(cancelTimers.current[b.id]);
@@ -915,7 +927,15 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                         }
                         if(!dragRef.current){ setLocalSelectedBooking(b); onSlotClick?.(b); }
                       }}
-                      style={isBlock ? {
+                      style={isVipSlot ? {
+                        position:"relative", width:"100%", height:"100%",
+                        borderRadius:8,
+                        background:"linear-gradient(155deg,rgba(168,85,247,0.35) 0%,rgba(124,58,237,0.15) 100%)",
+                        border:"1px solid rgba(168,85,247,0.55)",
+                        boxShadow:"-2px 5px 14px rgba(0,0,0,0.5),0 0 12px rgba(168,85,247,0.25),inset 1px 1px 0 rgba(255,255,255,0.12)",
+                        display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
+                        gap:2, overflow:"hidden",
+                      } : isBlock ? {
                         position:"relative", width:"100%", height:"100%",
                         borderRadius:8,
                         background:"repeating-linear-gradient(45deg,#1a1b1f,#1a1b1f 6px,#222428 6px,#222428 12px)",
@@ -933,7 +953,13 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                         transition:"opacity 0.4s, filter 0.4s",
                       }}>
                       <div className="slot-handle top" onPointerDown={e=>onPointerDown(e,b,"top")}/>
-                      {!isBlock && <div className="shine-layer"/>}
+                      {!isBlock && !isVipSlot && <div className="shine-layer"/>}
+                      {isVipSlot && height >= 18 && (
+                        <>
+                          <span style={{fontSize:Math.min(18,height*0.38),lineHeight:1,filter:"drop-shadow(0 1px 3px rgba(0,0,0,0.6))",position:"relative",zIndex:3}}>👑</span>
+                          {height >= 36 && <span style={{fontSize:Math.max(6,Math.min(9,height*0.12)),fontWeight:800,color:"rgba(220,180,255,0.9)",letterSpacing:0.3,position:"relative",zIndex:3}}>VIP</span>}
+                        </>
+                      )}
                       {isBlock && height >= 18 && (() => {
                         const sz = Math.min(height * 0.62, 36);
                         return (
@@ -944,7 +970,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                           </svg>
                         );
                       })()}
-                      {!isBlock && height >= 12 && (() => {
+                      {!isBlock && !isVipSlot && height >= 12 && (() => {
                         const [fName, ...lParts] = b.name.split(' ');
                         const lName = lParts.join(' ');
                         const lines = [
@@ -972,8 +998,8 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                           </div>
                         );
                       })()}
-                      {/* VIP crown badge */}
-                      {b.isVipOnly && (
+                      {/* VIP crown badge on regular bookings */}
+                      {!isVipSlot && b.isVipOnly && (
                         <div style={{
                           position:"absolute",top:2,right:2,zIndex:4,
                           fontSize:Math.min(10, Math.max(7, height/8)),
@@ -1096,7 +1122,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
       <div onClick={()=>setBubbleData(null)} style={{position:"fixed",inset:0,zIndex:100}}>
         <div onClick={e=>e.stopPropagation()} style={{
           position:"absolute",
-          top: Math.max(60, Math.min(bubbleData.clientY - 80, window.innerHeight - 170)),
+          top: Math.max(60, Math.min(bubbleData.clientY - 80, window.innerHeight - 220)),
           left: Math.max(10, Math.min(bubbleData.clientX - 10, window.innerWidth - 210)),
           width:196,
           background:`linear-gradient(135deg,${SURFACE},${BG_DEEP})`,
@@ -1113,12 +1139,75 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
             color:"#fff",fontSize:12,fontWeight:800,
             boxShadow:`0 4px 12px ${ACCENT}44`
           }}>+ Записати учня</button>
+          <button onClick={()=>{handleVipSlot(bubbleData);setBubbleData(null);}} style={{
+            width:"100%",padding:"10px 12px",borderRadius:10,border:"none",cursor:"pointer",marginBottom:6,
+            background:"linear-gradient(165deg,#a855f7,#7c3aed)",
+            color:"#fff",fontSize:12,fontWeight:800,
+            boxShadow:"0 4px 12px rgba(168,85,247,0.45)"
+          }}>👑 VIP слот</button>
           <button onClick={()=>{handleBlock(bubbleData);setBubbleData(null);}} style={{
             width:"100%",padding:"10px 12px",borderRadius:10,border:"none",cursor:"pointer",
             background:`linear-gradient(135deg,${SURFACE_HI},${SURFACE})`,
             color:TEXT_DIM,fontSize:12,fontWeight:700,
             boxShadow:SHADOW_OUT
           }}>Заблокувати</button>
+        </div>
+      </div>
+    )}
+
+    {/* ── VIP слот модалка ── */}
+    {vipSlotModal && (
+      <div onClick={()=>setVipSlotModal(null)} style={{
+        position:"fixed",inset:0,zIndex:200,background:"rgba(0,0,0,0.78)",
+        display:"flex",alignItems:"flex-end",justifyContent:"center",
+        backdropFilter:"blur(12px)"
+      }}>
+        <div onClick={e=>e.stopPropagation()} style={{
+          width:"100%",maxWidth:480,background:BG_DEEP,
+          borderRadius:"28px 28px 0 0",
+          boxShadow:"0 -2px 0 rgba(168,85,247,0.4), 0 -16px 60px rgba(0,0,0,0.8)",
+          display:"flex",flexDirection:"column",overflow:"hidden",
+        }}>
+          <div style={{
+            padding:"16px 16px 18px",
+            background:"linear-gradient(145deg,rgba(168,85,247,0.18),rgba(124,58,237,0.08))",
+            borderBottom:"1px solid rgba(168,85,247,0.2)",
+          }}>
+            <div style={{width:38,height:4,borderRadius:2,background:"rgba(255,255,255,0.1)",margin:"0 auto 14px"}}/>
+            <div style={{display:"flex",alignItems:"center",gap:14}}>
+              <div style={{
+                width:52,height:52,borderRadius:26,flexShrink:0,
+                background:"linear-gradient(145deg,#a855f7,#7c3aed)",
+                boxShadow:"0 0 0 3px rgba(168,85,247,0.3), 0 6px 20px rgba(168,85,247,0.4)",
+                display:"flex",alignItems:"center",justifyContent:"center",fontSize:24,
+              }}>👑</div>
+              <div>
+                <div style={{fontSize:18,fontWeight:900,color:PURPLE}}>VIP Слот</div>
+                <div style={{fontSize:12,color:TEXT_DIM,marginTop:3}}>
+                  {getDayInfo(vipSlotModal.day).fullLabel} · {fmtTime(vipSlotModal.startMin)} · {fmtDur(vipSlotModal.durMin)}
+                </div>
+                <div style={{fontSize:11,color:TEXT_FAINT,marginTop:4}}>
+                  Тільки для учнів категорії VIP
+                </div>
+              </div>
+            </div>
+          </div>
+          <div style={{padding:"14px 16px 32px",display:"flex",flexDirection:"column",gap:10}}>
+            <button onClick={()=>{
+              setBookings(bs=>bs.filter(x=>x.id!==vipSlotModal.id));
+              setVipSlotModal(null);
+            }} style={{
+              width:"100%",padding:"14px",borderRadius:18,border:"none",cursor:"pointer",
+              background:`linear-gradient(160deg,${GREEN},#4ade80)`,
+              color:"#fff",fontSize:14,fontWeight:800,
+              boxShadow:`0 6px 20px ${GREEN}55`,
+            }}>🗑 Видалити VIP слот</button>
+            <button onClick={()=>setVipSlotModal(null)} style={{
+              width:"100%",padding:"13px",borderRadius:18,border:"none",cursor:"pointer",
+              background:`linear-gradient(135deg,${SURFACE_HI},${SURFACE})`,
+              color:TEXT_DIM,fontSize:13,fontWeight:700,boxShadow:SHADOW_OUT,
+            }}>Закрити</button>
+          </div>
         </div>
       </div>
     )}
