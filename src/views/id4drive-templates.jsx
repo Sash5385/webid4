@@ -1,4 +1,6 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useContext } from "react";
+import { LangContext } from "../App";
+import { createT } from "../lang";
 
 // ─── TOKENS ─────────────────────────────────────────────────────
 const BG      = "#1c1d21";
@@ -19,16 +21,15 @@ const GOLD    = "#f7c948";
 const RED     = "#ef4444";
 const TEAL    = "#2dd4bf";
 
-const SO = "6px 6px 16px rgba(0,0,0,0.45),-3px -3px 10px rgba(255,255,255,0.025)";
-const SI = "inset 3px 3px 8px rgba(0,0,0,0.4),inset -2px -2px 6px rgba(255,255,255,0.025)";
+const SO = "0 2px 10px rgba(0,0,0,0.4)";
+const SI = "inset 2px 2px 6px rgba(0,0,0,0.45),inset -1px -1px 3px rgba(255,255,255,0.02)";
 
 // ─── CSS ────────────────────────────────────────────────────────
 const CSS = `
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 ::-webkit-scrollbar{width:5px}
 ::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.1);border-radius:3px}
-.pillow{background:linear-gradient(135deg,${SURF_HI} 0%,${SURFACE} 50%,${SURF_LO} 100%);border:1px solid rgba(255,255,255,0.04);border-radius:18px;position:relative;overflow:hidden;box-shadow:-2px 6px 16px rgba(0,0,0,0.45),inset 1px 1px 0 rgba(255,255,255,0.08),inset -1px -1px 0 rgba(0,0,0,0.25)}
-.pillow::before{content:'';position:absolute;pointer-events:none;top:0;right:0;width:60%;height:35%;background:radial-gradient(ellipse at top right,rgba(255,255,255,0.07) 0%,transparent 70%);border-radius:18px}
+.pillow{background:linear-gradient(155deg,${SURF_HI},${SURFACE});border:1px solid rgba(255,255,255,0.06);border-radius:13px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.35)}
 .i3{display:inline-flex;align-items:center;justify-content:center;border-radius:12px;position:relative;overflow:hidden;flex-shrink:0;box-shadow:-2px 3px 8px rgba(0,0,0,0.4),inset 1px 1px 0 rgba(255,255,255,0.2)}
 .i3::before{content:'';position:absolute;top:0;right:0;width:60%;height:50%;background:radial-gradient(ellipse at top right,rgba(255,255,255,0.35) 0%,transparent 70%);pointer-events:none}
 .i3>svg{position:relative;z-index:1}
@@ -346,6 +347,7 @@ function EditModal({ tpl, onSave, onClose }) {
 
 // ─── TEMPLATE CARD ───────────────────────────────────────────────
 function TemplateCard({ tpl, onEdit, onSend, onToggle, onDelete, viewMode }) {
+  const [expanded, setExpanded] = useState(false);
   const [longPressTimer, setLongPressTimer] = useState(null);
   const [inlineEdit, setInlineEdit] = useState(false);
   const [inlineBody, setInlineBody] = useState(tpl.body);
@@ -398,85 +400,63 @@ function TemplateCard({ tpl, onEdit, onSend, onToggle, onDelete, viewMode }) {
       onPointerUp={handlePointerUp}
       onPointerLeave={handlePointerUp}
     >
-      {/* ROW 1: emoji·title·toggle */}
-      <div style={{display:"flex",alignItems:"center",gap:10,padding:"14px 14px 10px"}}>
+      {/* ROW 1: emoji·title·toggle·chevron */}
+      <div onClick={e=>{e.stopPropagation();setExpanded(v=>!v);}}
+        style={{display:"flex",alignItems:"center",gap:10,padding:"12px 14px",cursor:"pointer"}}>
         <div style={{
-          width:40,height:40,borderRadius:12,flexShrink:0,
+          width:36,height:36,borderRadius:11,flexShrink:0,
           background:`linear-gradient(155deg,${cat.color}99,${cat.color}33)`,
-          display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,
-          boxShadow:`-2px 3px 8px rgba(0,0,0,0.4),inset 1px 1px 0 rgba(255,255,255,0.15),0 0 10px ${cat.color}33`
+          display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,
         }}>{cat.emoji}</div>
         <div style={{flex:1,minWidth:0}}>
-          <div style={{fontSize:14,fontWeight:800,color:TEXT,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",marginBottom:3}}>{tpl.title}</div>
-          <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+          <div style={{fontSize:13,fontWeight:800,color:TEXT,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",marginBottom:2}}>{tpl.title}</div>
+          <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
             <Pill label={`${ch.emoji} ${ch.label}`} color={ch.color} bg={`${ch.color}22`}/>
-            <Pill
-              label={tpl.trigger==="manual"?"✋ Ручна":"⚡ Авто"}
-              color={tpl.trigger==="manual"?DIM:GOLD}
-              bg={tpl.trigger==="manual"?"rgba(255,255,255,0.05)":"rgba(247,201,72,0.12)"}
-            />
+            <Pill label={tpl.trigger==="manual"?"✋ Ручна":"⚡ Авто"} color={tpl.trigger==="manual"?DIM:GOLD} bg={tpl.trigger==="manual"?"rgba(255,255,255,0.05)":"rgba(247,201,72,0.12)"}/>
           </div>
         </div>
-        <Toggle on={tpl.active} onChange={v=>onToggle(tpl.id,v)}/>
+        <Toggle on={tpl.active} onChange={v=>{v||null; onToggle(tpl.id,v);}}/>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={FAINT} strokeWidth="2.2" strokeLinecap="round"
+          style={{transform:expanded?"rotate(180deg)":"none",transition:"transform .22s",flexShrink:0}}>
+          <polyline points="6 9 12 15 18 9"/>
+        </svg>
       </div>
 
-      {/* ROW 2: body (inline edit or preview) */}
-      <div style={{borderTop:`1px solid ${BORDER}`,borderBottom:`1px solid ${BORDER}`,padding:"10px 14px"}}>
-        {inlineEdit ? (
-          <textarea
-            autoFocus
-            value={inlineBody}
-            onChange={e=>setInlineBody(e.target.value)}
-            onBlur={()=>{setInlineEdit(false);}}
-            onClick={e=>e.stopPropagation()}
-            rows={3}
-            style={{
-              width:"100%",background:"transparent",border:"none",outline:"none",
-              color:TEXT,fontSize:13,resize:"none",fontFamily:"inherit",lineHeight:1.5
-            }}
-          />
-        ) : (
-          <div onClick={e=>{e.stopPropagation();setInlineEdit(true);}} style={{cursor:"text"}}>
-            <div style={{fontSize:13,color:DIM,lineHeight:1.5,marginBottom:6}}>
-              <BodyPreview body={tpl.body}/>
-            </div>
-            <div style={{fontSize:10,color:FAINT,fontStyle:"italic"}}>Клік — редагувати · Утримати — повна форма</div>
+      {expanded && (
+        <>
+          {/* ROW 2: body */}
+          <div style={{borderTop:`1px solid ${BORDER}`,borderBottom:`1px solid ${BORDER}`,padding:"10px 14px"}}>
+            {inlineEdit ? (
+              <textarea autoFocus value={inlineBody} onChange={e=>setInlineBody(e.target.value)}
+                onBlur={()=>setInlineEdit(false)} onClick={e=>e.stopPropagation()} rows={3}
+                style={{width:"100%",background:"transparent",border:"none",outline:"none",color:TEXT,fontSize:13,resize:"none",fontFamily:"inherit",lineHeight:1.5}}/>
+            ) : (
+              <div onClick={e=>{e.stopPropagation();setInlineEdit(true);}} style={{cursor:"text"}}>
+                <div style={{fontSize:13,color:DIM,lineHeight:1.5,marginBottom:4}}><BodyPreview body={tpl.body}/></div>
+                <div style={{fontSize:10,color:FAINT,fontStyle:"italic"}}>Клік — редагувати · Утримати — повна форма</div>
+              </div>
+            )}
           </div>
-        )}
-      </div>
 
-      {/* ROW 3: actions */}
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",borderTop:"none"}}>
-        <button onClick={e=>{e.stopPropagation();onSend(tpl);}} style={{
-          padding:"11px 0",border:"none",borderRight:`1px solid ${BORDER}`,cursor:"pointer",
-          background:"transparent",color:ACCENT,fontSize:12,fontWeight:700,
-          display:"flex",alignItems:"center",justifyContent:"center",gap:5,
-          borderRadius:"0 0 0 18px"
-        }}>➤ Надіслати</button>
-        <button onClick={e=>{e.stopPropagation();onEdit(tpl);}} style={{
-          padding:"11px 0",border:"none",borderRight:`1px solid ${BORDER}`,cursor:"pointer",
-          background:"transparent",color:BLUE,fontSize:12,fontWeight:700,
-          display:"flex",alignItems:"center",justifyContent:"center",gap:5
-        }}>✏️ Редагувати</button>
-        <button onClick={e=>{e.stopPropagation();onDelete(tpl.id);}} style={{
-          padding:"11px 0",border:"none",cursor:"pointer",
-          background:"transparent",color:RED,fontSize:12,fontWeight:700,
-          display:"flex",alignItems:"center",justifyContent:"center",gap:5,
-          borderRadius:"0 0 18px 0"
-        }}>🗑 Видалити</button>
-      </div>
+          {/* ROW 3: actions */}
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr"}}>
+            <button onClick={e=>{e.stopPropagation();onSend(tpl);}} style={{padding:"11px 0",border:"none",borderRight:`1px solid ${BORDER}`,cursor:"pointer",background:"transparent",color:ACCENT,fontSize:12,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",gap:5,borderRadius:"0 0 0 13px"}}>➤ Надіслати</button>
+            <button onClick={e=>{e.stopPropagation();onEdit(tpl);}} style={{padding:"11px 0",border:"none",borderRight:`1px solid ${BORDER}`,cursor:"pointer",background:"transparent",color:BLUE,fontSize:12,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",gap:5}}>✏️ Редагувати</button>
+            <button onClick={e=>{e.stopPropagation();onDelete(tpl.id);}} style={{padding:"11px 0",border:"none",cursor:"pointer",background:"transparent",color:RED,fontSize:12,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",gap:5,borderRadius:"0 0 13px 0"}}>🗑 Видалити</button>
+          </div>
+        </>
+      )}
     </div>
   );
 }
 
 // ─── MAIN ────────────────────────────────────────────────────────
 export default function TemplatesView() {
+  const lang = useContext(LangContext);
+  const t = createT(lang);
   const [templates, setTemplates] = useState(INIT_TEMPLATES);
-  const [activeCat, setActiveCat] = useState(null);
-  const [search, setSearch]       = useState("");
-  const [viewMode, setViewMode]   = useState("cards");
-  const [editTpl, setEditTpl]     = useState(null);   // null=closed, false=new, obj=edit
-  const [sendTpl, setSendTpl]     = useState(null);
+  const [editTpl, setEditTpl] = useState(null);
+  const [sendTpl, setSendTpl] = useState(null);
 
   const onSave = (form) => {
     setTemplates(ts=>{
@@ -489,80 +469,17 @@ export default function TemplatesView() {
   const onToggle = (id,v) => setTemplates(ts=>ts.map(t=>t.id===id?{...t,active:v}:t));
   const onDelete = (id)   => setTemplates(ts=>ts.filter(t=>t.id!==id));
 
-  // filter
-  let list = templates.filter(t=>
-    (!activeCat || t.catId===activeCat) &&
-    (!search || t.title.toLowerCase().includes(search.toLowerCase()) ||
-                t.body.toLowerCase().includes(search.toLowerCase()))
-  );
-
-  const autoCount   = templates.filter(t=>t.active&&t.trigger!=="manual").length;
-  const manualCount = templates.filter(t=>t.trigger==="manual").length;
+  const list = templates;
 
   return (
     <>
       <style>{CSS}</style>
       <div style={{display:"flex",flexDirection:"column",gap:12,fontFamily:"ui-sans-serif,-apple-system,system-ui,sans-serif",color:TEXT}}>
 
-        {/* ── SUMMARY ── */}
-        <div style={{display:"flex",gap:8}}>
-          {[
-            {label:"Всього",    val:templates.length,                            c:TEXT},
-            {label:"Авто ⚡",   val:autoCount,                                   c:GOLD},
-            {label:"Ручні ✋",  val:manualCount,                                 c:BLUE},
-            {label:"Активних",  val:templates.filter(t=>t.active).length,       c:GREEN},
-          ].map(s=>(
-            <div key={s.label} style={{flex:1,background:`linear-gradient(135deg,${BG_DEEP},${SURF_LO})`,borderRadius:12,boxShadow:SI,padding:"8px 6px",textAlign:"center"}}>
-              <div style={{fontSize:15,fontWeight:900,color:s.c}}>{s.val}</div>
-              <div style={{fontSize:9,color:FAINT,marginTop:2,letterSpacing:0.5}}>{s.label.toUpperCase()}</div>
-            </div>
-          ))}
-        </div>
-
-        {/* ── SEARCH + VIEW MODE ── */}
-        <div style={{display:"flex",gap:8,alignItems:"center"}}>
-          <div style={{flex:1,background:`linear-gradient(135deg,${BG_DEEP},${SURF_LO})`,borderRadius:12,boxShadow:SI,padding:"4px 12px",display:"flex",alignItems:"center",gap:8}}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={FAINT} strokeWidth="2.5" strokeLinecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-            <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Пошук по назві та тексту…"
-              style={{flex:1,background:"transparent",border:"none",outline:"none",color:TEXT,padding:"9px 0",fontSize:13}}/>
-            {search && <button onClick={()=>setSearch("")} style={{background:"none",border:"none",cursor:"pointer",color:FAINT,fontSize:18,padding:0}}>×</button>}
-          </div>
-          <button onClick={()=>setViewMode(m=>m==="cards"?"rows":"cards")} style={{background:"none",border:"none",cursor:"pointer",padding:0}}>
-            <div className="i3" style={{width:38,height:38,background:`linear-gradient(135deg,${SURF_HI},${SURFACE})`}}>
-              {viewMode==="cards"
-                ? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={TEXT} strokeWidth="2" strokeLinecap="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></svg>
-                : <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={TEXT} strokeWidth="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
-              }
-            </div>
-          </button>
-        </div>
-
-        {/* ── CATEGORIES ── */}
-        <div style={{display:"flex",gap:6,overflowX:"auto",paddingBottom:2}}>
-          <button onClick={()=>setActiveCat(null)} style={{
-            padding:"7px 14px",borderRadius:12,border:"none",cursor:"pointer",fontSize:12,fontWeight:700,flexShrink:0,
-            background:!activeCat?`linear-gradient(165deg,${ACC_HI},${ACCENT})`:`linear-gradient(135deg,${SURF_HI},${SURFACE})`,
-            color:!activeCat?"#fff":DIM,boxShadow:SO
-          }}>Всі ({templates.length})</button>
-          {CATEGORIES.map(c=>{
-            const count = templates.filter(t=>t.catId===c.id).length;
-            if(!count) return null;
-            return (
-              <button key={c.id} onClick={()=>setActiveCat(activeCat===c.id?null:c.id)} style={{
-                padding:"7px 14px",borderRadius:12,border:"none",cursor:"pointer",fontSize:12,fontWeight:700,flexShrink:0,
-                background:activeCat===c.id?`linear-gradient(165deg,${c.color}99,${c.color}55)`:`linear-gradient(135deg,${SURF_HI},${SURFACE})`,
-                color:activeCat===c.id?c.color:DIM,
-                boxShadow:SO,
-                border:activeCat===c.id?`1px solid ${c.color}55`:"1px solid transparent"
-              }}>{c.emoji} {c.label} ({count})</button>
-            );
-          })}
-        </div>
-
         {/* ── LIST ── */}
         {list.map(tpl=>(
           <TemplateCard
-            key={tpl.id} tpl={tpl} viewMode={viewMode}
+            key={tpl.id} tpl={tpl} viewMode="rows"
             onEdit={setEditTpl} onSend={setSendTpl}
             onToggle={onToggle} onDelete={onDelete}
           />
