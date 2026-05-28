@@ -385,7 +385,7 @@ function FilterSheet({ filters, setFilters, sortBy, setSortBy, groupBy, setGroup
 }
 
 // ─── MAIN VIEW ─────────────────────────────────────────────────
-export default function BookingsView({ showInfo = true, onDismissInfo }) {
+export default function BookingsView({ infoOpen = false, onToggleInfo }) {
   const lang = useContext(LangContext);
   const t = createT(lang);
   const [data,       setData]       = useState(RAW); // RAW as initial fallback
@@ -498,16 +498,18 @@ export default function BookingsView({ showInfo = true, onDismissInfo }) {
       <div style={{display:"flex",flexDirection:"column",gap:10,fontFamily:"ui-sans-serif,-apple-system,system-ui,sans-serif",color:TEXT}}>
 
         {/* ── INFO ── */}
-        {showInfo && (
-          <div style={{background:`linear-gradient(145deg,${ACCENT}0d,${ACCENT}05)`,border:`1px solid ${ACCENT}30`,borderRadius:10,padding:"10px 12px",position:"relative"}}>
-            <button onClick={onDismissInfo} style={{position:"absolute",top:7,right:8,background:"none",border:"none",cursor:"pointer",color:FAINT,fontSize:16,lineHeight:1,padding:"0 2px"}}>×</button>
-            <div style={{fontSize:11,fontWeight:700,color:ACCENT,marginBottom:4}}>💡 Букінги</div>
-            <div style={{fontSize:11,color:DIM,lineHeight:1.6,paddingRight:16}}>
+        <div style={{background:`linear-gradient(145deg,${ACCENT}0d,${ACCENT}05)`,border:`1px solid ${ACCENT}30`,borderRadius:10,overflow:"hidden"}}>
+          <div onClick={onToggleInfo} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 12px",cursor:"pointer"}}>
+            <span style={{fontSize:11,fontWeight:700,color:ACCENT}}>💡 Букінги</span>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={ACCENT} strokeWidth="2.5" strokeLinecap="round" style={{transform:infoOpen?"rotate(180deg)":"none",transition:"transform .2s",flexShrink:0}}><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
+          {infoOpen && (
+            <div style={{padding:"0 12px 10px",fontSize:11,color:DIM,lineHeight:1.6}}>
               Список записів учнів. Натисніть на картку — побачите деталі, телефон і кнопки дій.
               Очікуючі записи підтвердіть або скасуйте. Використовуйте пошук і фільтр для швидкого доступу.
             </div>
-          </div>
-        )}
+          )}
+        </div>
 
         {/* ── PENDING ALERT ── */}
         {pendingCount>0 && (

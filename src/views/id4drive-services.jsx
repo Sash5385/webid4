@@ -51,11 +51,11 @@ const CSS = `
 
 // ─── MOCK DATA ───────────────────────────────────────────────────
 const INIT_SERVICES = [
-  { id:"sv1", name:"Автошкола 1 год",  type:"school",  duration:60,  price:600,  colorId:"green",  active:true,  archived:false, description:"Стандартний урок для учнів автошколи", accessCats:["cat-all"], lessons:47, income:28200, instructions:"Мати при собі свідоцтво учня автошколи. Зустріч біля головного входу ТСЦ за 5 хвилин до початку." },
-  { id:"sv2", name:"Автошкола 2 год",  type:"school",  duration:120, price:1100, colorId:"green",  active:true,  archived:false, description:"Подвійний урок для автошколи",          accessCats:["cat-all"], lessons:31, income:34100, instructions:"Мати при собі свідоцтво учня. Взяти воду. Підходить для відпрацювання складних маневрів." },
-  { id:"sv3", name:"Приватний 1 год",  type:"private", duration:60,  price:700,  colorId:"yellow", active:true,  archived:false, description:"Приватний урок для будь-якого учня",    accessCats:["cat-all"], lessons:28, income:19600, instructions:"Документ, що посвідчує особу. Зручний одяг та взуття." },
-  { id:"sv4", name:"Приватний 2 год",  type:"private", duration:120, price:1300, colorId:"yellow", active:true,  archived:false, description:"Подвійний приватний урок",              accessCats:["cat-vip","cat-std"], lessons:14, income:18200, instructions:"Для досвідченіших учнів. Відпрацьовуємо маршрути ТСЦ та паркування." },
-  { id:"sv5", name:"VIP інтенсив",     type:"private", duration:180, price:2200, colorId:"purple", active:true,  archived:false, description:"3-годинний VIP урок для досвідчених",  accessCats:["cat-vip"], lessons:6,  income:13200, instructions:"Індивідуальна програма. Включає розбір помилок, складні маршрути та нічне водіння за бажанням." },
+  { id:"sv1", name:"Автошкола 1 год",  type:"school",  duration:60,  price:600,  colorId:"green",  active:true,  archived:false, description:"Стандартний урок для учнів автошколи", accessCats:["cat-all"], lessons:47, income:28200, instructions:"" },
+  { id:"sv2", name:"Автошкола 2 год",  type:"school",  duration:120, price:1100, colorId:"green",  active:true,  archived:false, description:"Подвійний урок для автошколи",          accessCats:["cat-all"], lessons:31, income:34100, instructions:"" },
+  { id:"sv3", name:"Приватний 1 год",  type:"private", duration:60,  price:700,  colorId:"yellow", active:true,  archived:false, description:"Приватний урок для будь-якого учня",    accessCats:["cat-all"], lessons:28, income:19600, instructions:"" },
+  { id:"sv4", name:"Приватний 2 год",  type:"private", duration:120, price:1300, colorId:"yellow", active:true,  archived:false, description:"Подвійний приватний урок",              accessCats:["cat-vip","cat-std"], lessons:14, income:18200, instructions:"" },
+  { id:"sv5", name:"VIP інтенсив",     type:"private", duration:180, price:2200, colorId:"purple", active:true,  archived:false, description:"3-годинний VIP урок для досвідчених",  accessCats:["cat-vip"], lessons:6,  income:13200, instructions:"" },
 ];
 
 // ─── HELPERS ────────────────────────────────────────────────────
@@ -482,7 +482,7 @@ function useDragReorder(items, setItems) {
 }
 
 // ─── MAIN ────────────────────────────────────────────────────────
-export default function ServicesView({ showInfo = true, onDismissInfo }) {
+export default function ServicesView({ infoOpen = false, onToggleInfo }) {
   const [services, setServices] = useState(INIT_SERVICES);
   const [showArchived, setShowArchived] = useState(false);
   const [editSvc, setEditSvc]   = useState(null);  // null=closed, false=new, obj=edit
@@ -511,24 +511,19 @@ export default function ServicesView({ showInfo = true, onDismissInfo }) {
       <div style={{display:"flex",flexDirection:"column",gap:8,fontFamily:"ui-sans-serif,-apple-system,system-ui,sans-serif",color:TEXT}}>
 
         {/* ── INFO ── */}
-        {showInfo && (
-          <div style={{
-            background:`linear-gradient(145deg,${GREEN}0d,${GREEN}05)`,
-            border:`1px solid ${GREEN}30`,
-            borderRadius:10,padding:"10px 12px",position:"relative",
-          }}>
-            <button onClick={onDismissInfo} style={{
-              position:"absolute",top:7,right:8,background:"none",border:"none",
-              cursor:"pointer",color:FAINT,fontSize:16,lineHeight:1,padding:"0 2px",
-            }}>×</button>
-            <div style={{fontSize:11,fontWeight:700,color:GREEN,marginBottom:4}}>💡 Послуги</div>
-            <div style={{fontSize:11,color:DIM,lineHeight:1.6,paddingRight:16}}>
+        <div style={{background:`linear-gradient(145deg,${GREEN}0d,${GREEN}05)`,border:`1px solid ${GREEN}30`,borderRadius:10,overflow:"hidden"}}>
+          <div onClick={onToggleInfo} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 12px",cursor:"pointer"}}>
+            <span style={{fontSize:11,fontWeight:700,color:GREEN}}>💡 Послуги</span>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={GREEN} strokeWidth="2.5" strokeLinecap="round" style={{transform:infoOpen?"rotate(180deg)":"none",transition:"transform .2s",flexShrink:0}}><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
+          {infoOpen && (
+            <div style={{padding:"0 12px 10px",fontSize:11,color:DIM,lineHeight:1.6}}>
               Тут ви керуєте типами уроків. Кожна послуга — окремий тип заняття з ціною та тривалістю.
               Вмикайте/вимикайте послуги перемикачем. Тягніть ☰ щоб змінити порядок.
               Натисніть ✏️ щоб відредагувати або додати нову послугу внизу.
             </div>
-          </div>
-        )}
+          )}
+        </div>
 
         {/* ── LIST ── */}
         <div onPointerMove={e=>getHandlers(0).onPointerMove(e)} onPointerUp={()=>getHandlers(0).onPointerUp()}>
