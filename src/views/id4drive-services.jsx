@@ -255,16 +255,6 @@ function ServiceFormModal({ svc, onSave, onClose }) {
           </Inset>
         </div>
 
-        {/* instructions */}
-        <div style={{marginBottom:14}}>
-          <div style={{fontSize:10,color:FAINT,letterSpacing:1,marginBottom:6}}>ІНСТРУКЦІЇ ДЛЯ УЧНЯ</div>
-          <Inset style={{padding:"10px 14px"}}>
-            <textarea value={form.instructions||""} onChange={e=>upd("instructions",e.target.value)}
-              placeholder="Що взяти, куди прийти, що очікувати на уроці…" rows={3}
-              style={{width:"100%",background:"transparent",border:"none",outline:"none",color:TEXT,fontSize:13,resize:"none",fontFamily:"inherit",lineHeight:1.5}}/>
-          </Inset>
-        </div>
-
         {/* access cats */}
         <div style={{marginBottom:20}}>
           <div style={{fontSize:10,color:FAINT,letterSpacing:1,marginBottom:8}}>ДОСТУП (для яких категорій учнів)</div>
@@ -539,6 +529,20 @@ export default function ServicesView() {
     <>
       <style>{CSS}</style>
       <div style={{display:"flex",flexDirection:"column",gap:8,fontFamily:"ui-sans-serif,-apple-system,system-ui,sans-serif",color:TEXT}}>
+
+        {/* ── INFO ── */}
+        <div style={{
+          background:`linear-gradient(145deg,${GREEN}0d,${GREEN}05)`,
+          border:`1px solid ${GREEN}30`,
+          borderRadius:10,padding:"10px 12px",
+        }}>
+          <div style={{fontSize:11,fontWeight:700,color:GREEN,marginBottom:4}}>💡 Послуги</div>
+          <div style={{fontSize:11,color:DIM,lineHeight:1.6}}>
+            Тут ви керуєте типами уроків. Кожна послуга — окремий тип заняття з ціною та тривалістю.
+            Вмикайте/вимикайте послуги перемикачем. Тягніть ☰ щоб змінити порядок.
+            Натисніть ✏️ щоб відредагувати або додати нову послугу внизу.
+          </div>
+        </div>
 
         {/* ── LIST ── */}
         <div onPointerMove={e=>getHandlers(0).onPointerMove(e)} onPointerUp={()=>getHandlers(0).onPointerUp()}>
