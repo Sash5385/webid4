@@ -4,7 +4,7 @@ import { db } from "../firebase";
 import { LangContext } from "../App";
 import { createT, T } from "../lang";
 
-import { BG, BG_DEEP, SURFACE, SURF_HI, SURF_LO, BORDER, TEXT, DIM, FAINT, ACCENT, ACC_HI, GREEN, BLUE, GOLD, RED, SO, SI } from "../theme.js";
+import { BG, BG_DEEP, SURFACE, SURF_HI, SURF_LO, BORDER, TEXT, DIM, FAINT, ACCENT, ACC_HI, GREEN, BLUE, PURPLE, GOLD, RED, SO, SI } from "../theme.js";
 
 const CSS = `
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
