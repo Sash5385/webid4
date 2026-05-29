@@ -578,20 +578,16 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
           }
           return;
         }
-        // Звичайний move: якщо значок вже показано — drag; інакше — скасовуємо (скрол)
-        if (moved > 15) {
+        // Звичайний move: drag активується відразу при русі >8px
+        if (moved > 8) {
           clearTimeout(holdTimerRef.current);
           holdTimerRef.current = null;
-          if (quickCancelRef.current !== null) {
-            dragRef.current = {...pd};
-            pendingDragRef.current = null;
-            setQuickCancelId(null);
-            setDragId(pd.id);
-            navigator.vibrate?.(55);
-          } else {
-            pendingDragRef.current = null;
-            setHoldId(null);
-          }
+          dragRef.current = {...pd};
+          pendingDragRef.current = null;
+          setQuickCancelId(null);
+          setHoldId(null);
+          setDragId(pd.id);
+          navigator.vibrate?.(18);
         }
         return;
       }
