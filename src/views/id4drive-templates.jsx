@@ -351,42 +351,31 @@ function TemplateCard({ tpl, onEdit, onSend, onToggle, onDelete, viewMode }) {
         borderRadius:13,marginBottom:8,overflow:"hidden",
         boxShadow:SO,opacity:tpl.active?1:0.55
       }}>
-        {/* ── інфо ── */}
-        <div style={{display:"flex",alignItems:"center",gap:10,padding:"12px 14px"}}>
-          <div style={{width:8,alignSelf:"stretch",borderRadius:4,background:cat.color,boxShadow:`0 0 8px ${cat.color}88`,flexShrink:0}}/>
-          <div className="icon3d" style={{width:40,height:40,background:`linear-gradient(155deg,${cat.color}99,${cat.color}33)`,borderRadius:12,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,flexShrink:0}}>
-            {cat.emoji}
-          </div>
+        <div style={{display:"flex",alignItems:"center",gap:8,padding:"9px 12px"}}>
+          <div style={{width:4,alignSelf:"stretch",borderRadius:3,background:cat.color,flexShrink:0}}/>
+          <span style={{fontSize:22,flexShrink:0,lineHeight:1}}>{cat.emoji}</span>
           <div style={{flex:1,minWidth:0}}>
-            <div style={{fontSize:14,fontWeight:800,color:TEXT,marginBottom:4,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{tpl.title}</div>
-            <div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}}>
-              <span style={{fontSize:11,color:ch.color,fontWeight:700}}>{ch.emoji} {ch.label}</span>
-              <span style={{fontSize:11,color:FAINT}}>·</span>
-              <span style={{fontSize:11,color:tpl.trigger==="manual"?DIM:GOLD,fontWeight:700}}>{tpl.trigger==="manual"?"✋ Ручна":"⚡ Авто"}</span>
+            <div style={{fontSize:13,fontWeight:800,color:TEXT,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{tpl.title}</div>
+            <div style={{fontSize:10,color:DIM,marginTop:2}}>
+              <span style={{color:ch.color,fontWeight:700}}>{ch.emoji} {ch.label}</span>
+              <span style={{color:FAINT}}> · </span>
+              <span style={{color:tpl.trigger==="manual"?DIM:GOLD}}>{tpl.trigger==="manual"?"✋":"⚡"}</span>
             </div>
           </div>
           <Toggle on={tpl.active} onChange={v=>onToggle(tpl.id,v)}/>
-        </div>
-        {/* ── кнопки — рівні колонки ── */}
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",borderTop:`1px solid ${BORDER}`}}>
+          <div style={{width:1,height:28,background:BORDER,flexShrink:0}}/>
           {[
-            {label:"Надіслати", color:ACCENT,   grad:`linear-gradient(165deg,${ACC_HI},${ACCENT})`,     fn:()=>onSend(tpl),
+            {grad:`linear-gradient(165deg,${ACC_HI},${ACCENT})`, fn:()=>onSend(tpl),
               svg:<><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></>},
-            {label:"Редагувати",color:BLUE,    grad:"linear-gradient(165deg,#a78bfa,#6d28d9)",           fn:()=>onEdit(tpl),
+            {grad:"linear-gradient(165deg,#a78bfa,#6d28d9)", fn:()=>onEdit(tpl),
               svg:<><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></>},
-            {label:"Видалити",  color:RED,     grad:"linear-gradient(165deg,#f87171,#dc2626)",           fn:()=>onDelete(tpl.id),
+            {grad:"linear-gradient(165deg,#f87171,#dc2626)", fn:()=>onDelete(tpl.id),
               svg:<><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></>},
-          ].map((b,i,arr)=>(
-            <button key={b.label} onClick={b.fn} style={{
-              padding:"10px 0",border:"none",cursor:"pointer",background:"transparent",
-              display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:5,
-              borderRight:i<arr.length-1?`1px solid ${BORDER}`:"none",
-              borderRadius:i===0?"0 0 0 13px":i===arr.length-1?"0 0 13px 0":"0",
-            }}>
-              <div className="icon3d" style={{width:28,height:28,background:b.grad,borderRadius:9}}>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{position:"relative",zIndex:1}}>{b.svg}</svg>
+          ].map((b,i)=>(
+            <button key={i} onClick={b.fn} style={{background:"none",border:"none",cursor:"pointer",padding:"0 2px",flexShrink:0}}>
+              <div className="icon3d" style={{width:26,height:26,background:b.grad,borderRadius:8}}>
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{position:"relative",zIndex:1}}>{b.svg}</svg>
               </div>
-              <span style={{fontSize:9,fontWeight:700,color:b.color,letterSpacing:0.3}}>{b.label}</span>
             </button>
           ))}
         </div>
