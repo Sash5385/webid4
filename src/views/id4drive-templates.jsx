@@ -10,9 +10,9 @@ const CSS = `
 ::-webkit-scrollbar{width:5px}
 ::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.1);border-radius:3px}
 .pillow{background:linear-gradient(155deg,${SURF_HI},${SURFACE});border:1px solid rgba(255,255,255,0.06);border-radius:13px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.35)}
-.i3{display:inline-flex;align-items:center;justify-content:center;border-radius:12px;position:relative;overflow:hidden;flex-shrink:0;box-shadow:-2px 3px 8px rgba(0,0,0,0.4),inset 1px 1px 0 rgba(255,255,255,0.2)}
-.i3::before{content:'';position:absolute;top:0;right:0;width:60%;height:50%;background:radial-gradient(ellipse at top right,rgba(255,255,255,0.35) 0%,transparent 70%);pointer-events:none}
-.i3>svg{position:relative;z-index:1}
+.icon3d{display:inline-flex;align-items:center;justify-content:center;border-radius:14px;position:relative;overflow:hidden;flex-shrink:0;box-shadow:-2px 4px 10px rgba(0,0,0,0.5),inset 1px 1px 0 rgba(255,255,255,0.25),inset -1px -1px 0 rgba(0,0,0,0.3)}
+.icon3d::before{content:'';position:absolute;top:0;right:0;width:60%;height:50%;background:radial-gradient(ellipse at top right,rgba(255,255,255,0.4) 0%,transparent 70%);pointer-events:none}
+.icon3d>svg{position:relative;z-index:1;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.4))}
 .toggle{width:46px;height:26px;border-radius:13px;cursor:pointer;position:relative;transition:background .2s;background:${SURF_LO};box-shadow:inset 2px 2px 5px rgba(0,0,0,0.4)}
 .toggle.on{background:linear-gradient(165deg,${GREEN},#5fb83d)}
 .toggle-thumb{position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:10px;background:linear-gradient(135deg,#fff,#ccc);transition:left .2s;box-shadow:-1px 2px 4px rgba(0,0,0,0.3)}
@@ -347,13 +347,18 @@ function TemplateCard({ tpl, onEdit, onSend, onToggle, onDelete, viewMode }) {
   if (viewMode === "rows") {
     return (
       <div className="fade-in" style={{
-        background:`linear-gradient(135deg,${SURF_HI},${SURFACE})`,
-        borderRadius:14,marginBottom:8,overflow:"hidden",
-        boxShadow:SO,opacity:tpl.active?1:0.55,
-        borderLeft:`3px solid ${cat.color}`
+        background:`linear-gradient(155deg,${SURF_HI},${SURFACE})`,
+        borderRadius:13,marginBottom:8,overflow:"hidden",
+        boxShadow:SO,opacity:tpl.active?1:0.55
       }}>
         <div style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px"}}>
-          <span style={{fontSize:20,flexShrink:0}}>{cat.emoji}</span>
+          {/* colored bar */}
+          <div style={{width:8,height:36,borderRadius:4,background:cat.color,boxShadow:`0 0 8px ${cat.color}88`,flexShrink:0}}/>
+          {/* category icon */}
+          <div className="icon3d" style={{width:36,height:36,background:`linear-gradient(155deg,${cat.color}99,${cat.color}33)`,borderRadius:11,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,flexShrink:0}}>
+            {cat.emoji}
+          </div>
+          {/* title + subtitle */}
           <div style={{flex:1,minWidth:0}}>
             <div style={{fontSize:13,fontWeight:800,color:TEXT,marginBottom:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{tpl.title}</div>
             <div style={{display:"flex",gap:5,alignItems:"center"}}>
@@ -363,9 +368,21 @@ function TemplateCard({ tpl, onEdit, onSend, onToggle, onDelete, viewMode }) {
             </div>
           </div>
           <Toggle on={tpl.active} onChange={v=>onToggle(tpl.id,v)}/>
-          <button onClick={()=>onSend(tpl)} style={{background:"none",border:"none",cursor:"pointer",color:ACCENT,fontSize:18,padding:"0 2px"}}>➤</button>
-          <button onClick={()=>onEdit(tpl)} style={{background:"none",border:"none",cursor:"pointer",color:DIM,fontSize:16,padding:"0 2px"}}>✏️</button>
-          <button onClick={()=>onDelete(tpl.id)} style={{background:"none",border:"none",cursor:"pointer",color:FAINT,fontSize:16,padding:"0 2px"}}>🗑</button>
+          <button onClick={()=>onSend(tpl)} style={{background:"none",border:"none",cursor:"pointer",padding:0}}>
+            <div className="icon3d" style={{width:28,height:28,background:`linear-gradient(165deg,${ACC_HI},${ACCENT})`,borderRadius:9}}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{position:"relative",zIndex:1}}><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+            </div>
+          </button>
+          <button onClick={()=>onEdit(tpl)} style={{background:"none",border:"none",cursor:"pointer",padding:0}}>
+            <div className="icon3d" style={{width:28,height:28,background:"linear-gradient(165deg,#a78bfa,#6d28d9)",borderRadius:9}}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{position:"relative",zIndex:1}}><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            </div>
+          </button>
+          <button onClick={()=>onDelete(tpl.id)} style={{background:"none",border:"none",cursor:"pointer",padding:0}}>
+            <div className="icon3d" style={{width:28,height:28,background:"linear-gradient(165deg,#f87171,#dc2626)",borderRadius:9}}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{position:"relative",zIndex:1}}><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+            </div>
+          </button>
         </div>
       </div>
     );
