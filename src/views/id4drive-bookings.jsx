@@ -212,7 +212,7 @@ function BookingCard({ b, expanded, onToggle, onConfirm, onCancel, onNoshow }) {
           </div>
         )}
         {/* Chevron */}
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={FAINT} strokeWidth="2.2" strokeLinecap="round" flexShrink="0"
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={FAINT} strokeWidth="2.2" strokeLinecap="round"
           style={{transform:expanded?"rotate(180deg)":"none",transition:"transform .22s",flexShrink:0}}>
           <polyline points="6 9 12 15 18 9"/>
         </svg>

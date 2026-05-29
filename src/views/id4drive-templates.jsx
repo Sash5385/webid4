@@ -185,7 +185,7 @@ function SendModal({ tpl, onClose }) {
 
         <div style={{display:"flex",gap:10}}>
           <button onClick={onClose} style={{flex:1,padding:"13px",borderRadius:14,border:"none",cursor:"pointer",background:`linear-gradient(135deg,${SURF_HI},${SURFACE})`,color:DIM,fontSize:13,fontWeight:700,boxShadow:SO}}>Скасувати</button>
-          <button onClick={onClose} disabled={selected.length===0} style={{
+          <button onClick={()=>{ if(selected.length>0){ alert(`✅ Надіслано ${selected.length} учням через ${ch.label}`); onClose(); }}} disabled={selected.length===0} style={{
             flex:2,padding:"13px",borderRadius:14,border:"none",cursor:"pointer",fontSize:13,fontWeight:700,
             background:selected.length>0?`linear-gradient(165deg,${ACC_HI},${ACCENT})`:`linear-gradient(135deg,${SURF_HI},${SURFACE})`,
             color:selected.length>0?"#fff":FAINT,
@@ -491,8 +491,8 @@ export default function TemplatesView() {
           display:"flex",alignItems:"center",justifyContent:"center",gap:10,
           boxShadow:`-2px 5px 14px rgba(255,90,60,0.45),inset 1px 1px 0 rgba(255,255,255,0.3)`,marginTop:4
         }}>
-          <div className="i3" style={{width:28,height:28,background:"rgba(255,255,255,0.2)"}}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          <div className="icon3d" style={{width:28,height:28,background:"rgba(255,255,255,0.2)",borderRadius:8}}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" style={{position:"relative",zIndex:1}}><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
           </div>
           Новий шаблон
         </button>

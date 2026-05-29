@@ -196,7 +196,7 @@ export default function SettingsView({ settings, setSettings }) {
 
   // Queue mode helper — maps 3 booleans to single selection
   const queueMode = settings.queueAutoFifo ? "fifo" : settings.queueBroadcast ? "broadcast" : "manual";
-  const setQueueMode = m => upd("queueAutoFifo", m==="fifo") || setSettings(s=>({
+  const setQueueMode = m => setSettings(s=>({
     ...s,
     queueAutoFifo:    m==="fifo",
     queueBroadcast:   m==="broadcast",

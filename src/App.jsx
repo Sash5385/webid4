@@ -457,15 +457,18 @@ function ViewRenderer({ tab, settings, setSettings, bookings, setBookings, onSlo
 }
 
 // ─── DATE HELPERS ────────────────────────────────────────────────
-// Convert Firebase date string ("2026-05-27") → day index relative to today's week start
+// Convert Firebase date string ("2026-05-27") → day index where 0 = today
 function dateToDayIdx(dateStr) {
   if (!dateStr) return -1;
   const today = new Date(); today.setHours(0,0,0,0);
-  const dow = today.getDay(); // 0=Sun
-  const weekStart = new Date(today); weekStart.setDate(today.getDate() - (dow === 0 ? 6 : dow - 1));
   const d = new Date(dateStr); d.setHours(0,0,0,0);
-  const diff = Math.round((d - weekStart) / 86400000);
-  return diff; // 0=Mon, 1=Tue … can be negative (past) or >6 (future)
+  return Math.round((d - today) / 86400000);
+}
+// Convert day index (0=today) → date string "YYYY-MM-DD"
+function dayIdxToDate(dayIdx) {
+  const d = new Date(); d.setHours(0,0,0,0);
+  d.setDate(d.getDate() + dayIdx);
+  return d.toISOString().split('T')[0];
 }
 
 // ─── MAIN APP ────────────────────────────────────────────────────
@@ -534,18 +537,34 @@ export default function App() {
         }
       });
 
-      // 2. Changed bookings
       next.forEach(b => {
-        if (!b.userId || !b.id) return;
         const p = prevMap.get(b.id);
-        if (!p) return;
 
+        // 2. New admin-created bookings (no userId) → save under admin UID
+        if (!p && !b.userId && b.id && adminUser) {
+          const hh = String(Math.floor(b.startMin / 60)).padStart(2, "0");
+          const mm = String(b.startMin % 60).padStart(2, "0");
+          const date = dayIdxToDate(b.day);
+          update(ref(db, `bookings/${adminUser.uid}/${b.id}`), {
+            ...b,
+            userId: adminUser.uid,
+            date,
+            time: `${hh}:${mm}`,
+            durationHours: b.durMin / 60,
+          }).catch(() => {});
+          b.userId = adminUser.uid;
+          b.date   = date;
+          return;
+        }
+
+        if (!b.userId || !b.id || !p) return;
+
+        // 3. Status change → save immediately
         if (p.status !== b.status) {
-          // Status change → save immediately
           update(ref(db, `bookings/${b.userId}/${b.id}`), { status: b.status }).catch(() => {});
 
+        // 4. Move/resize → debounce 600ms so we don't spam Firebase on every pointermove
         } else if (p.startMin !== b.startMin || p.durMin !== b.durMin || p.day !== b.day) {
-          // Move/resize → debounce 600ms so we don't spam Firebase on every pointermove
           clearTimeout(moveSaveTimers.current[b.id]);
           moveSaveTimers.current[b.id] = setTimeout(() => {
             const hh = String(Math.floor(b.startMin / 60)).padStart(2, "0");
@@ -555,6 +574,7 @@ export default function App() {
               durMin:   b.durMin,
               durationHours: b.durMin / 60,
               day:      b.day,
+              date:     dayIdxToDate(b.day),
               time:     `${hh}:${mm}`,
             }).catch(() => {});
             delete moveSaveTimers.current[b.id];

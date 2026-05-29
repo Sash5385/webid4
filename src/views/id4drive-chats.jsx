@@ -200,7 +200,7 @@ export default function ChatsView() {
 
   const handleSend = (contactId, msg) => {
     setContacts(cs => cs.map(c => c.id===contactId
-      ? {...c, lastMsg:msg.text, lastTime:msg.time}
+      ? {...c, lastMsg:msg.text, lastTime:msg.time, messages:[...c.messages, msg]}
       : c
     ));
   };
