@@ -291,6 +291,53 @@ function BottomNav({ active, onChange, settings }) {
   );
 }
 
+// ─── QUEUE STRIP ─────────────────────────────────────────────────
+function QueueStrip({ tab, onChange }) {
+  const [waiting, setWaiting] = useState(0);
+  useEffect(() => {
+    return onValue(ref(db, "queue"), snap => {
+      const d = snap.val();
+      if (!d) { setWaiting(0); return; }
+      setWaiting(Object.values(d).filter(q=>q.status==="waiting").length);
+    }, ()=>{});
+  }, []);
+
+  if (waiting === 0 && tab === "queue") return null;
+
+  return (
+    <div
+      onClick={()=>onChange("queue")}
+      style={{
+        position:"sticky", top:37, zIndex:19,
+        display:"flex", alignItems:"center", gap:8,
+        padding:"7px 14px",
+        background: tab==="queue"
+          ? `linear-gradient(90deg,rgba(192,132,252,0.25),rgba(124,58,237,0.15))`
+          : `linear-gradient(90deg,rgba(192,132,252,0.18),rgba(124,58,237,0.08))`,
+        borderBottom:`1px solid rgba(192,132,252,0.25)`,
+        backdropFilter:"blur(12px)",
+        cursor:"pointer",
+      }}
+    >
+      <span style={{fontSize:14}}>⏳</span>
+      <span style={{fontSize:11,fontWeight:700,color:"#c084fc",flex:1}}>
+        Черга очікування
+      </span>
+      {waiting > 0 && (
+        <span style={{
+          background:"linear-gradient(145deg,#c084fc,#7c3aed)",
+          color:"#fff",borderRadius:8,padding:"1px 8px",
+          fontSize:11,fontWeight:800,
+          boxShadow:"0 0 8px rgba(192,132,252,0.5)",
+        }}>{waiting} очікує</span>
+      )}
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#c084fc" strokeWidth="2.5" strokeLinecap="round">
+        <polyline points="9 18 15 12 9 6"/>
+      </svg>
+    </div>
+  );
+}
+
 // ─── TOP BAR ─────────────────────────────────────────────────────
 function TopBar({ tab, onChange }) {
   const lang = useContext(LangContext);
@@ -508,6 +555,7 @@ export default function App() {
         paddingBottom:90
       }}>
         <TopBar tab={tab} onChange={switchTab}/>
+        <QueueStrip tab={tab} onChange={switchTab}/>
         <div className="tab-anim" key={`${tab}-${tabVisits[tab]||0}`} style={{padding: tab==="schedule" ? "4px 3px 0" : "14px 14px 0"}}>
           <Suspense fallback={<Loader/>}>
             <ViewRenderer tab={tab} settings={settings} setSettings={setSettings} bookings={bookings} setBookings={handleSetBookings} onSlotClick={setSelectedBooking} onEmptySlotClick={setNewBookingData} openInfos={openInfos} toggleInfo={toggleInfo}/>
