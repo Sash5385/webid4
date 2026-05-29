@@ -493,7 +493,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   const bookingsRef = useRef(bookings);
   useEffect(() => { bookingsRef.current = bookings; }, [bookings]);
   useEffect(() => { setBookingsRef.current = setBookings; }, [setBookings]);
-  useEffect(() => { quickCancelRef.current = quickCancelId; }, [quickCancelId]);
+  // quickCancelRef тепер оновлюється напряму в holdTimer/onMove (без затримки ре-рендеру)
   useEffect(() => {
     const timer = setInterval(() => {
       const bks = bookingsRef.current;
@@ -537,12 +537,13 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
     navigator.vibrate?.(6);
     pendingDragRef.current = dragData;
     if (!isBlock) {
-      // Звичайні слоти: 700мс утримання → значок скасування
+      // Звичайні слоти: 700мс утримання → значок скасування + розблокування drag
       setHoldId(b.id);
       holdTimerRef.current = setTimeout(() => {
         if (!pendingDragRef.current) return;
         setHoldId(null);
-        setQuickCancelId(b.id);
+        quickCancelRef.current = b.id;   // встановлюємо ref одразу (не чекаємо ре-рендер)
+        setQuickCancelId(b.id);          // оновлюємо стан для відображення іконки
         navigator.vibrate?.([30, 40, 60]);
       }, 700);
     }
@@ -578,16 +579,24 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
           }
           return;
         }
-        // Звичайний move: drag активується відразу при русі >8px
+        // Звичайний move: drag тільки якщо hold вже спрацював (quickCancelRef встановлено)
         if (moved > 8) {
           clearTimeout(holdTimerRef.current);
           holdTimerRef.current = null;
-          dragRef.current = {...pd};
-          pendingDragRef.current = null;
-          setQuickCancelId(null);
-          setHoldId(null);
-          setDragId(pd.id);
-          navigator.vibrate?.(18);
+          if (quickCancelRef.current !== null) {
+            // Hold був — дозволяємо drag
+            dragRef.current = {...pd};
+            pendingDragRef.current = null;
+            quickCancelRef.current = null;
+            setQuickCancelId(null);
+            setHoldId(null);
+            setDragId(pd.id);
+            navigator.vibrate?.(55);
+          } else {
+            // Hold не відбувся — скасовуємо (scroll wins)
+            pendingDragRef.current = null;
+            setHoldId(null);
+          }
         }
         return;
       }
@@ -634,12 +643,13 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
       holdTimerRef.current = null;
       pendingDragRef.current = null;
       setHoldId(null);
+      quickCancelRef.current = null;
+      setQuickCancelId(null);
       if (wasDragging) {
         dragEndedRef.current = true;
         setTimeout(() => { dragEndedRef.current = false; }, 400);
       }
       swipeRef.current = null;
-      // не скидаємо quickCancelId тут — він гасне кліком на X або зовні
     };
     const onResize = () => { setWindowW(window.innerWidth); setWindowH(window.innerHeight); };
     window.addEventListener("pointermove", onMove);
