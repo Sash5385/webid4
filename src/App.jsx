@@ -364,7 +364,7 @@ const DEFAULT_SETTINGS = {
 };
 
 // ─── VIEW RENDERER ───────────────────────────────────────────────
-function ViewRenderer({ tab, settings, setSettings, bookings, setBookings, onSlotClick, onEmptySlotClick, showInfos, dismissInfo }) {
+function ViewRenderer({ tab, settings, setSettings, bookings, setBookings, onSlotClick, onEmptySlotClick, openInfos, toggleInfo }) {
   if (tab === "schedule")  return <ScheduleView settings={settings} setSettings={setSettings} bookings={bookings} setBookings={setBookings} onSlotClick={onSlotClick} onEmptySlotClick={onEmptySlotClick}/>;
   if (tab === "settings")  return <SettingsView settings={settings} setSettings={setSettings}/>;
   if (tab === "bookings")  return <BookingsView infoOpen={!!openInfos.bookings} onToggleInfo={()=>toggleInfo('bookings')}/>;
