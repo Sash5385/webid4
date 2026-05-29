@@ -15,6 +15,7 @@ const ServicesView  = lazy(()=>import("./views/id4drive-services"))
 const ChatsView     = lazy(()=>import("./views/id4drive-chats"))
 const TemplatesView = lazy(()=>import("./views/id4drive-templates"))
 const StatsView     = lazy(()=>import("./views/id4drive-stats"))
+const QueueView     = lazy(()=>import("./views/id4drive-queue"))
 
 const Loader = () => <div style={{color: "white", padding: "20px"}}>Завантаження...</div>;
 
@@ -78,22 +79,26 @@ const TabIcons = {
   settings: (s,active) => <I3 s={s} r={s*0.3} gr={active?"linear-gradient(165deg,#94a3b8,#334155)":"linear-gradient(135deg,#2e3034,#26282c)"}>
     <svg width={s*.55} height={s*.55} viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
   </I3>,
+  queue: (s,active) => <I3 s={s} r={s*0.3} gr={active?"linear-gradient(165deg,#c084fc,#7c3aed)":"linear-gradient(135deg,#2e3034,#26282c)"}>
+    <svg width={s*.55} height={s*.55} viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+  </I3>,
 };
 
 // ─── TABS CONFIG ─────────────────────────────────────────────────
 const TAB_IDS = [
   { id:"schedule",  lk:"nav.schedule",  badge:null },
-  { id:"bookings",  lk:"nav.bookings",  badge:3    },
+  { id:"bookings",  lk:"nav.bookings",  badge:null },
+  { id:"queue",     lk:"nav.queue",     badge:null },
   { id:"students",  lk:"nav.students",  badge:null },
   { id:"services",  lk:"nav.services",  badge:null },
-  { id:"chats",     lk:"nav.chats",     badge:8    },
+  { id:"chats",     lk:"nav.chats",     badge:null },
   { id:"templates", lk:"nav.templates", badge:null },
   { id:"stats",     lk:"nav.stats",     badge:null },
   { id:"settings",  lk:"nav.settings",  badge:null },
 ];
 
 const TAB_TITLES = {
-  schedule:"Розклад", bookings:"Букінги", students:"Учні",
+  schedule:"Розклад", bookings:"Букінги", queue:"Черга", students:"Учні",
   services:"Послуги", chats:"Чати", templates:"Шаблони",
   stats:"Статистика", settings:"Налаштування"
 };
@@ -368,6 +373,7 @@ function ViewRenderer({ tab, settings, setSettings, bookings, setBookings, onSlo
   if (tab === "schedule")  return <ScheduleView settings={settings} setSettings={setSettings} bookings={bookings} setBookings={setBookings} onSlotClick={onSlotClick} onEmptySlotClick={onEmptySlotClick}/>;
   if (tab === "settings")  return <SettingsView settings={settings} setSettings={setSettings}/>;
   if (tab === "bookings")  return <BookingsView infoOpen={!!openInfos.bookings} onToggleInfo={()=>toggleInfo('bookings')} settings={settings}/>;
+  if (tab === "queue")     return <QueueView settings={settings}/>;
   if (tab === "students")  return <StudentsView infoOpen={!!openInfos.students} onToggleInfo={()=>toggleInfo('students')}/>;
   if (tab === "services")  return <ServicesView infoOpen={!!openInfos.services} onToggleInfo={()=>toggleInfo('services')}/>;
   if (tab === "chats")     return <ChatsView/>;
