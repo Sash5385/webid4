@@ -1,5 +1,5 @@
 import { useState, useEffect, useContext } from "react";
-import { ref, onValue, update } from "firebase/database";
+import { ref, onValue, update, push, remove } from "firebase/database";
 import { db } from "../firebase";
 import { LangContext } from "../App";
 import { createT, T } from "../lang";
@@ -359,8 +359,109 @@ function FilterSheet({ filters, setFilters, sortBy, setSortBy, groupBy, setGroup
   );
 }
 
+// ─── ADD TO QUEUE MODAL ─────────────────────────────────────────
+function AddToQueueModal({ onSave, onClose }) {
+  const [form, setForm] = useState({ name:"", phone:"", svcId:"sv1" });
+  const upd = (k,v) => setForm(f=>({...f,[k]:v}));
+  const valid = form.name.trim() && form.phone.trim();
+  return (
+    <div onClick={onClose} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.75)",zIndex:150,display:"flex",alignItems:"flex-end",backdropFilter:"blur(8px)"}}>
+      <div onClick={e=>e.stopPropagation()} style={{
+        width:"100%",maxWidth:520,margin:"0 auto",
+        background:`linear-gradient(180deg,${SURFACE},${BG})`,
+        borderRadius:"24px 24px 0 0",padding:"20px 18px 36px",
+      }}>
+        <div style={{width:36,height:4,borderRadius:2,background:"rgba(255,255,255,0.12)",margin:"0 auto 16px"}}/>
+        <div style={{fontSize:16,fontWeight:800,color:TEXT,marginBottom:16}}>⏳ Додати до черги</div>
+        {[
+          {k:"name",  label:"Ім'я учня",   placeholder:"Ім'я Прізвище", type:"text"},
+          {k:"phone", label:"Телефон",      placeholder:"+380...",       type:"tel"},
+        ].map(f=>(
+          <div key={f.k} style={{marginBottom:12}}>
+            <div style={{fontSize:10,color:FAINT,letterSpacing:1,marginBottom:5}}>{f.label.toUpperCase()}</div>
+            <input type={f.type} value={form[f.k]} onChange={e=>upd(f.k,e.target.value)}
+              placeholder={f.placeholder}
+              style={{width:"100%",background:BG_DEEP,border:`1px solid ${BORDER}`,borderRadius:10,padding:"10px 14px",color:TEXT,fontSize:14,outline:"none",boxSizing:"border-box"}}/>
+          </div>
+        ))}
+        <div style={{marginBottom:16}}>
+          <div style={{fontSize:10,color:FAINT,letterSpacing:1,marginBottom:5}}>ПОСЛУГА</div>
+          <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+            {Object.entries(SERVICES).map(([id,s])=>(
+              <button key={id} onClick={()=>upd("svcId",id)} style={{
+                padding:"6px 12px",borderRadius:9,border:"none",cursor:"pointer",fontSize:12,fontWeight:700,
+                background:form.svcId===id?`linear-gradient(145deg,${s.color}44,${s.color}22)`:`linear-gradient(145deg,${SURF_HI},${SURFACE})`,
+                color:form.svcId===id?s.color:DIM,boxShadow:SO,
+              }}>{s.name}</button>
+            ))}
+          </div>
+        </div>
+        <div style={{display:"flex",gap:10}}>
+          <button onClick={onClose} style={{flex:1,padding:"13px",borderRadius:14,border:"none",cursor:"pointer",background:`linear-gradient(145deg,${SURF_HI},${SURFACE})`,color:DIM,fontSize:13,fontWeight:700,boxShadow:SO}}>Скасувати</button>
+          <button onClick={()=>valid&&onSave(form)} style={{
+            flex:2,padding:"13px",borderRadius:14,border:"none",cursor:"pointer",fontSize:13,fontWeight:700,
+            background:valid?"linear-gradient(165deg,#c084fc,#7c3aed)":`linear-gradient(145deg,${SURF_HI},${SURFACE})`,
+            color:valid?"#fff":FAINT,
+            boxShadow:valid?"0 4px 14px rgba(192,132,252,0.4)":SO,
+          }}>Додати до черги</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── QUEUE OFFER MODAL ──────────────────────────────────────────
+function QueueOfferModal({ cancelledBk, waiting, queueMode, onInvite, onClose }) {
+  const [selected, setSelected] = useState(
+    queueMode === "fifo" ? [waiting[0]?.id] : queueMode === "broadcast" ? waiting.map(q=>q.id) : []
+  );
+  const toggle = id => setSelected(s => s.includes(id) ? s.filter(x=>x!==id) : [...s,id]);
+  return (
+    <div onClick={onClose} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.78)",zIndex:150,display:"flex",alignItems:"flex-end",backdropFilter:"blur(8px)"}}>
+      <div onClick={e=>e.stopPropagation()} style={{
+        width:"100%",maxWidth:520,margin:"0 auto",
+        background:`linear-gradient(180deg,${SURFACE},${BG})`,
+        borderRadius:"24px 24px 0 0",padding:"20px 18px 36px",
+      }}>
+        <div style={{width:36,height:4,borderRadius:2,background:"rgba(255,255,255,0.12)",margin:"0 auto 14px"}}/>
+        <div style={{fontSize:16,fontWeight:800,color:TEXT,marginBottom:4}}>⏳ Слот вільний!</div>
+        <div style={{fontSize:12,color:DIM,marginBottom:16}}>
+          Запис скасовано. Є <b style={{color:PURPLE}}>{waiting.length}</b> {waiting.length===1?"учень":"учнів"} в черзі.
+          Режим: <b style={{color:GOLD}}>{queueMode==="fifo"?"FIFO":queueMode==="broadcast"?"Broadcast":"Ручний"}</b>
+        </div>
+        <div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:16}}>
+          {waiting.map(q=>(
+            <div key={q.id} onClick={()=>queueMode==="manual"&&toggle(q.id)} style={{
+              display:"flex",alignItems:"center",gap:10,padding:"10px 12px",borderRadius:11,
+              background:selected.includes(q.id)?`linear-gradient(145deg,rgba(192,132,252,0.2),rgba(124,58,237,0.1))`:`linear-gradient(145deg,${SURF_HI},${SURFACE})`,
+              border:selected.includes(q.id)?`1px solid ${PURPLE}44`:`1px solid transparent`,
+              cursor:queueMode==="manual"?"pointer":"default",boxShadow:SO,
+            }}>
+              <div style={{width:4,height:32,borderRadius:3,background:PURPLE,flexShrink:0}}/>
+              <div style={{flex:1}}>
+                <div style={{fontSize:13,fontWeight:800,color:TEXT}}>{q.name}</div>
+                <div style={{fontSize:10,color:DIM}}>{q.phone} · {SERVICES[q.svcId]?.name||q.svcId}</div>
+              </div>
+              {selected.includes(q.id) && <span style={{fontSize:16}}>✓</span>}
+            </div>
+          ))}
+        </div>
+        <div style={{display:"flex",gap:10}}>
+          <button onClick={onClose} style={{flex:1,padding:"13px",borderRadius:14,border:"none",cursor:"pointer",background:`linear-gradient(145deg,${SURF_HI},${SURFACE})`,color:DIM,fontSize:13,fontWeight:700,boxShadow:SO}}>Пізніше</button>
+          <button onClick={()=>selected.length>0&&onInvite(selected)} disabled={selected.length===0} style={{
+            flex:2,padding:"13px",borderRadius:14,border:"none",cursor:"pointer",fontSize:13,fontWeight:700,
+            background:selected.length>0?"linear-gradient(165deg,#c084fc,#7c3aed)":`linear-gradient(145deg,${SURF_HI},${SURFACE})`,
+            color:selected.length>0?"#fff":FAINT,
+            boxShadow:selected.length>0?"0 4px 14px rgba(192,132,252,0.4)":SO,
+          }}>👑 Запросити ({selected.length})</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── MAIN VIEW ─────────────────────────────────────────────────
-export default function BookingsView({ infoOpen = false, onToggleInfo }) {
+export default function BookingsView({ infoOpen = false, onToggleInfo, settings }) {
   const lang = useContext(LangContext);
   const t = createT(lang);
   const [data,       setData]       = useState(RAW); // RAW as initial fallback
@@ -400,14 +501,43 @@ export default function BookingsView({ infoOpen = false, onToggleInfo }) {
   const [groupBy,    setGroupBy]    = useState("date");
   const [search,     setSearch]     = useState("");
   const [showFilters,setShowFilters]= useState(false);
-  const [expandedId, setExpandedId] = useState(null); // one card open at a time
+  const [expandedId, setExpandedId] = useState(null);
 
+  // ── ЧЕРГА ──────────────────────────────────────────────────────
+  const [queue,        setQueue]        = useState([]);
+  const [queueOpen,    setQueueOpen]    = useState(false);
+  const [addQueueOpen, setAddQueueOpen] = useState(false);
+  const [queueOffer,   setQueueOffer]   = useState(null); // { cancelledBk, queue }
+
+  useEffect(() => {
+    return onValue(ref(db, "queue"), snap => {
+      const d = snap.val();
+      if (!d) { setQueue([]); return; }
+      const arr = Object.entries(d).map(([id, v]) => ({id, ...v}))
+        .sort((a,b) => (a.addedAt||0) - (b.addedAt||0));
+      setQueue(arr);
+    }, () => {});
+  }, []);
+
+  const addToQueue = (form) => {
+    push(ref(db, "queue"), { ...form, addedAt: Date.now(), status: "waiting" });
+  };
+  const removeFromQueue = (id) => remove(ref(db, `queue/${id}`));
+  const markOffered = (id) => update(ref(db, `queue/${id}`), { status: "offered", offeredAt: Date.now() });
+
+  const queueMode = settings?.queueAutoFifo ? "fifo"
+    : settings?.queueBroadcast ? "broadcast" : "manual";
+
+  // ── СТАТУСИ ────────────────────────────────────────────────────
   const toggle  = id => setExpandedId(prev => prev===id ? null : id);
   const setStatus = (id, status) => {
     setData(d => d.map(b => b.id===id ? {...b, status} : b));
     setExpandedId(null);
     const bk = data.find(b => b.id === id);
     if (bk?.userId) update(ref(db, `bookings/${bk.userId}/${id}`), { status });
+    if (status === "cancelled" && queue.filter(q => q.status === "waiting").length > 0) {
+      setQueueOffer({ cancelledBk: bk, waiting: queue.filter(q => q.status === "waiting") });
+    }
   };
   const confirm = id => setStatus(id, "confirmed");
   const cancel  = id => setStatus(id, "cancelled");
@@ -574,6 +704,66 @@ export default function BookingsView({ infoOpen = false, onToggleInfo }) {
           </div>
         )}
 
+        {/* ── ЧЕРГА ── */}
+        <div style={{background:`linear-gradient(155deg,${SURF_HI},${SURFACE})`,borderRadius:13,overflow:"hidden",boxShadow:SO,border:`1px solid ${BORDER}`}}>
+          {/* header */}
+          <div onClick={()=>setQueueOpen(v=>!v)} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",cursor:"pointer"}}>
+            <div style={{width:4,alignSelf:"stretch",borderRadius:3,background:PURPLE,flexShrink:0}}/>
+            <span style={{fontSize:18}}>⏳</span>
+            <span style={{flex:1,fontSize:13,fontWeight:800,color:TEXT}}>Черга очікування</span>
+            {queue.filter(q=>q.status==="waiting").length > 0 && (
+              <span style={{background:PURPLE,color:"#fff",borderRadius:8,padding:"1px 8px",fontSize:11,fontWeight:700}}>
+                {queue.filter(q=>q.status==="waiting").length}
+              </span>
+            )}
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={FAINT} strokeWidth="2.2" strokeLinecap="round"
+              style={{transform:queueOpen?"rotate(180deg)":"none",transition:"transform .2s",flexShrink:0}}>
+              <polyline points="6 9 12 15 18 9"/>
+            </svg>
+          </div>
+
+          {/* list */}
+          {queueOpen && (
+            <div style={{borderTop:`1px solid ${BORDER}`,padding:"8px 12px 4px"}}>
+              {queue.length === 0 ? (
+                <div style={{textAlign:"center",padding:"16px 0",color:FAINT,fontSize:12}}>Черга порожня</div>
+              ) : queue.map(q => {
+                const svc = SERVICES[q.svcId] || {};
+                const isOffered = q.status === "offered";
+                return (
+                  <div key={q.id} style={{
+                    display:"flex",alignItems:"center",gap:8,padding:"8px 4px",
+                    borderBottom:`1px solid ${BORDER}`,opacity:isOffered?0.6:1
+                  }}>
+                    <div style={{width:4,height:32,borderRadius:3,background:isOffered?GOLD:PURPLE,flexShrink:0}}/>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{fontSize:13,fontWeight:800,color:TEXT,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{q.name}</div>
+                      <div style={{fontSize:10,color:DIM}}>
+                        {q.phone} · {svc.name||q.svcId||"—"}
+                        {isOffered && <span style={{color:GOLD,fontWeight:700}}> · Запропоновано</span>}
+                      </div>
+                    </div>
+                    {!isOffered && (
+                      <button onClick={()=>markOffered(q.id)} style={{
+                        background:`linear-gradient(145deg,${PURPLE}99,#7c3aed55)`,border:"none",
+                        borderRadius:8,padding:"5px 10px",cursor:"pointer",color:PURPLE,fontSize:11,fontWeight:700,
+                      }}>Запросити</button>
+                    )}
+                    <button onClick={()=>removeFromQueue(q.id)} style={{
+                      background:"none",border:"none",cursor:"pointer",color:FAINT,fontSize:16,padding:"0 2px",
+                    }}>×</button>
+                  </div>
+                );
+              })}
+              <button onClick={()=>setAddQueueOpen(true)} style={{
+                width:"100%",padding:"10px",margin:"8px 0 4px",borderRadius:10,border:"none",cursor:"pointer",
+                background:`linear-gradient(145deg,rgba(192,132,252,0.15),rgba(124,58,237,0.08))`,
+                border:`1px dashed ${PURPLE}55`,color:PURPLE,fontSize:12,fontWeight:700,
+              }}>+ Додати до черги</button>
+            </div>
+          )}
+        </div>
+
       </div>
 
       {/* FILTER SHEET */}
@@ -583,6 +773,20 @@ export default function BookingsView({ infoOpen = false, onToggleInfo }) {
           sortBy={sortBy}      setSortBy={setSortBy}
           groupBy={groupBy}    setGroupBy={setGroupBy}
           onClose={()=>setShowFilters(false)}
+        />
+      )}
+
+      {/* ADD TO QUEUE MODAL */}
+      {addQueueOpen && <AddToQueueModal onSave={form=>{addToQueue(form);setAddQueueOpen(false);}} onClose={()=>setAddQueueOpen(false)}/>}
+
+      {/* QUEUE OFFER MODAL */}
+      {queueOffer && (
+        <QueueOfferModal
+          cancelledBk={queueOffer.cancelledBk}
+          waiting={queueOffer.waiting}
+          queueMode={queueMode}
+          onInvite={ids=>{ids.forEach(id=>markOffered(id));setQueueOffer(null);}}
+          onClose={()=>setQueueOffer(null)}
         />
       )}
     </>

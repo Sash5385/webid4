@@ -367,7 +367,7 @@ const DEFAULT_SETTINGS = {
 function ViewRenderer({ tab, settings, setSettings, bookings, setBookings, onSlotClick, onEmptySlotClick, openInfos, toggleInfo }) {
   if (tab === "schedule")  return <ScheduleView settings={settings} setSettings={setSettings} bookings={bookings} setBookings={setBookings} onSlotClick={onSlotClick} onEmptySlotClick={onEmptySlotClick}/>;
   if (tab === "settings")  return <SettingsView settings={settings} setSettings={setSettings}/>;
-  if (tab === "bookings")  return <BookingsView infoOpen={!!openInfos.bookings} onToggleInfo={()=>toggleInfo('bookings')}/>;
+  if (tab === "bookings")  return <BookingsView infoOpen={!!openInfos.bookings} onToggleInfo={()=>toggleInfo('bookings')} settings={settings}/>;
   if (tab === "students")  return <StudentsView infoOpen={!!openInfos.students} onToggleInfo={()=>toggleInfo('students')}/>;
   if (tab === "services")  return <ServicesView infoOpen={!!openInfos.services} onToggleInfo={()=>toggleInfo('services')}/>;
   if (tab === "chats")     return <ChatsView/>;
