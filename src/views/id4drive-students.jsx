@@ -11,6 +11,8 @@ const CSS = `
 .btn{border:none;cursor:pointer;border-radius:11px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;padding:9px 4px;transition:transform .1s,filter .1s;font-family:inherit}
 .btn:active{transform:scale(.92);filter:brightness(.8)}
 .btn span{font-size:9px;font-weight:700;letter-spacing:.2px}
+.icon3d{display:inline-flex;align-items:center;justify-content:center;border-radius:14px;position:relative;overflow:hidden;flex-shrink:0;box-shadow:-2px 4px 10px rgba(0,0,0,0.5),inset 1px 1px 0 rgba(255,255,255,0.25),inset -1px -1px 0 rgba(0,0,0,0.3)}
+.icon3d::before{content:'';position:absolute;top:0;right:0;width:60%;height:50%;background:radial-gradient(ellipse at top right,rgba(255,255,255,0.4) 0%,transparent 70%);pointer-events:none}
 `;
 
 const M = ["","Січ","Лют","Бер","Кві","Тра","Чер","Лип","Сер","Вер","Жов","Лис","Гру"];
@@ -125,40 +127,44 @@ function Card({ s, expanded, onToggle, onBlock, onUpdate }) {
   const typeLabel = s.type === "school" ? "Автошкола" : "Приватний";
   const phone = (s.phone||"").replace(/\D/g,"");
 
+  const ini = s.name.split(" ").map(w=>w[0]).slice(0,2).join("");
+  const barColor = s.blocked ? RED : typeColor;
+
   return (
     <div style={{
       background:`linear-gradient(155deg,${SURF_HI},${SURFACE})`,
       borderRadius:13, overflow:"hidden",
-      boxShadow:`0 2px 8px rgba(0,0,0,.35),0 0 0 1px ${BORDER}`,
-      opacity:s.blocked?.8:1,
+      boxShadow:SO, border:`1px solid ${BORDER}`,
+      opacity:s.blocked?0.8:1,
     }}>
-      {/* 3px accent top */}
-      <div style={{height:3,background:s.blocked?RED:`linear-gradient(90deg,${typeColor},${typeColor}88)`}}/>
-
       {/* ── COLLAPSED ROW ── */}
-      <div style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",cursor:"pointer"}} onClick={()=>{ setEditMode(false); onToggle(s.id); }}>
+      <div style={{display:"flex",alignItems:"center",gap:9,padding:"9px 12px",cursor:"pointer"}} onClick={()=>{ setEditMode(false); onToggle(s.id); }}>
+        {/* left bar */}
+        <div style={{width:4,alignSelf:"stretch",borderRadius:3,background:barColor,flexShrink:0}}/>
+        {/* initials icon3d */}
+        <div className="icon3d" style={{
+          width:36,height:36,borderRadius:11,flexShrink:0,
+          background:`linear-gradient(145deg,${barColor}44,${barColor}18)`,
+          fontSize:13,fontWeight:900,color:barColor,
+        }}>{ini}</div>
+        {/* name + type */}
         <div style={{flex:1,minWidth:0}}>
-          <div style={{fontSize:14,fontWeight:800,color:s.blocked?DIM:TEXT,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
-            {s.name}
-            {s.blocked && <span style={{fontSize:9,color:RED,fontWeight:700,marginLeft:7}}>🚫 заблок.</span>}
+          <div style={{fontSize:13,fontWeight:800,color:s.blocked?DIM:TEXT,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+            {s.name}{s.blocked && <span style={{fontSize:9,color:RED,fontWeight:700,marginLeft:6}}>🚫</span>}
           </div>
-          <div style={{fontSize:10,fontWeight:700,color:typeColor,marginTop:2}}>{typeLabel}</div>
+          <div style={{fontSize:10,color:typeColor,fontWeight:700,marginTop:2}}>{typeLabel}</div>
         </div>
-
-        {/* chat button — always visible */}
-        <button onClick={e=>{ e.stopPropagation(); navTo("chats"); }} style={{
-          background:`linear-gradient(145deg,rgba(91,155,255,.2),rgba(37,99,235,.1))`,
-          border:"none",borderRadius:9,padding:"7px 12px",cursor:"pointer",
-          display:"flex",alignItems:"center",gap:5,boxShadow:SO,flexShrink:0,
-        }}>
-          {ICONS.chat}
-          <span style={{fontSize:10,fontWeight:700,color:BLUE}}>Чат</span>
+        {/* chat icon3d */}
+        <button onClick={e=>{ e.stopPropagation(); navTo("chats"); }} style={{background:"none",border:"none",cursor:"pointer",padding:0}}>
+          <div className="icon3d" style={{width:26,height:26,background:"linear-gradient(145deg,rgba(91,155,255,.35),rgba(37,99,235,.2))",borderRadius:8,display:"flex",alignItems:"center",justifyContent:"center"}}>
+            {ICONS.chat}
+          </div>
         </button>
-
         {/* chevron */}
-        <div style={{transform:expanded?"rotate(180deg)":"none",transition:"transform .22s",flexShrink:0}}>
-          {ICONS.chev}
-        </div>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={FAINT} strokeWidth="2.2" strokeLinecap="round"
+          style={{transform:expanded?"rotate(180deg)":"none",transition:"transform .22s",flexShrink:0}}>
+          <polyline points="6 9 12 15 18 9"/>
+        </svg>
       </div>
 
       {/* ── EXPANDED ── */}

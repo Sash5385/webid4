@@ -11,6 +11,9 @@ const CSS = `
 ::-webkit-scrollbar{width:5px}
 ::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.1);border-radius:3px}
 textarea{color-scheme:dark}
+.icon3d{display:inline-flex;align-items:center;justify-content:center;border-radius:14px;position:relative;overflow:hidden;flex-shrink:0;box-shadow:-2px 4px 10px rgba(0,0,0,0.5),inset 1px 1px 0 rgba(255,255,255,0.25),inset -1px -1px 0 rgba(0,0,0,0.3)}
+.icon3d::before{content:'';position:absolute;top:0;right:0;width:60%;height:50%;background:radial-gradient(ellipse at top right,rgba(255,255,255,0.4) 0%,transparent 70%);pointer-events:none}
+.icon3d>svg{position:relative;z-index:1;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.4))}
 @keyframes expand-in{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
 .expand-body{animation:expand-in .18s ease both}
 @keyframes bk-in{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
@@ -150,41 +153,37 @@ function BookingCard({ b, expanded, onToggle, onConfirm, onCancel, onNoshow }) {
     <div
       className="bk-in"
       style={{
-        background:`linear-gradient(145deg,${SURF_HI},${SURFACE})`,
-        borderRadius:20,
-        border: expanded ? `1px solid ${tc}28` : "1px solid rgba(255,255,255,0.04)",
-        boxShadow: expanded ? `0 8px 32px rgba(0,0,0,0.5),0 0 0 1px ${tc}14` : SO,
+        background:`linear-gradient(155deg,${SURF_HI},${SURFACE})`,
+        borderRadius:13,
+        border:`1px solid ${BORDER}`,
+        boxShadow:SO,
         overflow:"hidden",
-        transition:"border-color .2s, box-shadow .2s",
       }}
     >
       {/* ── COLLAPSED HEADER (always visible) ── */}
       <div
         onClick={onToggle}
         style={{
-          background: expanded ? typeGrad(b.type) : "transparent",
-          borderBottom: expanded ? `1px solid ${tc}18` : "none",
-          padding: expanded ? "14px 14px 13px" : "12px 14px",
-          display:"flex", alignItems:"center", gap:11,
+          borderBottom: expanded ? `1px solid ${BORDER}` : "none",
+          padding:"9px 12px",
+          display:"flex", alignItems:"center", gap:9,
           cursor:"pointer",
-          transition:"background .2s, padding .2s, border-color .2s",
         }}
       >
+        {/* left bar */}
+        <div style={{width:4,alignSelf:"stretch",borderRadius:3,background:tc,flexShrink:0}}/>
         {/* Avatar */}
-        <div style={{
-          width: expanded?50:42, height: expanded?50:42,
-          borderRadius: expanded?16:13, flexShrink:0,
-          background:`linear-gradient(145deg,${tc}28,${tc}12)`,
-          border:`1.5px solid ${tc}${expanded?"44":"2a"}`,
+        <div className="icon3d" style={{
+          width:36, height:36,
+          borderRadius:11, flexShrink:0,
+          background:`linear-gradient(145deg,${tc}44,${tc}18)`,
           display:"flex", alignItems:"center", justifyContent:"center",
-          fontSize: expanded?17:14, fontWeight:900, color:tc, letterSpacing:-0.5,
-          boxShadow: expanded?`0 3px 12px ${tc}22`:"none",
-          transition:"width .2s,height .2s,border-radius .2s,font-size .2s",
+          fontSize:13, fontWeight:900, color:tc, letterSpacing:-0.5,
         }}>{initials(b.name)}</div>
 
         {/* Info */}
         <div style={{flex:1, minWidth:0}}>
-          <div style={{fontSize:14,fontWeight:800,color:TEXT,marginBottom:expanded?5:3,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{b.name}</div>
+          <div style={{fontSize:13,fontWeight:800,color:TEXT,marginBottom:2,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{b.name}</div>
           {expanded ? (
             <div style={{display:"flex",gap:5,flexWrap:"wrap",alignItems:"center"}}>
               <Chip label={st.label} color={st.color} bg={st.bg}/>
@@ -201,33 +200,22 @@ function BookingCard({ b, expanded, onToggle, onConfirm, onCancel, onNoshow }) {
           )}
         </div>
 
-        {/* Quick confirm/cancel — visible only when collapsed + pending */}
+        {/* Quick confirm/cancel icon3d */}
         {!expanded && b.status==="pending" && (
           <div style={{display:"flex",gap:5,flexShrink:0}}>
-            <button onClick={e=>{e.stopPropagation();onConfirm(b.id);}} style={{
-              width:32,height:32,borderRadius:9,border:"none",cursor:"pointer",
-              background:"linear-gradient(145deg,#9ee07a,#5fb83d)",
-              display:"flex",alignItems:"center",justifyContent:"center",
-              boxShadow:"-1px 2px 6px rgba(0,0,0,0.35),inset 1px 1px 0 rgba(255,255,255,0.2)",
-            }}>{Ico.check}</button>
-            <button onClick={e=>{e.stopPropagation();onCancel(b.id);}} style={{
-              width:32,height:32,borderRadius:9,border:"none",cursor:"pointer",
-              background:"linear-gradient(145deg,#5a5e66,#3a3e44)",
-              display:"flex",alignItems:"center",justifyContent:"center",
-              boxShadow:"-1px 2px 6px rgba(0,0,0,0.35),inset 1px 1px 0 rgba(255,255,255,0.1)",
-            }}>{Ico.trash}</button>
+            <button onClick={e=>{e.stopPropagation();onConfirm(b.id);}} style={{background:"none",border:"none",cursor:"pointer",padding:0}}>
+              <div className="icon3d" style={{width:26,height:26,background:"linear-gradient(145deg,#9ee07a,#5fb83d)",borderRadius:8,display:"flex",alignItems:"center",justifyContent:"center"}}>{Ico.check}</div>
+            </button>
+            <button onClick={e=>{e.stopPropagation();onCancel(b.id);}} style={{background:"none",border:"none",cursor:"pointer",padding:0}}>
+              <div className="icon3d" style={{width:26,height:26,background:"linear-gradient(145deg,#f87171,#dc2626)",borderRadius:8,display:"flex",alignItems:"center",justifyContent:"center"}}>{Ico.trash}</div>
+            </button>
           </div>
         )}
-
         {/* Chevron */}
-        <div style={{
-          width:26,height:26,borderRadius:8,flexShrink:0,
-          background:`linear-gradient(135deg,${SURF_HI},${SURFACE})`,
-          display:"flex",alignItems:"center",justifyContent:"center",
-          boxShadow:SO,
-          transform: expanded?"rotate(180deg)":"rotate(0deg)",
-          transition:"transform .22s ease",
-        }}>{Ico.chevron}</div>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={FAINT} strokeWidth="2.2" strokeLinecap="round" flexShrink="0"
+          style={{transform:expanded?"rotate(180deg)":"none",transition:"transform .22s",flexShrink:0}}>
+          <polyline points="6 9 12 15 18 9"/>
+        </svg>
       </div>
 
       {/* ── EXPANDED BODY ── */}

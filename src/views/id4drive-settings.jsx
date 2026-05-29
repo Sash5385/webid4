@@ -123,14 +123,19 @@ function Section({ title, icon, children, defaultOpen=false }) {
     <div style={{
       background:`linear-gradient(155deg,${SURF_HI},${SURFACE})`,
       borderRadius:13,overflow:"hidden",
-      boxShadow:`0 2px 8px rgba(0,0,0,.3),0 0 0 1px ${BORDER}`,
+      boxShadow:SO, border:`1px solid ${BORDER}`,
     }}>
       <div onClick={()=>setOpen(v=>!v)} style={{
-        display:"flex",alignItems:"center",gap:10,padding:"12px 14px",cursor:"pointer",userSelect:"none",
+        display:"flex",alignItems:"center",gap:10,padding:"10px 14px",cursor:"pointer",userSelect:"none",
       }}>
-        <span style={{fontSize:18}}>{icon}</span>
-        <span style={{flex:1,fontSize:14,fontWeight:800,color:TEXT}}>{title}</span>
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={FAINT} strokeWidth="2.2" strokeLinecap="round"
+        <div style={{
+          width:32,height:32,borderRadius:9,flexShrink:0,
+          background:`linear-gradient(145deg,${SURF_HI},${SURFACE_LO})`,
+          boxShadow:SO,
+          display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,
+        }}>{icon}</div>
+        <span style={{flex:1,fontSize:13,fontWeight:800,color:TEXT}}>{title}</span>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={FAINT} strokeWidth="2.2" strokeLinecap="round"
           style={{transform:open?"rotate(180deg)":"none",transition:"transform .22s",flexShrink:0}}>
           <polyline points="6 9 12 15 18 9"/>
         </svg>

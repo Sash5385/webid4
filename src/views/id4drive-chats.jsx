@@ -240,16 +240,18 @@ export default function ChatsView() {
             return (
               <div key={c.id} style={{
                 background:`linear-gradient(155deg,${SURF_HI},${SURFACE})`,
-                borderRadius:isOpen?"14px 14px 14px 14px":13,
+                borderRadius:13,
                 overflow:"hidden",
-                boxShadow:`0 2px 8px rgba(0,0,0,.35),0 0 0 1px ${isOpen?`rgba(91,155,255,0.25)`:BORDER}`,
+                boxShadow:SO, border:`1px solid ${isOpen?`rgba(91,155,255,0.25)`:BORDER}`,
               }}>
                 {/* ── contact row ── */}
                 <div className={`chat-row${isOpen?" open":""}`}
                   onClick={()=>toggle(c.id)}
-                  style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px"}}
+                  style={{display:"flex",alignItems:"center",gap:9,padding:"9px 12px"}}
                 >
-                  <Ava name={c.name} hue={c.hue} size={38} online={c.online}/>
+                  {/* left bar */}
+                  <div style={{width:4,alignSelf:"stretch",borderRadius:3,background:`hsl(${c.hue},60%,55%)`,flexShrink:0}}/>
+                  <Ava name={c.name} hue={c.hue} size={36} online={c.online}/>
 
                   <div style={{flex:1,minWidth:0}}>
                     <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:2}}>
