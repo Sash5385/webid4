@@ -130,7 +130,7 @@ function Section({ title, icon, children, defaultOpen=false }) {
       }}>
         <div style={{
           width:32,height:32,borderRadius:9,flexShrink:0,
-          background:`linear-gradient(145deg,${SURF_HI},${SURFACE_LO})`,
+          background:`linear-gradient(145deg,${SURF_HI},${SURF_LO})`,
           boxShadow:SO,
           display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,
         }}>{icon}</div>
