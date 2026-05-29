@@ -505,17 +505,19 @@ export default function BookingsView({ infoOpen = false, onToggleInfo, settings 
 
   // ── ЧЕРГА ──────────────────────────────────────────────────────
   const [queue,        setQueue]        = useState([]);
-  const [queueOpen,    setQueueOpen]    = useState(false);
+  const [queueOpen,    setQueueOpen]    = useState(null); // null = not yet loaded
   const [addQueueOpen, setAddQueueOpen] = useState(false);
-  const [queueOffer,   setQueueOffer]   = useState(null); // { cancelledBk, queue }
+  const [queueOffer,   setQueueOffer]   = useState(null);
 
   useEffect(() => {
     return onValue(ref(db, "queue"), snap => {
       const d = snap.val();
-      if (!d) { setQueue([]); return; }
+      if (!d) { setQueue([]); setQueueOpen(prev => prev === null ? false : prev); return; }
       const arr = Object.entries(d).map(([id, v]) => ({id, ...v}))
-        .sort((a,b) => (a.addedAt||0) - (b.addedAt||0));
+        .sort((a,b) => (a.order ?? a.addedAt ?? 0) - (b.order ?? b.addedAt ?? 0));
       setQueue(arr);
+      // auto-open on first load if someone is waiting
+      setQueueOpen(prev => prev === null ? arr.some(q => q.status === "waiting") : prev);
     }, () => {});
   }, []);
 
@@ -616,33 +618,52 @@ export default function BookingsView({ infoOpen = false, onToggleInfo, settings 
           )}
         </div>
 
-        {/* ── PENDING ALERT ── */}
-        {pendingCount>0 && (
-          <div style={{
-            background:"linear-gradient(135deg,rgba(255,90,60,0.18),rgba(255,90,60,0.07))",
-            borderRadius:18, border:"1px solid rgba(255,90,60,0.3)",
-            padding:"14px 16px", display:"flex", alignItems:"center", gap:12,
-            boxShadow:"0 0 24px rgba(255,90,60,0.12)",
-          }}>
-            <div style={{
-              width:44,height:44,borderRadius:13,flexShrink:0,
-              background:`linear-gradient(145deg,${ACC_HI},${ACCENT})`,
-              display:"flex",alignItems:"center",justifyContent:"center",
-              fontSize:19,fontWeight:900,color:"#fff",
-              boxShadow:"-2px 4px 12px rgba(255,90,60,0.45),inset 1px 1px 0 rgba(255,255,255,0.3)",
-            }}>{pendingCount}</div>
-            <div style={{flex:1}}>
-              <div style={{fontSize:14,fontWeight:800,color:TEXT}}>Потрібна дія</div>
-              <div style={{fontSize:12,color:DIM,marginTop:1}}>{pendingCount} {pendingCount===1?"букінг":"букінги"} очікують підтвердження</div>
-            </div>
-            <button onClick={()=>setFilters(f=>({...f,status:"pending"}))} style={{
-              background:`linear-gradient(145deg,${ACC_HI},${ACCENT})`,border:"none",
-              borderRadius:10,padding:"8px 14px",cursor:"pointer",color:"#fff",
-              fontSize:12,fontWeight:700,flexShrink:0,
-              boxShadow:"-2px 4px 10px rgba(255,90,60,0.4),inset 1px 1px 0 rgba(255,255,255,0.25)",
-            }}>Показати →</button>
+        {/* ── ЧЕРГА (спойлер) ── */}
+        <div style={{background:`linear-gradient(155deg,${SURF_HI},${SURFACE})`,borderRadius:13,overflow:"hidden",boxShadow:SO,border:`1px solid rgba(192,132,252,${queue.some(q=>q.status==="waiting")?0.35:0.1})`}}>
+          <div onClick={()=>setQueueOpen(v=>!v)} style={{display:"flex",alignItems:"center",gap:9,padding:"10px 12px",cursor:"pointer"}}>
+            <div style={{width:4,alignSelf:"stretch",borderRadius:3,background:PURPLE,flexShrink:0}}/>
+            <span style={{fontSize:16}}>⏳</span>
+            <span style={{flex:1,fontSize:13,fontWeight:800,color:TEXT}}>Черга очікування</span>
+            {queue.filter(q=>q.status==="waiting").length > 0 && (
+              <span style={{background:"linear-gradient(145deg,#c084fc,#7c3aed)",color:"#fff",borderRadius:8,padding:"1px 8px",fontSize:11,fontWeight:700,boxShadow:"0 0 8px rgba(192,132,252,0.5)"}}>
+                {queue.filter(q=>q.status==="waiting").length} очікує
+              </span>
+            )}
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={FAINT} strokeWidth="2.2" strokeLinecap="round"
+              style={{transform:queueOpen?"rotate(180deg)":"none",transition:"transform .2s",flexShrink:0}}>
+              <polyline points="6 9 12 15 18 9"/>
+            </svg>
           </div>
-        )}
+          {queueOpen && (
+            <div style={{borderTop:`1px solid ${BORDER}`,padding:"8px 12px 4px"}}>
+              {queue.length === 0 ? (
+                <div style={{textAlign:"center",padding:"14px 0",color:FAINT,fontSize:12}}>Черга порожня</div>
+              ) : queue.filter(q=>q.status!=="archived").map(q => {
+                const svc = SERVICES[q.svcId] || {};
+                const stColor = q.status==="offered" ? GOLD : q.status==="booked" ? GREEN : PURPLE;
+                const stLabel = q.status==="offered" ? "Запрошено" : q.status==="booked" ? "Записаний" : "Очікує";
+                return (
+                  <div key={q.id} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 4px",borderBottom:`1px solid ${BORDER}`}}>
+                    <div style={{width:4,height:32,borderRadius:3,background:stColor,flexShrink:0}}/>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{fontSize:13,fontWeight:800,color:TEXT,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{q.name}</div>
+                      <div style={{fontSize:10,color:DIM}}>{q.phone}{svc.name?` · ${svc.name}`:""}</div>
+                    </div>
+                    <span style={{fontSize:9,color:stColor,fontWeight:700,background:`${stColor}20`,padding:"2px 7px",borderRadius:6,flexShrink:0}}>{stLabel}</span>
+                    {q.status==="waiting" && (
+                      <button onClick={()=>markOffered(q.id)} style={{background:"linear-gradient(145deg,#c084fc,#7c3aed)",border:"none",borderRadius:7,padding:"4px 9px",cursor:"pointer",color:"#fff",fontSize:11,fontWeight:700,flexShrink:0}}>Запросити</button>
+                    )}
+                    <button onClick={()=>removeFromQueue(q.id)} style={{background:"none",border:"none",cursor:"pointer",color:FAINT,fontSize:15,padding:"0 2px",flexShrink:0}}>×</button>
+                  </div>
+                );
+              })}
+              <button onClick={()=>setAddQueueOpen(true)} style={{
+                width:"100%",padding:"9px",margin:"8px 0 4px",borderRadius:10,border:`1px dashed rgba(192,132,252,0.4)`,cursor:"pointer",
+                background:"rgba(192,132,252,0.07)",color:PURPLE,fontSize:12,fontWeight:700,
+              }}>+ Додати до черги</button>
+            </div>
+          )}
+        </div>
 
         {/* ── SEARCH + FILTER ── */}
         <div style={{
@@ -651,11 +672,8 @@ export default function BookingsView({ infoOpen = false, onToggleInfo, settings 
           borderRadius:14,padding:"4px 12px",boxShadow:SI,
         }}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={FAINT} strokeWidth="2.2" strokeLinecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-          <input
-            value={search} onChange={e=>setSearch(e.target.value)}
-            placeholder="Ім'я, телефон, ТСЦ, дата…"
-            style={{flex:1,background:"transparent",border:"none",outline:"none",color:TEXT,padding:"10px 0",fontSize:14,fontFamily:"inherit"}}
-          />
+          <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Ім'я, телефон, ТСЦ, дата…"
+            style={{flex:1,background:"transparent",border:"none",outline:"none",color:TEXT,padding:"10px 0",fontSize:14,fontFamily:"inherit"}}/>
           {search && <button onClick={()=>setSearch("")} style={{background:"none",border:"none",cursor:"pointer",color:FAINT,fontSize:20,padding:0,lineHeight:1}}>×</button>}
           <button onClick={()=>setShowFilters(true)} style={{position:"relative",background:"none",border:"none",cursor:"pointer",padding:0,display:"flex"}}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={activeFiltersCount>0?ACCENT:FAINT} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
@@ -672,30 +690,19 @@ export default function BookingsView({ infoOpen = false, onToggleInfo, settings 
               <div style={{display:"flex",alignItems:"center",gap:8,padding:"8px 4px 4px"}}>
                 <div style={{flex:1,height:1,background:BORDER}}/>
                 <span style={{fontSize:11,color:FAINT,fontWeight:800,letterSpacing:1.5,textTransform:"uppercase"}}>{groupLabel(key)}</span>
-                <span style={{
-                  background:`linear-gradient(135deg,${SURF_HI},${SURFACE})`,
-                  padding:"2px 9px",borderRadius:8,fontSize:10,color:DIM,fontWeight:700,boxShadow:SO,
-                }}>{items.length}</span>
+                <span style={{background:`linear-gradient(135deg,${SURF_HI},${SURFACE})`,padding:"2px 9px",borderRadius:8,fontSize:10,color:DIM,fontWeight:700,boxShadow:SO}}>{items.length}</span>
                 <div style={{flex:1,height:1,background:BORDER}}/>
               </div>
             )}
             <div style={{display:"flex",flexDirection:"column",gap:7}}>
               {items.map(b=>(
-                <BookingCard
-                  key={b.id}
-                  b={b}
-                  expanded={expandedId===b.id}
-                  onToggle={()=>toggle(b.id)}
-                  onConfirm={confirm}
-                  onCancel={cancel}
-                  onNoshow={noshow}
-                />
+                <BookingCard key={b.id} b={b} expanded={expandedId===b.id}
+                  onToggle={()=>toggle(b.id)} onConfirm={confirm} onCancel={cancel} onNoshow={noshow}/>
               ))}
             </div>
           </div>
         ))}
 
-        {/* ── EMPTY ── */}
         {list.length===0 && (
           <div style={{textAlign:"center",padding:"50px 20px",color:FAINT}}>
             <div style={{fontSize:36,marginBottom:12}}>📭</div>
@@ -703,66 +710,6 @@ export default function BookingsView({ infoOpen = false, onToggleInfo, settings 
             <div style={{fontSize:12,marginTop:6}}>Змініть фільтри або пошуковий запит</div>
           </div>
         )}
-
-        {/* ── ЧЕРГА ── */}
-        <div style={{background:`linear-gradient(155deg,${SURF_HI},${SURFACE})`,borderRadius:13,overflow:"hidden",boxShadow:SO,border:`1px solid ${BORDER}`}}>
-          {/* header */}
-          <div onClick={()=>setQueueOpen(v=>!v)} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",cursor:"pointer"}}>
-            <div style={{width:4,alignSelf:"stretch",borderRadius:3,background:PURPLE,flexShrink:0}}/>
-            <span style={{fontSize:18}}>⏳</span>
-            <span style={{flex:1,fontSize:13,fontWeight:800,color:TEXT}}>Черга очікування</span>
-            {queue.filter(q=>q.status==="waiting").length > 0 && (
-              <span style={{background:PURPLE,color:"#fff",borderRadius:8,padding:"1px 8px",fontSize:11,fontWeight:700}}>
-                {queue.filter(q=>q.status==="waiting").length}
-              </span>
-            )}
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={FAINT} strokeWidth="2.2" strokeLinecap="round"
-              style={{transform:queueOpen?"rotate(180deg)":"none",transition:"transform .2s",flexShrink:0}}>
-              <polyline points="6 9 12 15 18 9"/>
-            </svg>
-          </div>
-
-          {/* list */}
-          {queueOpen && (
-            <div style={{borderTop:`1px solid ${BORDER}`,padding:"8px 12px 4px"}}>
-              {queue.length === 0 ? (
-                <div style={{textAlign:"center",padding:"16px 0",color:FAINT,fontSize:12}}>Черга порожня</div>
-              ) : queue.map(q => {
-                const svc = SERVICES[q.svcId] || {};
-                const isOffered = q.status === "offered";
-                return (
-                  <div key={q.id} style={{
-                    display:"flex",alignItems:"center",gap:8,padding:"8px 4px",
-                    borderBottom:`1px solid ${BORDER}`,opacity:isOffered?0.6:1
-                  }}>
-                    <div style={{width:4,height:32,borderRadius:3,background:isOffered?GOLD:PURPLE,flexShrink:0}}/>
-                    <div style={{flex:1,minWidth:0}}>
-                      <div style={{fontSize:13,fontWeight:800,color:TEXT,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{q.name}</div>
-                      <div style={{fontSize:10,color:DIM}}>
-                        {q.phone} · {svc.name||q.svcId||"—"}
-                        {isOffered && <span style={{color:GOLD,fontWeight:700}}> · Запропоновано</span>}
-                      </div>
-                    </div>
-                    {!isOffered && (
-                      <button onClick={()=>markOffered(q.id)} style={{
-                        background:`linear-gradient(145deg,${PURPLE}99,#7c3aed55)`,border:"none",
-                        borderRadius:8,padding:"5px 10px",cursor:"pointer",color:PURPLE,fontSize:11,fontWeight:700,
-                      }}>Запросити</button>
-                    )}
-                    <button onClick={()=>removeFromQueue(q.id)} style={{
-                      background:"none",border:"none",cursor:"pointer",color:FAINT,fontSize:16,padding:"0 2px",
-                    }}>×</button>
-                  </div>
-                );
-              })}
-              <button onClick={()=>setAddQueueOpen(true)} style={{
-                width:"100%",padding:"10px",margin:"8px 0 4px",borderRadius:10,border:"none",cursor:"pointer",
-                background:`linear-gradient(145deg,rgba(192,132,252,0.15),rgba(124,58,237,0.08))`,
-                border:`1px dashed ${PURPLE}55`,color:PURPLE,fontSize:12,fontWeight:700,
-              }}>+ Додати до черги</button>
-            </div>
-          )}
-        </div>
 
       </div>
 
