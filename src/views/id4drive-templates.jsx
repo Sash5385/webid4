@@ -351,35 +351,36 @@ function TemplateCard({ tpl, onEdit, onSend, onToggle, onDelete, viewMode }) {
         borderRadius:13,marginBottom:8,overflow:"hidden",
         boxShadow:SO,opacity:tpl.active?1:0.55
       }}>
-        <div style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px"}}>
-          {/* colored bar */}
+        {/* ── верхній рядок: іконка + назва + toggle ── */}
+        <div style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px 6px"}}>
           <div style={{width:8,height:36,borderRadius:4,background:cat.color,boxShadow:`0 0 8px ${cat.color}88`,flexShrink:0}}/>
-          {/* category icon */}
           <div className="icon3d" style={{width:36,height:36,background:`linear-gradient(155deg,${cat.color}99,${cat.color}33)`,borderRadius:11,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,flexShrink:0}}>
             {cat.emoji}
           </div>
-          {/* title + subtitle */}
           <div style={{flex:1,minWidth:0}}>
-            <div style={{fontSize:13,fontWeight:800,color:TEXT,marginBottom:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{tpl.title}</div>
-            <div style={{display:"flex",gap:5,alignItems:"center"}}>
-              <span style={{fontSize:10,color:ch.color,fontWeight:700}}>{ch.emoji} {ch.label}</span>
-              <span style={{fontSize:10,color:FAINT}}>·</span>
-              <span style={{fontSize:10,color:tpl.trigger==="manual"?DIM:GOLD,fontWeight:700}}>{tpl.trigger==="manual"?"✋":"⚡"}</span>
+            <div style={{fontSize:13,fontWeight:800,color:TEXT,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{tpl.title}</div>
+            <div style={{fontSize:10,color:DIM,marginTop:2}}>
+              <span style={{color:ch.color,fontWeight:700}}>{ch.emoji} {ch.label}</span>
+              <span style={{color:FAINT}}> · </span>
+              <span style={{color:tpl.trigger==="manual"?DIM:GOLD,fontWeight:700}}>{tpl.trigger==="manual"?"✋ Ручна":"⚡ Авто"}</span>
             </div>
           </div>
           <Toggle on={tpl.active} onChange={v=>onToggle(tpl.id,v)}/>
+        </div>
+        {/* ── нижній рядок: кнопки дій ── */}
+        <div style={{display:"flex",gap:8,padding:"6px 12px 10px",paddingLeft:66}}>
           <button onClick={()=>onSend(tpl)} style={{background:"none",border:"none",cursor:"pointer",padding:0}}>
-            <div className="icon3d" style={{width:28,height:28,background:`linear-gradient(165deg,${ACC_HI},${ACCENT})`,borderRadius:9}}>
+            <div className="icon3d" style={{width:30,height:30,background:`linear-gradient(165deg,${ACC_HI},${ACCENT})`,borderRadius:9}}>
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{position:"relative",zIndex:1}}><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
             </div>
           </button>
           <button onClick={()=>onEdit(tpl)} style={{background:"none",border:"none",cursor:"pointer",padding:0}}>
-            <div className="icon3d" style={{width:28,height:28,background:"linear-gradient(165deg,#a78bfa,#6d28d9)",borderRadius:9}}>
+            <div className="icon3d" style={{width:30,height:30,background:"linear-gradient(165deg,#a78bfa,#6d28d9)",borderRadius:9}}>
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{position:"relative",zIndex:1}}><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
             </div>
           </button>
           <button onClick={()=>onDelete(tpl.id)} style={{background:"none",border:"none",cursor:"pointer",padding:0}}>
-            <div className="icon3d" style={{width:28,height:28,background:"linear-gradient(165deg,#f87171,#dc2626)",borderRadius:9}}>
+            <div className="icon3d" style={{width:30,height:30,background:"linear-gradient(165deg,#f87171,#dc2626)",borderRadius:9}}>
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{position:"relative",zIndex:1}}><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
             </div>
           </button>
