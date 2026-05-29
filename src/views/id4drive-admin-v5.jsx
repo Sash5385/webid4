@@ -457,6 +457,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   const [dayOffset, setDayOffset] = useState(-7);
   const dragRef = useRef(null);
   const calcRef = useRef({});
+  const setBookingsRef = useRef(null);
   const gridRef = useRef(null);
   const holdTimerRef = useRef(null);
   const pendingDragRef = useRef(null);
@@ -491,6 +492,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   // Shine glint animation — one booking at a time, random, every 3s
   const bookingsRef = useRef(bookings);
   useEffect(() => { bookingsRef.current = bookings; }, [bookings]);
+  useEffect(() => { setBookingsRef.current = setBookings; }, [setBookings]);
   useEffect(() => { quickCancelRef.current = quickCancelId; }, [quickCancelId]);
   useEffect(() => {
     const timer = setInterval(() => {
@@ -600,7 +602,8 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
       const dy = e.clientY - drag.startClientY;
       const dxRaw = e.clientX - drag.startClientX;
       const deltaMin = dy / PX_PER_MIN;
-      setBookings(bs => bs.map(b => {
+      const setBookingsFn = setBookingsRef.current || setBookings;
+      setBookingsFn(bs => bs.map(b => {
         if (b.id !== drag.id) return b;
         if (drag.mode === "move") {
           const newDay = Math.max(dayOffset, Math.min(dayOffset + N_DAYS - 1, drag.startDay + Math.round(dxRaw/(COL_W+4))));
@@ -654,7 +657,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
       window.removeEventListener("resize", onResize);
       clearTimeout(holdTimerRef.current);
     };
-  }, [setBookings, setDayOffset]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const touchesRef = useRef([]);
   const onTouchStart = (e) => {
