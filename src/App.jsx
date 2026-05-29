@@ -87,8 +87,8 @@ const TabIcons = {
 // ─── TABS CONFIG ─────────────────────────────────────────────────
 const TAB_IDS = [
   { id:"schedule",  lk:"nav.schedule",  badge:null },
-  { id:"bookings",  lk:"nav.bookings",  badge:null },
   { id:"queue",     lk:"nav.queue",     badge:null },
+  { id:"bookings",  lk:"nav.bookings",  badge:null },
   { id:"students",  lk:"nav.students",  badge:null },
   { id:"services",  lk:"nav.services",  badge:null },
   { id:"chats",     lk:"nav.chats",     badge:null },
