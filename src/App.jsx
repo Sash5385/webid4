@@ -338,50 +338,77 @@ function QueueStrip({ tab, onChange }) {
   );
 }
 
+// ─── TAB INSTRUCTIONS ───────────────────────────────────────────
+const INSTRUCTIONS = {
+  schedule: "Розклад уроків. Клік на порожнє місце — записати учня, VIP-слот або заблокувати час. Утримати слот — видалити.",
+  bookings: "Список записів учнів. Натисніть на картку — деталі, телефон, кнопки дій. Черга авто-відкривається якщо є очікуючі.",
+  queue:    "Черга очікування. Перетягуй ⠿ для зміни пріоритету. Запросити → статус «Запрошено». Архів зберігає історію.",
+  students: "Список учнів. Клік на картку — телефон, знижка, прогрес, записи. Пошук і фільтр за типом.",
+  services: "Типи уроків з ціною і тривалістю. Перемикач — вкл/вимк. ☰ — порядок. ✏️ — редагувати.",
+  chats:    "Листування з учнями. Клік на контакт — розгортає чат. ⚡ — швидкі відповіді.",
+  templates:"Шаблони повідомлень. ➤ надіслати · ✏️ редагувати · 🗑 видалити.",
+  stats:    "Статистика уроків, доходу і учнів за обраний період.",
+  settings: "Налаштування розкладу, послуг, черги та автоматичних повідомлень.",
+};
+
 // ─── TOP BAR ─────────────────────────────────────────────────────
 function TopBar({ tab, onChange }) {
   const lang = useContext(LangContext);
   const tl = createT(lang);
   const tabLabel = tl(TAB_IDS.find(x=>x.id===tab)?.lk || tab);
+  const [showInfo, setShowInfo] = useState(false);
+  const instruction = INSTRUCTIONS[tab];
+
+  // reset when tab changes
+  useEffect(() => { setShowInfo(false); }, [tab]);
+
   return (
-    <div style={{
-      padding:"6px 12px",
-      display:"flex",alignItems:"center",justifyContent:"space-between",
-      position:"sticky",top:0,
-      background:`linear-gradient(180deg,${BG} 60%,rgba(28,29,33,0.9))`,
-      backdropFilter:"blur(20px)",zIndex:20,
-      borderBottom:`1px solid ${BORDER}`
-    }}>
-      <div style={{display:"flex",alignItems:"center",gap:7}}>
-        <I3 s={22} r={7} gr="linear-gradient(165deg,#ff7a5c,#ff5a3c)">
-          <span style={{fontSize:12,position:"relative",zIndex:1}}>🚗</span>
-        </I3>
-        <div style={{fontSize:13,fontWeight:800,letterSpacing:-0.3,color:TEXT}}>{tabLabel}</div>
-      </div>
-      <div style={{display:"flex",gap:6,alignItems:"center"}}>
-        <button onClick={()=>onChange?.("bookings")} style={{background:"none",border:"none",cursor:"pointer",position:"relative",padding:0}}>
-          <I3 s={24} r={7} gr={tab==="bookings"?"linear-gradient(165deg,#ff7a5c,#ff5a3c)":"linear-gradient(135deg,#2e3034,#26282c)"}>
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={TEXT} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+    <div style={{position:"sticky",top:0,zIndex:20}}>
+      <div style={{
+        padding:"6px 12px",
+        display:"flex",alignItems:"center",justifyContent:"space-between",
+        background:`linear-gradient(180deg,${BG} 60%,rgba(28,29,33,0.9))`,
+        backdropFilter:"blur(20px)",
+        borderBottom:`1px solid ${showInfo ? "transparent" : BORDER}`,
+      }}>
+        <div style={{display:"flex",alignItems:"center",gap:7}}>
+          <I3 s={22} r={7} gr="linear-gradient(165deg,#ff7a5c,#ff5a3c)">
+            <span style={{fontSize:12,position:"relative",zIndex:1}}>🚗</span>
           </I3>
-          <div style={{
-            position:"absolute",top:-2,right:-2,
-            background:ACCENT,color:"#fff",borderRadius:10,
-            padding:"0 4px",fontSize:8,fontWeight:800,lineHeight:"14px",
-            boxShadow:`0 0 6px ${ACCENT}88`
-          }}>3</div>
-        </button>
-        <button onClick={()=>onChange?.("settings")} style={{background:"none",border:"none",cursor:"pointer",padding:0}}>
-          <div style={{
-            width:24,height:24,borderRadius:12,
-            background: tab==="settings"
-              ? "linear-gradient(165deg,#ff7a5c,#ff5a3c)"
-              : "linear-gradient(165deg,#9ee07a,#5fb83d)",
-            display:"flex",alignItems:"center",justifyContent:"center",
-            fontSize:9,fontWeight:800,color:"#fff",
-            boxShadow:"-2px 3px 8px rgba(0,0,0,0.4),inset 1px 1px 0 rgba(255,255,255,0.2)"
-          }}>ОЛ</div>
-        </button>
+          <div style={{fontSize:13,fontWeight:800,letterSpacing:-0.3,color:TEXT}}>{tabLabel}</div>
+        </div>
+        <div style={{display:"flex",gap:6,alignItems:"center"}}>
+          {instruction && (
+            <button onClick={()=>setShowInfo(v=>!v)} style={{background:"none",border:"none",cursor:"pointer",padding:0}}>
+              <I3 s={24} r={7} gr={showInfo?"linear-gradient(165deg,#fcd34d,#d97706)":"linear-gradient(135deg,#2e3034,#26282c)"}>
+                <span style={{fontSize:12,position:"relative",zIndex:1,lineHeight:1}}>💡</span>
+              </I3>
+            </button>
+          )}
+          <button onClick={()=>onChange?.("settings")} style={{background:"none",border:"none",cursor:"pointer",padding:0}}>
+            <div style={{
+              width:24,height:24,borderRadius:12,
+              background: tab==="settings"
+                ? "linear-gradient(165deg,#ff7a5c,#ff5a3c)"
+                : "linear-gradient(165deg,#9ee07a,#5fb83d)",
+              display:"flex",alignItems:"center",justifyContent:"center",
+              fontSize:9,fontWeight:800,color:"#fff",
+              boxShadow:"-2px 3px 8px rgba(0,0,0,0.4),inset 1px 1px 0 rgba(255,255,255,0.2)"
+            }}>ОЛ</div>
+          </button>
+        </div>
       </div>
+      {showInfo && instruction && (
+        <div style={{
+          padding:"8px 14px 10px",
+          background:`linear-gradient(180deg,${BG},rgba(28,29,33,0.95))`,
+          backdropFilter:"blur(20px)",
+          borderBottom:`1px solid ${BORDER}`,
+          fontSize:12,color:DIM,lineHeight:1.55,
+        }}>
+          <span style={{color:GOLD,fontWeight:700,marginRight:6}}>💡</span>{instruction}
+        </div>
+      )}
     </div>
   );
 }
@@ -419,10 +446,10 @@ const DEFAULT_SETTINGS = {
 function ViewRenderer({ tab, settings, setSettings, bookings, setBookings, onSlotClick, onEmptySlotClick, openInfos, toggleInfo }) {
   if (tab === "schedule")  return <ScheduleView settings={settings} setSettings={setSettings} bookings={bookings} setBookings={setBookings} onSlotClick={onSlotClick} onEmptySlotClick={onEmptySlotClick}/>;
   if (tab === "settings")  return <SettingsView settings={settings} setSettings={setSettings}/>;
-  if (tab === "bookings")  return <BookingsView infoOpen={!!openInfos.bookings} onToggleInfo={()=>toggleInfo('bookings')} settings={settings}/>;
+  if (tab === "bookings")  return <BookingsView settings={settings}/>;
   if (tab === "queue")     return <QueueView settings={settings}/>;
-  if (tab === "students")  return <StudentsView infoOpen={!!openInfos.students} onToggleInfo={()=>toggleInfo('students')}/>;
-  if (tab === "services")  return <ServicesView infoOpen={!!openInfos.services} onToggleInfo={()=>toggleInfo('services')}/>;
+  if (tab === "students")  return <StudentsView/>;
+  if (tab === "services")  return <ServicesView/>;
   if (tab === "chats")     return <ChatsView/>;
   if (tab === "templates") return <TemplatesView/>;
   if (tab === "stats")     return <StatsView/>;

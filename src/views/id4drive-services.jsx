@@ -482,7 +482,7 @@ function useDragReorder(items, setItems) {
 }
 
 // ─── MAIN ────────────────────────────────────────────────────────
-export default function ServicesView({ infoOpen = false, onToggleInfo }) {
+export default function ServicesView() {
   const [services, setServices] = useState(INIT_SERVICES);
   const [showArchived, setShowArchived] = useState(false);
   const [editSvc, setEditSvc]   = useState(null);  // null=closed, false=new, obj=edit
@@ -510,20 +510,6 @@ export default function ServicesView({ infoOpen = false, onToggleInfo }) {
       <style>{CSS}</style>
       <div style={{display:"flex",flexDirection:"column",gap:8,fontFamily:"ui-sans-serif,-apple-system,system-ui,sans-serif",color:TEXT}}>
 
-        {/* ── INFO ── */}
-        <div style={{background:`linear-gradient(145deg,${GREEN}0d,${GREEN}05)`,border:`1px solid ${GREEN}30`,borderRadius:10,overflow:"hidden"}}>
-          <div onClick={onToggleInfo} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 12px",cursor:"pointer"}}>
-            <span style={{fontSize:11,fontWeight:700,color:GREEN}}>💡 Послуги</span>
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={GREEN} strokeWidth="2.5" strokeLinecap="round" style={{transform:infoOpen?"rotate(180deg)":"none",transition:"transform .2s",flexShrink:0}}><polyline points="6 9 12 15 18 9"/></svg>
-          </div>
-          {infoOpen && (
-            <div style={{padding:"0 12px 10px",fontSize:11,color:DIM,lineHeight:1.6}}>
-              Тут ви керуєте типами уроків. Кожна послуга — окремий тип заняття з ціною та тривалістю.
-              Вмикайте/вимикайте послуги перемикачем. Тягніть ☰ щоб змінити порядок.
-              Натисніть ✏️ щоб відредагувати або додати нову послугу внизу.
-            </div>
-          )}
-        </div>
 
         {/* ── LIST ── */}
         <div onPointerMove={e=>getHandlers(0).onPointerMove(e)} onPointerUp={()=>getHandlers(0).onPointerUp()}>

@@ -242,7 +242,7 @@ function Card({ s, expanded, onToggle, onBlock, onUpdate }) {
 }
 
 // ─── MAIN ────────────────────────────────────────────────────────
-export default function StudentsView({ infoOpen = false, onToggleInfo }) {
+export default function StudentsView() {
   const [students,   setStudents]   = useState(STUDENTS);
   const [expanded,   setExpanded]   = useState(new Set());
   const [search,     setSearch]     = useState("");
@@ -265,19 +265,6 @@ export default function StudentsView({ infoOpen = false, onToggleInfo }) {
       <style>{CSS}</style>
       <div style={{display:"flex",flexDirection:"column",gap:7,fontFamily:"ui-sans-serif,-apple-system,system-ui,sans-serif",color:TEXT}}>
 
-        {/* ── INFO ── */}
-        <div style={{background:`linear-gradient(145deg,${BLUE}0d,${BLUE}05)`,border:`1px solid ${BLUE}30`,borderRadius:10,overflow:"hidden"}}>
-          <div onClick={onToggleInfo} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 12px",cursor:"pointer"}}>
-            <span style={{fontSize:11,fontWeight:700,color:BLUE}}>💡 Учні</span>
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={BLUE} strokeWidth="2.5" strokeLinecap="round" style={{transform:infoOpen?"rotate(180deg)":"none",transition:"transform .2s",flexShrink:0}}><polyline points="6 9 12 15 18 9"/></svg>
-          </div>
-          {infoOpen && (
-            <div style={{padding:"0 12px 10px",fontSize:11,color:DIM,lineHeight:1.6}}>
-              Список ваших учнів. Натисніть на картку — побачите телефон, знижку, прогрес та історію записів.
-              Використовуйте пошук або фільтр за типом. Щоб зателефонувати або написати — розгорніть картку і натисніть потрібну кнопку.
-            </div>
-          )}
-        </div>
 
         {/* search */}
         <div style={{background:BG_DEEP,borderRadius:11,boxShadow:SI,padding:"3px 11px",display:"flex",alignItems:"center",gap:7}}>
