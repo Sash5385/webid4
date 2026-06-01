@@ -1,4 +1,6 @@
 import { useState, useRef, useEffect, useLayoutEffect, useMemo } from "react";
+import { ref, update, get, onValue, remove } from "firebase/database";
+import { db } from "../firebase";
 
 import { BG, BG_DEEP, SURFACE, SURF_HI, SURF_LO, BORDER, TEXT, DIM, FAINT, ACCENT, ACC_HI, GREEN, BLUE, PURPLE, GOLD, RED, SO, SI } from "../theme.js";
 // local aliases for legacy names used in this file
@@ -352,6 +354,18 @@ const DEFAULT_SETTINGS = {
   lunchStart: 12,
   lunchEnd: 13,
   customBlocks: [],
+  // per-day schedule (Option C)
+  weekSchedule: [
+    { enabled:true,  start:9,  end:18, lunchEnabled:true,  lunchStart:12, lunchEnd:13 }, // Пн
+    { enabled:true,  start:9,  end:18, lunchEnabled:true,  lunchStart:12, lunchEnd:13 }, // Вт
+    { enabled:true,  start:9,  end:18, lunchEnabled:true,  lunchStart:12, lunchEnd:13 }, // Ср
+    { enabled:true,  start:9,  end:18, lunchEnabled:true,  lunchStart:12, lunchEnd:13 }, // Чт
+    { enabled:true,  start:9,  end:18, lunchEnabled:true,  lunchStart:12, lunchEnd:13 }, // Пт
+    { enabled:true,  start:10, end:15, lunchEnabled:false, lunchStart:12, lunchEnd:13 }, // Сб
+    { enabled:false, start:9,  end:18, lunchEnabled:true,  lunchStart:12, lunchEnd:13 }, // Нд
+  ],
+  // date overrides (Option B+C)
+  dateOverrides: [], // [{ date:"2024-06-20", type:"closed"|"custom", start?:9, end?:18, lunchEnabled?:false, reason?:"" }]
   // pending
   pendingEnabled: false, // toggle: requires confirmation
   // visual
@@ -470,6 +484,73 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   const timeColRef = useRef(null);
   const [pinch, setPinch] = useState(null);
   const [shineId, setShineId] = useState(null);
+  const emptyHoldTimerRef = useRef(null);
+  const emptyDragRef = useRef(null);
+  const slotHighlightRef = useRef(null);
+  const emptyWasDragRef = useRef(false);
+  const [slotHighlight, setSlotHighlight] = useState(null);
+  const [openSlots, setOpenSlots] = useState({}); // { "2025-06-01": ["07:00","08:00",...] }
+  const [viewingSlots, setViewingSlots] = useState({});
+  const [genLoadingDays, setGenLoadingDays] = useState(new Set());
+
+  useEffect(() => {
+    const r = ref(db, "timeslots");
+    const unsub = onValue(r, snap => {
+      const val = snap.val() || {};
+      const slots = {};
+      const viewing = {};
+      Object.entries(val).forEach(([date, dateSlots]) => {
+        const openTimes = [];
+        const viewTimes = [];
+        Object.values(dateSlots).forEach(slot => {
+          if (slot.time) openTimes.push(slot.time);
+          if (slot.viewing && Object.keys(slot.viewing).length > 0) viewTimes.push(slot.time);
+        });
+        if (openTimes.length) slots[date] = openTimes;
+        if (viewTimes.length) viewing[date] = viewTimes;
+      });
+      setOpenSlots(slots);
+      setViewingSlots(viewing);
+    });
+    return () => unsub();
+  }, []);
+
+  const absDayToDateStr = (absDay) => {
+    const d = new Date();
+    d.setDate(d.getDate() + absDay);
+    return d.toISOString().split("T")[0];
+  };
+
+  const generateDaySlots = async (absDay) => {
+    const dateStr = absDayToDateStr(absDay);
+    const d = new Date(dateStr);
+    const dow = (d.getDay() + 6) % 7;
+    const ov = (settings.dateOverrides || []).find(o => o.date === dateStr);
+    const ws = (settings.weekSchedule || [])[dow] || { enabled: true, start: settings.workStart, end: settings.workEnd, lunchEnabled: settings.lunchEnabled ?? true, lunchStart: settings.lunchStart || 12, lunchEnd: settings.lunchEnd || 13 };
+    const day = ov ? (ov.type === "closed" ? null : { ...ws, ...ov, enabled: true }) : ws;
+    if (!day?.enabled) return;
+    setGenLoadingDays(s => new Set([...s, absDay]));
+    const snap = await get(ref(db, `timeslots/${dateStr}`));
+    const existing = snap.val() || {};
+    const updates = {};
+    for (let min = day.start * 60; min < day.end * 60; min += 60) {
+      if (day.lunchEnabled && min >= (day.lunchStart || 12) * 60 && min < (day.lunchEnd || 13) * 60) continue;
+      const h = String(Math.floor(min / 60)).padStart(2, "0");
+      const m = String(min % 60).padStart(2, "0");
+      const id = `slot${h}${m}`;
+      if (!existing[id]) {
+        updates[`timeslots/${dateStr}/${id}/time`] = `${h}:${m}`;
+        updates[`timeslots/${dateStr}/${id}/available`] = true;
+      }
+    }
+    if (Object.keys(updates).length) await update(ref(db, "/"), updates);
+    setGenLoadingDays(s => { const ns = new Set(s); ns.delete(absDay); return ns; });
+  };
+
+  const clearDaySlots = async (absDay) => {
+    const dateStr = absDayToDateStr(absDay);
+    await remove(ref(db, `timeslots/${dateStr}`));
+  };
 
   // Скидаємо transform після зміни dayOffset (контент оновився — повертаємо в 0)
   useLayoutEffect(() => {
@@ -508,7 +589,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   }, []);
 
   const TIME_COL_W = 34;
-  const HEADER_H = 36;
+  const HEADER_H = 50;
   const N_DAYS = PAST_DAYS + 28; // 7 минулих + 28 майбутніх
   const COL_W = Math.max(48, Math.floor((windowW - 14 - TIME_COL_W - (settings.daysShown - 1) * 4) / Math.max(1, settings.daysShown)));
   const totalMin = Math.max(60, (settings.workEnd - settings.workStart) * 60);
@@ -559,6 +640,23 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   // Listeners always attached — dragRef gives instant access without useEffect re-fire
   useEffect(() => {
     const onMove = (e) => {
+      // Empty column vertical drag → slot highlight
+      if (emptyDragRef.current && !dragRef.current && !pendingDragRef.current) {
+        const ed = emptyDragRef.current;
+        const dy = e.clientY - ed.startY;
+        if (Math.abs(dy) > 8) {
+          clearTimeout(emptyHoldTimerRef.current);
+          emptyHoldTimerRef.current = null;
+          const { workStart, PX_PER_MIN, workEnd } = calcRef.current;
+          const yRel = e.clientY - ed.rect.top;
+          const rawMin = workStart * 60 + yRel / PX_PER_MIN;
+          const minute = Math.max(workStart * 60, Math.min((workEnd - 1) * 60, Math.round(rawMin / 60) * 60));
+          ed.minute = minute;
+          const hl = { absDay: ed.absDay, startMin: ed.startMin, minute };
+          slotHighlightRef.current = hl;
+          setSlotHighlight(hl);
+        }
+      }
       if (swipeRef.current) {
         swipeRef.current.endX = e.clientX;
         swipeRef.current.endY = e.clientY;
@@ -657,6 +755,29 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
         dragEndedRef.current = true;
         setTimeout(() => { dragEndedRef.current = false; }, 400);
       }
+      // Empty column drag end → partial slot open (write one timeslot to Firebase)
+      clearTimeout(emptyHoldTimerRef.current);
+      emptyHoldTimerRef.current = null;
+      if (emptyDragRef.current && slotHighlightRef.current) {
+        const { absDay, startMin, minute } = slotHighlightRef.current;
+        emptyWasDragRef.current = true;
+        const d = new Date();
+        d.setDate(d.getDate() + absDay);
+        const dateStr = d.toISOString().split("T")[0];
+        const fromMin = Math.min(startMin, minute);
+        const toMin   = Math.max(startMin, minute);
+        const updates = {};
+        for (let m = fromMin; m <= toMin; m += 60) {
+          const hh = String(Math.floor(m / 60)).padStart(2, "0");
+          const mm = String(m % 60).padStart(2, "0");
+          updates[`timeslots/${dateStr}/slot${hh}${mm}/time`] = `${hh}:${mm}`;
+          updates[`timeslots/${dateStr}/slot${hh}${mm}/available`] = true;
+        }
+        update(ref(db, "/"), updates).catch(() => {});
+      }
+      emptyDragRef.current = null;
+      slotHighlightRef.current = null;
+      setSlotHighlight(null);
       // Remove from activeDragIds after save debounce window (700ms > 600ms save timer)
       if (endedId) setTimeout(() => { activeDragIds?.current?.delete(endedId); }, 700);
       swipeRef.current = null;
@@ -708,6 +829,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
 
   const handleColumnClick = (e, absDay) => {
     if (dragRef.current || dragEndedRef.current || pendingDragRef.current) return;
+    if (emptyWasDragRef.current) { emptyWasDragRef.current = false; return; }
     const rect = e.currentTarget.getBoundingClientRect();
     const yRel = e.clientY - rect.top;
     const { snapMin, workStart, PX_PER_MIN } = calcRef.current;
@@ -715,7 +837,26 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
     const minute = Math.round(rawMin / snapMin) * snapMin;
     const bData = { day: absDay, startMin: minute, clientX: e.clientX, clientY: e.clientY };
     setBubbleData(bData);
-    onEmptySlotClick?.(bData);
+  };
+
+  const handleEmptyColDown = (e, absDay) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const { workStart, PX_PER_MIN } = calcRef.current;
+    const yRel = e.clientY - rect.top;
+    const rawMin = workStart * 60 + yRel / PX_PER_MIN;
+    const minute = Math.round(rawMin / 60) * 60;
+    emptyDragRef.current = { absDay, startX: e.clientX, startY: e.clientY, startMin: minute, minute, rect };
+    emptyHoldTimerRef.current = setTimeout(() => {
+      if (!emptyDragRef.current) return;
+      navigator.vibrate?.(40);
+      const { absDay: day, minute: min } = emptyDragRef.current;
+      emptyDragRef.current = null;
+      slotHighlightRef.current = null;
+      setSlotHighlight(null);
+      emptyWasDragRef.current = true;
+      setBubbleData(null);
+      setFormData({ day, startMin: min });
+    }, 700);
   };
   const handleAction = (action, b) => {
     if (action === "confirm") setBookings(bs=>bs.map(x=>x.id===b.id?{...x,status:"confirmed"}:x));
@@ -830,28 +971,64 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
           <div style={{display:"flex", height:HEADER_H, alignItems:"stretch", minWidth:"max-content", marginBottom:4, paddingTop:2,
             position:"sticky", top:0, zIndex:5, background:BG}}>
             {days.map((day,i)=>{
-              const isToday = (dayOffset + i) === 0;
+              const absDay = dayOffset + i;
+              const isToday = absDay === 0;
+              const dateStr = absDayToDateStr(absDay);
+              const isOpen = !!(openSlots[dateStr]?.length);
+              const isLoading = genLoadingDays.has(absDay);
               return (
               <div key={i} style={{
                 width:COL_W, marginRight:i<days.length-1?4:0, flexShrink:0,
                 display:"flex", flexDirection:"column",
-                alignItems:"center", justifyContent:"center",
+                alignItems:"center", justifyContent:"space-between",
+                padding:"3px 2px 3px",
                 overflow:"hidden",
                 borderRadius:10,
-                background: isToday ? `rgba(247,201,72,0.13)` : "transparent",
-                boxShadow: isToday ? `inset 0 0 0 1.5px rgba(247,201,72,0.55)` : "none",
+                background: isToday
+                  ? `rgba(247,201,72,0.18)`
+                  : isOpen
+                    ? `rgba(99,211,120,0.13)`
+                    : `rgba(0,0,0,0.18)`,
+                boxShadow: isToday
+                  ? `inset 0 0 0 1.5px rgba(247,201,72,0.55)`
+                  : isOpen
+                    ? `inset 0 0 0 1px rgba(99,211,120,0.35)`
+                    : "none",
               }}>
                 <div style={{
                   fontSize:9, fontWeight:700, lineHeight:1.2,
-                  color: isToday ? GOLD : day.wk ? ACCENT : TEXT_FAINT,
+                  color: isToday ? GOLD : isOpen ? GREEN : TEXT_FAINT,
                   letterSpacing:0.3,
                   overflow:"hidden", whiteSpace:"nowrap", maxWidth:"100%",
                   textOverflow:"ellipsis",
                 }}>{day.fullLabel}</div>
                 <div style={{
                   fontSize:14, fontWeight:800, lineHeight:1.2,
-                  color: isToday ? GOLD : day.wk ? ACCENT : TEXT_DIM,
+                  color: isToday ? GOLD : isOpen ? GREEN : DIM,
                 }}>{day.num}</div>
+                {isOpen ? (
+                  <button
+                    onClick={e=>{ e.stopPropagation(); clearDaySlots(absDay); }}
+                    title="Закрити день"
+                    style={{
+                      background:"none", border:"none", cursor:"pointer",
+                      padding:"1px 3px", borderRadius:5, lineHeight:1,
+                      fontSize:10, color: GREEN, opacity:0.8,
+                    }}
+                  >✓</button>
+                ) : (
+                  <button
+                    onClick={e=>{ e.stopPropagation(); generateDaySlots(absDay); }}
+                    disabled={isLoading}
+                    title="Відкрити день"
+                    style={{
+                      background:"none", border:"none", cursor:"pointer",
+                      padding:"1px 3px", borderRadius:5, lineHeight:1,
+                      fontSize:11, color: FAINT,
+                      opacity: isLoading ? 0.4 : 0.7,
+                    }}
+                  >{isLoading ? "…" : "⚡"}</button>
+                )}
               </div>
               );
             })}
@@ -861,15 +1038,33 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
           <div ref={gridWrapRef} style={{display:"flex", flexShrink:0}}>
           {days.map((day,colIdx)=>{
             const absDay = dayOffset + colIdx; // dayOffset + 0..N_DAYS-1
+            const dateStrCol = absDayToDateStr(absDay);
+            const isOpenCol = !!(openSlots[dateStrCol]?.length);
             return (
             <div key={absDay}
+              onPointerDown={e=>{ if(!e.target.closest('.slot-base')) handleEmptyColDown(e, absDay); }}
               onClick={e=>{ if(xJustShownRef.current){ xJustShownRef.current=false; return; } if(quickCancelId){ xVisibleRef.current=false; setQuickCancelId(null); return; } handleColumnClick(e, absDay); }}
               style={{
                 width:COL_W, flexShrink:0, height:gridHeight,
                 position:"relative", marginRight:colIdx<days.length-1?4:0, padding:"0 4px",
-                background:`linear-gradient(135deg,${BG_DEEP},${SURFACE_LO})`,
-                borderRadius:14, boxShadow:SHADOW_IN, cursor:"cell"
+                background:`linear-gradient(135deg,${BG_DEEP},rgba(0,0,0,0.55))`,
+                borderRadius:14, boxShadow:SHADOW_IN, cursor:"cell",
               }}>
+
+              {/* Open slot indicators — one strip per available timeslot */}
+              {(openSlots[dateStrCol] || []).map(time => {
+                const [h, m] = time.split(":").map(Number);
+                return (
+                  <div key={`os-${time}`} style={{
+                    position:"absolute", left:0, right:0,
+                    top: minToPx(h * 60 + m),
+                    height: 60 * PX_PER_MIN,
+                    background:"rgba(99,211,120,0.09)",
+                    borderLeft:"2px solid rgba(99,211,120,0.3)",
+                    pointerEvents:"none",
+                  }}/>
+                );
+              })}
 
               {/* 30-min grid lines */}
               {Array.from({length:(settings.workEnd-settings.workStart)*2-1},(_,i)=>{
@@ -894,6 +1089,49 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                   fontSize:9,color:TEXT_FAINT,fontWeight:700,letterSpacing:1
                 }}>ОБІД</div>
               )}
+
+              {/* Slot highlight — admin vertical drag to pick range */}
+              {slotHighlight?.absDay === absDay && (() => {
+                const fromM = Math.min(slotHighlight.startMin, slotHighlight.minute);
+                const toM   = Math.max(slotHighlight.startMin, slotHighlight.minute) + 60;
+                const count = Math.round((toM - fromM) / 60);
+                return (
+                  <div style={{
+                    position:"absolute", left:2, right:2,
+                    top: minToPx(fromM),
+                    height: (toM - fromM) * PX_PER_MIN,
+                    background:"rgba(99,211,120,0.18)",
+                    border:"1.5px solid rgba(99,211,120,0.6)",
+                    borderRadius:8, pointerEvents:"none",
+                    display:"flex", flexDirection:"column",
+                    alignItems:"flex-start", justifyContent:"space-between",
+                    padding:"4px 8px", zIndex:3,
+                  }}>
+                    <span style={{fontSize:11, fontWeight:800, color:"rgba(99,211,120,0.95)"}}>{fmtTime(fromM)}</span>
+                    {count > 1 && <span style={{fontSize:9, fontWeight:700, color:"rgba(99,211,120,0.7)"}}>{count}год</span>}
+                    {count > 1 && <span style={{fontSize:11, fontWeight:800, color:"rgba(99,211,120,0.95)"}}>{fmtTime(toM - 60)}</span>}
+                  </div>
+                );
+              })()}
+
+              {/* Viewing indicators — student selected this time but hasn't booked yet */}
+              {(viewingSlots[dateStrCol] || []).map(time => {
+                const [h, m] = time.split(":").map(Number);
+                const topPx = minToPx(h * 60 + m);
+                return (
+                  <div key={`v-${time}`} style={{
+                    position:"absolute", left:2, right:2,
+                    top:topPx, height:60*PX_PER_MIN,
+                    background:"rgba(247,201,72,0.10)",
+                    borderLeft:"2px solid rgba(247,201,72,0.5)",
+                    borderRadius:6, pointerEvents:"none",
+                    display:"flex", alignItems:"center", paddingLeft:5,
+                    gap:3,
+                  }}>
+                    <span style={{fontSize:8, color:"rgba(247,201,72,0.7)", fontWeight:700, letterSpacing:0.5}}>👁 {time}</span>
+                  </div>
+                );
+              })}
 
               {/* Bookings */}
               {bookings.filter(b=>b.day===absDay).map(b=>{
@@ -1127,7 +1365,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
     )}
 
     {bubbleData && (
-      <div onClick={()=>setBubbleData(null)} style={{position:"fixed",inset:0,zIndex:100}}>
+      <div onClick={()=>setBubbleData(null)} style={{position:"fixed",inset:"0 0 80px 0",zIndex:100}}>
         <div onClick={e=>e.stopPropagation()} style={{
           position:"absolute",
           top: Math.max(60, Math.min(bubbleData.clientY - 80, window.innerHeight - 220)),

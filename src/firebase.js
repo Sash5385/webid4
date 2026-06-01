@@ -1,6 +1,7 @@
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
-import { getDatabase } from "firebase/database";
+import { getDatabase, ref, set } from "firebase/database";
+import { getMessaging, getToken } from "firebase/messaging";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDO6-LTuBoNHi6uS5KcOpmBuyvgJSouYpk",
@@ -12,6 +13,23 @@ const firebaseConfig = {
   appId: "1:815176240686:web:1cf54d6c465420230199bf"
 };
 
+const VAPID_KEY = "BFT1t7hXhEcSsHdotLlG5xoIFNrdS11vU_jsHiD1UUMsskVINBW2het8ogOKioGTPK8X_-u1ivEQM0n0Dh6Zvqk";
+
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getDatabase(app);
+
+export async function registerAdminFCM() {
+  if (!("Notification" in window)) return;
+  try {
+    const permission = await Notification.requestPermission();
+    if (permission !== "granted") return;
+    const messaging = getMessaging(app);
+    const token = await getToken(messaging, { vapidKey: VAPID_KEY });
+    if (token) {
+      await set(ref(db, "admin/fcmToken"), token);
+    }
+  } catch (e) {
+    console.error("Admin FCM error:", e);
+  }
+}

@@ -1,4 +1,6 @@
-import { useState, useContext } from "react";
+import { useState, useContext, useEffect } from "react";
+import { ref, update, onValue, off } from "firebase/database";
+import { db } from "../firebase";
 import { LangContext } from "../App";
 import { createT } from "../lang";
 
@@ -188,11 +190,94 @@ function ColorPicker({ value, onChange }) {
   );
 }
 
+const DAY_NAMES = ["Пн","Вт","Ср","Чт","Пт","Сб","Нд"];
+
+function TimeInput({ value, onChange, min=0, max=24 }) {
+  const v = Number(value) || 0;
+  const h = Math.floor(v);
+  const m = (v % 1 >= 0.5) ? 30 : 0;
+  const disp = `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`;
+  const dec = () => { const n = Math.round((v - 0.5) * 2) / 2; onChange(Math.max(min, n)); };
+  const inc = () => { const n = Math.round((v + 0.5) * 2) / 2; onChange(Math.min(max, n)); };
+  return (
+    <div style={{display:"flex",alignItems:"center",background:BG_DEEP,borderRadius:7,boxShadow:SI,overflow:"hidden"}}>
+      <button onClick={dec} style={{width:20,height:26,border:"none",cursor:"pointer",background:"transparent",color:FAINT,fontSize:14,padding:0,lineHeight:1}}>‹</button>
+      <span style={{fontSize:11,fontWeight:700,color:TEXT,minWidth:36,textAlign:"center"}}>{disp}</span>
+      <button onClick={inc} style={{width:20,height:26,border:"none",cursor:"pointer",background:"transparent",color:FAINT,fontSize:14,padding:0,lineHeight:1}}>›</button>
+    </div>
+  );
+}
+
 // ─── MAIN ────────────────────────────────────────────────────────
 export default function SettingsView({ settings, setSettings }) {
   const lang = useContext(LangContext);
   const t = createT(lang);
   const upd = (k, v) => setSettings(s=>({...s,[k]:v}));
+
+  // ── weekSchedule helpers ──────────────────────────────────────
+  const weekSchedule = settings.weekSchedule || DAY_NAMES.map((_,i) => ({
+    enabled: i < 6, start: i===5?10:9, end: i===5?15:18,
+    lunchEnabled: i<5, lunchStart:12, lunchEnd:13,
+  }));
+  const updDay = (i, patch) => upd("weekSchedule", weekSchedule.map((d,idx) => idx===i ? {...d,...patch} : d));
+
+  // ── date overrides state ──────────────────────────────────────
+  const dateOverrides = settings.dateOverrides || [];
+  const [addingOv, setAddingOv] = useState(false);
+  const [newOv, setNewOv] = useState({ date:"", type:"closed", start:9, end:18, lunchEnabled:false, reason:"" });
+  const addOverride = () => {
+    if (!newOv.date) return;
+    upd("dateOverrides", [...dateOverrides.filter(o=>o.date!==newOv.date), {...newOv}]);
+    setAddingOv(false);
+    setNewOv({ date:"", type:"closed", start:9, end:18, lunchEnabled:false, reason:"" });
+  };
+  const removeOverride = date => upd("dateOverrides", dateOverrides.filter(o=>o.date!==date));
+
+  // ── slot management state (Option B) ─────────────────────────
+  const [slotDate, setSlotDate] = useState("");
+  const [dateSlots, setDateSlots] = useState({});
+  const [genLoading, setGenLoading] = useState(false);
+  useEffect(() => {
+    if (!slotDate) return;
+    const r = ref(db, `timeslots/${slotDate}`);
+    const h = onValue(r, snap => setDateSlots(snap.val() || {}));
+    return () => off(r, "value", h);
+  }, [slotDate]);
+
+  const generateSlots = async () => {
+    if (!slotDate) return;
+    setGenLoading(true);
+    const d = new Date(slotDate);
+    const dow = (d.getDay() + 6) % 7;
+    const ov = dateOverrides.find(o => o.date === slotDate);
+    const day = ov ? (ov.type === "closed" ? null : { enabled:true, ...weekSchedule[dow], ...ov }) : weekSchedule[dow];
+    if (!day?.enabled) { setGenLoading(false); return alert("Цей день вихідний або закрито"); }
+    const interval = settings.snapMin || 30;
+    const updates = {};
+    for (let min = day.start*60; min < day.end*60; min += interval) {
+      if (day.lunchEnabled && min >= day.lunchStart*60 && min < day.lunchEnd*60) continue;
+      const h = String(Math.floor(min/60)).padStart(2,"0");
+      const m = String(min%60).padStart(2,"0");
+      const id = `slot${h}${m}`;
+      if (!dateSlots[id]) {
+        updates[`timeslots/${slotDate}/${id}/time`] = `${h}:${m}`;
+        updates[`timeslots/${slotDate}/${id}/available`] = true;
+      }
+    }
+    if (Object.keys(updates).length) await update(ref(db,"/"), updates);
+    setGenLoading(false);
+  };
+
+  const clearSlots = async () => {
+    if (!slotDate || !confirm("Видалити всі слоти на цю дату?")) return;
+    const updates = {};
+    Object.keys(dateSlots).forEach(id => { updates[`timeslots/${slotDate}/${id}`] = null; });
+    if (Object.keys(updates).length) await update(ref(db,"/"), updates);
+  };
+
+  const toggleSlot = async (id, available) => {
+    await update(ref(db, `timeslots/${slotDate}/${id}`), { available: !available });
+  };
 
   // Queue mode helper — maps 3 booleans to single selection
   const queueMode = settings.queueAutoFifo ? "fifo" : settings.queueBroadcast ? "broadcast" : "manual";
@@ -230,41 +315,142 @@ export default function SettingsView({ settings, setSettings }) {
           <Row label={t('set.schedule.days')}>
             <NumInput value={settings.daysShown} onChange={v=>upd("daysShown",v)} min={1} max={30} suffix={` ${t('days')}`}/>
           </Row>
-          <div style={{paddingTop:10}}>
-            <div style={{fontSize:9,color:FAINT,letterSpacing:1,textTransform:"uppercase",marginBottom:8}}>{t('set.schedule.weekends')}</div>
-            <div style={{display:"flex",gap:6}}>
-              {days.map((d,i)=>{
-                const on = settings.weekends.includes(i);
+          {/* Тижневий шаблон (Option C) */}
+          <div style={{paddingTop:12}}>
+            <div style={{fontSize:9,color:FAINT,letterSpacing:1,textTransform:"uppercase",marginBottom:8}}>Тижневий шаблон</div>
+            <div style={{display:"flex",flexDirection:"column",gap:4}}>
+              {DAY_NAMES.map((dayName, i) => {
+                const day = weekSchedule[i];
                 return (
-                  <button key={i} onClick={()=>upd("weekends", on?settings.weekends.filter(x=>x!==i):[...settings.weekends,i])}
-                    style={{
-                      flex:1,padding:"8px 0",borderRadius:9,border:"none",cursor:"pointer",
-                      fontSize:11,fontWeight:700,
-                      background:on?`linear-gradient(145deg,${ACC_HI},${ACCENT})`:`linear-gradient(145deg,${SURF_HI},${SURFACE})`,
-                      color:on?"#fff":DIM,boxShadow:on?"none":SO,
-                    }}>{d}</button>
+                  <div key={i} style={{
+                    borderRadius:9,padding:"8px 10px",
+                    background:day.enabled?`linear-gradient(145deg,${SURF_HI},${SURFACE})`:`linear-gradient(145deg,${BG_DEEP},${SURF_LO})`,
+                    boxShadow:day.enabled?SO:SI,
+                  }}>
+                    {/* Рядок 1: день + toggle + робочий час */}
+                    <div style={{display:"flex",alignItems:"center",gap:8}}>
+                      <span style={{width:24,fontSize:12,fontWeight:800,color:day.enabled?TEXT:FAINT,flexShrink:0}}>{dayName}</span>
+                      <Toggle on={day.enabled} onChange={v=>updDay(i,{enabled:v})}/>
+                      {day.enabled ? (<>
+                        <span style={{flex:1}}/>
+                        <TimeInput value={day.start} onChange={v=>updDay(i,{start:v})} min={0} max={23}/>
+                        <span style={{fontSize:11,color:FAINT}}>—</span>
+                        <TimeInput value={day.end} onChange={v=>updDay(i,{end:v})} min={0.5} max={24}/>
+                      </>) : (
+                        <span style={{fontSize:11,color:FAINT,marginLeft:4}}>Вихідний</span>
+                      )}
+                    </div>
+                    {/* Рядок 2: обід (тільки якщо день увімкнений) */}
+                    {day.enabled && (
+                      <div style={{display:"flex",alignItems:"center",gap:8,marginTop:6,paddingLeft:32}}>
+                        <span style={{fontSize:13}}>🍽</span>
+                        <Toggle on={!!day.lunchEnabled} onChange={v=>updDay(i,{lunchEnabled:v})}/>
+                        {day.lunchEnabled ? (<>
+                          <span style={{flex:1}}/>
+                          <TimeInput value={day.lunchStart??12} onChange={v=>updDay(i,{lunchStart:v})} min={0} max={23}/>
+                          <span style={{fontSize:11,color:FAINT}}>—</span>
+                          <TimeInput value={day.lunchEnd??13} onChange={v=>updDay(i,{lunchEnd:v})} min={0.5} max={24}/>
+                        </>) : (
+                          <span style={{fontSize:11,color:FAINT}}>без перерви</span>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 );
               })}
             </div>
           </div>
         </Section>
 
-        {/* ── ПЕРЕРВА ── */}
-        <Section title={t('set.lunch.title')} icon="🍽">
-          <Info color={GOLD} title={t('set.lunch.info_t')} text={t('set.lunch.info')}/>
-          <Row label={t('set.lunch.enable')} last={!settings.lunchEnabled}>
-            <Toggle on={settings.lunchEnabled} onChange={v=>upd("lunchEnabled",v)}/>
-          </Row>
-          {settings.lunchEnabled && (
-            <>
-              <Row label={t('set.lunch.from')}>
-                <NumInput value={settings.lunchStart} onChange={v=>upd("lunchStart",v)} min={0} max={23} suffix=":00"/>
-              </Row>
-              <Row label={t('set.lunch.to')} last>
-                <NumInput value={settings.lunchEnd} onChange={v=>upd("lunchEnd",v)} min={1} max={24} suffix=":00"/>
-              </Row>
-            </>
-          )}
+        {/* ── ВИКЛЮЧЕННЯ (дати) ── */}
+        <Section title="Виключення дат" icon="📅">
+          <Info color={GOLD} title="Відпустки та особливі дні" text="Закрий або зміни графік на конкретну дату. Перекриває тижневий шаблон."/>
+          <div style={{display:"flex",flexDirection:"column",gap:6,paddingTop:10}}>
+            {dateOverrides.length === 0 && <div style={{fontSize:12,color:FAINT,textAlign:"center",padding:"8px 0"}}>Виключень немає</div>}
+            {dateOverrides.sort((a,b)=>a.date.localeCompare(b.date)).map(ov => (
+              <div key={ov.date} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 10px",borderRadius:9,background:`linear-gradient(145deg,${BG_DEEP},${SURF_LO})`,boxShadow:SI}}>
+                <div style={{flex:1}}>
+                  <span style={{fontSize:12,fontWeight:800,color:TEXT}}>{ov.date}</span>
+                  <span style={{fontSize:11,color:ov.type==="closed"?RED:GOLD,marginLeft:8}}>
+                    {ov.type==="closed" ? "🔴 Закрито" : `🟡 ${ov.start}:00–${ov.end}:00`}
+                  </span>
+                  {ov.reason && <span style={{fontSize:10,color:FAINT,marginLeft:6}}>({ov.reason})</span>}
+                </div>
+                <button onClick={()=>removeOverride(ov.date)} style={{background:"none",border:"none",cursor:"pointer",color:FAINT,fontSize:16,lineHeight:1}}>×</button>
+              </div>
+            ))}
+            {!addingOv ? (
+              <button onClick={()=>setAddingOv(true)} style={{
+                padding:"8px",borderRadius:9,border:`1.5px dashed ${BORDER}`,cursor:"pointer",
+                background:"transparent",color:DIM,fontSize:12,fontWeight:700,
+              }}>+ Додати виключення</button>
+            ) : (
+              <div style={{padding:"12px",borderRadius:9,background:`linear-gradient(145deg,${SURF_HI},${SURFACE})`,boxShadow:SO,display:"flex",flexDirection:"column",gap:8}}>
+                <input type="date" value={newOv.date} onChange={e=>setNewOv(v=>({...v,date:e.target.value}))}
+                  style={{background:BG_DEEP,border:`1.5px solid ${BORDER}`,borderRadius:8,color:TEXT,fontSize:13,padding:"7px 10px",outline:"none",fontFamily:"inherit",colorScheme:"dark"}}/>
+                <div style={{display:"flex",gap:8}}>
+                  {["closed","custom"].map(type=>(
+                    <button key={type} onClick={()=>setNewOv(v=>({...v,type}))} style={{
+                      flex:1,padding:"7px",borderRadius:8,border:"none",cursor:"pointer",fontSize:12,fontWeight:700,
+                      background:newOv.type===type?`linear-gradient(145deg,${ACC_HI},${ACCENT})`:`linear-gradient(145deg,${SURF_HI},${SURFACE})`,
+                      color:newOv.type===type?"#fff":DIM,boxShadow:newOv.type===type?"none":SO,
+                    }}>{type==="closed"?"🔴 Закрито":"🟡 Особливий"}</button>
+                  ))}
+                </div>
+                {newOv.type==="custom" && (
+                  <div style={{display:"flex",alignItems:"center",gap:6}}>
+                    <TimeInput value={newOv.start} onChange={v=>setNewOv(n=>({...n,start:v}))} min={0} max={23}/>
+                    <span style={{color:FAINT}}>–</span>
+                    <TimeInput value={newOv.end} onChange={v=>setNewOv(n=>({...n,end:v}))} min={0.5} max={24}/>
+                  </div>
+                )}
+                <TxtInput value={newOv.reason} onChange={v=>setNewOv(n=>({...n,reason:v}))} placeholder="Причина (необов'язково)"/>
+                <div style={{display:"flex",gap:8}}>
+                  <button onClick={()=>setAddingOv(false)} style={{flex:1,padding:"8px",borderRadius:8,border:"none",cursor:"pointer",background:`linear-gradient(145deg,${SURF_HI},${SURFACE})`,color:DIM,fontSize:12,fontWeight:700,boxShadow:SO}}>Скасувати</button>
+                  <button onClick={addOverride} style={{flex:1,padding:"8px",borderRadius:8,border:"none",cursor:"pointer",background:`linear-gradient(145deg,${ACC_HI},${ACCENT})`,color:"#fff",fontSize:12,fontWeight:700}}>Зберегти</button>
+                </div>
+              </div>
+            )}
+          </div>
+        </Section>
+
+        {/* ── УПРАВЛІННЯ СЛОТАМИ (Option B) ── */}
+        <Section title="Управління слотами" icon="🔧">
+          <Info color={TEAL} title="Ручне відкриття/закриття слотів" text="Обери дату → генеруй слоти автоматично або вмикай/вимикай кожен вручну."/>
+          <div style={{paddingTop:12,display:"flex",flexDirection:"column",gap:10}}>
+            <div style={{display:"flex",gap:8,alignItems:"center"}}>
+              <input type="date" value={slotDate} onChange={e=>setSlotDate(e.target.value)}
+                style={{flex:1,background:BG_DEEP,border:`1.5px solid ${BORDER}`,borderRadius:8,color:TEXT,fontSize:13,padding:"7px 10px",outline:"none",fontFamily:"inherit",colorScheme:"dark"}}/>
+              <button onClick={generateSlots} disabled={!slotDate||genLoading} style={{
+                padding:"8px 12px",borderRadius:8,border:"none",cursor:slotDate?"pointer":"not-allowed",fontSize:12,fontWeight:700,
+                background:`linear-gradient(145deg,${ACC_HI},${ACCENT})`,color:"#fff",opacity:slotDate?1:0.5,
+              }}>{genLoading?"...":"↺ Генерувати"}</button>
+              <button onClick={clearSlots} disabled={!slotDate||!Object.keys(dateSlots).length} style={{
+                padding:"8px 10px",borderRadius:8,border:"none",cursor:"pointer",fontSize:12,fontWeight:700,
+                background:`linear-gradient(145deg,${SURF_HI},${SURFACE})`,color:RED,boxShadow:SO,
+              }}>✕</button>
+            </div>
+            {slotDate && (
+              <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:5}}>
+                {Object.entries(dateSlots).sort(([a],[b])=>a.localeCompare(b)).map(([id,slot]) => (
+                  <button key={id} onClick={()=>toggleSlot(id,slot.available)} style={{
+                    padding:"7px 4px",borderRadius:8,border:"none",cursor:"pointer",fontSize:11,fontWeight:700,
+                    background:slot.available
+                      ?`linear-gradient(145deg,rgba(126,217,87,0.3),rgba(126,217,87,0.1))`
+                      :`linear-gradient(145deg,${SURF_LO},${BG_DEEP})`,
+                    color:slot.available?GREEN:FAINT,
+                    boxShadow:slot.available?`0 0 6px rgba(126,217,87,0.2)`:SI,
+                    borderLeft:`2px solid ${slot.available?GREEN:FAINT}`,
+                  }}>{slot.time || id.replace("slot","").replace(/(\d{2})(\d{2})/,"$1:$2")}</button>
+                ))}
+                {Object.keys(dateSlots).length===0 && (
+                  <div style={{gridColumn:"span 4",textAlign:"center",color:FAINT,fontSize:12,padding:"16px 0"}}>
+                    Слотів немає. Натисни «↺ Генерувати» щоб створити.
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </Section>
 
         {/* ── СІТКА ── */}

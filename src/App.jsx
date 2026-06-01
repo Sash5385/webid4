@@ -1,6 +1,6 @@
 import React, { useState, useEffect, lazy, Suspense, createContext, useContext } from "react";
 import { ref, onValue, update, push, remove } from "firebase/database";
-import { db } from "./firebase";
+import { db, registerAdminFCM } from "./firebase";
 import { useAdminAuth, LoginScreen } from "./AdminAuth";
 import { setGlobalLang, createT } from "./lang";
 
@@ -495,6 +495,38 @@ export default function App() {
     window.addEventListener("id4drive-nav", nav);
     return () => window.removeEventListener("id4drive-nav", nav);
   }, []);
+
+  // Register FCM token when admin logs in
+  useEffect(() => {
+    if (!adminUser) return;
+    registerAdminFCM().catch(() => {});
+  }, [adminUser]);
+
+  // Sync relevant settings to Firebase so the client can read them
+  const settingsSyncTimer = React.useRef(null);
+  useEffect(() => {
+    if (!adminUser) return;
+    clearTimeout(settingsSyncTimer.current);
+    settingsSyncTimer.current = setTimeout(() => {
+      update(ref(db, 'admin_settings'), {
+        lunchEnabled:    settings.lunchEnabled    ?? true,
+        lunchStart:      settings.lunchStart      ?? 12,
+        lunchEnd:        settings.lunchEnd        ?? 13,
+        workStart:       settings.workStart       ?? 9,
+        workEnd:         settings.workEnd         ?? 18,
+        interval:        settings.snapMin         ?? 30,
+        queueAutoFifo:   settings.queueAutoFifo   ?? true,
+        queueBroadcast:  settings.queueBroadcast  ?? false,
+        queueManual:     settings.queueManual     ?? false,
+        weekSchedule:    settings.weekSchedule    ?? null,
+        dateOverrides:   settings.dateOverrides   ?? [],
+      }).catch(() => {});
+    }, 800);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settings.lunchEnabled, settings.lunchStart, settings.lunchEnd,
+      settings.workStart, settings.workEnd, settings.snapMin,
+      settings.queueAutoFifo, settings.queueBroadcast, settings.queueManual,
+      settings.weekSchedule, settings.dateOverrides, adminUser]);
 
   // Load bookings from Firebase
   useEffect(() => {
