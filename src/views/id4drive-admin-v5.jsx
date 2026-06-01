@@ -444,7 +444,7 @@ const colorOf = (id) => PALETTE.find(p=>p.id===id)?.color || GREEN;
 // ═══════════════════════════════════════════════════════════════
 // SCHEDULE VIEW with drag/resize + pinch-to-zoom + day-count
 // ═══════════════════════════════════════════════════════════════
-function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bookings, setBookings }) {
+function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bookings, setBookings, activeDragIds }) {
   const [dragId, setDragId] = useState(null);
   const [holdId, setHoldId] = useState(null);
   const [quickCancelId, setQuickCancelId] = useState(null);
@@ -529,6 +529,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
     e.preventDefault(); e.stopPropagation();
     const isBlock = b.type === "block";
     const dragData = { id:b.id, mode, isBlock, startClientY:e.clientY, startClientX:e.clientX, startMinutes:b.startMin, startDur:b.durMin, startDay:b.day };
+    activeDragIds?.current?.add(b.id);
 
     if (mode === "top" || mode === "bottom") {
       navigator.vibrate?.(6);
@@ -643,6 +644,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
     };
     const onUp = () => {
       const wasDragging = !!dragRef.current;
+      const endedId = dragRef.current?.id ?? pendingDragRef.current?.id;
       dragRef.current = null;
       setDragId(null);
       clearTimeout(holdTimerRef.current);
@@ -655,6 +657,8 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
         dragEndedRef.current = true;
         setTimeout(() => { dragEndedRef.current = false; }, 400);
       }
+      // Remove from activeDragIds after save debounce window (700ms > 600ms save timer)
+      if (endedId) setTimeout(() => { activeDragIds?.current?.delete(endedId); }, 700);
       swipeRef.current = null;
     };
     const onResize = () => { setWindowW(window.innerWidth); setWindowH(window.innerHeight); };

@@ -443,8 +443,8 @@ const DEFAULT_SETTINGS = {
 };
 
 // ─── VIEW RENDERER ───────────────────────────────────────────────
-function ViewRenderer({ tab, settings, setSettings, bookings, setBookings, onSlotClick, onEmptySlotClick, openInfos, toggleInfo }) {
-  if (tab === "schedule")  return <ScheduleView settings={settings} setSettings={setSettings} bookings={bookings} setBookings={setBookings} onSlotClick={onSlotClick} onEmptySlotClick={onEmptySlotClick}/>;
+function ViewRenderer({ tab, settings, setSettings, bookings, setBookings, onSlotClick, onEmptySlotClick, openInfos, toggleInfo, activeDragIds }) {
+  if (tab === "schedule")  return <ScheduleView settings={settings} setSettings={setSettings} bookings={bookings} setBookings={setBookings} onSlotClick={onSlotClick} onEmptySlotClick={onEmptySlotClick} activeDragIds={activeDragIds}/>;
   if (tab === "settings")  return <SettingsView settings={settings} setSettings={setSettings}/>;
   if (tab === "bookings")  return <BookingsView settings={settings}/>;
   if (tab === "queue")     return <QueueView settings={settings}/>;
@@ -519,13 +519,19 @@ export default function App() {
       });
       setBookings(prev => {
         const prevMap = new Map(prev.map(b => [b.id, b]));
-        return all.map(fb => moveSaveTimers.current[fb.id] ? (prevMap.get(fb.id) || fb) : fb);
+        return all.map(fb =>
+          (moveSaveTimers.current[fb.id] || activeDragIds.current.has(fb.id))
+            ? (prevMap.get(fb.id) || fb)
+            : fb
+        );
       });
     });
   }, [adminUser]);
 
   // Debounce map for move/resize saves (avoids Firebase write on every pointermove)
   const moveSaveTimers = React.useRef({});
+  // Tracks bookings currently being dragged/resized (set at onPointerDown, before first save timer)
+  const activeDragIds = React.useRef(new Set());
 
   const handleSetBookings = fn => {
     setBookings(prev => {
@@ -607,7 +613,7 @@ export default function App() {
         <TopBar tab={tab} onChange={switchTab}/>
         <div className="tab-anim" key={`${tab}-${tabVisits[tab]||0}`} style={{padding: tab==="schedule" ? "4px 3px 0" : "14px 14px 0"}}>
           <Suspense fallback={<Loader/>}>
-            <ViewRenderer tab={tab} settings={settings} setSettings={setSettings} bookings={bookings} setBookings={handleSetBookings} onSlotClick={setSelectedBooking} onEmptySlotClick={setNewBookingData} openInfos={openInfos} toggleInfo={toggleInfo}/>
+            <ViewRenderer tab={tab} settings={settings} setSettings={setSettings} bookings={bookings} setBookings={handleSetBookings} onSlotClick={setSelectedBooking} onEmptySlotClick={setNewBookingData} openInfos={openInfos} toggleInfo={toggleInfo} activeDragIds={activeDragIds}/>
           </Suspense>
         </div>
         <BottomNav active={tab} onChange={switchTab} settings={settings}/>
