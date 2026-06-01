@@ -464,6 +464,8 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   const dragEndedRef = useRef(false);
   const swipeRef = useRef(null);
   const gridWrapRef = useRef(null);
+  const xVisibleRef = useRef(false);
+  const xJustShownRef = useRef(false);
   const snapTimerRef = useRef(null);
   const timeColRef = useRef(null);
   const [pinch, setPinch] = useState(null);
@@ -544,6 +546,9 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
         setHoldId(null);
         quickCancelRef.current = b.id;   // встановлюємо ref одразу (не чекаємо ре-рендер)
         setQuickCancelId(b.id);          // оновлюємо стан для відображення іконки
+        xVisibleRef.current = true;
+        xJustShownRef.current = true;
+        setTimeout(() => { xJustShownRef.current = false; }, 400);
         navigator.vibrate?.([30, 40, 60]);
       }, 700);
     }
@@ -588,6 +593,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
             dragRef.current = {...pd};
             pendingDragRef.current = null;
             quickCancelRef.current = null;
+            xVisibleRef.current = false;
             setQuickCancelId(null);
             setHoldId(null);
             setDragId(pd.id);
@@ -644,7 +650,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
       pendingDragRef.current = null;
       setHoldId(null);
       quickCancelRef.current = null;
-      setQuickCancelId(null);
+      if (!xVisibleRef.current) setQuickCancelId(null);
       if (wasDragging) {
         dragEndedRef.current = true;
         setTimeout(() => { dragEndedRef.current = false; }, 400);
@@ -853,7 +859,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
             const absDay = dayOffset + colIdx; // dayOffset + 0..N_DAYS-1
             return (
             <div key={absDay}
-              onClick={e=>{ if(quickCancelId){ setQuickCancelId(null); return; } handleColumnClick(e, absDay); }}
+              onClick={e=>{ if(xJustShownRef.current){ xJustShownRef.current=false; return; } if(quickCancelId){ xVisibleRef.current=false; setQuickCancelId(null); return; } handleColumnClick(e, absDay); }}
               style={{
                 width:COL_W, flexShrink:0, height:gridHeight,
                 position:"relative", marginRight:colIdx<days.length-1?4:0, padding:"0 4px",
@@ -911,7 +917,8 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                       onContextMenu={e=>e.preventDefault()}
                       onClick={e=>{
                         e.stopPropagation();
-                        if(quickCancelId){ setQuickCancelId(null); return; }
+                        if(xJustShownRef.current){ xJustShownRef.current=false; return; }
+                        if(quickCancelId){ xVisibleRef.current=false; setQuickCancelId(null); return; }
                         if(dragEndedRef.current) return;
                         if(isVipSlot){ setVipSlotModal(b); return; }
                         if(isBlock){ setBlockModal(b); return; }
@@ -1013,6 +1020,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                         onPointerDown={e=>e.stopPropagation()}
                         onClick={e=>{
                           e.stopPropagation();
+                          xVisibleRef.current = false;
                           setQuickCancelId(null);
                           // Починаємо 2с відлік — затемнення → видалення
                           setCancellingSet(s=>new Set([...s, b.id]));
