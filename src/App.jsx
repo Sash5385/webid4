@@ -517,7 +517,10 @@ export default function App() {
           });
         });
       });
-      setBookings(all);
+      setBookings(prev => {
+        const prevMap = new Map(prev.map(b => [b.id, b]));
+        return all.map(fb => moveSaveTimers.current[fb.id] ? (prevMap.get(fb.id) || fb) : fb);
+      });
     });
   }, [adminUser]);
 
