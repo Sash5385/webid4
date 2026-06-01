@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { ref, onValue, off, update } from "firebase/database";
+import { db } from "../firebase";
 
 import { BG_DEEP, SURFACE, SURF_HI, BORDER, TEXT, DIM, FAINT, ACCENT, ACC_HI, GREEN, BLUE, GOLD, RED, SO, SI } from "../theme.js";
 
@@ -37,7 +39,6 @@ const ICONS = {
   filter:   Svg(<><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></>, 16),
 };
 
-const STUDENTS = [];
 
 // ─── ACTION BUTTON ───────────────────────────────────────────────
 function Btn({ icon, label, onClick, color, danger }) {
@@ -243,14 +244,48 @@ function Card({ s, expanded, onToggle, onBlock, onUpdate }) {
 
 // ─── MAIN ────────────────────────────────────────────────────────
 export default function StudentsView() {
-  const [students,   setStudents]   = useState(STUDENTS);
+  const [students,   setStudents]   = useState([]);
   const [expanded,   setExpanded]   = useState(new Set());
   const [search,     setSearch]     = useState("");
   const [filterType, setFilterType] = useState("all");
+  const [loading,    setLoading]    = useState(true);
 
-  const toggle  = id => setExpanded(e => { const n=new Set(e); n.has(id)?n.delete(id):n.add(id); return n; });
-  const block   = id => setStudents(ss => ss.map(s => s.id===id?{...s,blocked:!s.blocked}:s));
-  const update  = (id, patch) => setStudents(ss => ss.map(s => s.id===id?{...s,...patch}:s));
+  useEffect(() => {
+    const r = ref(db, "users");
+    const handler = onValue(r, snap => {
+      const data = snap.val() || {};
+      setStudents(Object.entries(data).map(([uid, u]) => {
+        const p = u.profile || {};
+        return {
+          id:       uid,
+          name:     p.name      || u.name      || "Учень",
+          phone:    p.phone     || u.phone     || "",
+          type:     p.type      || u.type      || "private",
+          hours:    u.hours     || 0,
+          discount: u.discount  || 0,
+          notes:    u.notes     || "",
+          blocked:  u.blocked   || false,
+        };
+      }));
+      setLoading(false);
+    });
+    return () => off(r, "value", handler);
+  }, []);
+
+  const toggle = id => setExpanded(e => { const n=new Set(e); n.has(id)?n.delete(id):n.add(id); return n; });
+
+  const block = id => {
+    const s = students.find(x => x.id === id);
+    if (!s) return;
+    const next = !s.blocked;
+    setStudents(ss => ss.map(x => x.id===id ? {...x, blocked:next} : x));
+    update(ref(db, `users/${id}`), { blocked: next }).catch(() => {});
+  };
+
+  const updateStudent = (id, patch) => {
+    setStudents(ss => ss.map(x => x.id===id ? {...x, ...patch} : x));
+    update(ref(db, `users/${id}`), patch).catch(() => {});
+  };
 
   const q = search.toLowerCase();
   const list = students
@@ -292,14 +327,20 @@ export default function StudentsView() {
             expanded={expanded.has(s.id)}
             onToggle={toggle}
             onBlock={block}
-            onUpdate={update}
+            onUpdate={updateStudent}
           />
         ))}
 
-        {list.length===0&&(
+        {loading && (
+          <div style={{textAlign:"center",padding:"40px 20px",color:FAINT,fontSize:13}}>
+            <div style={{width:24,height:24,border:`2px solid rgba(255,255,255,0.06)`,borderTopColor:ACCENT,borderRadius:"50%",animation:"spin .8s linear infinite",margin:"0 auto 10px"}}/>
+            Завантаження…
+          </div>
+        )}
+        {!loading && list.length===0&&(
           <div style={{textAlign:"center",padding:"40px 20px"}}>
             <div style={{fontSize:36,opacity:.3,marginBottom:8}}>👥</div>
-            <div style={{fontSize:14,fontWeight:700,color:DIM}}>Нікого не знайдено</div>
+            <div style={{fontSize:14,fontWeight:700,color:DIM}}>{search ? "Нікого не знайдено" : "Ще немає учнів"}</div>
           </div>
         )}
       </div>
