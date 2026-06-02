@@ -206,6 +206,30 @@ function Card({ s, expanded, onToggle, onBlock, onUpdate }) {
                 <Btn icon={ICONS.edit}     label="Редагувати" onClick={()=>setEditMode(true)}/>
                 <Btn icon={s.blocked?ICONS.unban:ICONS.ban} label={s.blocked?"Розблок.":"Заблок."} onClick={()=>onBlock(s.id)} danger={!s.blocked}/>
               </div>
+              {/* VIP toggle */}
+              <div
+                onClick={()=>onUpdate(s.id, { isVip: !s.isVip })}
+                style={{
+                  display:"flex", alignItems:"center", gap:10,
+                  background: s.isVip ? "rgba(168,85,247,0.12)" : BG_DEEP,
+                  border: s.isVip ? "1px solid rgba(168,85,247,0.35)" : `1px solid ${BORDER}`,
+                  borderRadius:10, padding:"10px 13px", cursor:"pointer",
+                }}>
+                <span style={{fontSize:16, lineHeight:1}}>👑</span>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:12, fontWeight:700, color: s.isVip ? "#c084fc" : TEXT}}>VIP учень</div>
+                  <div style={{fontSize:10, color:FAINT, marginTop:2}}>
+                    {s.isVip ? "Має доступ до VIP слотів" : "Без доступу до VIP слотів"}
+                  </div>
+                </div>
+                <div style={{
+                  width:36, height:20, borderRadius:10, position:"relative",
+                  background: s.isVip ? "linear-gradient(145deg,#a855f7,#7c3aed)" : "rgba(255,255,255,0.08)",
+                  transition:"background .2s", flexShrink:0,
+                }}>
+                  <div style={{position:"absolute", top:2, left:s.isVip?18:2, width:16, height:16, borderRadius:8, background:"#fff", transition:"left .2s"}}/>
+                </div>
+              </div>
 
               {/* Booking history */}
               {(s.bookings||[]).length > 0 && (
@@ -265,6 +289,7 @@ export default function StudentsView() {
           discount: u.discount  || 0,
           notes:    u.notes     || "",
           blocked:  u.blocked   || false,
+          isVip:    u.isVip     || false,
         };
       }));
       setLoading(false);

@@ -443,8 +443,8 @@ const DEFAULT_SETTINGS = {
 };
 
 // ─── VIEW RENDERER ───────────────────────────────────────────────
-function ViewRenderer({ tab, settings, setSettings, bookings, setBookings, onSlotClick, onEmptySlotClick, openInfos, toggleInfo, activeDragIds }) {
-  if (tab === "schedule")  return <ScheduleView settings={settings} setSettings={setSettings} bookings={bookings} setBookings={setBookings} onSlotClick={onSlotClick} onEmptySlotClick={onEmptySlotClick} activeDragIds={activeDragIds}/>;
+function ViewRenderer({ tab, settings, setSettings, bookings, setBookings, onSlotClick, onEmptySlotClick, openInfos, toggleInfo, activeDragIds, navTo }) {
+  if (tab === "schedule")  return <ScheduleView settings={settings} setSettings={setSettings} bookings={bookings} setBookings={setBookings} onSlotClick={onSlotClick} onEmptySlotClick={onEmptySlotClick} activeDragIds={activeDragIds} navTo={navTo}/>;
   if (tab === "settings")  return <SettingsView settings={settings} setSettings={setSettings}/>;
   if (tab === "bookings")  return <BookingsView settings={settings}/>;
   if (tab === "queue")     return <QueueView settings={settings}/>;
@@ -468,7 +468,7 @@ function dateToDayIdx(dateStr) {
 function dayIdxToDate(dayIdx) {
   const d = new Date(); d.setHours(0,0,0,0);
   d.setDate(d.getDate() + dayIdx);
-  return d.toISOString().split('T')[0];
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
 
 // ─── MAIN APP ────────────────────────────────────────────────────
@@ -520,13 +520,14 @@ export default function App() {
         queueManual:     settings.queueManual     ?? false,
         weekSchedule:    settings.weekSchedule    ?? null,
         dateOverrides:   settings.dateOverrides   ?? [],
+        services:        settings.services        ?? [],
       }).catch(() => {});
     }, 800);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settings.lunchEnabled, settings.lunchStart, settings.lunchEnd,
       settings.workStart, settings.workEnd, settings.snapMin,
       settings.queueAutoFifo, settings.queueBroadcast, settings.queueManual,
-      settings.weekSchedule, settings.dateOverrides, adminUser]);
+      settings.weekSchedule, settings.dateOverrides, settings.services, adminUser]);
 
   // Load bookings from Firebase
   useEffect(() => {
@@ -645,7 +646,7 @@ export default function App() {
         <TopBar tab={tab} onChange={switchTab}/>
         <div className="tab-anim" key={`${tab}-${tabVisits[tab]||0}`} style={{padding: tab==="schedule" ? "4px 3px 0" : "14px 14px 0"}}>
           <Suspense fallback={<Loader/>}>
-            <ViewRenderer tab={tab} settings={settings} setSettings={setSettings} bookings={bookings} setBookings={handleSetBookings} onSlotClick={setSelectedBooking} onEmptySlotClick={setNewBookingData} openInfos={openInfos} toggleInfo={toggleInfo} activeDragIds={activeDragIds}/>
+            <ViewRenderer tab={tab} settings={settings} setSettings={setSettings} bookings={bookings} setBookings={handleSetBookings} onSlotClick={setSelectedBooking} onEmptySlotClick={setNewBookingData} openInfos={openInfos} toggleInfo={toggleInfo} activeDragIds={activeDragIds} navTo={switchTab}/>
           </Suspense>
         </div>
         <BottomNav active={tab} onChange={switchTab} settings={settings}/>

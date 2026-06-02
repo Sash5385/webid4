@@ -458,7 +458,7 @@ const colorOf = (id) => PALETTE.find(p=>p.id===id)?.color || GREEN;
 // ═══════════════════════════════════════════════════════════════
 // SCHEDULE VIEW with drag/resize + pinch-to-zoom + day-count
 // ═══════════════════════════════════════════════════════════════
-function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bookings, setBookings, activeDragIds }) {
+function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bookings, setBookings, activeDragIds, navTo }) {
   const [dragId, setDragId] = useState(null);
   const [holdId, setHoldId] = useState(null);
   const [quickCancelId, setQuickCancelId] = useState(null);
@@ -473,6 +473,8 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   const calcRef = useRef({});
   const setBookingsRef = useRef(null);
   const gridRef = useRef(null);
+  const headerScrollRef = useRef(null);
+  const headersInnerRef = useRef(null);
   const holdTimerRef = useRef(null);
   const pendingDragRef = useRef(null);
   const dragEndedRef = useRef(false);
@@ -484,11 +486,8 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   const timeColRef = useRef(null);
   const [pinch, setPinch] = useState(null);
   const [shineId, setShineId] = useState(null);
-  const emptyHoldTimerRef = useRef(null);
-  const emptyDragRef = useRef(null);
-  const slotHighlightRef = useRef(null);
-  const emptyWasDragRef = useRef(false);
-  const [slotHighlight, setSlotHighlight] = useState(null);
+  const slotHoldTimerRef = useRef(null);
+  const slotHoldFiredRef = useRef(false);
   const [openSlots, setOpenSlots] = useState({}); // { "2025-06-01": ["07:00","08:00",...] }
   const [viewingSlots, setViewingSlots] = useState({});
   const [genLoadingDays, setGenLoadingDays] = useState(new Set());
@@ -500,13 +499,15 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
       const slots = {};
       const viewing = {};
       Object.entries(val).forEach(([date, dateSlots]) => {
-        const openTimes = [];
+        const slotMap = {};
         const viewTimes = [];
         Object.values(dateSlots).forEach(slot => {
-          if (slot.time) openTimes.push(slot.time);
+          if (slot.time && (slot.available !== false || slot.adminBlocked || slot.vipOnly)) {
+            slotMap[slot.time] = { available: slot.available !== false, adminBlocked: !!slot.adminBlocked, vipOnly: !!slot.vipOnly, surcharge: slot.surcharge || null };
+          }
           if (slot.viewing && Object.keys(slot.viewing).length > 0) viewTimes.push(slot.time);
         });
-        if (openTimes.length) slots[date] = openTimes;
+        if (Object.keys(slotMap).length) slots[date] = slotMap;
         if (viewTimes.length) viewing[date] = viewTimes;
       });
       setOpenSlots(slots);
@@ -516,9 +517,9 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   }, []);
 
   const absDayToDateStr = (absDay) => {
-    const d = new Date();
+    const d = new Date(); d.setHours(0,0,0,0);
     d.setDate(d.getDate() + absDay);
-    return d.toISOString().split("T")[0];
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   };
 
   const generateDaySlots = async (absDay) => {
@@ -552,6 +553,29 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
     await remove(ref(db, `timeslots/${dateStr}`));
   };
 
+  // Клік: вільний ↔ зайнятий (2 стани)
+  const toggleSlotFree = (dateStr, time, slot) => {
+    const slotId = `slot${time.replace(":", "")}`;
+    if (slot.adminBlocked) {
+      update(ref(db, `timeslots/${dateStr}/${slotId}`), { available: true, adminBlocked: false }).catch(() => {});
+    } else {
+      update(ref(db, `timeslots/${dateStr}/${slotId}`), { available: false, adminBlocked: true, vipOnly: false, surcharge: null }).catch(() => {});
+    }
+  };
+
+  // Довгий тап: VIP, надбавка або скидання
+  const applySlotOption = (dateStr, time, option) => {
+    const slotId = `slot${time.replace(":", "")}`;
+    if (option === "vip") {
+      update(ref(db, `timeslots/${dateStr}/${slotId}`), { available: true, adminBlocked: false, vipOnly: true, surcharge: null }).catch(() => {});
+    } else if (option === "reset") {
+      update(ref(db, `timeslots/${dateStr}/${slotId}`), { available: true, adminBlocked: false, vipOnly: false, surcharge: null }).catch(() => {});
+    } else {
+      update(ref(db, `timeslots/${dateStr}/${slotId}`), { available: true, adminBlocked: false, vipOnly: false, surcharge: option }).catch(() => {});
+    }
+    setSlotOptions(null);
+  };
+
   // Скидаємо transform після зміни dayOffset (контент оновився — повертаємо в 0)
   useLayoutEffect(() => {
     const el = gridWrapRef.current;
@@ -564,7 +588,9 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   useEffect(() => {
     if (gridRef.current) {
       const colW = calcRef.current.COL_W || 70;
-      gridRef.current.scrollLeft = PAST_DAYS * (colW + 4);
+      const left = PAST_DAYS * (colW + 4);
+      gridRef.current.scrollLeft = left;
+      if (headersInnerRef.current) headersInnerRef.current.style.transform = `translateX(-${left}px)`;
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -640,23 +666,6 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   // Listeners always attached — dragRef gives instant access without useEffect re-fire
   useEffect(() => {
     const onMove = (e) => {
-      // Empty column vertical drag → slot highlight
-      if (emptyDragRef.current && !dragRef.current && !pendingDragRef.current) {
-        const ed = emptyDragRef.current;
-        const dy = e.clientY - ed.startY;
-        if (Math.abs(dy) > 8) {
-          clearTimeout(emptyHoldTimerRef.current);
-          emptyHoldTimerRef.current = null;
-          const { workStart, PX_PER_MIN, workEnd } = calcRef.current;
-          const yRel = e.clientY - ed.rect.top;
-          const rawMin = workStart * 60 + yRel / PX_PER_MIN;
-          const minute = Math.max(workStart * 60, Math.min((workEnd - 1) * 60, Math.round(rawMin / 60) * 60));
-          ed.minute = minute;
-          const hl = { absDay: ed.absDay, startMin: ed.startMin, minute };
-          slotHighlightRef.current = hl;
-          setSlotHighlight(hl);
-        }
-      }
       if (swipeRef.current) {
         swipeRef.current.endX = e.clientX;
         swipeRef.current.endY = e.clientY;
@@ -755,29 +764,6 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
         dragEndedRef.current = true;
         setTimeout(() => { dragEndedRef.current = false; }, 400);
       }
-      // Empty column drag end → partial slot open (write one timeslot to Firebase)
-      clearTimeout(emptyHoldTimerRef.current);
-      emptyHoldTimerRef.current = null;
-      if (emptyDragRef.current && slotHighlightRef.current) {
-        const { absDay, startMin, minute } = slotHighlightRef.current;
-        emptyWasDragRef.current = true;
-        const d = new Date();
-        d.setDate(d.getDate() + absDay);
-        const dateStr = d.toISOString().split("T")[0];
-        const fromMin = Math.min(startMin, minute);
-        const toMin   = Math.max(startMin, minute);
-        const updates = {};
-        for (let m = fromMin; m <= toMin; m += 60) {
-          const hh = String(Math.floor(m / 60)).padStart(2, "0");
-          const mm = String(m % 60).padStart(2, "0");
-          updates[`timeslots/${dateStr}/slot${hh}${mm}/time`] = `${hh}:${mm}`;
-          updates[`timeslots/${dateStr}/slot${hh}${mm}/available`] = true;
-        }
-        update(ref(db, "/"), updates).catch(() => {});
-      }
-      emptyDragRef.current = null;
-      slotHighlightRef.current = null;
-      setSlotHighlight(null);
       // Remove from activeDragIds after save debounce window (700ms > 600ms save timer)
       if (endedId) setTimeout(() => { activeDragIds?.current?.delete(endedId); }, 700);
       swipeRef.current = null;
@@ -829,7 +815,6 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
 
   const handleColumnClick = (e, absDay) => {
     if (dragRef.current || dragEndedRef.current || pendingDragRef.current) return;
-    if (emptyWasDragRef.current) { emptyWasDragRef.current = false; return; }
     const rect = e.currentTarget.getBoundingClientRect();
     const yRel = e.clientY - rect.top;
     const { snapMin, workStart, PX_PER_MIN } = calcRef.current;
@@ -839,28 +824,27 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
     setBubbleData(bData);
   };
 
-  const handleEmptyColDown = (e, absDay) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const { workStart, PX_PER_MIN } = calcRef.current;
-    const yRel = e.clientY - rect.top;
-    const rawMin = workStart * 60 + yRel / PX_PER_MIN;
-    const minute = Math.round(rawMin / 60) * 60;
-    emptyDragRef.current = { absDay, startX: e.clientX, startY: e.clientY, startMin: minute, minute, rect };
-    emptyHoldTimerRef.current = setTimeout(() => {
-      if (!emptyDragRef.current) return;
-      navigator.vibrate?.(40);
-      const { absDay: day, minute: min } = emptyDragRef.current;
-      emptyDragRef.current = null;
-      slotHighlightRef.current = null;
-      setSlotHighlight(null);
-      emptyWasDragRef.current = true;
-      setBubbleData(null);
-      setFormData({ day, startMin: min });
-    }, 700);
-  };
   const handleAction = (action, b) => {
     if (action === "confirm") setBookings(bs=>bs.map(x=>x.id===b.id?{...x,status:"confirmed"}:x));
     if (action === "cancel") {
+      // Відновити вільні слоти
+      if (b.startMin !== undefined && b.durMin) {
+        const dateStr = b.date || absDayToDateStr(b.day);
+        const updates = {};
+        for (let i = 0; i < b.durMin; i += 30) {
+          const slotMin = b.startMin + i;
+          const hh = String(Math.floor(slotMin / 60)).padStart(2, '0');
+          const mm = String(slotMin % 60).padStart(2, '0');
+          const path = `timeslots/${dateStr}/slot${hh}${mm}`;
+          if (i % 60 === 0) {
+            updates[`${path}/available`] = true;
+            updates[`${path}/time`] = `${hh}:${mm}`;
+          } else {
+            updates[path] = null;
+          }
+        }
+        update(ref(db, '/'), updates).catch(() => {});
+      }
       // Затемнення 2с → видалення (так само як значок ×)
       setCancellingSet(s=>new Set([...s, b.id]));
       cancelTimers.current[b.id] = setTimeout(()=>{
@@ -872,6 +856,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
     if (action === "noshow")  setBookings(bs=>bs.map(x=>x.id===b.id?{...x,status:"noshow"}:x));
     if (action === "delete")  setBookings(bs=>bs.filter(x=>x.id!==b.id));
     if (action === "repeat")  setBookings(bs=>[...bs,{...b, id:`b-${Date.now()}`, day:b.day+7, status:"confirmed"}]);
+    if (action === "chat")     { navTo?.("chats"); return; }
     if (action === "call")     window.location.href=`tel:${b.phone}`;
     if (action === "sms")      window.location.href=`sms:${b.phone}`;
     if (action === "viber")    window.location.href=`viber://chat?number=%2B${b.phone.replace(/\D/g,"")}`;
@@ -895,14 +880,22 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   };
 
   const handleVipSlot = ({ day, startMin }) => {
+    const dateStr = absDayToDateStr(day);
+    const hh = String(Math.floor(startMin / 60)).padStart(2, "0");
+    const mm = String(startMin % 60).padStart(2, "0");
+    update(ref(db, `timeslots/${dateStr}/slot${hh}${mm}`), {
+      time: `${hh}:${mm}`, available: true, vipOnly: true,
+    }).catch(() => {});
     setBookings(bs=>[...bs,{
       id:`vip-${Date.now()}`, day, startMin, durMin:60,
       name:"VIP Слот", phone:"", type:"vip-slot", tsc:"",
-      hoursDone:0, status:"vip-open", serviceId:"", categoryId:"cat-vip"
+      hoursDone:0, status:"vip-open", serviceId:"", categoryId:"cat-vip",
+      date: dateStr,
     }]);
   };
 
   const [vipSlotModal, setVipSlotModal] = useState(null);
+  const [slotOptions, setSlotOptions] = useState(null); // { dateStr, time, slot }
 
   return (
     <>
@@ -910,15 +903,14 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
     <Card style={{padding:"6px 3px 10px", overflow:"hidden"}}>
       <div style={{display:"flex", maxHeight:"calc(100vh - 156px)", overflow:"hidden"}}>
 
-        {/* TIME COLUMN — fixed, outside horizontal scroll */}
+        {/* TIME COLUMN — fixed left, never scrolls */}
         <div style={{
           width:TIME_COL_W, flexShrink:0, zIndex:10,
           display:"flex", flexDirection:"column",
           borderRight:`1px solid rgba(255,255,255,0.07)`,
         }}>
-          {/* Spacer matches the day-header row height */}
-          <div style={{height:HEADER_H, flexShrink:0}}/>
-          {/* Clipping wrapper — translateY syncs scroll */}
+          {/* Spacer aligns with sticky day headers */}
+          <div style={{height:HEADER_H + 4, flexShrink:0}}/>
           <div style={{overflow:"hidden", flex:1, position:"relative"}}>
             <div ref={timeColRef} style={{position:"absolute", top:0, left:0, right:0, height:gridHeight}}>
               {Array.from({length:(settings.workEnd-settings.workStart)*2+1},(_,i)=>{
@@ -926,32 +918,26 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                 const h = settings.workStart + Math.floor(totalMins/60);
                 const m = totalMins % 60;
                 if (h > settings.workEnd) return null;
-                const isHour = m===0;
-                if (isHour) {
-                  return (
-                    <div key={i} style={{
-                      position:"absolute", top:Math.max(2, totalMins*PX_PER_MIN - 5),
-                      left:0, right:0, textAlign:"center",
-                      fontSize:10, fontWeight:700, lineHeight:1,
-                      color:TEXT_DIM,
-                    }}>{h}:00</div>
-                  );
-                } else {
-                  return (
-                    <div key={i} style={{
-                      position:"absolute", top:totalMins*PX_PER_MIN - 3,
-                      left:0, right:0, textAlign:"center",
-                      fontSize:7, fontWeight:600, lineHeight:1,
-                      color:"rgba(139,141,147,0.5)",
-                    }}>{h}:30</div>
-                  );
-                }
+                return m === 0 ? (
+                  <div key={i} style={{
+                    position:"absolute", top:Math.max(2, totalMins*PX_PER_MIN - 5),
+                    left:0, right:0, textAlign:"center",
+                    fontSize:10, fontWeight:700, lineHeight:1, color:TEXT_DIM,
+                  }}>{h}:00</div>
+                ) : (
+                  <div key={i} style={{
+                    position:"absolute", top:totalMins*PX_PER_MIN - 3,
+                    left:0, right:0, textAlign:"center",
+                    fontSize:7, fontWeight:600, lineHeight:1,
+                    color:"rgba(139,141,147,0.5)",
+                  }}>{h}:30</div>
+                );
               })}
             </div>
           </div>
         </div>
 
-        {/* SCROLLABLE AREA — horizontal + vertical */}
+        {/* SCROLLABLE GRID — horizontal + vertical */}
         <div
           ref={gridRef}
           onPointerDownCapture={e=>{
@@ -967,102 +953,100 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
           }}
           style={{flex:1, overflowX:"auto", overflowY:"auto", touchAction:"pan-x pan-y", WebkitOverflowScrolling:"touch"}}
         >
-          {/* Day headers — sticky so never scrolls out of view */}
-          <div style={{display:"flex", height:HEADER_H, alignItems:"stretch", minWidth:"max-content", marginBottom:4, paddingTop:2,
-            position:"sticky", top:0, zIndex:5, background:BG}}>
-            {days.map((day,i)=>{
-              const absDay = dayOffset + i;
-              const isToday = absDay === 0;
-              const dateStr = absDayToDateStr(absDay);
-              const isOpen = !!(openSlots[dateStr]?.length);
-              const isLoading = genLoadingDays.has(absDay);
-              return (
-              <div key={i} style={{
-                width:COL_W, marginRight:i<days.length-1?4:0, flexShrink:0,
-                display:"flex", flexDirection:"column",
-                alignItems:"center", justifyContent:"space-between",
-                padding:"3px 2px 3px",
-                overflow:"hidden",
-                borderRadius:10,
-                background: isToday
-                  ? `rgba(247,201,72,0.18)`
-                  : isOpen
-                    ? `rgba(99,211,120,0.13)`
-                    : `rgba(0,0,0,0.18)`,
-                boxShadow: isToday
-                  ? `inset 0 0 0 1.5px rgba(247,201,72,0.55)`
-                  : isOpen
-                    ? `inset 0 0 0 1px rgba(99,211,120,0.35)`
-                    : "none",
-              }}>
-                <div style={{
-                  fontSize:9, fontWeight:700, lineHeight:1.2,
-                  color: isToday ? GOLD : isOpen ? GREEN : TEXT_FAINT,
-                  letterSpacing:0.3,
-                  overflow:"hidden", whiteSpace:"nowrap", maxWidth:"100%",
-                  textOverflow:"ellipsis",
-                }}>{day.fullLabel}</div>
-                <div style={{
-                  fontSize:14, fontWeight:800, lineHeight:1.2,
-                  color: isToday ? GOLD : isOpen ? GREEN : DIM,
-                }}>{day.num}</div>
-                {isOpen ? (
-                  <button
-                    onClick={e=>{ e.stopPropagation(); clearDaySlots(absDay); }}
-                    title="Закрити день"
-                    style={{
-                      background:"none", border:"none", cursor:"pointer",
-                      padding:"1px 3px", borderRadius:5, lineHeight:1,
-                      fontSize:10, color: GREEN, opacity:0.8,
-                    }}
-                  >✓</button>
-                ) : (
-                  <button
-                    onClick={e=>{ e.stopPropagation(); generateDaySlots(absDay); }}
-                    disabled={isLoading}
-                    title="Відкрити день"
-                    style={{
-                      background:"none", border:"none", cursor:"pointer",
-                      padding:"1px 3px", borderRadius:5, lineHeight:1,
-                      fontSize:11, color: FAINT,
-                      opacity: isLoading ? 0.4 : 0.7,
-                    }}
-                  >{isLoading ? "…" : "⚡"}</button>
-                )}
-              </div>
-              );
-            })}
-          </div>
-
-          {/* Day columns — no time column inside here */}
-          <div ref={gridWrapRef} style={{display:"flex", flexShrink:0}}>
+          <div ref={gridWrapRef} style={{display:"flex", paddingTop:2}}>
           {days.map((day,colIdx)=>{
-            const absDay = dayOffset + colIdx; // dayOffset + 0..N_DAYS-1
+            const absDay = dayOffset + colIdx;
             const dateStrCol = absDayToDateStr(absDay);
-            const isOpenCol = !!(openSlots[dateStrCol]?.length);
+            const isOpenCol = Object.values(openSlots[dateStrCol] || {}).some(s => s.available);
+            const isToday = absDay === 0;
+            const isLoadingCol = genLoadingDays.has(absDay);
+            const hasAnySlotsCol = !!(openSlots[dateStrCol] && Object.keys(openSlots[dateStrCol]).length);
             return (
-            <div key={absDay}
-              onPointerDown={e=>{ if(!e.target.closest('.slot-base')) handleEmptyColDown(e, absDay); }}
-              onClick={e=>{ if(xJustShownRef.current){ xJustShownRef.current=false; return; } if(quickCancelId){ xVisibleRef.current=false; setQuickCancelId(null); return; } handleColumnClick(e, absDay); }}
-              style={{
-                width:COL_W, flexShrink:0, height:gridHeight,
-                position:"relative", marginRight:colIdx<days.length-1?4:0, padding:"0 4px",
-                background:`linear-gradient(135deg,${BG_DEEP},rgba(0,0,0,0.55))`,
-                borderRadius:14, boxShadow:SHADOW_IN, cursor:"cell",
-              }}>
+            <div key={absDay} style={{
+              display:"flex", flexDirection:"column", flexShrink:0,
+              width:COL_W, marginRight:colIdx<days.length-1?4:0,
+            }}>
+              {/* DATE HEADER — sticky top, moves with column horizontally */}
+              <div
+                onClick={e=>{ e.stopPropagation(); if(isLoadingCol) return; hasAnySlotsCol ? clearDaySlots(absDay) : generateDaySlots(absDay); }}
+                style={{
+                  position:"sticky", top:0, zIndex:4,
+                  height:HEADER_H, flexShrink:0, marginBottom:4,
+                  display:"flex", flexDirection:"column",
+                  alignItems:"center", justifyContent:"space-between",
+                  padding:"3px 2px 3px", borderRadius:10, cursor:"pointer",
+                  background: isToday ? `rgba(247,201,72,0.18)` : isOpenCol ? `rgba(99,211,120,0.13)` : `rgba(0,0,0,0.18)`,
+                  boxShadow: isToday ? `inset 0 0 0 1.5px rgba(247,201,72,0.55)` : isOpenCol ? `inset 0 0 0 1px rgba(99,211,120,0.35)` : "none",
+                }}>
+                <div style={{fontSize:9, fontWeight:700, lineHeight:1.2,
+                  color: isToday ? GOLD : isOpenCol ? GREEN : TEXT_FAINT,
+                  letterSpacing:0.3, overflow:"hidden", whiteSpace:"nowrap",
+                  maxWidth:"100%", textOverflow:"ellipsis",
+                }}>{day.fullLabel}</div>
+                <div style={{fontSize:14, fontWeight:800, lineHeight:1.2,
+                  color: isToday ? GOLD : isOpenCol ? GREEN : DIM,
+                }}>{day.num}</div>
+                <div style={{fontSize:9, lineHeight:1, opacity:0.7,
+                  color: isLoadingCol ? FAINT : isOpenCol ? GREEN : FAINT,
+                }}>{isLoadingCol ? "…" : isOpenCol ? "✓" : "＋"}</div>
+              </div>
 
-              {/* Open slot indicators — one strip per available timeslot */}
-              {(openSlots[dateStrCol] || []).map(time => {
+              {/* SLOT CONTENT */}
+              <div
+                onClick={e=>{ if(xJustShownRef.current){ xJustShownRef.current=false; return; } if(quickCancelId){ xVisibleRef.current=false; setQuickCancelId(null); return; } handleColumnClick(e, absDay); }}
+                style={{
+                  width:COL_W, height:gridHeight,
+                  position:"relative", padding:"0 4px",
+                  background:`linear-gradient(135deg,${BG_DEEP},rgba(0,0,0,0.55))`,
+                  borderRadius:14, boxShadow:SHADOW_IN, cursor:"cell",
+                }}>
+
+              {/* Open/blocked/surcharge slot cards (VIP excluded — shown as booking card) */}
+              {Object.entries(openSlots[dateStrCol] || {}).filter(([,s])=>!s.vipOnly).map(([time, slot]) => {
                 const [h, m] = time.split(":").map(Number);
+                const startMin = h * 60 + m;
+                const isVip = slot.vipOnly;
+                const isBlocked = slot.adminBlocked;
+                const hasSurcharge = !!slot.surcharge;
+                const bg = isVip ? "rgba(168,85,247,0.15)" : isBlocked ? "rgba(239,68,68,0.15)" : hasSurcharge ? "rgba(247,201,72,0.15)" : "rgba(99,211,120,0.15)";
+                const borderColor = isVip ? "rgba(168,85,247,0.55)" : isBlocked ? "rgba(239,68,68,0.5)" : hasSurcharge ? "rgba(247,201,72,0.6)" : "rgba(99,211,120,0.45)";
+                const color = isVip ? "rgba(168,85,247,0.9)" : isBlocked ? "rgba(239,68,68,0.85)" : hasSurcharge ? "rgba(247,201,72,0.95)" : "rgba(99,211,120,0.9)";
+                const isSpecial = isBlocked || isVip || hasSurcharge;
                 return (
-                  <div key={`os-${time}`} style={{
-                    position:"absolute", left:0, right:0,
-                    top: minToPx(h * 60 + m),
-                    height: 60 * PX_PER_MIN,
-                    background:"rgba(99,211,120,0.09)",
-                    borderLeft:"2px solid rgba(99,211,120,0.3)",
-                    pointerEvents:"none",
-                  }}/>
+                  <div key={`os-${time}`}
+                    onPointerDown={e=>{
+                      e.stopPropagation();
+                      slotHoldFiredRef.current = false;
+                      slotHoldTimerRef.current = setTimeout(()=>{
+                        slotHoldFiredRef.current = true;
+                        navigator.vibrate?.(40);
+                        setSlotOptions({ dateStr: dateStrCol, time, slot });
+                      }, 600);
+                    }}
+                    onPointerUp={()=>clearTimeout(slotHoldTimerRef.current)}
+                    onPointerCancel={()=>clearTimeout(slotHoldTimerRef.current)}
+                    onClick={e=>{
+                      e.stopPropagation();
+                      if (slotHoldFiredRef.current) return;
+                      toggleSlotFree(dateStrCol, time, slot);
+                    }}
+                    style={{
+                      position:"absolute", left:0, right:0,
+                      top: minToPx(startMin) + 1,
+                      height: 60 * PX_PER_MIN - 2,
+                      opacity: 0.5,
+                      background: bg,
+                      border: `1.5px solid ${borderColor}`,
+                      borderRadius:8, cursor:"pointer", zIndex:1,
+                      display:"flex", flexDirection:"column",
+                      alignItems:"flex-start", justifyContent:"center",
+                      padding:"0 7px",
+                    }}>
+                    <span style={{fontSize:10, fontWeight:800, lineHeight:1, color}}>{time}</span>
+                    {isBlocked   && <span style={{fontSize:8, fontWeight:600, color:"rgba(239,68,68,0.65)",   marginTop:2}}>закрито</span>}
+                    {isVip       && <span style={{fontSize:8, fontWeight:600, color:"rgba(168,85,247,0.7)",   marginTop:2}}>👑 vip</span>}
+                    {hasSurcharge && <span style={{fontSize:8, fontWeight:700, color:"rgba(247,201,72,0.9)",  marginTop:2}}>+{slot.surcharge}₴</span>}
+                  </div>
                 );
               })}
 
@@ -1090,30 +1074,6 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                 }}>ОБІД</div>
               )}
 
-              {/* Slot highlight — admin vertical drag to pick range */}
-              {slotHighlight?.absDay === absDay && (() => {
-                const fromM = Math.min(slotHighlight.startMin, slotHighlight.minute);
-                const toM   = Math.max(slotHighlight.startMin, slotHighlight.minute) + 60;
-                const count = Math.round((toM - fromM) / 60);
-                return (
-                  <div style={{
-                    position:"absolute", left:2, right:2,
-                    top: minToPx(fromM),
-                    height: (toM - fromM) * PX_PER_MIN,
-                    background:"rgba(99,211,120,0.18)",
-                    border:"1.5px solid rgba(99,211,120,0.6)",
-                    borderRadius:8, pointerEvents:"none",
-                    display:"flex", flexDirection:"column",
-                    alignItems:"flex-start", justifyContent:"space-between",
-                    padding:"4px 8px", zIndex:3,
-                  }}>
-                    <span style={{fontSize:11, fontWeight:800, color:"rgba(99,211,120,0.95)"}}>{fmtTime(fromM)}</span>
-                    {count > 1 && <span style={{fontSize:9, fontWeight:700, color:"rgba(99,211,120,0.7)"}}>{count}год</span>}
-                    {count > 1 && <span style={{fontSize:11, fontWeight:800, color:"rgba(99,211,120,0.95)"}}>{fmtTime(toM - 60)}</span>}
-                  </div>
-                );
-              })()}
-
               {/* Viewing indicators — student selected this time but hasn't booked yet */}
               {(viewingSlots[dateStrCol] || []).map(time => {
                 const [h, m] = time.split(":").map(Number);
@@ -1133,8 +1093,27 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                 );
               })}
 
-              {/* Bookings */}
-              {bookings.filter(b=>b.day===absDay).map(b=>{
+              {/* Bookings — consecutive same-student adjacent bookings merged into one card */}
+              {(()=>{
+                const sorted = bookings.filter(b=>b.day===absDay).sort((a,b)=>a.startMin-b.startMin);
+                const merged = [];
+                let i = 0;
+                while (i < sorted.length) {
+                  const b = sorted[i];
+                  if (b.type==="block" || b.type==="vip-slot") { merged.push(b); i++; continue; }
+                  let totalDur = b.durMin;
+                  let j = i + 1;
+                  while (j < sorted.length) {
+                    const nx = sorted[j];
+                    if (nx.userId && nx.userId===b.userId && nx.startMin===b.startMin+totalDur && nx.type!=="block" && nx.type!=="vip-slot") {
+                      totalDur += nx.durMin; j++;
+                    } else break;
+                  }
+                  merged.push(j > i+1 ? {...b, durMin:totalDur} : b);
+                  i = j;
+                }
+                return merged;
+              })().map(b=>{
                 const top = minToPx(b.startMin);
                 const height = b.durMin * PX_PER_MIN;
                 const c = slotColor(b);
@@ -1143,8 +1122,14 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                 const isBlock = b.type === "block";
                 const isVipSlot = b.type === "vip-slot";
                 const isDimmed = !isBlock && !isVipSlot && (b.status==="cancelled" || b.status==="noshow" || isCancelling);
-                const svc = settings.services.find(s=>s.id===b.serviceId);
-                const price = svc ? Math.round((svc.price / svc.duration) * b.durMin) : 0;
+                const svc = settings.services.find(s=>s.id===b.serviceId)
+                         || settings.services.find(s=>s.active && s.type===(b.serviceType||b.type) && Number(s.duration)===b.durMin);
+                const basePrice = svc
+                  ? Math.round((svc.price / svc.duration) * b.durMin)
+                  : b.price && b.durationHours
+                    ? Math.round((b.price / (b.durationHours * 60)) * b.durMin)
+                    : (b.price || 0);
+                const price = basePrice + (b.surcharge || 0);
                 return (
                   /* Обгортка — overflow:visible щоб значок не обрізався */
                   <div key={b.id} style={{
@@ -1218,11 +1203,12 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                       {!isBlock && !isVipSlot && height >= 12 && (() => {
                         const [fName, ...lParts] = b.name.split(' ');
                         const lName = lParts.join(' ');
+                        const priceColor = b.surcharge ? GOLD : "rgba(255,255,255,0.9)";
                         const lines = [
                           { text: fName, w: 800, c: "#fff" },
-                          ...(lName ? [{ text: lName, w: 700, c: "#fff" }] : []),
-                          ...(b.type==="school"&&b.tsc ? [{ text: b.tsc, w: 600, c: "rgba(255,255,255,0.82)" }] : []),
-                          ...(price > 0 ? [{ text: `${price}₴`, w: 800, c: "rgba(255,255,255,0.95)" }] : []),
+                          ...(lName ? [{ text: lName, w: 700, c: "rgba(255,255,255,0.85)" }] : []),
+                          { text: b.type==="school" ? "Автошкола" : "Приватний", w: 600, c: "rgba(255,255,255,0.6)" },
+                          ...(price > 0 ? [{ text: `${price}₴`, w: 900, c: priceColor }] : []),
                         ];
                         const maxFs = Math.min(11, Math.floor(COL_W / 5.5));
                         const fs = Math.max(6, Math.min(maxFs, Math.floor((height - 6) / (lines.length * 1.25))));
@@ -1243,13 +1229,13 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                           </div>
                         );
                       })()}
-                      {/* VIP crown badge on regular bookings */}
-                      {!isVipSlot && b.isVipOnly && (
+                      {/* VIP crown badge */}
+                      {(b.isVipOnly || isVipSlot) && height >= 14 && (
                         <div style={{
-                          position:"absolute",top:2,right:2,zIndex:4,
-                          fontSize:Math.min(10, Math.max(7, height/8)),
-                          lineHeight:1,pointerEvents:"none",
-                          filter:"drop-shadow(0 1px 2px rgba(0,0,0,0.6))",
+                          position:"absolute", top:2, right:2, zIndex:4,
+                          fontSize:Math.min(11, Math.max(7, height/7)),
+                          lineHeight:1, pointerEvents:"none",
+                          filter:"drop-shadow(0 1px 3px rgba(0,0,0,0.7))",
                         }}>👑</div>
                       )}
                       <div className="slot-handle bottom" onPointerDown={e=>onPointerDown(e,b,"bottom")}/>
@@ -1290,11 +1276,12 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                   </div>
                 );
               })}
+              </div>
             </div>
             );
           })}
-          </div>{/* /gridWrapRef */}
-        </div>{/* /gridRef scroll area */}
+          </div>
+        </div>
 
       </div>{/* /outer flex */}
     </Card>
@@ -1401,6 +1388,63 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
       </div>
     )}
 
+    {/* ── Меню опцій слота (довгий тап) — компактне вікно ── */}
+    {slotOptions && (
+      <div onClick={()=>setSlotOptions(null)} style={{
+        position:"fixed",inset:0,zIndex:200,
+        background:"rgba(0,0,0,0.45)",
+        display:"flex",alignItems:"center",justifyContent:"center",
+      }}>
+        <div onClick={e=>e.stopPropagation()} style={{
+          width:220,
+          background:BG_DEEP,
+          borderRadius:18,
+          boxShadow:"0 8px 40px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.07)",
+          overflow:"hidden",
+        }}>
+          {/* Заголовок */}
+          <div style={{
+            padding:"10px 14px 8px",
+            borderBottom:`1px solid rgba(255,255,255,0.06)`,
+            fontSize:11,fontWeight:700,color:TEXT_FAINT,textAlign:"center",
+          }}>{slotOptions.time}</div>
+
+          {/* VIP */}
+          <button onClick={()=>applySlotOption(slotOptions.dateStr, slotOptions.time, "vip")} style={{
+            width:"100%",padding:"11px 14px",border:"none",cursor:"pointer",
+            background:"none",borderBottom:`1px solid rgba(255,255,255,0.05)`,
+            color:"#c084fc",fontSize:13,fontWeight:700,
+            display:"flex",alignItems:"center",gap:9,
+          }}>
+            <span>👑</span> VIP слот
+          </button>
+
+          {/* Надбавки */}
+          {[100,200,300].map((amt,i)=>(
+            <button key={amt} onClick={()=>applySlotOption(slotOptions.dateStr, slotOptions.time, amt)} style={{
+              width:"100%",padding:"11px 14px",border:"none",cursor:"pointer",
+              background:"none",
+              borderBottom: i<2 ? `1px solid rgba(255,255,255,0.05)` : "none",
+              color:GOLD,fontSize:13,fontWeight:700,
+              display:"flex",alignItems:"center",justifyContent:"space-between",
+            }}>
+              <span style={{color:TEXT_DIM,fontWeight:500}}>Надбавка</span>
+              <span>+{amt}₴</span>
+            </button>
+          ))}
+
+          {/* Скинути — тільки якщо є що скидати */}
+          {(slotOptions.slot?.vipOnly || slotOptions.slot?.surcharge) && (
+            <button onClick={()=>applySlotOption(slotOptions.dateStr, slotOptions.time, "reset")} style={{
+              width:"100%",padding:"10px 14px",border:"none",cursor:"pointer",
+              background:"none",borderTop:`1px solid rgba(255,255,255,0.06)`,
+              color:TEXT_FAINT,fontSize:12,fontWeight:600,
+            }}>Скинути</button>
+          )}
+        </div>
+      </div>
+    )}
+
     {/* ── VIP слот модалка ── */}
     {vipSlotModal && (
       <div onClick={()=>setVipSlotModal(null)} style={{
@@ -1440,7 +1484,12 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
           </div>
           <div style={{padding:"14px 16px 32px",display:"flex",flexDirection:"column",gap:10}}>
             <button onClick={()=>{
-              setBookings(bs=>bs.filter(x=>x.id!==vipSlotModal.id));
+              const v = vipSlotModal;
+              const dateStr = v._dateStr || absDayToDateStr(v.day);
+              const hh = String(Math.floor(v.startMin / 60)).padStart(2, "0");
+              const mm = String(v.startMin % 60).padStart(2, "0");
+              update(ref(db, `timeslots/${dateStr}/slot${hh}${mm}`), { vipOnly: false }).catch(() => {});
+              setBookings(bs=>bs.filter(x=>x.id!==v.id));
               setVipSlotModal(null);
             }} style={{
               width:"100%",padding:"14px",borderRadius:18,border:"none",cursor:"pointer",
@@ -1470,318 +1519,101 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
 function BookingModal({ booking, onClose, onAction, settings }) {
   if (!booking) return null;
 
-  const svc   = settings.services.find(s=>s.id===booking.serviceId);
-  const cat   = booking.categoryId ? settings.categories?.find(c=>c.id===booking.categoryId) : null;
+  const svc   = settings.services.find(s => s.id === booking.serviceId)
+             || settings.services.find(s => s.active && s.type===(booking.serviceType||booking.type) && Number(s.duration)===booking.durMin);
   const c     = colorOf(svc?.colorId);
   const day   = getDayInfo(booking.day);
-  const price = svc ? Math.round((svc.price/svc.duration)*booking.durMin) : 0;
-  const prog  = booking.type==="school" ? Math.min(1, booking.hoursDone/40) : null;
+  const basePrice = svc
+    ? Math.round((svc.price / svc.duration) * booking.durMin)
+    : booking.price && booking.durationHours
+      ? Math.round((booking.price / (booking.durationHours * 60)) * booking.durMin)
+      : (booking.price || 0);
+  const price = basePrice + (booking.surcharge || 0);
+  const ini   = booking.name.trim().split(" ").slice(0, 2).map(w => w[0]).join("");
+  const typeLabel = booking.type === "school" ? "🎓 Автошкола" : "🚗 Приватний";
 
-  const ST = {
-    pending:   { label:"Очікує",       color:ACCENT, dot:"#ff8f77" },
-    confirmed: { label:"Підтверджено", color:GREEN,  dot:"#a8f075" },
-    cancelled: { label:"Скасовано",    color:"#666", dot:"#555"    },
-    noshow:    { label:"Не прийшов",   color:RED,    dot:"#f87171" },
-  }[booking.status] || { label:"—", color:TEXT_DIM, dot:TEXT_FAINT };
-
-  // SVGs (inline, no extra component)
-  const Ico = (d, w="2.2") => <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={w} strokeLinecap="round" strokeLinejoin="round">{d}</svg>;
-
-  const IcoPhone    = Ico(<path d="M22 16.92v3a2 2 0 0 1-2.18 2A19.79 19.79 0 0 1 4.14 6.18 2 2 0 0 1 6.12 4h3a2 2 0 0 1 2 1.72c.13 1 .37 1.98.72 2.91a2 2 0 0 1-.45 2.11L10 12a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.93.35 1.91.59 2.91.72A2 2 0 0 1 22 16.92z"/>);
-  const IcoSms      = Ico(<><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></>);
-  const IcoCheck    = Ico(<polyline points="5 12 10 17 19 8"/>, "3");
-  const IcoX        = Ico(<><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></>, "2.5");
-  const IcoTrash    = Ico(<><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></>);
-  // Viber — фіолетова бульбашка
-  const IcoViber    = <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.03 2 11c0 2.7 1.22 5.13 3.17 6.82L4 20l2.34-1.17C7.46 19.6 9.16 20 11 20h1c5.52 0 10-4.03 10-9S17.52 2 12 2zm-1.5 6h3a.5.5 0 0 1 0 1h-1v1.5a.5.5 0 0 1-1 0V9h-1a.5.5 0 0 1 0-1zm-.75 4.5c.28 0 .5.22.5.5v.5h.5a.5.5 0 0 1 0 1H10v-.5a.5.5 0 0 1-.5-.5v-.5h.25zm4.5 2a.5.5 0 0 1-.5.5h-1.5a.5.5 0 0 1 0-1h.5v-1a.5.5 0 0 1 1 0v1h.5a.5.5 0 0 1 .5.5z"/></svg>;
-  // Telegram — паперовий літак
-  const IcoTelegram = <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M21.95 4.27L18.38 20.2c-.26 1.15-1.56 1.65-2.44.93l-4.7-3.6-2.27 2.19c-.25.25-.66.25-.91 0l-.37-4.85L17.6 6.5c.4-.38-.08-.6-.55-.27L5.47 14.18 1.73 13c-.86-.27-.87-1.48 0-1.77L20.39 3.4c.83-.3 1.73.27 1.56 1.17L21.95 4.27z"/></svg>;
-
-  // Small secondary button
-  const SecBtn = ({ ico, label, grad, col, onClick }) => (
-    <button onClick={onClick} style={{
-      flex:1, display:"flex", flexDirection:"column", alignItems:"center", gap:6,
-      padding:"11px 4px 9px", borderRadius:16, border:"none", cursor:"pointer",
-      background:`linear-gradient(160deg,${SURFACE_HI},${SURFACE_LO})`,
-      boxShadow:SHADOW_OUT,
-    }}>
-      <div style={{
-        width:34, height:34, borderRadius:10, display:"flex", alignItems:"center", justifyContent:"center",
-        background:grad, boxShadow:`0 3px 10px ${col}55`,
-        color:"#fff",
-      }}>{ico}</div>
-      <span style={{fontSize:9,fontWeight:700,color:TEXT_DIM,textAlign:"center",lineHeight:1.2,letterSpacing:0.1}}>{label}</span>
-    </button>
-  );
+  const IcoPhone = <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2A19.79 19.79 0 0 1 4.14 6.18 2 2 0 0 1 6.12 4h3a2 2 0 0 1 2 1.72c.13 1 .37 1.98.72 2.91a2 2 0 0 1-.45 2.11L10 12a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.93.35 1.91.59 2.91.72A2 2 0 0 1 22 16.92z"/></svg>;
+  const IcoChat  = <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>;
 
   return (
     <div onClick={onClose} style={{
       position:"fixed", inset:0, zIndex:100,
-      background:"rgba(0,0,0,0.78)",
-      display:"flex", alignItems:"flex-end", justifyContent:"center",
-      backdropFilter:"blur(12px)"
+      background:"rgba(0,0,0,0.55)",
+      display:"flex", alignItems:"center", justifyContent:"center",
     }}>
-      <div onClick={e=>e.stopPropagation()} style={{
-        width:"100%", maxWidth:480,
+      <div onClick={e => e.stopPropagation()} style={{
+        width:300,
         background:BG_DEEP,
-        borderRadius:"28px 28px 0 0",
-        boxShadow:`0 -2px 0 ${c}44, 0 -16px 60px rgba(0,0,0,0.8)`,
-        maxHeight:"96vh", overflowY:"auto",
-        display:"flex", flexDirection:"column",
+        borderRadius:20,
+        boxShadow:`0 2px 0 ${c}55, 0 20px 60px rgba(0,0,0,0.75), inset 0 1px 0 rgba(255,255,255,0.06)`,
+        overflow:"hidden",
       }}>
 
-        {/* ══ HERO ══════════════════════════════════════════════ */}
+        {/* Student row */}
         <div style={{
-          position:"relative", overflow:"hidden",
-          padding:"16px 16px 16px",
-          background:`linear-gradient(160deg, ${c}30 0%, ${c}10 60%, transparent 100%)`,
-          borderRadius:"28px 28px 0 0",
+          display:"flex", alignItems:"center", gap:11,
+          padding:"14px 14px 12px",
+          borderBottom:`1px solid rgba(255,255,255,0.06)`,
+          background:`linear-gradient(135deg,${c}18,${c}08)`,
         }}>
-          {/* big background glow blob */}
           <div style={{
-            position:"absolute", top:-40, right:-30,
-            width:180, height:180, borderRadius:"50%",
-            background:`radial-gradient(circle, ${c}40 0%, transparent 68%)`,
-            pointerEvents:"none",
-          }}/>
-
-          {/* handle */}
-          <div style={{width:38,height:4,borderRadius:2,background:"rgba(255,255,255,0.1)",margin:"0 auto 12px"}}/>
-
-          {/* Avatar + name */}
-          <div style={{display:"flex", alignItems:"center", gap:16}}>
-
-            {/* Avatar */}
-            <div style={{position:"relative", flexShrink:0}}>
-              <div style={{
-                width:54, height:54, borderRadius:27,
-                background:`linear-gradient(150deg, ${c}, color-mix(in srgb, ${c} 55%, #000))`,
-                boxShadow:`0 0 0 3px ${c}33, 0 6px 24px ${c}55`,
-                display:"flex", alignItems:"center", justifyContent:"center",
-                fontSize:22, fontWeight:900, color:"#fff",
-                letterSpacing:-1,
-              }}>
-                {booking.name.trim().split(" ").slice(0,2).map(w=>w[0]).join("")}
-              </div>
-              {/* status dot */}
-              <div style={{
-                position:"absolute", bottom:1, right:1,
-                width:16, height:16, borderRadius:8,
-                background:ST.dot, border:`2px solid ${BG_DEEP}`,
-                boxShadow:`0 0 6px ${ST.dot}`,
-              }}/>
-            </div>
-
-            {/* Name block */}
-            <div style={{flex:1, minWidth:0}}>
-              <div style={{
-                fontSize:20, fontWeight:900, color:"#fff",
-                letterSpacing:-0.5, lineHeight:1.2,
-                overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap",
-              }}>{booking.name}</div>
-              <div style={{fontSize:13, color:"rgba(255,255,255,0.5)", marginTop:3, letterSpacing:0.2}}>
-                {booking.phone}
-              </div>
-              {/* status + type row */}
-              <div style={{display:"flex", gap:6, marginTop:10, flexWrap:"wrap"}}>
-                <span style={{
-                  display:"inline-flex", alignItems:"center", gap:4,
-                  padding:"4px 11px", borderRadius:20,
-                  background:`${ST.color}20`, color:ST.color,
-                  fontSize:11, fontWeight:800, letterSpacing:0.2,
-                  border:`1px solid ${ST.color}40`,
-                }}>
-                  <span style={{width:6,height:6,borderRadius:3,background:ST.color,display:"inline-block"}}/>
-                  {ST.label}
-                </span>
-                <span style={{
-                  padding:"4px 11px", borderRadius:20,
-                  background:`${c}20`, color:c,
-                  fontSize:11, fontWeight:700,
-                  border:`1px solid ${c}35`,
-                }}>{booking.type==="school"?"🎓 Школа":"🚗 Приватне"}</span>
-                {cat && (
-                  <span style={{
-                    padding:"4px 11px", borderRadius:20,
-                    background:`${colorOf(cat.colorId)}20`, color:colorOf(cat.colorId),
-                    fontSize:11, fontWeight:700,
-                  }}>{cat.name}</span>
-                )}
-              </div>
-            </div>
+            width:40, height:40, borderRadius:12, flexShrink:0,
+            background:`linear-gradient(145deg,${c},color-mix(in srgb,${c} 55%,#000))`,
+            boxShadow:`0 0 0 2px ${c}33`,
+            display:"flex", alignItems:"center", justifyContent:"center",
+            fontSize:15, fontWeight:900, color:"#fff",
+          }}>{ini}</div>
+          <div style={{flex:1, minWidth:0}}>
+            <div style={{fontSize:14, fontWeight:800, color:TEXT, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap"}}>{booking.name}</div>
+            <div style={{fontSize:10, color:c, fontWeight:700, marginTop:2}}>{typeLabel}</div>
           </div>
         </div>
 
-        {/* ══ BODY ══════════════════════════════════════════════ */}
-        <div style={{padding:"12px 14px 24px", display:"flex", flexDirection:"column", gap:8}}>
-
-          {/* ── Date / Time / Price strip ── */}
-          <div style={{display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8}}>
-            {[
-              {
-                label:"Дата",
-                val:<>{day.num} {day.month}</>,
-                sub:day.label,
-                col:TEXT,
-              },
-              {
-                label:"Час",
-                val:<span className="tabular" style={{color:BLUE}}>{fmtTime(booking.startMin)}<span style={{color:TEXT_FAINT,fontWeight:500}}>–</span>{fmtTime(booking.startMin+booking.durMin)}</span>,
-                sub:fmtDur(booking.durMin),
-                col:BLUE,
-              },
-              {
-                label:"Ціна",
-                val:<span style={{color:GOLD}}>{price}<span style={{fontSize:11,fontWeight:600,color:TEXT_FAINT}}> ₴</span></span>,
-                sub: svc ? `${svc.duration} хв` : "—",
-                col:GOLD,
-              },
-            ].map(({label,val,sub},i)=>(
-              <div key={i} style={{
-                padding:"10px 8px 8px",
-                borderRadius:14,
-                background:`linear-gradient(145deg,${SURFACE_LO},${BG_DEEP})`,
-                boxShadow:SHADOW_IN,
-                display:"flex", flexDirection:"column", alignItems:"center", textAlign:"center",
-              }}>
-                <div style={{fontSize:8,fontWeight:700,letterSpacing:1.3,color:TEXT_FAINT,textTransform:"uppercase",marginBottom:6}}>{label}</div>
-                <div style={{fontSize:15,fontWeight:900,lineHeight:1.15}}>{val}</div>
-                <div style={{fontSize:10,color:TEXT_FAINT,marginTop:4,fontWeight:600}}>{sub}</div>
-              </div>
-            ))}
-          </div>
-
-          {/* ── Service card ── */}
-          <div style={{
-            padding:"13px 16px",
-            borderRadius:18,
-            background:`linear-gradient(145deg, ${c}18, ${c}08)`,
-            border:`1px solid ${c}30`,
-            display:"flex", alignItems:"center", gap:12,
-          }}>
-            {/* Color blob */}
-            <div style={{
-              width:40, height:40, borderRadius:12, flexShrink:0,
-              background:`linear-gradient(145deg,${c},color-mix(in srgb,${c} 60%,#000))`,
-              boxShadow:`0 4px 12px ${c}55`,
-              display:"flex", alignItems:"center", justifyContent:"center",
+        {/* Info grid */}
+        <div style={{display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:1, background:"rgba(255,255,255,0.04)"}}>
+          {[
+            { label:"Дата",  val:`${day.num} ${day.month}`, sub:day.label },
+            { label:"Час",   val:`${fmtTime(booking.startMin)}`, sub:`–${fmtTime(booking.startMin+booking.durMin)}` },
+            { label:"Ціна",  val:`${price}₴`, sub: booking.surcharge ? `+${booking.surcharge}₴` : (svc ? `${svc.duration}хв` : "—"), gold: !!booking.surcharge },
+          ].map(({ label, val, sub, gold }, i) => (
+            <div key={i} style={{
+              padding:"11px 6px",
+              background:BG_DEEP,
+              display:"flex", flexDirection:"column", alignItems:"center", textAlign:"center",
+              borderRight: i < 2 ? "1px solid rgba(255,255,255,0.05)" : "none",
             }}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M3 10l9-5 9 5-9 5-9-5z"/><path d="M7 12v5a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2v-5"/>
-              </svg>
+              <div style={{fontSize:8, fontWeight:700, letterSpacing:1, color:TEXT_FAINT, textTransform:"uppercase", marginBottom:5}}>{label}</div>
+              <div style={{fontSize:14, fontWeight:900, color: gold ? GOLD : TEXT, lineHeight:1}}>{val}</div>
+              <div style={{fontSize:9, color: gold ? `${GOLD}99` : TEXT_FAINT, marginTop:3, fontWeight:600}}>{sub}</div>
             </div>
-            <div style={{flex:1, minWidth:0}}>
-              <div style={{fontSize:14,fontWeight:800,color:c,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{svc?.name||"—"}</div>
-              {booking.tsc && <div style={{fontSize:11,color:TEXT_DIM,marginTop:2}}>ТСЦ · {booking.tsc}</div>}
-            </div>
-          </div>
-
-          {/* ── School progress ── */}
-          {prog !== null && (
-            <div style={{
-              padding:"13px 16px", borderRadius:18,
-              background:`linear-gradient(145deg,${SURFACE_LO},${BG_DEEP})`,
-              boxShadow:SHADOW_IN,
-            }}>
-              <div style={{display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10}}>
-                <div style={{fontSize:9,fontWeight:700,letterSpacing:1.2,color:TEXT_FAINT,textTransform:"uppercase"}}>
-                  Прогрес навчання
-                </div>
-                <div style={{
-                  fontSize:13, fontWeight:900,
-                  color: prog>=1 ? GOLD : GREEN,
-                }}>{booking.hoursDone} <span style={{fontSize:10,fontWeight:600,color:TEXT_FAINT}}>/ 40 год</span></div>
-              </div>
-              {/* track */}
-              <div style={{height:10, borderRadius:5, background:"rgba(255,255,255,0.05)", overflow:"hidden", position:"relative"}}>
-                <div style={{
-                  position:"absolute", left:0, top:0, bottom:0,
-                  width:`${Math.round(prog*100)}%`,
-                  borderRadius:5,
-                  background: prog>=1
-                    ? `linear-gradient(90deg,${GOLD},#e6a800)`
-                    : `linear-gradient(90deg,${c},color-mix(in srgb,${c} 70%,#fff))`,
-                  boxShadow: `0 0 10px ${prog>=1?GOLD:c}88`,
-                }}/>
-              </div>
-              <div style={{
-                display:"flex", justifyContent:"space-between",
-                marginTop:7, fontSize:10, color:TEXT_FAINT, fontWeight:600,
-              }}>
-                <span>0</span>
-                <span style={{color: prog>=1?GOLD:GREEN, fontWeight:700}}>{Math.round(prog*100)}%</span>
-                <span>40 год</span>
-              </div>
-            </div>
-          )}
-
-          {/* ── Primary action(s) ── */}
-          <div style={{display:"flex", gap:10, marginTop:4}}>
-            <button onClick={()=>onAction("call",booking)} style={{
-              flex:1, display:"flex", alignItems:"center", justifyContent:"center", gap:8,
-              padding:"14px", borderRadius:18, border:"none", cursor:"pointer",
-              background:"linear-gradient(160deg,#34d399,#059669)",
-              boxShadow:"0 6px 20px rgba(52,211,153,0.45)",
-              color:"#fff", fontSize:14, fontWeight:800,
-            }}>
-              {IcoPhone} Дзвонити
-            </button>
-            {booking.status==="pending" && (
-              <button onClick={()=>onAction("confirm",booking)} style={{
-                flex:1, display:"flex", alignItems:"center", justifyContent:"center", gap:8,
-                padding:"14px", borderRadius:18, border:"none", cursor:"pointer",
-                background:`linear-gradient(160deg,${GREEN},#4ade80)`,
-                boxShadow:`0 6px 20px ${GREEN}55`,
-                color:"#fff", fontSize:14, fontWeight:800,
-              }}>
-                {IcoCheck} Підтвердити
-              </button>
-            )}
-          </div>
-
-          {/* ── Secondary actions ── */}
-          <div style={{display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:8}}>
-            <SecBtn ico={IcoSms}      label="SMS"      grad="linear-gradient(145deg,#60a5fa,#2563eb)" col="#60a5fa" onClick={()=>onAction("sms",booking)}/>
-            <SecBtn ico={IcoViber}    label="Viber"    grad="linear-gradient(145deg,#a78bfa,#7c3aed)" col="#a78bfa" onClick={()=>onAction("viber",booking)}/>
-            <SecBtn ico={IcoTelegram} label="Telegram" grad="linear-gradient(145deg,#38bdf8,#0284c7)" col="#38bdf8" onClick={()=>onAction("telegram",booking)}/>
-            <SecBtn ico={IcoTrash}    label="Скасувати" grad="linear-gradient(145deg,#f87171,#b91c1c)" col="#f87171" onClick={()=>onAction("cancel",booking)}/>
-          </div>
-
-          {/* ── VIP toggle ── */}
-          <div onClick={()=>onAction("toggleVip",booking)} style={{
-            display:"flex", alignItems:"center", gap:12, cursor:"pointer",
-            padding:"12px 14px", borderRadius:16,
-            background: booking.isVipOnly
-              ? "linear-gradient(145deg,rgba(192,132,252,0.18),rgba(124,58,237,0.1))"
-              : `linear-gradient(145deg,${SURFACE_HI},${SURFACE_LO})`,
-            border: booking.isVipOnly ? "1px solid rgba(192,132,252,0.4)" : "1px solid transparent",
-            boxShadow: SHADOW_OUT,
-          }}>
-            <span style={{fontSize:20}}>👑</span>
-            <div style={{flex:1}}>
-              <div style={{fontSize:13,fontWeight:700,color:booking.isVipOnly?PURPLE:TEXT}}>VIP-слот</div>
-              <div style={{fontSize:10,color:TEXT_FAINT}}>Тільки для учнів категорії VIP</div>
-            </div>
-            <div style={{
-              width:44,height:24,borderRadius:12,position:"relative",flexShrink:0,
-              background:booking.isVipOnly?"linear-gradient(145deg,#c084fc,#7c3aed)":"linear-gradient(145deg,#1f2125,#161719)",
-              boxShadow:booking.isVipOnly?"0 0 8px rgba(192,132,252,0.45)":SHADOW_IN,
-              transition:"background .2s",
-            }}>
-              <div style={{position:"absolute",top:3,left:booking.isVipOnly?21:3,width:18,height:18,borderRadius:9,background:"#fff",transition:"left .2s"}}/>
-            </div>
-          </div>
-
-          {/* ── Close ── */}
-          <button onClick={onClose} style={{
-            marginTop:4,
-            width:"100%", padding:"13px", borderRadius:18, border:"none", cursor:"pointer",
-            background:"linear-gradient(145deg,#f87171,#b91c1c)",
-            color:"#fff", fontSize:13, fontWeight:700,
-            boxShadow:"0 4px 14px #b91c1c66", letterSpacing:0.2,
-          }}>Закрити</button>
-
+          ))}
         </div>
+
+        {/* Action buttons */}
+        <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, padding:"12px 12px 14px"}}>
+          <button onClick={() => onAction("call", booking)} style={{
+            display:"flex", alignItems:"center", justifyContent:"center", gap:7,
+            padding:"11px", borderRadius:14, border:"none", cursor:"pointer",
+            background:"linear-gradient(145deg,#34d399,#059669)",
+            boxShadow:"0 4px 14px rgba(52,211,153,0.35)",
+            color:"#fff", fontSize:13, fontWeight:800,
+          }}>{IcoPhone} Дзвонити</button>
+          <button onClick={() => onAction("chat", booking)} style={{
+            display:"flex", alignItems:"center", justifyContent:"center", gap:7,
+            padding:"11px", borderRadius:14, border:"none", cursor:"pointer",
+            background:`linear-gradient(145deg,${SURFACE_HI},${SURFACE})`,
+            boxShadow:SHADOW_OUT,
+            color:BLUE, fontSize:13, fontWeight:800,
+          }}>{IcoChat} Чат</button>
+        </div>
+
+        {/* Cancel link */}
+        <button onClick={() => { onAction("cancel", booking); onClose(); }} style={{
+          width:"100%", padding:"9px", border:"none", cursor:"pointer",
+          background:"none", borderTop:"1px solid rgba(255,255,255,0.05)",
+          color:"rgba(248,113,113,0.7)", fontSize:11, fontWeight:600,
+        }}>Скасувати запис</button>
+
       </div>
     </div>
   );
