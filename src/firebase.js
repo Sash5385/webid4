@@ -20,16 +20,27 @@ export const auth = getAuth(app);
 export const db = getDatabase(app);
 
 export async function registerAdminFCM() {
-  if (!("Notification" in window)) return;
+  if (!("Notification" in window)) { console.warn("FCM: Notification API not supported"); return; }
   try {
     const permission = await Notification.requestPermission();
+    console.log("FCM permission:", permission);
     if (permission !== "granted") return;
+
+    // Wait for SW to be ready
+    const swReg = await navigator.serviceWorker.ready;
+    console.log("FCM SW ready:", swReg.scope);
+
     const messaging = getMessaging(app);
-    const token = await getToken(messaging, { vapidKey: VAPID_KEY });
+    const token = await getToken(messaging, { vapidKey: VAPID_KEY, serviceWorkerRegistration: swReg });
+    console.log("FCM token obtained:", !!token, token?.slice(0, 20));
+
     if (token) {
       await set(ref(db, "admin/fcmToken"), token);
+      console.log("FCM token saved to admin/fcmToken");
+    } else {
+      console.warn("FCM: empty token returned");
     }
   } catch (e) {
-    console.error("Admin FCM error:", e);
+    console.error("Admin FCM error:", e.code, e.message);
   }
 }
