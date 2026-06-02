@@ -1215,7 +1215,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                           </svg>
                         );
                       })()}
-                      {!isBlock && !isVipSlot && height >= 12 && (() => {
+                      {!isBlock && !isVipSlot && height >= 12 && b.name.toLowerCase().trim() !== "закрито" && (() => {
                         const [fName, ...lParts] = b.name.split(' ');
                         const lName = lParts.join(' ');
                         const lines = [
