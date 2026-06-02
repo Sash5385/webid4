@@ -1051,23 +1051,6 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                 borderRadius:14, boxShadow:SHADOW_IN, cursor:"cell",
               }}>
 
-              {/* Per-hour cell borders — always visible */}
-              {Array.from({length: settings.workEnd - settings.workStart}, (_, i) => {
-                const hourMin = (settings.workStart + i) * 60;
-                const isLunch = settings.lunchEnabled &&
-                  hourMin >= (settings.lunchStart||12)*60 && hourMin < (settings.lunchEnd||13)*60;
-                return (
-                  <div key={`hr-${i}`} style={{
-                    position:"absolute", left:2, right:2,
-                    top: minToPx(hourMin) + 1,
-                    height: 60 * PX_PER_MIN - 2,
-                    borderRadius:6,
-                    border: isLunch ? "none" : "1px solid rgba(255,255,255,0.055)",
-                    pointerEvents:"none",
-                  }}/>
-                );
-              })}
-
               {/* Open slot indicators — one strip per available timeslot */}
               {(openSlots[dateStrCol] || []).map(time => {
                 const [h, m] = time.split(":").map(Number);
