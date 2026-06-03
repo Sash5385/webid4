@@ -1,5 +1,5 @@
 const { onSchedule } = require("firebase-functions/v2/scheduler");
-const { onValueUpdated } = require("firebase-functions/v2/database");
+const { onValueUpdated, onValueCreated } = require("firebase-functions/v2/database");
 const admin = require("firebase-admin");
 
 admin.initializeApp();
@@ -34,6 +34,61 @@ exports.onStudentCancel = onValueUpdated(
     }).catch(() => {});
   }
 );
+
+// Запросити з черги — резервує слот і пушить студента
+exports.onQueueInvite = onValueUpdated(
+  { ref: "queue/{slotKey}/entries/{uid}", region: "europe-west1" },
+  async (event) => {
+    const before = event.data.before.val();
+    const after  = event.data.after.val();
+    if (!after || after.status !== "offered" || before?.status === "offered") return;
+
+    const uid     = event.params.uid;
+    const slotKey = event.params.slotKey; // "2026-06-10_09:00"
+    const [date, time] = slotKey.split("_");
+    if (!date || !time) return;
+    const slotId = `slot${time.replace(":", "")}`;
+
+    // Резервуємо слот на 30 хв
+    const reservedUntil = Date.now() + 30 * 60 * 1000;
+    await db.ref(`timeslots/${date}/${slotId}`).update({ reservedFor: uid, reservedUntil }).catch(() => {});
+
+    // FCM токен студента
+    const tokenSnap = await db.ref(`users/${uid}/fcmTokens/web/token`).get();
+    const token = tokenSnap.val();
+    if (!token) return;
+
+    await admin.messaging().send({
+      token,
+      notification: {
+        title: "🎉 Слот зарезервовано для вас!",
+        body: `${date} о ${time} — у вас 30 хвилин щоб записатись`,
+      },
+      webpush: {
+        notification: { icon: "/favicon.svg" },
+        fcmOptions: { link: "https://id4drive.pro" },
+      },
+    }).catch(() => {});
+  }
+);
+
+// Кожні 15 хв — знімає прострочені резервації (30-хв вікно)
+exports.clearExpiredReservations = onSchedule({ schedule: "every 15 minutes", region: "europe-west1" }, async () => {
+  const now = Date.now();
+  const slotsSnap = await db.ref("timeslots").get();
+  const data = slotsSnap.val() || {};
+  const updates = {};
+  for (const [date, dateSlots] of Object.entries(data)) {
+    if (!dateSlots || typeof dateSlots !== "object") continue;
+    for (const [slotId, slot] of Object.entries(dateSlots)) {
+      if (slot.reservedFor && slot.reservedUntil && slot.reservedUntil < now) {
+        updates[`timeslots/${date}/${slotId}/reservedFor`]  = null;
+        updates[`timeslots/${date}/${slotId}/reservedUntil`] = null;
+      }
+    }
+  }
+  if (Object.keys(updates).length) await db.ref().update(updates);
+});
 
 // Runs every hour — unlocks VIP slots within 48h and sends push to all non-VIP students
 exports.unlockVipSlots = onSchedule("every 1 hours", async () => {
