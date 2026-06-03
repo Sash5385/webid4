@@ -555,7 +555,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
     const snap = await get(ref(db, `timeslots/${dateStr}`));
     const existing = snap.val() || {};
     const updates = {};
-    for (let min = start * 60; min < end * 60; min += step) {
+    for (let min = start * 60; min <= end * 60; min += step) {
       if (lunchEnabled && min >= lunchStart * 60 && min < lunchEnd * 60) continue;
       const h = String(Math.floor(min / 60)).padStart(2, "0");
       const m = String(min % 60).padStart(2, "0");
@@ -653,7 +653,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   const effectiveWorkEnd = allDaySchedules.length
     ? Math.max(settings.workEnd, ...allDaySchedules.map(d => d.end ?? settings.workEnd))
     : settings.workEnd;
-  const totalMin = Math.max(60, (effectiveWorkEnd - effectiveWorkStart) * 60);
+  const totalMin = Math.max(60, (effectiveWorkEnd - effectiveWorkStart + 1) * 60);
   // Авто-підлаштування: вся висота розкладу = доступна висота viewport
   // hourHeightPx / 60 використовується як zoom-множник (pinch)
   const availGridH = Math.max(120, windowH - 156 - HEADER_H - 4);
