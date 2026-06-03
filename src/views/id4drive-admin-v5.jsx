@@ -1035,8 +1035,8 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                   borderRadius:14, boxShadow:SHADOW_IN, cursor:"cell",
                 }}>
 
-              {/* Open/blocked/surcharge slot cards (VIP excluded — shown as booking card) */}
-              {Object.entries(openSlots[dateStrCol] || {}).filter(([,s])=>!s.vipOnly).map(([time, slot]) => {
+              {/* Open/blocked/surcharge/VIP slot indicators */}
+              {Object.entries(openSlots[dateStrCol] || {}).map(([time, slot]) => {
                 const [h, m] = time.split(":").map(Number);
                 const startMin = h * 60 + m;
                 const isVip = slot.vipOnly;
@@ -1045,7 +1045,6 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                 const bg = isVip ? "rgba(168,85,247,0.15)" : isBlocked ? "rgba(239,68,68,0.15)" : hasSurcharge ? "rgba(247,201,72,0.15)" : "rgba(99,211,120,0.15)";
                 const borderColor = isVip ? "rgba(168,85,247,0.55)" : isBlocked ? "rgba(239,68,68,0.5)" : hasSurcharge ? "rgba(247,201,72,0.6)" : "rgba(99,211,120,0.45)";
                 const color = isVip ? "rgba(168,85,247,0.9)" : isBlocked ? "rgba(239,68,68,0.85)" : hasSurcharge ? "rgba(247,201,72,0.95)" : "rgba(99,211,120,0.9)";
-                const isSpecial = isBlocked || isVip || hasSurcharge;
                 return (
                   <div key={`os-${time}`}
                     onPointerDown={e=>{
@@ -1074,12 +1073,12 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                       borderRadius:8, cursor:"pointer", zIndex:1,
                       display:"flex", flexDirection:"column",
                       alignItems:"flex-start", justifyContent:"center",
-                      padding:"0 7px",
+                      padding:"0 7px", position:"absolute",
                     }}>
                     <span style={{fontSize:10, fontWeight:800, lineHeight:1, color}}>{time}</span>
-                    {isBlocked   && <span style={{fontSize:8, fontWeight:600, color:"rgba(239,68,68,0.65)",   marginTop:2}}>закрито</span>}
-                    {isVip       && <span style={{fontSize:8, fontWeight:600, color:"rgba(168,85,247,0.7)",   marginTop:2}}>👑 vip</span>}
-                    {hasSurcharge && <span style={{fontSize:8, fontWeight:700, color:"rgba(247,201,72,0.9)",  marginTop:2}}>+{slot.surcharge}₴</span>}
+                    {isBlocked    && <span style={{fontSize:8, fontWeight:600, color:"rgba(239,68,68,0.65)",  marginTop:2}}>закрито</span>}
+                    {hasSurcharge && <span style={{fontSize:8, fontWeight:700, color:"rgba(247,201,72,0.9)", marginTop:2}}>+{slot.surcharge}₴</span>}
+                    {isVip && <span style={{position:"absolute", top:3, right:4, fontSize:10, lineHeight:1}}>👑</span>}
                   </div>
                 );
               })}
@@ -1129,13 +1128,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
 
               {/* Bookings — consecutive same-student adjacent bookings merged into one card */}
               {(()=>{
-                const vipFromSlots =Object.entries(openSlots[dateStrCol] || {})
-                  .filter(([,s]) => s.vipOnly)
-                  .map(([time, s]) => {
-                    const [hh, mm] = time.split(":").map(Number);
-                    return { id:`vip-${dateStrCol}-${time.replace(":","")}`, day: absDay, startMin: hh*60+mm, durMin:60, name:"VIP Слот", phone:"", type:"vip-slot", tsc:"", hoursDone:0, status:"vip-open", serviceId:"", categoryId:"cat-vip", date: dateStrCol };
-                  });
-                const sorted = [...bookings, ...vipFromSlots].filter(b=>b.day===absDay).sort((a,b)=>a.startMin-b.startMin);
+                const sorted = bookings.filter(b=>b.day===absDay).sort((a,b)=>a.startMin-b.startMin);
                 const merged = [];
                 let i = 0;
                 while (i < sorted.length) {
