@@ -1773,6 +1773,18 @@ function BookingModal({ booking, onClose, onAction, settings }) {
                   <div style={{fontSize:12, fontWeight:700, color:TEXT, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap"}}>{e.name || "—"}</div>
                   {e.phone && <div style={{fontSize:10, color:DIM}}>{e.phone}</div>}
                 </div>
+                {e.uid && (() => {
+                  const dateStr = booking.date || absDayToDateStr(booking.day);
+                  const hh = String(Math.floor(booking.startMin/60)).padStart(2,'0');
+                  const mm = String(booking.startMin%60).padStart(2,'0');
+                  const slotKey = `${dateStr}_${hh}:${mm}`;
+                  return (
+                    <button onClick={() => remove(ref(db, `queue/${slotKey}/entries/${e.uid}`)).catch(()=>{})}
+                      style={{width:22, height:22, borderRadius:7, border:"none", cursor:"pointer", flexShrink:0,
+                        background:"rgba(239,68,68,0.15)", color:"rgba(248,113,113,0.9)", fontSize:11, fontWeight:800,
+                        display:"flex", alignItems:"center", justifyContent:"center"}}>✕</button>
+                  );
+                })()}
               </div>
             ))}
           </div>
