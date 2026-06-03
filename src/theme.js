@@ -13,15 +13,15 @@ export const DARK = {
 };
 
 export const LIGHT = {
-  BG: "#f0e4d4", BG_DEEP: "#e6d8c6",
-  SURFACE: "#f8f0e8", SURF_HI: "#fdf6f0", SURF_LO: "#e8d4bc",
-  BORDER: "rgba(120,80,40,0.12)",
-  TEXT: "#2a1a0e", DIM: "#7a5840", FAINT: "#b09070",
-  ACCENT: "#c94428", ACC_HI: "#e05838",
-  GREEN: "#3a8c1e", BLUE: "#2060b8", PURPLE: "#7a3ab8",
-  GOLD: "#9a7010", RED: "#c02020", TEAL: "#1a8878",
-  SO: "0 2px 10px rgba(120,80,40,0.2)",
-  SI: "inset 2px 2px 6px rgba(120,80,40,0.12),inset -1px -1px 3px rgba(255,255,255,0.55)",
+  BG: "#f0e6d6", BG_DEEP: "#e6d4be",
+  SURFACE: "#faf3ea", SURF_HI: "#fff8f2", SURF_LO: "#e2cdb0",
+  BORDER: "rgba(140,88,36,0.14)",
+  TEXT: "#28180a", DIM: "#7a5430", FAINT: "#c0986a",
+  ACCENT: "#c04020", ACC_HI: "#e05030",
+  GREEN: "#3a8c1e", BLUE: "#1a5cb0", PURPLE: "#7a3ab8",
+  GOLD: "#9a6c10", RED: "#b82020", TEAL: "#1a8070",
+  SO: "0 2px 12px rgba(140,88,36,0.18)",
+  SI: "inset 2px 2px 6px rgba(140,88,36,0.16),inset -1px -1px 3px rgba(255,248,240,0.8)",
 };
 
 export const ThemeContext = createContext(DARK);

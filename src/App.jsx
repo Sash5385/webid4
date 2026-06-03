@@ -27,9 +27,9 @@ const makeCSS = (theme) => `
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 body,html{margin:0;padding:0;background:${theme.BG}}
 ::-webkit-scrollbar{width:5px;height:5px}
-::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.1);border-radius:3px}
+::-webkit-scrollbar-thumb{background:${theme.FAINT}55;border-radius:3px}
 @keyframes spin{to{transform:rotate(360deg)}}
-.spinner{width:32px;height:32px;border:3px solid rgba(255,255,255,0.06);border-top-color:${theme.ACCENT};border-radius:50%;animation:spin .8s linear infinite}
+.spinner{width:32px;height:32px;border:3px solid ${theme.BORDER};border-top-color:${theme.ACCENT};border-radius:50%;animation:spin .8s linear infinite}
 @keyframes fade-tab{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
 .tab-anim{animation:fade-tab .22s ease both}
 `;
@@ -235,6 +235,7 @@ function ScheduleInfo() {
 
 // ─── BOTTOM NAV ──────────────────────────────────────────────────
 function BottomNav({ active, onChange, settings }) {
+  const { SURFACE, SURF_LO, BORDER, ACCENT, FAINT, SO } = useContext(ThemeContext);
   const lang = useContext(LangContext);
   const tl = createT(lang);
   const visible = TAB_IDS.filter(t => settings?.navTabs?.includes(t.id) ?? true);
@@ -249,9 +250,9 @@ function BottomNav({ active, onChange, settings }) {
       <div style={{
         background:`linear-gradient(180deg,${SURFACE},${SURF_LO})`,
         borderRadius:26,
-        border:`1px solid rgba(255,255,255,0.08)`,
-        boxShadow:"0 12px 40px rgba(0,0,0,0.65), 0 4px 16px rgba(0,0,0,0.4), 0 -1px 0 rgba(255,255,255,0.05)",
-        display:"flex", overflow:"hidden",
+        border:`1px solid ${BORDER}`,
+        boxShadow:SO,
+        display:"flex",overflow:"hidden",
         pointerEvents:"auto",
       }}>
         {visible.map(t=>(
@@ -354,13 +355,13 @@ const INSTRUCTIONS = {
 
 // ─── TOP BAR ─────────────────────────────────────────────────────
 function TopBar({ tab, onChange }) {
+  const { BG, BORDER, TEXT, DIM, GOLD } = useContext(ThemeContext);
   const lang = useContext(LangContext);
   const tl = createT(lang);
   const tabLabel = tl(TAB_IDS.find(x=>x.id===tab)?.lk || tab);
   const [showInfo, setShowInfo] = useState(false);
   const instruction = INSTRUCTIONS[tab];
 
-  // reset when tab changes
   useEffect(() => { setShowInfo(false); }, [tab]);
 
   return (
@@ -368,7 +369,7 @@ function TopBar({ tab, onChange }) {
       <div style={{
         padding:"6px 12px",
         display:"flex",alignItems:"center",justifyContent:"space-between",
-        background:`linear-gradient(180deg,${BG} 60%,rgba(28,29,33,0.9))`,
+        background:BG,
         backdropFilter:"blur(20px)",
         borderBottom:`1px solid ${showInfo ? "transparent" : BORDER}`,
       }}>
@@ -402,7 +403,7 @@ function TopBar({ tab, onChange }) {
       {showInfo && instruction && (
         <div style={{
           padding:"8px 14px 10px",
-          background:`linear-gradient(180deg,${BG},rgba(28,29,33,0.95))`,
+          background:BG,
           backdropFilter:"blur(20px)",
           borderBottom:`1px solid ${BORDER}`,
           fontSize:12,color:DIM,lineHeight:1.55,
