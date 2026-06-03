@@ -1021,7 +1021,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                   emptyHoldPosRef.current = { startY: e.clientY, day: absDay, startMin: minute, freeSnap: true };
                   emptyHoldTimerRef.current = setTimeout(() => {
                     if (!emptyHoldPosRef.current) return;
-                    setFormData({ day: absDay, startMin: minute, freeSnap: true });
+                    setBubbleData({ day: absDay, startMin: minute, clientX: e.clientX, clientY: e.clientY, freeSnap: true });
                     emptyHoldPosRef.current = null;
                   }, 480);
                 }}
@@ -1404,35 +1404,26 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
       <div onClick={()=>setBubbleData(null)} style={{position:"fixed",inset:"0 0 80px 0",zIndex:100}}>
         <div onClick={e=>e.stopPropagation()} style={{
           position:"absolute",
-          top: Math.max(60, Math.min(bubbleData.clientY - 80, window.innerHeight - 220)),
-          left: Math.max(10, Math.min(bubbleData.clientX - 10, window.innerWidth - 210)),
-          width:196,
+          top: Math.max(60, Math.min(bubbleData.clientY - 50, window.innerHeight - 130)),
+          left: Math.max(10, Math.min(bubbleData.clientX - 10, window.innerWidth - 180)),
+          width:168,
           background:`linear-gradient(135deg,${SURFACE},${BG_DEEP})`,
-          borderRadius:16, padding:"14px",
+          borderRadius:14, padding:"10px 12px",
           boxShadow:"0 8px 32px rgba(0,0,0,0.65),inset 1px 1px 0 rgba(255,255,255,0.08)",
           border:`1px solid ${BORDER}`
         }}>
-          <div style={{fontSize:11,fontWeight:700,color:TEXT_DIM,marginBottom:10}}>
-            {getDayInfo(bubbleData.day).label} {getDayInfo(bubbleData.day).num} · {fmtTime(bubbleData.startMin)}
+          <div style={{fontSize:18,fontWeight:900,color:TEXT,marginBottom:8,letterSpacing:0.5}}>
+            {fmtTime(bubbleData.startMin)}
+            <span style={{fontSize:10,fontWeight:600,color:TEXT_DIM,marginLeft:6}}>
+              {getDayInfo(bubbleData.day).label} {getDayInfo(bubbleData.day).num}
+            </span>
           </div>
           <button onClick={()=>{setFormData(bubbleData);setBubbleData(null);}} style={{
-            width:"100%",padding:"10px 12px",borderRadius:10,border:"none",cursor:"pointer",marginBottom:6,
+            width:"100%",padding:"9px 12px",borderRadius:10,border:"none",cursor:"pointer",
             background:`linear-gradient(165deg,${ACCENT_HI},${ACCENT})`,
             color:"#fff",fontSize:12,fontWeight:800,
             boxShadow:`0 4px 12px ${ACCENT}44`
           }}>+ Записати учня</button>
-          <button onClick={()=>{handleVipSlot(bubbleData);setBubbleData(null);}} style={{
-            width:"100%",padding:"10px 12px",borderRadius:10,border:"none",cursor:"pointer",marginBottom:6,
-            background:"linear-gradient(165deg,#a855f7,#7c3aed)",
-            color:"#fff",fontSize:12,fontWeight:800,
-            boxShadow:"0 4px 12px rgba(168,85,247,0.45)"
-          }}>👑 VIP слот</button>
-          <button onClick={()=>{handleBlock(bubbleData);setBubbleData(null);}} style={{
-            width:"100%",padding:"10px 12px",borderRadius:10,border:"none",cursor:"pointer",
-            background:`linear-gradient(135deg,${SURFACE_HI},${SURFACE})`,
-            color:TEXT_DIM,fontSize:12,fontWeight:700,
-            boxShadow:SHADOW_OUT
-          }}>Заблокувати</button>
         </div>
       </div>
     )}
