@@ -926,6 +926,20 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   const [vipSlotModal, setVipSlotModal] = useState(null);
   const [slotOptions, setSlotOptions] = useState(null); // { dateStr, time, slot }
 
+  const isStickySlot = (dateStr, time) => {
+    if (!settings.stickyTimeEnabled) return true;
+    const [h, m] = time.split(":").map(Number);
+    const slotMin = h * 60 + m;
+    const today = new Date(); today.setHours(0,0,0,0);
+    const absDay = Math.round((new Date(dateStr + "T12:00:00") - today) / 86400000);
+    const dayBkgs = bookings.filter(b => b.day === absDay && b.type !== "block" && b.type !== "vip-slot");
+    const adjBefore = dayBkgs.some(b => b.startMin === slotMin + 60);
+    const adjAfter  = dayBkgs.some(b => b.startMin + b.durMin === slotMin);
+    if (settings.stickyTime === "before") return adjBefore;
+    if (settings.stickyTime === "after")  return adjAfter;
+    return adjBefore || adjAfter;
+  };
+
   return (
     <>
     <style>{GLOBAL_CSS}</style>
@@ -1062,9 +1076,10 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                 const isVip = slot.vipOnly;
                 const isBlocked = slot.adminBlocked;
                 const hasSurcharge = !!slot.surcharge;
-                const bg = isVip ? "rgba(168,85,247,0.15)" : isBlocked ? "rgba(239,68,68,0.15)" : hasSurcharge ? "rgba(247,201,72,0.15)" : "rgba(99,211,120,0.15)";
-                const borderColor = isVip ? "rgba(168,85,247,0.55)" : isBlocked ? "rgba(239,68,68,0.5)" : hasSurcharge ? "rgba(247,201,72,0.6)" : "rgba(99,211,120,0.45)";
-                const color = isVip ? "rgba(168,85,247,0.9)" : isBlocked ? "rgba(239,68,68,0.85)" : hasSurcharge ? "rgba(247,201,72,0.95)" : "rgba(99,211,120,0.9)";
+                const isSticky = (isVip || isBlocked || hasSurcharge) ? true : isStickySlot(dateStrCol, time);
+                const bg = isVip ? "rgba(168,85,247,0.15)" : isBlocked ? "rgba(239,68,68,0.15)" : hasSurcharge ? "rgba(247,201,72,0.15)" : isSticky ? "rgba(99,211,120,0.15)" : "rgba(255,255,255,0.05)";
+                const borderColor = isVip ? "rgba(168,85,247,0.55)" : isBlocked ? "rgba(239,68,68,0.5)" : hasSurcharge ? "rgba(247,201,72,0.6)" : isSticky ? "rgba(99,211,120,0.45)" : "rgba(255,255,255,0.12)";
+                const color = isVip ? "rgba(168,85,247,0.9)" : isBlocked ? "rgba(239,68,68,0.85)" : hasSurcharge ? "rgba(247,201,72,0.95)" : isSticky ? "rgba(99,211,120,0.9)" : "rgba(255,255,255,0.35)";
                 return (
                   <div key={`os-${time}`}
                     onPointerDown={e=>{
@@ -1087,17 +1102,18 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                       position:"absolute", left:0, right:0,
                       top: minToPx(startMin) + 1,
                       height: 60 * PX_PER_MIN - 2,
-                      opacity: 0.5,
+                      opacity: isSticky ? 0.5 : 0.22,
                       background: bg,
                       border: `1.5px solid ${borderColor}`,
                       borderRadius:8, cursor:"pointer", zIndex:1,
                       display:"flex", flexDirection:"column",
                       alignItems:"flex-start", justifyContent:"center",
-                      padding:"0 7px", position:"absolute",
+                      padding:"0 7px",
                     }}>
                     {hasSurcharge && <span style={{position:"absolute", top:3, left:4, fontSize:9, fontWeight:800, color:"rgba(247,201,72,0.95)", lineHeight:1}}>+{slot.surcharge}₴</span>}
                     {isVip && <span style={{position:"absolute", top:3, right:4, fontSize:10, lineHeight:1}}>👑</span>}
                     {isBlocked && <span style={{position:"absolute", top:3, left:4, fontSize:8, fontWeight:600, color:"rgba(239,68,68,0.65)", lineHeight:1}}>закрито</span>}
+                    {!isSticky && !isBlocked && !isVip && !hasSurcharge && <span style={{position:"absolute", top:3, right:4, fontSize:9, lineHeight:1, opacity:0.5}}>◦</span>}
                     <span style={{fontSize:10, fontWeight:800, lineHeight:1, color}}>{time}</span>
                     {isBlocked && (() => { const qc = queueMap[`${dateStrCol}_${time}`]; return qc > 0 ? (
                       <div style={{position:"absolute", bottom:2, right:4, display:"flex", alignItems:"center", gap:1}}>
