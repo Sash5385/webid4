@@ -1075,10 +1075,10 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                       alignItems:"flex-start", justifyContent:"center",
                       padding:"0 7px", position:"absolute",
                     }}>
-                    <span style={{fontSize:10, fontWeight:800, lineHeight:1, color}}>{time}</span>
-                    {isBlocked    && <span style={{fontSize:8, fontWeight:600, color:"rgba(239,68,68,0.65)",  marginTop:2}}>закрито</span>}
-                    {hasSurcharge && <span style={{fontSize:8, fontWeight:700, color:"rgba(247,201,72,0.9)", marginTop:2}}>+{slot.surcharge}₴</span>}
+                    {hasSurcharge && <span style={{position:"absolute", top:3, left:4, fontSize:9, fontWeight:800, color:"rgba(247,201,72,0.95)", lineHeight:1}}>+{slot.surcharge}₴</span>}
                     {isVip && <span style={{position:"absolute", top:3, right:4, fontSize:10, lineHeight:1}}>👑</span>}
+                    <span style={{fontSize:10, fontWeight:800, lineHeight:1, color, marginTop: hasSurcharge ? 12 : 0}}>{time}</span>
+                    {isBlocked && <span style={{fontSize:8, fontWeight:600, color:"rgba(239,68,68,0.65)", marginTop:2}}>закрито</span>}
                   </div>
                 );
               })}
