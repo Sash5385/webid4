@@ -582,10 +582,19 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   // Довгий тап: VIP, надбавка або скидання
   const applySlotOption = (dateStr, time, option) => {
     const slotId = `slot${time.replace(":", "")}`;
+    const [hh, mm] = time.split(":").map(Number);
+    const startMin = hh * 60 + mm;
+    const today = new Date(); today.setHours(0,0,0,0);
+    const day = Math.round((new Date(dateStr + "T12:00:00") - today) / 86400000);
     if (option === "vip") {
       update(ref(db, `timeslots/${dateStr}/${slotId}`), { available: true, adminBlocked: false, vipOnly: true, surcharge: null }).catch(() => {});
+      setBookings(bs => {
+        const filtered = bs.filter(b => !(b.type === "vip-slot" && b.date === dateStr && b.startMin === startMin));
+        return [...filtered, { id:`vip-${Date.now()}`, day, startMin, durMin:60, name:"VIP Слот", phone:"", type:"vip-slot", tsc:"", hoursDone:0, status:"vip-open", serviceId:"", categoryId:"cat-vip", date: dateStr }];
+      });
     } else if (option === "reset") {
       update(ref(db, `timeslots/${dateStr}/${slotId}`), { available: true, adminBlocked: false, vipOnly: false, surcharge: null }).catch(() => {});
+      setBookings(bs => bs.filter(b => !(b.type === "vip-slot" && b.date === dateStr && b.startMin === startMin)));
     } else {
       update(ref(db, `timeslots/${dateStr}/${slotId}`), { available: true, adminBlocked: false, vipOnly: false, surcharge: option }).catch(() => {});
     }
