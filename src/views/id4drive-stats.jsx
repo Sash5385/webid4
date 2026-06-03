@@ -17,34 +17,24 @@ const CSS = `
 
 // ─── DATA ────────────────────────────────────────────────────────
 const DATA_WEEK = [
-  {label:"Пн",income:4200,lessons:6,school:4,private:2,noshow:0,cancel:0},
-  {label:"Вт",income:3800,lessons:5,school:3,private:2,noshow:1,cancel:0},
-  {label:"Ср",income:5100,lessons:7,school:4,private:3,noshow:0,cancel:1},
-  {label:"Чт",income:4600,lessons:6,school:3,private:3,noshow:0,cancel:0},
-  {label:"Пт",income:5300,lessons:8,school:5,private:3,noshow:0,cancel:0},
-  {label:"Сб",income:3200,lessons:5,school:3,private:2,noshow:1,cancel:1},
+  {label:"Пн",income:0,lessons:0,school:0,private:0,noshow:0,cancel:0},
+  {label:"Вт",income:0,lessons:0,school:0,private:0,noshow:0,cancel:0},
+  {label:"Ср",income:0,lessons:0,school:0,private:0,noshow:0,cancel:0},
+  {label:"Чт",income:0,lessons:0,school:0,private:0,noshow:0,cancel:0},
+  {label:"Пт",income:0,lessons:0,school:0,private:0,noshow:0,cancel:0},
+  {label:"Сб",income:0,lessons:0,school:0,private:0,noshow:0,cancel:0},
 ];
 const DATA_MONTH = [
-  {label:"Лют",income:18400,lessons:28,school:16,private:12,noshow:1,cancel:2,newStudents:1},
-  {label:"Бер",income:21200,lessons:32,school:18,private:14,noshow:2,cancel:1,newStudents:2},
-  {label:"Кві",income:19800,lessons:30,school:17,private:13,noshow:0,cancel:3,newStudents:0},
-  {label:"Тра",income:24600,lessons:36,school:20,private:16,noshow:1,cancel:1,newStudents:3},
-  {label:"Чер",income:22100,lessons:33,school:19,private:14,noshow:2,cancel:2,newStudents:1},
+  {label:"Лют",income:0,lessons:0,school:0,private:0,noshow:0,cancel:0,newStudents:0},
+  {label:"Бер",income:0,lessons:0,school:0,private:0,noshow:0,cancel:0,newStudents:0},
+  {label:"Кві",income:0,lessons:0,school:0,private:0,noshow:0,cancel:0,newStudents:0},
+  {label:"Тра",income:0,lessons:0,school:0,private:0,noshow:0,cancel:0,newStudents:0},
+  {label:"Чер",income:0,lessons:0,school:0,private:0,noshow:0,cancel:0,newStudents:0},
 ];
-const DATA_YEAR = ["Лют","Бер","Кві","Тра","Чер","Лип","Сер","Вер","Жов","Лис","Гру","Січ"].map((l,i)=>({
-  label:l,
-  income:Math.round(15000+Math.sin(i*.8)*5000+i*800),
-  lessons:22+Math.round(Math.sin(i*.6)*8+i*.5),
-  school:12+i,private:10+i,
-  noshow:i%3===0?1:0,cancel:i%4===0?1:0,
+const DATA_YEAR = ["Лют","Бер","Кві","Тра","Чер","Лип","Сер","Вер","Жов","Лис","Гру","Січ"].map(l=>({
+  label:l, income:0, lessons:0, school:0, private:0, noshow:0, cancel:0,
 }));
-const TOP_STUDENTS = [
-  {name:"Тетяна Кравець",hours:40,paid:24000,type:"school", hue:160},
-  {name:"Олена Мороз",   hours:38,paid:22800,type:"school", hue:30},
-  {name:"Андрій Чорний", hours:30,paid:18000,type:"school", hue:220},
-  {name:"Марія Коваль",  hours:12,paid:7200, type:"school", hue:340},
-  {name:"Дмитро Сало",   hours:9, paid:6300, type:"private",hue:280},
-];
+const TOP_STUDENTS = [];
 
 // ─── HELPERS ────────────────────────────────────────────────────
 const fmtK = n => n>=1000?`${(n/1000).toFixed(1)}к ₴`:`${n} ₴`;
