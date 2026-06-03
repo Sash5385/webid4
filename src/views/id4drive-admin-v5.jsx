@@ -1560,9 +1560,14 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
 // CREATE SLOT SHEET — вільний слот з вибором часу і тривалості
 // ═══════════════════════════════════════════════════════════════
 function CreateSlotSheet({ data, settings, onClose }) {
-  const timeItems = [];
-  for (let m = settings.workStart * 60; m < settings.workEnd * 60; m += 5)
-    timeItems.push({ label: fmtTime(m), value: m });
+  const slotStep = settings.slotCreateStep || 30;
+  const timeItems = useMemo(() => {
+    const arr = [];
+    for (let m = settings.workStart * 60; m < settings.workEnd * 60; m += slotStep)
+      arr.push({ label: fmtTime(m), value: m });
+    return arr;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settings.workStart, settings.workEnd, slotStep]);
 
   const durItems = [
     { label:"30 хв", value:30 },
@@ -1574,23 +1579,20 @@ function CreateSlotSheet({ data, settings, onClose }) {
   ];
 
   const initTimeIdx = Math.max(0, timeItems.findIndex(t => t.value >= (data.startMin || 0)));
-  const [timeIdx, setTimeIdx] = useState(initTimeIdx < 0 ? 0 : initTimeIdx);
-  const [durIdx,  setDurIdx]  = useState(1); // default 1 год
+  const [timeIdx, setTimeIdx] = useState(initTimeIdx);
+  const [durIdx,  setDurIdx]  = useState(1);
   const [saving,  setSaving]  = useState(false);
 
   const day = getDayInfo(data.day);
 
   const handleCreate = async () => {
     setSaving(true);
-    const startMin = timeItems[timeIdx].value;
+    const startMin = timeItems[timeIdx]?.value ?? data.startMin;
     const dur = durItems[durIdx].value;
-    const dateStr = (() => {
-      const d = new Date(); d.setHours(0,0,0,0);
-      d.setDate(d.getDate() + data.day);
-      return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-    })();
+    const d = new Date(); d.setHours(0,0,0,0); d.setDate(d.getDate() + data.day);
+    const dateStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
     const updates = {};
-    for (let m = startMin; m < startMin + dur; m += 30) {
+    for (let m = startMin; m < startMin + dur; m += slotStep) {
       const h = String(Math.floor(m / 60)).padStart(2, '0');
       const mn = String(m % 60).padStart(2, '0');
       const id = `slot${h}${mn}`;
@@ -1617,15 +1619,15 @@ function CreateSlotSheet({ data, settings, onClose }) {
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:16}}>
           <div>
             <div style={{fontSize:10,fontWeight:700,color:TEXT_DIM,letterSpacing:1,marginBottom:6,textAlign:"center"}}>ПОЧАТОК</div>
-            <ScrollDrum items={timeItems} index={timeIdx} onChange={setTimeIdx} height={130}/>
+            <DrumRoll items={timeItems} currentIdx={timeIdx} onChange={setTimeIdx} itemH={40} visible={3}/>
           </div>
           <div>
             <div style={{fontSize:10,fontWeight:700,color:TEXT_DIM,letterSpacing:1,marginBottom:6,textAlign:"center"}}>ТРИВАЛІСТЬ</div>
-            <ScrollDrum items={durItems} index={durIdx} onChange={setDurIdx} height={130}/>
+            <DrumRoll items={durItems} currentIdx={durIdx} onChange={setDurIdx} itemH={40} visible={3}/>
           </div>
         </div>
         <div style={{textAlign:"center",fontSize:12,color:TEXT_DIM,marginBottom:14}}>
-          {fmtTime(timeItems[timeIdx].value)} — {fmtTime(timeItems[timeIdx].value + durItems[durIdx].value)}
+          {fmtTime(timeItems[timeIdx]?.value ?? 0)} — {fmtTime((timeItems[timeIdx]?.value ?? 0) + durItems[durIdx].value)}
         </div>
         <button onClick={handleCreate} disabled={saving} style={{
           width:"100%",padding:14,borderRadius:14,border:"none",cursor:"pointer",

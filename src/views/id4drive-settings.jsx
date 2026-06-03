@@ -468,6 +468,17 @@ export default function SettingsView({ settings, setSettings }) {
               ))}
             </div>
           </div>
+          <div style={{paddingTop:12,borderTop:`1px solid rgba(255,255,255,0.06)`,marginTop:12}}>
+            <div style={{display:"flex",justifyContent:"space-between",marginBottom:8}}>
+              <span style={{fontSize:12,color:DIM}}>Крок слота (довгий тап)</span>
+              <span style={{fontSize:13,fontWeight:800,color:TEAL}}>{settings.slotCreateStep ?? 30} хв</span>
+            </div>
+            <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+              {[5,10,15,30,60].map(v=>(
+                <Chip key={v} label={`${v} хв`} active={(settings.slotCreateStep??30)===v} onClick={()=>upd("slotCreateStep",v)}/>
+              ))}
+            </div>
+          </div>
         </Section>
 
         {/* ── ПОСЛУГИ ── */}
