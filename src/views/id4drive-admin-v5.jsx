@@ -545,8 +545,8 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
     const ov = (settings.dateOverrides || []).find(o => o.date === dateStr);
     if (ov?.type === "closed") return;
     const ws = (settings.weekSchedule || [])[dow] || {};
-    const start        = ov?.start        ?? ws.start        ?? settings.workStart  ?? 9;
-    const end          = ov?.end          ?? ws.end          ?? settings.workEnd    ?? 18;
+    const start        = Math.min(ov?.start ?? ws.start ?? settings.workStart ?? 9, settings.workStart ?? 9);
+    const end          = Math.max(ov?.end  ?? ws.end  ?? settings.workEnd   ?? 18, settings.workEnd   ?? 18);
     const lunchEnabled = ov?.lunchEnabled ?? ws.lunchEnabled ?? settings.lunchEnabled ?? true;
     const lunchStart   = ov?.lunchStart   ?? ws.lunchStart   ?? settings.lunchStart  ?? 12;
     const lunchEnd     = ov?.lunchEnd     ?? ws.lunchEnd     ?? settings.lunchEnd    ?? 13;

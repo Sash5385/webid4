@@ -307,10 +307,18 @@ export default function SettingsView({ settings, setSettings }) {
         <Section title={t('set.schedule.title')} icon="🕐">
           <Info color={BLUE} title={t('set.schedule.info_t')} text={t('set.schedule.info')}/>
           <Row label={t('set.schedule.start')} hint={t('set.schedule.hint_s')}>
-            <NumInput value={settings.workStart} onChange={v=>upd("workStart",v)} min={0} max={23} suffix=":00"/>
+            <NumInput value={settings.workStart} onChange={v=>{
+              const updated = weekSchedule.map(d => ({...d, start: d.start === settings.workStart ? v : d.start}));
+              upd("workStart", v);
+              upd("weekSchedule", updated);
+            }} min={0} max={23} suffix=":00"/>
           </Row>
           <Row label={t('set.schedule.end')} hint={t('set.schedule.hint_e')}>
-            <NumInput value={settings.workEnd} onChange={v=>upd("workEnd",v)} min={1} max={24} suffix=":00"/>
+            <NumInput value={settings.workEnd} onChange={v=>{
+              const updated = weekSchedule.map(d => ({...d, end: d.end === settings.workEnd ? v : d.end}));
+              upd("workEnd", v);
+              upd("weekSchedule", updated);
+            }} min={1} max={24} suffix=":00"/>
           </Row>
           <Row label={t('set.schedule.days')}>
             <NumInput value={settings.daysShown} onChange={v=>upd("daysShown",v)} min={1} max={30} suffix={` ${t('days')}`}/>
