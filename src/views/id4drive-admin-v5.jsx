@@ -1774,7 +1774,11 @@ function BookingModal({ booking, onClose, onAction, settings }) {
                   {e.phone && <div style={{fontSize:10, color:DIM}}>{e.phone}</div>}
                 </div>
                 {e.uid && (() => {
-                  const dateStr = booking.date || absDayToDateStr(booking.day);
+                  const dateStr = booking.date || (() => {
+                    const d = new Date(); d.setHours(0,0,0,0);
+                    d.setDate(d.getDate() + (booking.day || 0));
+                    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+                  })();
                   const hh = String(Math.floor(booking.startMin/60)).padStart(2,'0');
                   const mm = String(booking.startMin%60).padStart(2,'0');
                   const slotKey = `${dateStr}_${hh}:${mm}`;
