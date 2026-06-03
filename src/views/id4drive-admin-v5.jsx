@@ -550,7 +550,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
     const lunchEnabled = ov?.lunchEnabled ?? ws.lunchEnabled ?? settings.lunchEnabled ?? true;
     const lunchStart   = ov?.lunchStart   ?? ws.lunchStart   ?? settings.lunchStart  ?? 12;
     const lunchEnd     = ov?.lunchEnd     ?? ws.lunchEnd     ?? settings.lunchEnd    ?? 13;
-    const step = settings.slotCreateStep || settings.snapMin || 30;
+    const step = settings.slotCreateStep || settings.snapMin || 60;
     setGenLoadingDays(s => new Set([...s, absDay]));
     const snap = await get(ref(db, `timeslots/${dateStr}`));
     const existing = snap.val() || {};
@@ -1071,7 +1071,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                     style={{
                       position:"absolute", left:0, right:0,
                       top: minToPx(startMin) + 1,
-                      height: (settings.slotCreateStep || settings.snapMin || 30) * PX_PER_MIN - 2,
+                      height: (settings.slotCreateStep || settings.snapMin || 60) * PX_PER_MIN - 2,
                       opacity: 0.5,
                       background: bg,
                       border: `1.5px solid ${borderColor}`,
