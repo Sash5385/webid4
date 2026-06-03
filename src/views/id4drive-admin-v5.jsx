@@ -1171,6 +1171,8 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                     position:"absolute", top:top+1, left:0, right:0,
                     height:height-2, overflow:"visible",
                     zIndex: dragId===b.id?10:2,
+                    background: BG_DEEP,
+                    borderRadius: 8,
                   }}>
                     {/* Сам слот */}
                     <div
