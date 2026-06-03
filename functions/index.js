@@ -80,6 +80,9 @@ exports.onQueueInvite = onValueUpdated(
     const until = Date.now() + OFFER_WINDOW_MS;
     await db.ref(`timeslots/${date}/${slotId}/offeredTo/${uid}`).set({ until }).catch(() => {});
 
+    // In-app сповіщення: клієнт підписаний на цей шлях
+    await db.ref(`users/${uid}/queueOffers/${slotKey}`).set({ date, time, until, slotKey }).catch(() => {});
+
     await pushStudent(uid,
       "🎉 Слот зарезервовано для вас!",
       `${date} о ${time} — у вас 30 хвилин щоб записатись`
