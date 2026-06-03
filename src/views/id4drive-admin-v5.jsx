@@ -1570,12 +1570,10 @@ function CreateSlotSheet({ data, settings, onClose }) {
   }, [settings.workStart, settings.workEnd, slotStep]);
 
   const durItems = [
-    { label:"30 хв", value:30 },
-    { label:"1 год", value:60 },
-    { label:"1.5 год", value:90 },
-    { label:"2 год", value:120 },
-    { label:"2.5 год", value:150 },
-    { label:"3 год", value:180 },
+    { label:"1 год",  value:60  },
+    { label:"2 год",  value:120 },
+    { label:"3 год",  value:180 },
+    { label:"4 год",  value:240 },
   ];
 
   const initTimeIdx = Math.max(0, timeItems.findIndex(t => t.value >= (data.startMin || 0)));
@@ -1592,7 +1590,7 @@ function CreateSlotSheet({ data, settings, onClose }) {
     const d = new Date(); d.setHours(0,0,0,0); d.setDate(d.getDate() + data.day);
     const dateStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
     const updates = {};
-    for (let m = startMin; m < startMin + dur; m += slotStep) {
+    for (let m = startMin; m < startMin + dur; m += 60) {
       const h = String(Math.floor(m / 60)).padStart(2, '0');
       const mn = String(m % 60).padStart(2, '0');
       const id = `slot${h}${mn}`;
