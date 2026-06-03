@@ -1210,8 +1210,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                         background:"linear-gradient(155deg,rgba(168,85,247,0.35) 0%,rgba(124,58,237,0.15) 100%)",
                         border:"1px solid rgba(168,85,247,0.55)",
                         boxShadow:"-2px 5px 14px rgba(0,0,0,0.5),0 0 12px rgba(168,85,247,0.25),inset 1px 1px 0 rgba(255,255,255,0.12)",
-                        display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
-                        gap:2, overflow:"hidden",
+                        overflow:"hidden",
                       } : isBlock ? {
                         position:"relative", width:"100%", height:"100%",
                         borderRadius:8,
@@ -1231,12 +1230,6 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                       }}>
                       <div className="slot-handle top" onPointerDown={e=>onPointerDown(e,b,"top")}/>
                       {!isBlock && !isVipSlot && <div className="shine-layer"/>}
-                      {isVipSlot && height >= 18 && (
-                        <>
-                          <span style={{fontSize:Math.min(18,height*0.38),lineHeight:1,filter:"drop-shadow(0 1px 3px rgba(0,0,0,0.6))",position:"relative",zIndex:3}}>👑</span>
-                          {height >= 36 && <span style={{fontSize:Math.max(6,Math.min(9,height*0.12)),fontWeight:800,color:"rgba(220,180,255,0.9)",letterSpacing:0.3,position:"relative",zIndex:3}}>VIP</span>}
-                        </>
-                      )}
                       {isBlock && height >= 18 && (() => {
                         const sz = Math.min(height * 0.62, 36);
                         return (
