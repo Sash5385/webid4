@@ -646,7 +646,14 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   const HEADER_H = 50;
   const N_DAYS = PAST_DAYS + 28; // 7 минулих + 28 майбутніх
   const COL_W = Math.max(48, Math.floor((windowW - 14 - TIME_COL_W - (settings.daysShown - 1) * 4) / Math.max(1, settings.daysShown)));
-  const totalMin = Math.max(60, (settings.workEnd - settings.workStart) * 60);
+  const allDaySchedules = (settings.weekSchedule || []).filter(d => d.start != null);
+  const effectiveWorkStart = allDaySchedules.length
+    ? Math.min(settings.workStart, ...allDaySchedules.map(d => d.start))
+    : settings.workStart;
+  const effectiveWorkEnd = allDaySchedules.length
+    ? Math.max(settings.workEnd, ...allDaySchedules.map(d => d.end ?? settings.workEnd))
+    : settings.workEnd;
+  const totalMin = Math.max(60, (effectiveWorkEnd - effectiveWorkStart) * 60);
   // Авто-підлаштування: вся висота розкладу = доступна висота viewport
   // hourHeightPx / 60 використовується як zoom-множник (pinch)
   const availGridH = Math.max(120, windowH - 156 - HEADER_H - 4);
@@ -656,9 +663,9 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   const days = Array.from({length: N_DAYS}, (_, i) => getDayInfo(dayOffset + i));
 
   // Keep calc values fresh for always-on window listeners (avoids stale closure)
-  calcRef.current = { PX_PER_MIN, snapMin: settings.snapMin, workStart: settings.workStart, workEnd: settings.workEnd, COL_W, dayOffset, daysShown: settings.daysShown, N_DAYS };
+  calcRef.current = { PX_PER_MIN, snapMin: settings.snapMin, workStart: effectiveWorkStart, workEnd: effectiveWorkEnd, COL_W, dayOffset, daysShown: settings.daysShown, N_DAYS };
 
-  const minToPx = (m) => (m - settings.workStart*60) * PX_PER_MIN;
+  const minToPx = (m) => (m - effectiveWorkStart*60) * PX_PER_MIN;
 
   const onPointerDown = (e, b, mode) => {
     e.preventDefault(); e.stopPropagation();
@@ -935,11 +942,11 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
           <div style={{height:HEADER_H + 4, flexShrink:0}}/>
           <div style={{overflow:"hidden", flex:1, position:"relative"}}>
             <div ref={timeColRef} style={{position:"absolute", top:0, left:0, right:0, height:gridHeight}}>
-              {Array.from({length:(settings.workEnd-settings.workStart)*2+1},(_,i)=>{
+              {Array.from({length:(effectiveWorkEnd-effectiveWorkStart)*2+1},(_,i)=>{
                 const totalMins = i*30;
-                const h = settings.workStart + Math.floor(totalMins/60);
+                const h = effectiveWorkStart + Math.floor(totalMins/60);
                 const m = totalMins % 60;
-                if (h > settings.workEnd) return null;
+                if (h > effectiveWorkEnd) return null;
                 return m === 0 ? (
                   <div key={i} style={{
                     position:"absolute", top:Math.max(2, totalMins*PX_PER_MIN - 5),
