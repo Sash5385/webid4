@@ -490,6 +490,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   const slotHoldFiredRef = useRef(false);
   const [openSlots, setOpenSlots] = useState({}); // { "2025-06-01": ["07:00","08:00",...] }
   const [viewingSlots, setViewingSlots] = useState({});
+  const [vipCards, setVipCards] = useState([]);
   const [genLoadingDays, setGenLoadingDays] = useState(new Set());
   const [queueMap, setQueueMap] = useState({}); // { "YYYY-MM-DD_HH:MM": count }
 
@@ -514,12 +515,19 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
       const val = snap.val() || {};
       const slots = {};
       const viewing = {};
+      const newVipCards = [];
+      const todayMs = (() => { const d = new Date(); d.setHours(0,0,0,0); return d.getTime(); })();
       Object.entries(val).forEach(([date, dateSlots]) => {
         const slotMap = {};
         const viewTimes = [];
+        const dayIdx = Math.round((new Date(date + "T00:00:00").setHours(0,0,0,0) - todayMs) / 86400000);
         Object.values(dateSlots).forEach(slot => {
-          if (slot.time && (slot.available !== false || slot.adminBlocked || slot.vipOnly)) {
-            slotMap[slot.time] = { available: slot.available !== false, adminBlocked: !!slot.adminBlocked, vipOnly: !!slot.vipOnly, surcharge: slot.surcharge || null };
+          if (!slot.time) return;
+          if (slot.vipOnly) {
+            const [hh, mm] = slot.time.split(":").map(Number);
+            newVipCards.push({ id:`vip-${date}-${slot.time.replace(":","")}`, day: dayIdx, startMin: hh*60+mm, durMin:60, name:"VIP Слот", phone:"", type:"vip-slot", tsc:"", hoursDone:0, status:"vip-open", serviceId:"", categoryId:"cat-vip", date });
+          } else if (slot.available !== false || slot.adminBlocked) {
+            slotMap[slot.time] = { available: slot.available !== false, adminBlocked: !!slot.adminBlocked, vipOnly: false, surcharge: slot.surcharge || null };
           }
           if (slot.viewing && Object.keys(slot.viewing).length > 0) viewTimes.push(slot.time);
         });
@@ -528,6 +536,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
       });
       setOpenSlots(slots);
       setViewingSlots(viewing);
+      setVipCards(newVipCards);
     });
     return () => unsub();
   }, []);
@@ -588,13 +597,8 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
     const day = Math.round((new Date(dateStr + "T12:00:00") - today) / 86400000);
     if (option === "vip") {
       update(ref(db, `timeslots/${dateStr}/${slotId}`), { available: true, adminBlocked: false, vipOnly: true, surcharge: null }).catch(() => {});
-      setBookings(bs => {
-        const filtered = bs.filter(b => !(b.type === "vip-slot" && b.date === dateStr && b.startMin === startMin));
-        return [...filtered, { id:`vip-${Date.now()}`, day, startMin, durMin:60, name:"VIP Слот", phone:"", type:"vip-slot", tsc:"", hoursDone:0, status:"vip-open", serviceId:"", categoryId:"cat-vip", date: dateStr }];
-      });
     } else if (option === "reset") {
       update(ref(db, `timeslots/${dateStr}/${slotId}`), { available: true, adminBlocked: false, vipOnly: false, surcharge: null }).catch(() => {});
-      setBookings(bs => bs.filter(b => !(b.type === "vip-slot" && b.date === dateStr && b.startMin === startMin)));
     } else {
       update(ref(db, `timeslots/${dateStr}/${slotId}`), { available: true, adminBlocked: false, vipOnly: false, surcharge: option }).catch(() => {});
     }
@@ -914,12 +918,6 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
     update(ref(db, `timeslots/${dateStr}/slot${hh}${mm}`), {
       time: `${hh}:${mm}`, available: true, vipOnly: true,
     }).catch(() => {});
-    setBookings(bs=>[...bs,{
-      id:`vip-${Date.now()}`, day, startMin, durMin:60,
-      name:"VIP Слот", phone:"", type:"vip-slot", tsc:"",
-      hoursDone:0, status:"vip-open", serviceId:"", categoryId:"cat-vip",
-      date: dateStr,
-    }]);
   };
 
   const [vipSlotModal, setVipSlotModal] = useState(null);
@@ -1140,7 +1138,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
 
               {/* Bookings — consecutive same-student adjacent bookings merged into one card */}
               {(()=>{
-                const sorted = bookings.filter(b=>b.day===absDay).sort((a,b)=>a.startMin-b.startMin);
+                const sorted = [...bookings, ...vipCards].filter(b=>b.day===absDay).sort((a,b)=>a.startMin-b.startMin);
                 const merged = [];
                 let i = 0;
                 while (i < sorted.length) {
@@ -1532,7 +1530,6 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
               const hh = String(Math.floor(v.startMin / 60)).padStart(2, "0");
               const mm = String(v.startMin % 60).padStart(2, "0");
               update(ref(db, `timeslots/${dateStr}/slot${hh}${mm}`), { vipOnly: false }).catch(() => {});
-              setBookings(bs=>bs.filter(x=>x.id!==v.id));
               setVipSlotModal(null);
             }} style={{
               width:"100%",padding:"14px",borderRadius:18,border:"none",cursor:"pointer",
