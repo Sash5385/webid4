@@ -1099,6 +1099,12 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                     {isVip && <span style={{position:"absolute", top:3, right:4, fontSize:10, lineHeight:1}}>👑</span>}
                     {isBlocked && <span style={{position:"absolute", top:3, left:4, fontSize:8, fontWeight:600, color:"rgba(239,68,68,0.65)", lineHeight:1}}>закрито</span>}
                     <span style={{fontSize:10, fontWeight:800, lineHeight:1, color}}>{time}</span>
+                    {isBlocked && (() => { const qc = queueMap[`${dateStrCol}_${time}`]; return qc > 0 ? (
+                      <div style={{position:"absolute", bottom:2, right:4, display:"flex", alignItems:"center", gap:1}}>
+                        <svg width="8" height="8" viewBox="0 0 24 24" fill={GOLD}><circle cx="12" cy="7" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>
+                        <span style={{fontSize:7, fontWeight:800, color:GOLD, lineHeight:1}}>{qc}</span>
+                      </div>
+                    ) : null; })()}
                   </div>
                 );
               })}
