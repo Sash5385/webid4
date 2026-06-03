@@ -18,21 +18,6 @@ select{color-scheme:dark}
 .sec-open{animation:sec-open .16s ease both}
 `;
 
-const PALETTE = [
-  { id:"green",  color:"#7ed957" },
-  { id:"yellow", color:"#f7c948" },
-  { id:"blue",   color:"#5b9bff" },
-  { id:"purple", color:"#c084fc" },
-  { id:"red",    color:"#ff5a3c" },
-  { id:"teal",   color:"#2dd4bf" },
-  { id:"pink",   color:"#f472b6" },
-  { id:"orange", color:"#fb923c" },
-  { id:"indigo", color:"#818cf8" },
-  { id:"lime",   color:"#a3e635" },
-  { id:"sky",    color:"#38bdf8" },
-];
-const colorOf = id => PALETTE.find(p=>p.id===id)?.color || "#5b9bff";
-
 const ALL_TABS = [
   { id:"schedule",  lk:"nav.schedule"  },
   { id:"bookings",  lk:"nav.bookings"  },
@@ -173,22 +158,7 @@ const TxtInput = ({ value, onChange, placeholder="" }) => (
     }}/>
 );
 
-function ColorPicker({ value, onChange }) {
-  return (
-    <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
-      {PALETTE.map(p=>(
-        <div key={p.id} onClick={()=>onChange(p.id)} style={{
-          width:26,height:26,borderRadius:8,cursor:"pointer",
-          background:`linear-gradient(145deg,${p.color}cc,${p.color}55)`,
-          border:value===p.id?`2.5px solid ${TEXT}`:`2px solid transparent`,
-          boxShadow:value===p.id?`0 0 8px ${p.color}66`:`0 2px 5px rgba(0,0,0,0.3)`,
-          transform:value===p.id?"scale(1.15)":"scale(1)",
-          transition:"transform .12s",
-        }}/>
-      ))}
-    </div>
-  );
-}
+
 
 const DAY_NAMES = ["Пн","Вт","Ср","Чт","Пт","Сб","Нд"];
 
@@ -337,74 +307,6 @@ export default function SettingsView({ settings, setSettings }) {
                 <Chip key={v} label={`${v} хв`} active={(settings.slotCreateStep??30)===v} onClick={()=>upd("slotCreateStep",v)}/>
               ))}
             </div>
-          </div>
-        </Section>
-
-        {/* ── ПОСЛУГИ ── */}
-        <Section title={t('set.svc.title')} icon="🚗">
-          <Info color={GREEN} title={t('set.svc.info_t')} text={t('set.svc.info')}/>
-          <div style={{paddingTop:10,display:"flex",flexDirection:"column",gap:8}}>
-            {settings.services.map(s=>(
-              <div key={s.id} style={{background:`linear-gradient(145deg,${BG_DEEP},${SURF_LO})`,borderRadius:11,padding:"12px",boxShadow:SI,opacity:s.active?1:0.55}}>
-                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
-                  <div style={{width:14,height:14,borderRadius:4,background:colorOf(s.colorId),flexShrink:0,boxShadow:`0 0 6px ${colorOf(s.colorId)}66`}}/>
-                  <input value={s.name}
-                    onChange={e=>upd("services",settings.services.map(x=>x.id===s.id?{...x,name:e.target.value}:x))}
-                    style={{flex:1,background:"transparent",border:"none",outline:"none",color:TEXT,fontSize:13,fontWeight:700,fontFamily:"inherit"}}/>
-                  <Toggle on={s.active} onChange={v=>upd("services",settings.services.map(x=>x.id===s.id?{...x,active:v}:x))}/>
-                </div>
-                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:10}}>
-                  <div style={{background:BG_DEEP,borderRadius:9,padding:"8px 10px",boxShadow:SI}}>
-                    <div style={{fontSize:9,color:FAINT,letterSpacing:1,textTransform:"uppercase",marginBottom:6,textAlign:"center"}}>{t('set.svc.duration_lbl')}</div>
-                    <NumInput value={s.duration}
-                      onChange={v=>upd("services",settings.services.map(x=>x.id===s.id?{...x,duration:v}:x))}
-                      min={5} max={480} suffix={` ${t('min')}`}/>
-                  </div>
-                  <div style={{background:BG_DEEP,borderRadius:9,padding:"8px 10px",boxShadow:SI}}>
-                    <div style={{fontSize:9,color:FAINT,letterSpacing:1,textTransform:"uppercase",marginBottom:6,textAlign:"center"}}>{t('set.svc.price_lbl')}</div>
-                    <NumInput value={s.price}
-                      onChange={v=>upd("services",settings.services.map(x=>x.id===s.id?{...x,price:v}:x))}
-                      min={0} max={99999} suffix=" ₴"/>
-                  </div>
-                </div>
-                <div style={{fontSize:9,color:FAINT,letterSpacing:1,textTransform:"uppercase",marginBottom:7}}>{t('set.svc.color')}</div>
-                <ColorPicker value={s.colorId} onChange={v=>upd("services",settings.services.map(x=>x.id===s.id?{...x,colorId:v}:x))}/>
-                <button onClick={()=>upd("services",settings.services.filter(x=>x.id!==s.id))}
-                  style={{marginTop:10,background:"none",border:"none",cursor:"pointer",color:RED,fontSize:11,fontWeight:700,padding:0}}>
-                  {t('set.svc.del')}
-                </button>
-              </div>
-            ))}
-            <button onClick={()=>upd("services",[...settings.services,{
-              id:`sv-${Date.now()}`,name:lang==="en"?"New service":"Нова послуга",type:"private",duration:60,price:0,colorId:"blue",active:true,description:""
-            }])} style={{width:"100%",padding:"11px",borderRadius:11,border:`1px dashed ${BORDER}`,cursor:"pointer",background:"transparent",color:DIM,fontSize:13,fontWeight:700}}>
-              {t('set.svc.add')}
-            </button>
-          </div>
-        </Section>
-
-        {/* ── КАТЕГОРІЇ ── */}
-        <Section title={t('set.cat.title')} icon="🏷">
-          <div style={{paddingTop:10,display:"flex",flexDirection:"column",gap:10}}>
-            <Info color={PURPLE} title={t('set.cat.info_t')} text={t('set.cat.info')}/>
-            {settings.categories.map(c=>(
-              <div key={c.id} style={{background:`linear-gradient(145deg,${BG_DEEP},${SURF_LO})`,borderRadius:11,padding:"11px 12px",boxShadow:SI}}>
-                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:9}}>
-                  <div style={{width:12,height:12,borderRadius:3,background:colorOf(c.colorId),flexShrink:0,boxShadow:`0 0 6px ${colorOf(c.colorId)}66`}}/>
-                  <input value={c.name}
-                    onChange={e=>upd("categories",settings.categories.map(x=>x.id===c.id?{...x,name:e.target.value}:x))}
-                    style={{flex:1,background:"transparent",border:"none",outline:"none",color:TEXT,fontSize:13,fontWeight:700,fontFamily:"inherit"}}/>
-                  <button onClick={()=>upd("categories",settings.categories.filter(x=>x.id!==c.id))}
-                    style={{background:"none",border:"none",cursor:"pointer",color:FAINT,fontSize:16,padding:0,lineHeight:1}}>×</button>
-                </div>
-                <div style={{fontSize:9,color:FAINT,letterSpacing:1,textTransform:"uppercase",marginBottom:6}}>{t('set.cat.color')}</div>
-                <ColorPicker value={c.colorId} onChange={v=>upd("categories",settings.categories.map(x=>x.id===c.id?{...x,colorId:v}:x))}/>
-              </div>
-            ))}
-            <button onClick={()=>upd("categories",[...settings.categories,{id:`cat-${Date.now()}`,name:t('set.cat.new'),colorId:"blue"}])}
-              style={{width:"100%",padding:"10px",borderRadius:10,border:`1px dashed ${BORDER}`,cursor:"pointer",background:"transparent",color:DIM,fontSize:13,fontWeight:700}}>
-              {t('set.cat.add')}
-            </button>
           </div>
         </Section>
 
