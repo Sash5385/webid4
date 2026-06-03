@@ -1,5 +1,5 @@
 import React, { useState, useEffect, lazy, Suspense, createContext, useContext } from "react";
-import { ref, onValue, update, push, remove } from "firebase/database";
+import { ref, onValue, update, push, remove, get } from "firebase/database";
 import { db, registerAdminFCM } from "./firebase";
 import { useAdminAuth, LoginScreen } from "./AdminAuth";
 import { setGlobalLang, createT } from "./lang";
@@ -478,6 +478,7 @@ export default function App() {
   const [tabVisits,  setTabVisits]= useState({});
   const [openInfos,  setOpenInfos]= useState({});
   const [settings,   setSettings] = useState(DEFAULT_SETTINGS);
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [bookings,   setBookings] = useState(INITIAL_BOOKINGS);
   const [selectedBooking,  setSelectedBooking]  = useState(null);
   const [newBookingData,   setNewBookingData]    = useState(null);
@@ -502,10 +503,32 @@ export default function App() {
     registerAdminFCM().catch(() => {});
   }, [adminUser]);
 
-  // Sync relevant settings to Firebase so the client can read them
+  // Load settings from Firebase on login
+  useEffect(() => {
+    if (!adminUser) { setSettingsLoaded(false); return; }
+    get(ref(db, 'admin_settings')).then(snap => {
+      const d = snap.val();
+      if (d) {
+        setSettings(s => ({
+          ...s,
+          ...d,
+          snapMin: d.interval ?? d.snapMin ?? s.snapMin,
+          profile: d.profile ? { ...s.profile, ...d.profile } : s.profile,
+          services:    Array.isArray(d.services)    ? d.services    : s.services,
+          categories:  Array.isArray(d.categories)  ? d.categories  : s.categories,
+          weekends:    Array.isArray(d.weekends)     ? d.weekends    : s.weekends,
+          navTabs:     Array.isArray(d.navTabs)      ? d.navTabs     : s.navTabs,
+          autoReminders: Array.isArray(d.autoReminders) ? d.autoReminders : s.autoReminders,
+        }));
+      }
+      setSettingsLoaded(true);
+    }).catch(() => setSettingsLoaded(true));
+  }, [adminUser]);
+
+  // Sync all settings to Firebase (guarded until load completes to avoid overwriting with defaults)
   const settingsSyncTimer = React.useRef(null);
   useEffect(() => {
-    if (!adminUser) return;
+    if (!adminUser || !settingsLoaded) return;
     clearTimeout(settingsSyncTimer.current);
     settingsSyncTimer.current = setTimeout(() => {
       update(ref(db, 'admin_settings'), {
@@ -515,19 +538,36 @@ export default function App() {
         workStart:       settings.workStart       ?? 9,
         workEnd:         settings.workEnd         ?? 18,
         interval:        settings.snapMin         ?? 30,
+        snapMin:         settings.snapMin         ?? 30,
         queueAutoFifo:   settings.queueAutoFifo   ?? true,
         queueBroadcast:  settings.queueBroadcast  ?? false,
         queueManual:     settings.queueManual     ?? false,
         weekSchedule:    settings.weekSchedule    ?? null,
         dateOverrides:   settings.dateOverrides   ?? [],
         services:        settings.services        ?? [],
+        categories:      settings.categories      ?? [],
+        profile:         settings.profile,
+        weekends:        settings.weekends        ?? [],
+        daysShown:       settings.daysShown       ?? 6,
+        hourHeightPx:    settings.hourHeightPx    ?? 60,
+        pendingEnabled:  settings.pendingEnabled  ?? false,
+        studentCanReschedule: settings.studentCanReschedule ?? true,
+        studentCanCancel:     settings.studentCanCancel     ?? true,
+        bookCutoffHours:      settings.bookCutoffHours      ?? 2,
+        calendarOpenDays:     settings.calendarOpenDays     ?? 30,
+        stickyTime:      settings.stickyTime      ?? "both",
+        notifLocation:   settings.notifLocation   ?? "topbar",
+        navTabs:         settings.navTabs         ?? [],
+        autoReminders:   settings.autoReminders   ?? [],
+        autoWelcome:     settings.autoWelcome,
+        autoConfirm:     settings.autoConfirm,
+        autoCancel:      settings.autoCancel,
+        autoQueueOffer:  settings.autoQueueOffer,
+        language:        settings.language        ?? "uk",
       }).catch(() => {});
     }, 800);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [settings.lunchEnabled, settings.lunchStart, settings.lunchEnd,
-      settings.workStart, settings.workEnd, settings.snapMin,
-      settings.queueAutoFifo, settings.queueBroadcast, settings.queueManual,
-      settings.weekSchedule, settings.dateOverrides, settings.services, adminUser]);
+  }, [settings, adminUser, settingsLoaded]);
 
   // Load bookings from Firebase
   useEffect(() => {
