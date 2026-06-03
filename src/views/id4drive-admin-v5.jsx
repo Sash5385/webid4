@@ -543,15 +543,20 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
     const d = new Date(dateStr);
     const dow = (d.getDay() + 6) % 7;
     const ov = (settings.dateOverrides || []).find(o => o.date === dateStr);
-    const ws = (settings.weekSchedule || [])[dow] || { enabled: true, start: settings.workStart, end: settings.workEnd, lunchEnabled: settings.lunchEnabled ?? true, lunchStart: settings.lunchStart || 12, lunchEnd: settings.lunchEnd || 13 };
-    const day = ov ? (ov.type === "closed" ? null : { ...ws, ...ov, enabled: true }) : ws;
-    if (!day?.enabled) return;
+    if (ov?.type === "closed") return;
+    const ws = (settings.weekSchedule || [])[dow] || {};
+    const start        = ov?.start        ?? ws.start        ?? settings.workStart  ?? 9;
+    const end          = ov?.end          ?? ws.end          ?? settings.workEnd    ?? 18;
+    const lunchEnabled = ov?.lunchEnabled ?? ws.lunchEnabled ?? settings.lunchEnabled ?? true;
+    const lunchStart   = ov?.lunchStart   ?? ws.lunchStart   ?? settings.lunchStart  ?? 12;
+    const lunchEnd     = ov?.lunchEnd     ?? ws.lunchEnd     ?? settings.lunchEnd    ?? 13;
+    const step = settings.slotCreateStep || settings.snapMin || 30;
     setGenLoadingDays(s => new Set([...s, absDay]));
     const snap = await get(ref(db, `timeslots/${dateStr}`));
     const existing = snap.val() || {};
     const updates = {};
-    for (let min = day.start * 60; min < day.end * 60; min += 60) {
-      if (day.lunchEnabled && min >= (day.lunchStart || 12) * 60 && min < (day.lunchEnd || 13) * 60) continue;
+    for (let min = start * 60; min < end * 60; min += step) {
+      if (lunchEnabled && min >= lunchStart * 60 && min < lunchEnd * 60) continue;
       const h = String(Math.floor(min / 60)).padStart(2, "0");
       const m = String(min % 60).padStart(2, "0");
       const id = `slot${h}${m}`;
