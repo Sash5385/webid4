@@ -162,7 +162,9 @@ function QueueRow({ item, pos, onInvite, onBooked, onArchive, onDelete, dragHand
           <div style={{fontSize:13,fontWeight:800,color:TEXT,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{item.name}</div>
           <div style={{fontSize:10,color:DIM,marginTop:1}}>
             {item.phone}
+            {item.slotKey && <> · <span style={{color:GOLD,fontWeight:700}}>{item.slotKey.replace("_"," ")}</span></>}
             {svc.name && <> · <span style={{color:svc.color}}>{svc.name}</span></>}
+            {item.studentType && !svc.name && <> · <span style={{color:TEAL}}>{item.studentType==="school"?"Автошкола":"Приватний"}{item.durationHours ? ` ${item.durationHours}г` : ""}</span></>}
             {item.note && <> · <span style={{color:FAINT,fontStyle:"italic"}}>{item.note}</span></>}
           </div>
         </div>
@@ -218,16 +220,29 @@ export default function QueueView({ settings }) {
   const [showAdd,   setShowAdd]   = useState(false);
   const [showArch,  setShowArch]  = useState(false);
 
-  // Firebase sync
+  // Firebase sync — підтримує і клієнтську структуру queue/${slotKey}/entries/${uid}
   useEffect(() => {
     return onValue(ref(db, "queue"), snap => {
       const d = snap.val();
       if (!d) { setAll([]); return; }
-      setAll(Object.entries(d).map(([id,v])=>({id,...v})).sort((a,b)=>(a.order??a.addedAt??0)-(b.order??b.addedAt??0)));
+      const entries = [];
+      Object.entries(d).forEach(([key, val]) => {
+        if (val?.entries) {
+          // Клієнтська структура: queue/${slotKey}/entries/${uid}
+          Object.entries(val.entries).forEach(([uid, e]) => {
+            entries.push({ id: `${key}/entries/${uid}`, slotKey: key, uid, ...e });
+          });
+        } else if (val && typeof val === "object" && !Array.isArray(val)) {
+          // Стара плоска структура (ручне додавання адміном)
+          entries.push({ id: key, ...val });
+        }
+      });
+      entries.sort((a,b) => (a.order ?? a.addedAt ?? 0) - (b.order ?? b.addedAt ?? 0));
+      setAll(entries);
     }, ()=>{});
   }, []);
 
-  // drag reorder — updates local order and persists via `order` field
+  // drag reorder
   const { getHandlers } = useDragReorder(all, newArr => {
     setAll(newArr);
     newArr.forEach((item,i) => update(ref(db,`queue/${item.id}`),{order:i}));
