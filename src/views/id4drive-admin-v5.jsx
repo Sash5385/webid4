@@ -980,6 +980,14 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
             const absDay = dayOffset + colIdx;
             const dateStrCol = absDayToDateStr(absDay);
             const isOpenCol = Object.values(openSlots[dateStrCol] || {}).some(s => s.available);
+            const _dow = (new Date(dateStrCol + "T12:00:00").getDay() + 6) % 7;
+            const _ov  = (settings.dateOverrides || []).find(o => o.date === dateStrCol);
+            const _ws  = (settings.weekSchedule  || [])[_dow] || {};
+            const colLunch = {
+              enabled: _ov?.lunchEnabled ?? _ws.lunchEnabled ?? settings.lunchEnabled ?? true,
+              start:   _ov?.lunchStart   ?? _ws.lunchStart   ?? settings.lunchStart   ?? 12,
+              end:     _ov?.lunchEnd     ?? _ws.lunchEnd     ?? settings.lunchEnd     ?? 13,
+            };
             const isToday = absDay === 0;
             const isLoadingCol = genLoadingDays.has(absDay);
             const hasAnySlotsCol = !!(openSlots[dateStrCol] && Object.keys(openSlots[dateStrCol]).length);
@@ -1100,11 +1108,11 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
               })}
 
               {/* Lunch block */}
-              {settings.lunchEnabled && (
+              {colLunch.enabled && (
                 <div style={{
                   position:"absolute",
-                  top:minToPx(settings.lunchStart*60), left:4, right:4,
-                  height:(settings.lunchEnd - settings.lunchStart)*60*PX_PER_MIN,
+                  top:minToPx(colLunch.start*60), left:4, right:4,
+                  height:(colLunch.end - colLunch.start)*60*PX_PER_MIN,
                   background:`repeating-linear-gradient(135deg, transparent, transparent 6px, rgba(255,255,255,0.04) 6px, rgba(255,255,255,0.04) 12px)`,
                   borderRadius:8, pointerEvents:"none",
                   display:"flex",alignItems:"center",justifyContent:"center",
