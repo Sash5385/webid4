@@ -1025,13 +1025,9 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                     emptyHoldPosRef.current = null;
                   }, 480);
                 }}
-                onPointerMove={e=>{
-                  if (emptyHoldPosRef.current && Math.abs(e.clientY - emptyHoldPosRef.current.startY) > 8) {
-                    clearTimeout(emptyHoldTimerRef.current);
-                    emptyHoldPosRef.current = null;
-                  }
-                }}
+                onPointerMove={()=>{ clearTimeout(emptyHoldTimerRef.current); emptyHoldPosRef.current = null; }}
                 onPointerUp={()=>{ clearTimeout(emptyHoldTimerRef.current); emptyHoldPosRef.current = null; }}
+                onPointerCancel={()=>{ clearTimeout(emptyHoldTimerRef.current); emptyHoldPosRef.current = null; }}
                 onPointerLeave={()=>{ clearTimeout(emptyHoldTimerRef.current); emptyHoldPosRef.current = null; }}
                 style={{
                   width:COL_W, height:gridHeight,
