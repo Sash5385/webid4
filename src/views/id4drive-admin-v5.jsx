@@ -1642,6 +1642,28 @@ function CreateSlotSheet({ data, settings, onClose }) {
 // BOOKING DETAIL MODAL
 // ═══════════════════════════════════════════════════════════════
 function BookingModal({ booking, onClose, onAction, settings }) {
+  const [queueEntries, setQueueEntries] = useState([]);
+  useEffect(() => {
+    if (!booking) return;
+    const dateStr = booking.date || (() => {
+      const d = new Date(); d.setHours(0,0,0,0);
+      d.setDate(d.getDate() + booking.day);
+      return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    })();
+    const hh = String(Math.floor(booking.startMin/60)).padStart(2,'0');
+    const mm = String(booking.startMin%60).padStart(2,'0');
+    const slotKey = `${dateStr}_${hh}:${mm}`;
+    const r = ref(db, `queue/${slotKey}/entries`);
+    const unsub = onValue(r, snap => {
+      if (!snap.exists()) { setQueueEntries([]); return; }
+      const entries = Object.values(snap.val())
+        .filter(e => e.status === 'waiting')
+        .sort((a,b) => (a.addedAt||0) - (b.addedAt||0));
+      setQueueEntries(entries);
+    });
+    return () => unsub();
+  }, [booking]);
+
   if (!booking) return null;
 
   const svc   = settings.services.find(s => s.id === booking.serviceId)
@@ -1713,6 +1735,24 @@ function BookingModal({ booking, onClose, onAction, settings }) {
             </div>
           ))}
         </div>
+
+        {/* Queue */}
+        {queueEntries.length > 0 && (
+          <div style={{padding:"10px 14px", borderBottom:"1px solid rgba(255,255,255,0.06)"}}>
+            <div style={{fontSize:9, fontWeight:700, letterSpacing:1, color:GOLD, textTransform:"uppercase", marginBottom:6}}>
+              ⏳ Черга ({queueEntries.length})
+            </div>
+            {queueEntries.map((e, i) => (
+              <div key={e.uid||i} style={{display:"flex", alignItems:"center", gap:8, padding:"4px 0", borderBottom: i < queueEntries.length-1 ? "1px solid rgba(255,255,255,0.04)" : "none"}}>
+                <div style={{width:16, height:16, borderRadius:5, background:"rgba(255,255,255,0.07)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:8, fontWeight:800, color:GOLD, flexShrink:0}}>{i+1}</div>
+                <div style={{flex:1, minWidth:0}}>
+                  <div style={{fontSize:12, fontWeight:700, color:TEXT, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap"}}>{e.name || "—"}</div>
+                  {e.phone && <div style={{fontSize:10, color:DIM}}>{e.phone}</div>}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* Action buttons */}
         <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, padding:"12px 12px 14px"}}>
