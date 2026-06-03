@@ -513,10 +513,28 @@ export default function BookingsView({ settings }) {
     return onValue(ref(db, "queue"), snap => {
       const d = snap.val();
       if (!d) { setQueue([]); setQueueOpen(prev => prev === null ? false : prev); return; }
-      const arr = Object.entries(d).map(([id, v]) => ({id, ...v}))
-        .sort((a,b) => (a.order ?? a.addedAt ?? 0) - (b.order ?? b.addedAt ?? 0));
+      const arr = [];
+      Object.entries(d).forEach(([id, v]) => {
+        if (v?.entries) {
+          // Client format: queue/{date_time}/entries/{uid}
+          Object.entries(v.entries).forEach(([uid, entry]) => {
+            arr.push({
+              id: `${id}__${uid}`,
+              _slotKey: id, _uid: uid, _nested: true,
+              name: entry.name || '—',
+              phone: entry.phone || '',
+              status: entry.status || 'waiting',
+              addedAt: entry.addedAt || 0,
+              studentType: entry.studentType,
+              slotKey: id,
+            });
+          });
+        } else {
+          arr.push({ id, ...v });
+        }
+      });
+      arr.sort((a,b) => (a.order ?? a.addedAt ?? 0) - (b.order ?? b.addedAt ?? 0));
       setQueue(arr);
-      // auto-open on first load if someone is waiting
       setQueueOpen(prev => prev === null ? arr.some(q => q.status === "waiting") : prev);
     }, () => {});
   }, []);
@@ -524,8 +542,16 @@ export default function BookingsView({ settings }) {
   const addToQueue = (form) => {
     push(ref(db, "queue"), { ...form, addedAt: Date.now(), status: "waiting" });
   };
-  const removeFromQueue = (id) => remove(ref(db, `queue/${id}`));
-  const markOffered = (id) => update(ref(db, `queue/${id}`), { status: "offered", offeredAt: Date.now() });
+  const removeFromQueue = (item) => {
+    if (typeof item === "string") { remove(ref(db, `queue/${item}`)); return; }
+    if (item._nested) remove(ref(db, `queue/${item._slotKey}/entries/${item._uid}`));
+    else remove(ref(db, `queue/${item.id}`));
+  };
+  const markOffered = (item) => {
+    if (typeof item === "string") { update(ref(db, `queue/${item}`), { status: "offered", offeredAt: Date.now() }); return; }
+    if (item._nested) update(ref(db, `queue/${item._slotKey}/entries/${item._uid}`), { status: "offered", offeredAt: Date.now() });
+    else update(ref(db, `queue/${item.id}`), { status: "offered", offeredAt: Date.now() });
+  };
 
   const queueMode = settings?.queueAutoFifo ? "fifo"
     : settings?.queueBroadcast ? "broadcast" : "manual";
@@ -633,13 +659,16 @@ export default function BookingsView({ settings }) {
                     <div style={{width:4,height:32,borderRadius:3,background:stColor,flexShrink:0}}/>
                     <div style={{flex:1,minWidth:0}}>
                       <div style={{fontSize:13,fontWeight:800,color:TEXT,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{q.name}</div>
-                      <div style={{fontSize:10,color:DIM}}>{q.phone}{svc.name?` · ${svc.name}`:""}</div>
+                      <div style={{fontSize:10,color:DIM}}>
+                        {q.phone}{svc.name?` · ${svc.name}`:""}
+                        {q.slotKey && <span style={{color:FAINT}}>{q.phone||svc.name?" · ":""}{q.slotKey.replace("_"," ")}</span>}
+                      </div>
                     </div>
                     <span style={{fontSize:9,color:stColor,fontWeight:700,background:`${stColor}20`,padding:"2px 7px",borderRadius:6,flexShrink:0}}>{stLabel}</span>
                     {q.status==="waiting" && (
-                      <button onClick={()=>markOffered(q.id)} style={{background:"linear-gradient(145deg,#c084fc,#7c3aed)",border:"none",borderRadius:7,padding:"4px 9px",cursor:"pointer",color:"#fff",fontSize:11,fontWeight:700,flexShrink:0}}>Запросити</button>
+                      <button onClick={()=>markOffered(q)} style={{background:"linear-gradient(145deg,#c084fc,#7c3aed)",border:"none",borderRadius:7,padding:"4px 9px",cursor:"pointer",color:"#fff",fontSize:11,fontWeight:700,flexShrink:0}}>Запросити</button>
                     )}
-                    <button onClick={()=>removeFromQueue(q.id)} style={{background:"none",border:"none",cursor:"pointer",color:FAINT,fontSize:15,padding:"0 2px",flexShrink:0}}>×</button>
+                    <button onClick={()=>removeFromQueue(q)} style={{background:"none",border:"none",cursor:"pointer",color:FAINT,fontSize:15,padding:"0 2px",flexShrink:0}}>×</button>
                   </div>
                 );
               })}

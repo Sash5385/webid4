@@ -613,6 +613,8 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   const [bubbleData, setBubbleData] = useState(null);
   const [formData, setFormData] = useState(null);
   const [localSelectedBooking, setLocalSelectedBooking] = useState(null);
+  const emptyHoldTimerRef = useRef(null);
+  const emptyHoldPosRef   = useRef(null);
 
   // Shine glint animation — one booking at a time, random, every 3s
   const bookingsRef = useRef(bookings);
@@ -1009,7 +1011,28 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
 
               {/* SLOT CONTENT */}
               <div
-                onClick={e=>{ if(xJustShownRef.current){ xJustShownRef.current=false; return; } if(quickCancelId){ xVisibleRef.current=false; setQuickCancelId(null); return; } handleColumnClick(e, absDay); }}
+                onClick={e=>{ if(xJustShownRef.current){ xJustShownRef.current=false; return; } if(quickCancelId){ xVisibleRef.current=false; setQuickCancelId(null); } }}
+                onPointerDown={e=>{
+                  if (e.button > 0) return;
+                  if (dragRef.current || pendingDragRef.current) return;
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  const rawMin = calcRef.current.workStart * 60 + (e.clientY - rect.top) / calcRef.current.PX_PER_MIN;
+                  const minute = Math.round(rawMin / 5) * 5;
+                  emptyHoldPosRef.current = { startY: e.clientY, day: absDay, startMin: minute, freeSnap: true };
+                  emptyHoldTimerRef.current = setTimeout(() => {
+                    if (!emptyHoldPosRef.current) return;
+                    setFormData({ day: absDay, startMin: minute, freeSnap: true });
+                    emptyHoldPosRef.current = null;
+                  }, 480);
+                }}
+                onPointerMove={e=>{
+                  if (emptyHoldPosRef.current && Math.abs(e.clientY - emptyHoldPosRef.current.startY) > 8) {
+                    clearTimeout(emptyHoldTimerRef.current);
+                    emptyHoldPosRef.current = null;
+                  }
+                }}
+                onPointerUp={()=>{ clearTimeout(emptyHoldTimerRef.current); emptyHoldPosRef.current = null; }}
+                onPointerLeave={()=>{ clearTimeout(emptyHoldTimerRef.current); emptyHoldPosRef.current = null; }}
                 style={{
                   width:COL_W, height:gridHeight,
                   position:"relative", padding:"0 4px",
@@ -1727,12 +1750,14 @@ function DrumRoll({ items, currentIdx, onChange, label, itemH=42, visible=4 }) {
 // NEW BOOKING MODAL v3 — drum rolls for student + service
 // ═══════════════════════════════════════════════════════════════
 function NewBookingModal({ data, onClose, onConfirm, settings }) {
+  const timeStep = data?.freeSnap ? 5 : (settings.snapMin || 30);
   const timeItems = useMemo(()=>{
     const arr=[];
-    for(let m=settings.workStart*60; m<settings.workEnd*60; m+=settings.snapMin||30)
+    for(let m=settings.workStart*60; m<settings.workEnd*60; m+=timeStep)
       arr.push({label:fmtTime(m), value:m});
     return arr;
-  },[settings.workStart, settings.workEnd, settings.snapMin]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[settings.workStart, settings.workEnd, timeStep]);
 
   const activeServices = useMemo(()=>
     settings.services.filter(s=>s.active)
