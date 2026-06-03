@@ -612,6 +612,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   }, []);
   const [bubbleData, setBubbleData] = useState(null);
   const [formData, setFormData] = useState(null);
+  const [createSlotData, setCreateSlotData] = useState(null); // {day, startMin}
   const [localSelectedBooking, setLocalSelectedBooking] = useState(null);
   const emptyHoldTimerRef = useRef(null);
   const emptyHoldPosRef   = useRef(null);
@@ -1418,12 +1419,12 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
               {getDayInfo(bubbleData.day).label} {getDayInfo(bubbleData.day).num}
             </span>
           </div>
-          <button onClick={()=>{setFormData(bubbleData);setBubbleData(null);}} style={{
+          <button onClick={()=>{setCreateSlotData(bubbleData);setBubbleData(null);}} style={{
             width:"100%",padding:"9px 12px",borderRadius:10,border:"none",cursor:"pointer",
-            background:`linear-gradient(165deg,${ACCENT_HI},${ACCENT})`,
+            background:`linear-gradient(165deg,${GREEN},#16a34a)`,
             color:"#fff",fontSize:12,fontWeight:800,
-            boxShadow:`0 4px 12px ${ACCENT}44`
-          }}>+ Записати учня</button>
+            boxShadow:`0 4px 12px rgba(99,211,120,0.4)`
+          }}>+ Створити слот</button>
         </div>
       </div>
     )}
@@ -1549,7 +1550,91 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
 
     <NewBookingModal data={formData} onClose={()=>setFormData(null)}
       onConfirm={b=>{setBookings(bs=>[...bs,b]);setFormData(null);}} settings={settings}/>
+
+    {createSlotData && <CreateSlotSheet data={createSlotData} settings={settings} onClose={()=>setCreateSlotData(null)}/>}
     </>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// CREATE SLOT SHEET — вільний слот з вибором часу і тривалості
+// ═══════════════════════════════════════════════════════════════
+function CreateSlotSheet({ data, settings, onClose }) {
+  const timeItems = [];
+  for (let m = settings.workStart * 60; m < settings.workEnd * 60; m += 5)
+    timeItems.push({ label: fmtTime(m), value: m });
+
+  const durItems = [
+    { label:"30 хв", value:30 },
+    { label:"1 год", value:60 },
+    { label:"1.5 год", value:90 },
+    { label:"2 год", value:120 },
+    { label:"2.5 год", value:150 },
+    { label:"3 год", value:180 },
+  ];
+
+  const initTimeIdx = Math.max(0, timeItems.findIndex(t => t.value >= (data.startMin || 0)));
+  const [timeIdx, setTimeIdx] = useState(initTimeIdx < 0 ? 0 : initTimeIdx);
+  const [durIdx,  setDurIdx]  = useState(1); // default 1 год
+  const [saving,  setSaving]  = useState(false);
+
+  const day = getDayInfo(data.day);
+
+  const handleCreate = async () => {
+    setSaving(true);
+    const startMin = timeItems[timeIdx].value;
+    const dur = durItems[durIdx].value;
+    const dateStr = (() => {
+      const d = new Date(); d.setHours(0,0,0,0);
+      d.setDate(d.getDate() + data.day);
+      return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    })();
+    const updates = {};
+    for (let m = startMin; m < startMin + dur; m += 30) {
+      const h = String(Math.floor(m / 60)).padStart(2, '0');
+      const mn = String(m % 60).padStart(2, '0');
+      const id = `slot${h}${mn}`;
+      updates[`timeslots/${dateStr}/${id}/time`] = `${h}:${mn}`;
+      updates[`timeslots/${dateStr}/${id}/available`] = true;
+    }
+    await update(ref(db, '/'), updates).catch(() => {});
+    setSaving(false);
+    onClose();
+  };
+
+  return (
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.6)",backdropFilter:"blur(6px)",zIndex:200,display:"flex",alignItems:"flex-end"}}
+      onClick={onClose}>
+      <div onClick={e=>e.stopPropagation()} style={{
+        width:"100%",background:SURFACE,borderRadius:"22px 22px 0 0",
+        padding:"16px 20px 40px",
+        boxShadow:"0 -10px 40px rgba(0,0,0,0.5)"
+      }}>
+        <div style={{width:36,height:4,background:BORDER,borderRadius:2,margin:"0 auto 16px"}}/>
+        <div style={{fontSize:13,fontWeight:700,color:TEXT_DIM,marginBottom:16,textAlign:"center",letterSpacing:0.5,textTransform:"uppercase"}}>
+          Вільний слот · {day.fullLabel} {day.num}
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:16}}>
+          <div>
+            <div style={{fontSize:10,fontWeight:700,color:TEXT_DIM,letterSpacing:1,marginBottom:6,textAlign:"center"}}>ПОЧАТОК</div>
+            <ScrollDrum items={timeItems} index={timeIdx} onChange={setTimeIdx} height={130}/>
+          </div>
+          <div>
+            <div style={{fontSize:10,fontWeight:700,color:TEXT_DIM,letterSpacing:1,marginBottom:6,textAlign:"center"}}>ТРИВАЛІСТЬ</div>
+            <ScrollDrum items={durItems} index={durIdx} onChange={setDurIdx} height={130}/>
+          </div>
+        </div>
+        <div style={{textAlign:"center",fontSize:12,color:TEXT_DIM,marginBottom:14}}>
+          {fmtTime(timeItems[timeIdx].value)} — {fmtTime(timeItems[timeIdx].value + durItems[durIdx].value)}
+        </div>
+        <button onClick={handleCreate} disabled={saving} style={{
+          width:"100%",padding:14,borderRadius:14,border:"none",cursor:"pointer",
+          background:`linear-gradient(165deg,${GREEN},#16a34a)`,
+          color:"#fff",fontSize:14,fontWeight:800,
+          boxShadow:"0 4px 16px rgba(99,211,120,0.4),inset 1px 1px 0 rgba(255,255,255,0.25)"
+        }}>{saving ? "Створюємо..." : "✓ Створити слот"}</button>
+      </div>
+    </div>
   );
 }
 
