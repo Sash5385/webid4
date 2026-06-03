@@ -1,4 +1,6 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
+import { ref, get, set } from "firebase/database";
+import { db } from "../firebase";
 
 import { BG, BG_DEEP, SURFACE, SURF_HI, SURF_LO, BORDER, TEXT, DIM, FAINT, ACCENT, ACC_HI, GREEN, BLUE, PURPLE, GOLD, RED, TEAL, SO, SI } from "../theme.js";
 
@@ -484,10 +486,28 @@ function useDragReorder(items, setItems) {
 // ─── MAIN ────────────────────────────────────────────────────────
 export default function ServicesView() {
   const [services, setServices] = useState(INIT_SERVICES);
+  const [loaded, setLoaded] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
   const [editSvc, setEditSvc]   = useState(null);  // null=closed, false=new, obj=edit
   const [deleteSvc, setDeleteSvc] = useState(null);
+  const saveTimer = useRef(null);
   const { getHandlers } = useDragReorder(services, setServices);
+
+  useEffect(() => {
+    get(ref(db, 'admin_data/services')).then(snap => {
+      const d = snap.val();
+      if (Array.isArray(d)) setServices(d);
+      setLoaded(true);
+    }).catch(() => setLoaded(true));
+  }, []);
+
+  useEffect(() => {
+    if (!loaded) return;
+    clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => {
+      set(ref(db, 'admin_data/services'), services).catch(() => {});
+    }, 800);
+  }, [services, loaded]);
 
   const active   = services.filter(s=>!s.archived);
   const archived = services.filter(s=>s.archived);

@@ -1,4 +1,6 @@
-import { useState, useRef, useContext } from "react";
+import { useState, useRef, useContext, useEffect } from "react";
+import { ref, get, set } from "firebase/database";
+import { db } from "../firebase";
 import { LangContext } from "../App";
 import { createT } from "../lang";
 
@@ -447,8 +449,26 @@ export default function TemplatesView() {
   const lang = useContext(LangContext);
   const t = createT(lang);
   const [templates, setTemplates] = useState(INIT_TEMPLATES);
+  const [loaded, setLoaded] = useState(false);
   const [editTpl, setEditTpl] = useState(null);
   const [sendTpl, setSendTpl] = useState(null);
+  const saveTimer = useRef(null);
+
+  useEffect(() => {
+    get(ref(db, 'admin_data/templates')).then(snap => {
+      const d = snap.val();
+      if (Array.isArray(d)) setTemplates(d);
+      setLoaded(true);
+    }).catch(() => setLoaded(true));
+  }, []);
+
+  useEffect(() => {
+    if (!loaded) return;
+    clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => {
+      set(ref(db, 'admin_data/templates'), templates).catch(() => {});
+    }, 800);
+  }, [templates, loaded]);
 
   const onSave = (form) => {
     setTemplates(ts=>{
