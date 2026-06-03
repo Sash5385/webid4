@@ -491,6 +491,22 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   const [openSlots, setOpenSlots] = useState({}); // { "2025-06-01": ["07:00","08:00",...] }
   const [viewingSlots, setViewingSlots] = useState({});
   const [genLoadingDays, setGenLoadingDays] = useState(new Set());
+  const [queueMap, setQueueMap] = useState({}); // { "YYYY-MM-DD_HH:MM": count }
+
+  useEffect(() => {
+    const r = ref(db, "queue");
+    const unsub = onValue(r, snap => {
+      const val = snap.val() || {};
+      const map = {};
+      Object.entries(val).forEach(([slotKey, slotData]) => {
+        if (!slotData?.entries) return;
+        const count = Object.values(slotData.entries).filter(e => e.status === 'waiting').length;
+        if (count > 0) map[slotKey] = count;
+      });
+      setQueueMap(map);
+    });
+    return () => unsub();
+  }, []);
 
   useEffect(() => {
     const r = ref(db, "timeslots");
@@ -1121,6 +1137,8 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                 const isCancelling = cancellingSet.has(b.id);
                 const isBlock = b.type === "block";
                 const isVipSlot = b.type === "vip-slot";
+                const slotTimeStr = String(Math.floor(b.startMin/60)).padStart(2,'0')+':'+String(b.startMin%60).padStart(2,'0');
+                const queueCount = b.date ? (queueMap[`${b.date}_${slotTimeStr}`] || 0) : 0;
                 const isDimmed = !isBlock && !isVipSlot && (b.status==="cancelled" || b.status==="noshow" || isCancelling);
                 const svc = settings.services.find(s=>s.id===b.serviceId)
                          || settings.services.find(s=>s.active && s.type===(b.serviceType||b.type) && Number(s.duration)===b.durMin);
@@ -1237,6 +1255,18 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                           lineHeight:1, pointerEvents:"none",
                           filter:"drop-shadow(0 1px 3px rgba(0,0,0,0.7))",
                         }}>👑</div>
+                      )}
+                      {/* Queue badge */}
+                      {queueCount > 0 && !isBlock && !isVipSlot && height >= 14 && (
+                        <div style={{
+                          position:"absolute", bottom:3, left:3, zIndex:4,
+                          background:"rgba(0,0,0,0.55)", borderRadius:5,
+                          padding:"1px 4px", display:"flex", alignItems:"center", gap:2,
+                          pointerEvents:"none",
+                        }}>
+                          <svg width="7" height="7" viewBox="0 0 24 24" fill={GOLD}><circle cx="12" cy="7" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>
+                          <span style={{fontSize:7, fontWeight:800, color:GOLD, lineHeight:1}}>{queueCount}</span>
+                        </div>
                       )}
                       <div className="slot-handle bottom" onPointerDown={e=>onPointerDown(e,b,"bottom")}/>
 
