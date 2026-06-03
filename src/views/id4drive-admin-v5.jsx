@@ -1202,10 +1202,11 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                       style={isVipSlot ? {
                         position:"relative", width:"100%", height:"100%",
                         borderRadius:8,
-                        background:"linear-gradient(155deg,rgba(168,85,247,0.35) 0%,rgba(124,58,237,0.15) 100%)",
-                        border:"1px solid rgba(168,85,247,0.55)",
-                        boxShadow:"-2px 5px 14px rgba(0,0,0,0.5),0 0 12px rgba(168,85,247,0.25),inset 1px 1px 0 rgba(255,255,255,0.12)",
-                        overflow:"hidden",
+                        background:"rgba(168,85,247,0.13)",
+                        border:"1.5px solid rgba(168,85,247,0.5)",
+                        display:"flex", flexDirection:"column",
+                        alignItems:"flex-start", justifyContent:"center",
+                        padding:"0 7px", overflow:"hidden",
                       } : isBlock ? {
                         position:"relative", width:"100%", height:"100%",
                         borderRadius:8,
@@ -1225,6 +1226,12 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                       }}>
                       <div className="slot-handle top" onPointerDown={e=>onPointerDown(e,b,"top")}/>
                       {!isBlock && !isVipSlot && <div className="shine-layer"/>}
+                      {isVipSlot && height >= 14 && (
+                        <>
+                          <span style={{fontSize:10, fontWeight:800, color:"rgba(168,85,247,0.9)", lineHeight:1}}>{fmtTime(b.startMin)}</span>
+                          <span style={{fontSize:11, lineHeight:1, marginTop:1}}>👑</span>
+                        </>
+                      )}
                       {isBlock && height >= 18 && (() => {
                         const sz = Math.min(height * 0.62, 36);
                         return (
@@ -1264,8 +1271,8 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                           </div>
                         );
                       })()}
-                      {/* VIP crown badge */}
-                      {(b.isVipOnly || isVipSlot) && height >= 14 && (
+                      {/* VIP crown badge for regular bookings marked as VIP */}
+                      {b.isVipOnly && !isVipSlot && height >= 14 && (
                         <div style={{
                           position:"absolute", top:2, right:2, zIndex:4,
                           fontSize:Math.min(11, Math.max(7, height/7)),
