@@ -3,6 +3,7 @@ import { ref, onValue, update, push, remove, get } from "firebase/database";
 import { db, registerAdminFCM } from "./firebase";
 import { useAdminAuth, LoginScreen } from "./AdminAuth";
 import { setGlobalLang, createT } from "./lang";
+import { ThemeContext, getTheme } from "./theme.js";
 
 export const LangContext = createContext('uk');
 
@@ -22,13 +23,13 @@ const Loader = () => <div style={{color: "white", padding: "20px"}}>Завант
 import { BG, BG_DEEP, SURFACE, SURF_HI, SURF_LO, BORDER, TEXT, DIM, FAINT, ACCENT, ACC_HI, GREEN, BLUE, GOLD, SO } from "./theme.js";
 
 // ─── CSS ────────────────────────────────────────────────────────
-const CSS = `
+const makeCSS = (theme) => `
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-body,html{margin:0;padding:0;background:${BG}}
+body,html{margin:0;padding:0;background:${theme.BG}}
 ::-webkit-scrollbar{width:5px;height:5px}
 ::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.1);border-radius:3px}
 @keyframes spin{to{transform:rotate(360deg)}}
-.spinner{width:32px;height:32px;border:3px solid rgba(255,255,255,0.06);border-top-color:${ACCENT};border-radius:50%;animation:spin .8s linear infinite}
+.spinner{width:32px;height:32px;border:3px solid rgba(255,255,255,0.06);border-top-color:${theme.ACCENT};border-radius:50%;animation:spin .8s linear infinite}
 @keyframes fade-tab{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
 .tab-anim{animation:fade-tab .22s ease both}
 `;
@@ -672,15 +673,19 @@ export default function App() {
   const lang = settings.language || 'uk';
   useEffect(() => { setGlobalLang(lang); }, [lang]);
 
+  const theme = getTheme(settings.theme);
+  const css = makeCSS(theme);
+
   if (adminUser === undefined) return null;
   if (adminUser === null) return <LoginScreen/>;
 
   return (
+    <ThemeContext.Provider value={theme}>
     <LangContext.Provider value={lang}>
     <>
-      <style>{CSS}</style>
+      <style>{css}</style>
       <div style={{
-        minHeight:"100vh",background:BG,color:TEXT,
+        minHeight:"100vh",background:theme.BG,color:theme.TEXT,
         fontFamily:"ui-sans-serif,-apple-system,BlinkMacSystemFont,system-ui,sans-serif",
         paddingBottom:90
       }}>
@@ -694,5 +699,6 @@ export default function App() {
       </div>
     </>
     </LangContext.Provider>
+    </ThemeContext.Provider>
   );
 }

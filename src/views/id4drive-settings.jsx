@@ -2,21 +2,8 @@ import { useState, useContext } from "react";
 import { ref, update } from "firebase/database";
 import { db } from "../firebase";
 import { LangContext } from "../App";
+import { ThemeContext } from "../theme.js";
 import { createT } from "../lang";
-
-// ─── TOKENS ─────────────────────────────────────────────────────
-import { BG_DEEP, SURFACE, SURF_HI, SURF_LO, BORDER, TEXT, DIM, FAINT, ACCENT, ACC_HI, GREEN, BLUE, PURPLE, GOLD, RED, TEAL, SO, SI } from "../theme.js";
-
-const CSS = `
-*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-::-webkit-scrollbar{width:4px}
-::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.08);border-radius:2px}
-input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:4px;border-radius:2px;background:${BG_DEEP};outline:none;box-shadow:${SI}}
-input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:9px;background:linear-gradient(145deg,${ACC_HI},${ACCENT});cursor:pointer;box-shadow:0 2px 6px rgba(255,90,60,0.5)}
-select{color-scheme:dark}
-@keyframes sec-open{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
-.sec-open{animation:sec-open .16s ease both}
-`;
 
 const ALL_TABS = [
   { id:"schedule",  lk:"nav.schedule"  },
@@ -31,6 +18,7 @@ const ALL_TABS = [
 
 // ─── ATOMS ──────────────────────────────────────────────────────
 function Toggle({ on, onChange }) {
+  const { ACC_HI, ACCENT, SURF_LO, BG_DEEP, SI } = useContext(ThemeContext);
   return (
     <div onClick={()=>onChange(!on)} style={{
       width:44,height:24,borderRadius:12,cursor:"pointer",position:"relative",
@@ -47,6 +35,7 @@ function Toggle({ on, onChange }) {
 }
 
 function NumInput({ value, onChange, min=0, max=999, suffix="" }) {
+  const { BG_DEEP, SURF_HI, SURFACE, TEXT, SO, SI } = useContext(ThemeContext);
   return (
     <div style={{display:"flex",alignItems:"center",gap:4,background:BG_DEEP,borderRadius:9,boxShadow:SI,padding:"4px 6px"}}>
       <button onClick={()=>onChange(Math.max(min,value-1))} style={{
@@ -67,6 +56,7 @@ function NumInput({ value, onChange, min=0, max=999, suffix="" }) {
 }
 
 function Radio({ on, onChange }) {
+  const { ACCENT, FAINT } = useContext(ThemeContext);
   return (
     <div onClick={onChange} style={{
       width:20,height:20,borderRadius:10,cursor:"pointer",flexShrink:0,
@@ -79,6 +69,7 @@ function Radio({ on, onChange }) {
 }
 
 function Row({ label, hint, children, last }) {
+  const { BORDER, TEXT, FAINT } = useContext(ThemeContext);
   return (
     <div style={{
       display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,
@@ -95,6 +86,7 @@ function Row({ label, hint, children, last }) {
 }
 
 function Chip({ label, active, onClick }) {
+  const { ACC_HI, ACCENT, SURF_HI, SURFACE, DIM, SO } = useContext(ThemeContext);
   return (
     <button onClick={onClick} style={{
       padding:"6px 12px",borderRadius:9,border:"none",cursor:"pointer",fontSize:11,fontWeight:700,
@@ -106,6 +98,7 @@ function Chip({ label, active, onClick }) {
 
 function Section({ title, icon, children, defaultOpen=false }) {
   const [open, setOpen] = useState(defaultOpen);
+  const { SURF_HI, SURFACE, SURF_LO, BORDER, TEXT, FAINT, SO } = useContext(ThemeContext);
   return (
     <div style={{
       background:`linear-gradient(155deg,${SURF_HI},${SURFACE})`,
@@ -136,33 +129,37 @@ function Section({ title, icon, children, defaultOpen=false }) {
   );
 }
 
-function Info({ title, text, color=BLUE }) {
+function Info({ title, text, color }) {
+  const { BLUE, DIM } = useContext(ThemeContext);
+  const c = color ?? BLUE;
   return (
     <div style={{
-      background:`linear-gradient(145deg,${color}0d,${color}05)`,
-      border:`1px solid ${color}30`,
+      background:`linear-gradient(145deg,${c}0d,${c}05)`,
+      border:`1px solid ${c}30`,
       borderRadius:10,padding:"10px 12px",marginTop:10,
     }}>
-      <div style={{fontSize:11,fontWeight:700,color,marginBottom:4}}>💡 {title}</div>
+      <div style={{fontSize:11,fontWeight:700,color:c,marginBottom:4}}>💡 {title}</div>
       <div style={{fontSize:11,color:DIM,lineHeight:1.6}}>{text}</div>
     </div>
   );
 }
 
-const TxtInput = ({ value, onChange, placeholder="" }) => (
-  <input value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder}
-    style={{
-      background:BG_DEEP,border:`1.5px solid ${BORDER}`,borderRadius:8,
-      color:TEXT,fontSize:13,padding:"7px 10px",outline:"none",
-      width:"100%",fontFamily:"inherit",boxShadow:SI,
-    }}/>
-);
-
-
+function TxtInput({ value, onChange, placeholder="" }) {
+  const { BG_DEEP, BORDER, TEXT, SI } = useContext(ThemeContext);
+  return (
+    <input value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder}
+      style={{
+        background:BG_DEEP,border:`1.5px solid ${BORDER}`,borderRadius:8,
+        color:TEXT,fontSize:13,padding:"7px 10px",outline:"none",
+        width:"100%",fontFamily:"inherit",boxShadow:SI,
+      }}/>
+  );
+}
 
 const DAY_NAMES = ["Пн","Вт","Ср","Чт","Пт","Сб","Нд"];
 
 function TimeInput({ value, onChange, min=0, max=24 }) {
+  const { BG_DEEP, FAINT, TEXT, SI } = useContext(ThemeContext);
   const v = Number(value) || 0;
   const h = Math.floor(v);
   const m = (v % 1 >= 0.5) ? 30 : 0;
@@ -180,8 +177,19 @@ function TimeInput({ value, onChange, min=0, max=24 }) {
 
 // ─── MAIN ────────────────────────────────────────────────────────
 export default function SettingsView({ settings, setSettings }) {
+  const { BG_DEEP, SURFACE, SURF_HI, SURF_LO, BORDER, TEXT, DIM, FAINT, ACCENT, ACC_HI, GREEN, BLUE, PURPLE, GOLD, RED, TEAL, SO, SI } = useContext(ThemeContext);
   const lang = useContext(LangContext);
   const t = createT(lang);
+  const css = `
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+::-webkit-scrollbar{width:4px}
+::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.08);border-radius:2px}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:4px;border-radius:2px;background:${BG_DEEP};outline:none;box-shadow:${SI}}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:9px;background:linear-gradient(145deg,${ACC_HI},${ACCENT});cursor:pointer;box-shadow:0 2px 6px rgba(255,90,60,0.5)}
+select{color-scheme:dark}
+@keyframes sec-open{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
+.sec-open{animation:sec-open .16s ease both}
+`;
   const upd = (k, v) => setSettings(s=>({...s,[k]:v}));
 
   // ── weekSchedule helpers ──────────────────────────────────────
@@ -212,7 +220,7 @@ export default function SettingsView({ settings, setSettings }) {
 
   return (
     <>
-      <style>{CSS}</style>
+      <style>{css}</style>
       <div style={{display:"flex",flexDirection:"column",gap:8,fontFamily:"ui-sans-serif,-apple-system,system-ui,sans-serif",color:TEXT}}>
 
         {/* ── ГРАФІК ── */}
