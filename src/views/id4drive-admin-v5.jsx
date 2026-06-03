@@ -1071,7 +1071,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                     style={{
                       position:"absolute", left:0, right:0,
                       top: minToPx(startMin) + 1,
-                      height: 60 * PX_PER_MIN - 2,
+                      height: (settings.slotCreateStep || settings.snapMin || 30) * PX_PER_MIN - 2,
                       opacity: 0.5,
                       background: bg,
                       border: `1.5px solid ${borderColor}`,
