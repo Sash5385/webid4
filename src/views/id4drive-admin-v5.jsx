@@ -2612,25 +2612,25 @@ function SettingsView({ settings, setSettings }) {
         <SectionTitle>Автоматичні повідомлення</SectionTitle>
         <Row label="Нагадування за N годин до уроку">
           <div style={{display:"flex",alignItems:"center",gap:8}}>
-            {settings.autoReminder.enabled && (
-              <NumInput value={settings.autoReminder.hoursBefore}
+            {settings.autoReminder?.enabled && (
+              <NumInput value={settings.autoReminder?.hoursBefore ?? 24}
                 onChange={v=>updNested("autoReminder","hoursBefore",v)}
                 min={1} max={168} suffix="год"/>
             )}
-            <Toggle on={settings.autoReminder.enabled} onChange={v=>updNested("autoReminder","enabled",v)}/>
+            <Toggle on={!!settings.autoReminder?.enabled} onChange={v=>updNested("autoReminder","enabled",v)}/>
           </div>
         </Row>
         <Row label="Вітання при реєстрації нового учня">
-          <Toggle on={settings.autoWelcome.enabled} onChange={v=>updNested("autoWelcome","enabled",v)}/>
+          <Toggle on={!!settings.autoWelcome?.enabled} onChange={v=>updNested("autoWelcome","enabled",v)}/>
         </Row>
         <Row label="Повідомлення про підтвердження букінгу">
-          <Toggle on={settings.autoConfirm.enabled} onChange={v=>updNested("autoConfirm","enabled",v)}/>
+          <Toggle on={!!settings.autoConfirm?.enabled} onChange={v=>updNested("autoConfirm","enabled",v)}/>
         </Row>
         <Row label="Повідомлення після скасування">
-          <Toggle on={settings.autoCancel.enabled} onChange={v=>updNested("autoCancel","enabled",v)}/>
+          <Toggle on={!!settings.autoCancel?.enabled} onChange={v=>updNested("autoCancel","enabled",v)}/>
         </Row>
         <Row label="Пропозиція вільного слоту (черга)">
-          <Toggle on={settings.autoQueueOffer.enabled} onChange={v=>updNested("autoQueueOffer","enabled",v)}/>
+          <Toggle on={!!settings.autoQueueOffer?.enabled} onChange={v=>updNested("autoQueueOffer","enabled",v)}/>
         </Row>
       </Card>
 

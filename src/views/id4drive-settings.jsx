@@ -374,13 +374,13 @@ select{color-scheme:dark}
             ))}
           </div>
           <Row label={t('set.auto.confirm')}>
-            <Toggle on={settings.autoConfirm.enabled} onChange={v=>setSettings(s=>({...s,autoConfirm:{...s.autoConfirm,enabled:v}}))}/>
+            <Toggle on={!!settings.autoConfirm?.enabled} onChange={v=>setSettings(s=>({...s,autoConfirm:{...(s.autoConfirm||{}),enabled:v}}))}/>
           </Row>
           <Row label={t('set.auto.cancel')}>
-            <Toggle on={settings.autoCancel.enabled} onChange={v=>setSettings(s=>({...s,autoCancel:{...s.autoCancel,enabled:v}}))}/>
+            <Toggle on={!!settings.autoCancel?.enabled} onChange={v=>setSettings(s=>({...s,autoCancel:{...(s.autoCancel||{}),enabled:v}}))}/>
           </Row>
           <Row label={t('set.auto.queue')} last>
-            <Toggle on={settings.autoQueueOffer.enabled} onChange={v=>setSettings(s=>({...s,autoQueueOffer:{...s.autoQueueOffer,enabled:v}}))}/>
+            <Toggle on={!!settings.autoQueueOffer?.enabled} onChange={v=>setSettings(s=>({...s,autoQueueOffer:{...(s.autoQueueOffer||{}),enabled:v}}))}/>
           </Row>
         </Section>
 
