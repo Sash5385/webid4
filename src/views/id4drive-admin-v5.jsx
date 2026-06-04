@@ -943,6 +943,21 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   return (
     <>
     <style>{GLOBAL_CSS}</style>
+    <div style={{display:"flex",gap:6,padding:"0 4px 6px",overflowX:"auto",scrollbarWidth:"none"}}>
+      {[3,5,7,10].map(n=>{
+        const active = settings.daysShown===n;
+        return (
+          <button key={n} onClick={()=>setSettings(s=>({...s,daysShown:n}))} style={{
+            flexShrink:0,padding:"6px 14px",borderRadius:10,border:"none",cursor:"pointer",
+            background:active?`linear-gradient(165deg,${GOLD},#e6a800)`:`linear-gradient(135deg,${SURFACE_HI},${SURFACE_LO})`,
+            color:active?"#1a1200":TEXT_DIM,
+            fontSize:12,fontWeight:active?800:600,
+            boxShadow:active?`0 4px 12px ${GOLD}55`:SHADOW_OUT,
+            transition:"all .15s",
+          }}>{n} дн</button>
+        );
+      })}
+    </div>
     <Card style={{padding:"6px 3px 10px", overflow:"hidden"}}>
       <div style={{display:"flex", maxHeight:"calc(100vh - 156px)", overflow:"hidden"}}>
 
@@ -1010,6 +1025,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
               end:     _ov?.lunchEnd     ?? _ws.lunchEnd     ?? settings.lunchEnd     ?? 13,
             };
             const isToday = absDay === 0;
+            const isPastDay = absDay < 0;
             const isLoadingCol = genLoadingDays.has(absDay);
             const hasAnySlotsCol = !!(openSlots[dateStrCol] && Object.keys(openSlots[dateStrCol]).length);
             return (
@@ -1019,13 +1035,14 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
             }}>
               {/* DATE HEADER — sticky top, moves with column horizontally */}
               <div
-                onClick={e=>{ e.stopPropagation(); if(isLoadingCol) return; hasAnySlotsCol ? clearDaySlots(absDay) : generateDaySlots(absDay); }}
+                onClick={e=>{ e.stopPropagation(); if(isPastDay || isLoadingCol) return; hasAnySlotsCol ? clearDaySlots(absDay) : generateDaySlots(absDay); }}
                 style={{
                   position:"sticky", top:0, zIndex:4,
                   height:HEADER_H, flexShrink:0, marginBottom:4,
                   display:"flex", flexDirection:"column",
                   alignItems:"center", justifyContent:"space-between",
-                  padding:"3px 2px 3px", borderRadius:10, cursor:"pointer",
+                  padding:"3px 2px 3px", borderRadius:10, cursor: isPastDay ? "default" : "pointer",
+                  opacity: isPastDay ? 0.35 : 1,
                   background: isToday ? `rgba(247,201,72,0.18)` : isOpenCol ? `rgba(99,211,120,0.13)` : `rgba(0,0,0,0.18)`,
                   boxShadow: isToday ? `inset 0 0 0 1.5px rgba(247,201,72,0.55)` : isOpenCol ? `inset 0 0 0 1px rgba(99,211,120,0.35)` : "none",
                 }}>
@@ -1039,13 +1056,14 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                 }}>{day.num}</div>
                 <div style={{fontSize:9, lineHeight:1, opacity:0.7,
                   color: isLoadingCol ? FAINT : isOpenCol ? GREEN : FAINT,
-                }}>{isLoadingCol ? "…" : isOpenCol ? "✓" : "＋"}</div>
+                }}>{isPastDay ? "" : isLoadingCol ? "…" : isOpenCol ? "✓" : "＋"}</div>
               </div>
 
               {/* SLOT CONTENT */}
               <div
                 onClick={e=>{ if(xJustShownRef.current){ xJustShownRef.current=false; return; } if(quickCancelId){ xVisibleRef.current=false; setQuickCancelId(null); } }}
                 onPointerDown={e=>{
+                  if (isPastDay) return;
                   if (e.button > 0) return;
                   if (dragRef.current || pendingDragRef.current) return;
                   const rect = e.currentTarget.getBoundingClientRect();
@@ -1083,6 +1101,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                 return (
                   <div key={`os-${time}`}
                     onPointerDown={e=>{
+                      if (isPastDay) return;
                       e.stopPropagation();
                       slotHoldFiredRef.current = false;
                       slotHoldTimerRef.current = setTimeout(()=>{
@@ -1095,7 +1114,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                     onPointerCancel={()=>clearTimeout(slotHoldTimerRef.current)}
                     onClick={e=>{
                       e.stopPropagation();
-                      if (slotHoldFiredRef.current) return;
+                      if (isPastDay || slotHoldFiredRef.current) return;
                       toggleSlotFree(dateStrCol, time, slot);
                     }}
                     style={{
@@ -1146,7 +1165,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                   borderRadius:8, pointerEvents:"none",
                   display:"flex",alignItems:"center",justifyContent:"center",
                   fontSize:9,color:TEXT_FAINT,fontWeight:700,letterSpacing:1
-                }}>ОБІД</div>
+                }}>🍽️☕</div>
               )}
 
               {/* Viewing indicators — student selected this time but hasn't booked yet */}
