@@ -720,7 +720,7 @@ export default function App() {
         paddingBottom:90
       }}>
         <TopBar tab={tab} onChange={switchTab} settings={settings} setSettings={setSettings}/>
-        <div className="tab-anim" key={`${tab}-${tabVisits[tab]||0}`} style={{padding: tab==="schedule" ? "4px 3px 0" : "14px 14px 0"}}>
+        <div className="tab-anim" key={`${tab}-${tabVisits[tab]||0}`} style={{padding: tab==="schedule" ? "0 3px 0" : "14px 14px 0"}}>
           <Suspense fallback={<Loader/>}>
             <ViewRenderer tab={tab} settings={settings} setSettings={setSettings} bookings={bookings} setBookings={handleSetBookings} onSlotClick={setSelectedBooking} onEmptySlotClick={setNewBookingData} openInfos={openInfos} toggleInfo={toggleInfo} activeDragIds={activeDragIds} navTo={switchTab}/>
           </Suspense>
