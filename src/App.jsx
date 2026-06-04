@@ -353,7 +353,7 @@ const INSTRUCTIONS = {
 };
 
 // ─── TOP BAR ─────────────────────────────────────────────────────
-function TopBar({ tab, onChange }) {
+function TopBar({ tab, onChange, settings, setSettings }) {
   const lang = useContext(LangContext);
   const tl = createT(lang);
   const tabLabel = tl(TAB_IDS.find(x=>x.id===tab)?.lk || tab);
@@ -379,6 +379,19 @@ function TopBar({ tab, onChange }) {
           <div style={{fontSize:13,fontWeight:800,letterSpacing:-0.3,color:TEXT}}>{tabLabel}</div>
         </div>
         <div style={{display:"flex",gap:6,alignItems:"center"}}>
+          {tab==="schedule" && settings && setSettings && [3,5,7,10].map(n=>{
+            const active = settings.daysShown===n;
+            return (
+              <button key={n} onClick={()=>setSettings(s=>({...s,daysShown:n}))} style={{
+                padding:"4px 9px",borderRadius:8,border:"none",cursor:"pointer",
+                background:active?`linear-gradient(165deg,${GOLD},#e6a800)`:`linear-gradient(135deg,${SURF_HI},${SURFACE})`,
+                color:active?"#1a1200":DIM,
+                fontSize:11,fontWeight:active?800:600,
+                boxShadow:active?`0 3px 8px ${GOLD}55`:SO,
+                transition:"all .15s",
+              }}>{n}</button>
+            );
+          })}
           {instruction && (
             <button onClick={()=>setShowInfo(v=>!v)} style={{background:"none",border:"none",cursor:"pointer",padding:0}}>
               <I3 s={24} r={7} gr={showInfo?"linear-gradient(165deg,#fcd34d,#d97706)":"linear-gradient(135deg,#2e3034,#26282c)"}>
@@ -518,8 +531,10 @@ export default function App() {
           services:    Array.isArray(d.services)    ? d.services    : s.services,
           categories:  Array.isArray(d.categories)  ? d.categories  : s.categories,
           weekends:    Array.isArray(d.weekends)     ? d.weekends    : s.weekends,
-          navTabs:     Array.isArray(d.navTabs)      ? d.navTabs     : s.navTabs,
+          navTabs:      Array.isArray(d.navTabs)       ? d.navTabs      : s.navTabs,
           autoReminders: Array.isArray(d.autoReminders) ? d.autoReminders : s.autoReminders,
+          weekSchedule:  Array.isArray(d.weekSchedule)  ? d.weekSchedule  : s.weekSchedule,
+          dateOverrides: Array.isArray(d.dateOverrides)  ? d.dateOverrides : s.dateOverrides,
         }));
       }
       setSettingsLoaded(true);
@@ -689,7 +704,7 @@ export default function App() {
         fontFamily:"ui-sans-serif,-apple-system,BlinkMacSystemFont,system-ui,sans-serif",
         paddingBottom:90
       }}>
-        <TopBar tab={tab} onChange={switchTab}/>
+        <TopBar tab={tab} onChange={switchTab} settings={settings} setSettings={setSettings}/>
         <div className="tab-anim" key={`${tab}-${tabVisits[tab]||0}`} style={{padding: tab==="schedule" ? "4px 3px 0" : "14px 14px 0"}}>
           <Suspense fallback={<Loader/>}>
             <ViewRenderer tab={tab} settings={settings} setSettings={setSettings} bookings={bookings} setBookings={handleSetBookings} onSlotClick={setSelectedBooking} onEmptySlotClick={setNewBookingData} openInfos={openInfos} toggleInfo={toggleInfo} activeDragIds={activeDragIds} navTo={switchTab}/>

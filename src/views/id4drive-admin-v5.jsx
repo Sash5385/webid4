@@ -943,21 +943,6 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   return (
     <>
     <style>{GLOBAL_CSS}</style>
-    <div style={{display:"flex",gap:6,padding:"0 4px 6px",overflowX:"auto",scrollbarWidth:"none"}}>
-      {[3,5,7,10].map(n=>{
-        const active = settings.daysShown===n;
-        return (
-          <button key={n} onClick={()=>setSettings(s=>({...s,daysShown:n}))} style={{
-            flexShrink:0,padding:"6px 14px",borderRadius:10,border:"none",cursor:"pointer",
-            background:active?`linear-gradient(165deg,${GOLD},#e6a800)`:`linear-gradient(135deg,${SURFACE_HI},${SURFACE_LO})`,
-            color:active?"#1a1200":TEXT_DIM,
-            fontSize:12,fontWeight:active?800:600,
-            boxShadow:active?`0 4px 12px ${GOLD}55`:SHADOW_OUT,
-            transition:"all .15s",
-          }}>{n} дн</button>
-        );
-      })}
-    </div>
     <Card style={{padding:"6px 3px 10px", overflow:"hidden"}}>
       <div style={{display:"flex", maxHeight:"calc(100vh - 156px)", overflow:"hidden"}}>
 
@@ -1164,8 +1149,8 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                   background:`repeating-linear-gradient(135deg, transparent, transparent 6px, rgba(255,255,255,0.04) 6px, rgba(255,255,255,0.04) 12px)`,
                   borderRadius:8, pointerEvents:"none",
                   display:"flex",alignItems:"center",justifyContent:"center",
-                  fontSize:9,color:TEXT_FAINT,fontWeight:700,letterSpacing:1
-                }}>🍽️☕</div>
+                  fontSize:16,color:TEXT_FAINT,letterSpacing:2
+                }}>🍽️ ☕</div>
               )}
 
               {/* Viewing indicators — student selected this time but hasn't booked yet */}
