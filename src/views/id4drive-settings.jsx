@@ -1,6 +1,4 @@
 import { useState, useContext } from "react";
-import { ref, update } from "firebase/database";
-import { db } from "../firebase";
 import { LangContext } from "../App";
 import { ThemeContext } from "../theme.js";
 import { createT } from "../lang";
@@ -18,9 +16,155 @@ const ALL_TABS = [
 
 const DAY_NAMES = ["Пн","Вт","Ср","Чт","Пт","Сб","Нд"];
 
+// ─── MODULE-LEVEL ATOMS (stable references → no remount on settings change) ───
+
+function Toggle({ on, onChange }) {
+  const { ACC_HI, ACCENT, SURF_LO, BG_DEEP, SI } = useContext(ThemeContext);
+  return (
+    <div onClick={()=>onChange(!on)} style={{
+      width:44,height:24,borderRadius:12,cursor:"pointer",position:"relative",
+      background:on?`linear-gradient(145deg,${ACC_HI},${ACCENT})`:`linear-gradient(145deg,${SURF_LO},${BG_DEEP})`,
+      boxShadow:on?`0 0 8px ${ACCENT}44`:SI,transition:"background .2s",flexShrink:0,
+    }}>
+      <div style={{
+        position:"absolute",top:3,left:on?21:3,width:18,height:18,borderRadius:9,
+        background:"linear-gradient(135deg,#fff,#ddd)",
+        boxShadow:"0 1px 4px rgba(0,0,0,0.4)",transition:"left .2s",
+      }}/>
+    </div>
+  );
+}
+
+function NumInput({ value, onChange, min=0, max=999, suffix="" }) {
+  const { BG_DEEP, SURF_HI, SURFACE, TEXT, SO, SI } = useContext(ThemeContext);
+  return (
+    <div style={{display:"flex",alignItems:"center",gap:4,background:BG_DEEP,borderRadius:9,boxShadow:SI,padding:"4px 6px"}}>
+      <button onClick={()=>onChange(Math.max(min,value-1))} style={{
+        width:26,height:26,borderRadius:7,border:"none",cursor:"pointer",
+        background:`linear-gradient(145deg,${SURF_HI},${SURFACE})`,color:TEXT,fontSize:14,
+        display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,boxShadow:SO,
+      }}>−</button>
+      <span style={{fontSize:13,fontWeight:700,color:TEXT,minWidth:32,textAlign:"center"}}>
+        {value}{suffix}
+      </span>
+      <button onClick={()=>onChange(Math.min(max,value+1))} style={{
+        width:26,height:26,borderRadius:7,border:"none",cursor:"pointer",
+        background:`linear-gradient(145deg,${SURF_HI},${SURFACE})`,color:TEXT,fontSize:14,
+        display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,boxShadow:SO,
+      }}>+</button>
+    </div>
+  );
+}
+
+function Radio({ on, onChange }) {
+  const { ACCENT, FAINT } = useContext(ThemeContext);
+  return (
+    <div onClick={onChange} style={{
+      width:20,height:20,borderRadius:10,cursor:"pointer",flexShrink:0,
+      border:`2px solid ${on?ACCENT:FAINT}`,
+      background:on?ACCENT:"transparent",
+      boxShadow:on?`0 0 8px ${ACCENT}55`:"none",
+      transition:"all .15s",
+    }}/>
+  );
+}
+
+function Row({ label, hint, children, last }) {
+  const { TEXT, FAINT, BORDER } = useContext(ThemeContext);
+  return (
+    <div style={{
+      display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,
+      padding:"11px 0",
+      borderBottom:last?`none`:`1px solid ${BORDER}`,
+    }}>
+      <div style={{flex:1,minWidth:0}}>
+        <div style={{fontSize:13,fontWeight:600,color:TEXT}}>{label}</div>
+        {hint && <div style={{fontSize:10,color:FAINT,marginTop:2}}>{hint}</div>}
+      </div>
+      <div style={{flexShrink:0}}>{children}</div>
+    </div>
+  );
+}
+
+function Chip({ label, active, onClick }) {
+  const { ACC_HI, ACCENT, SURF_HI, SURFACE, DIM, SO } = useContext(ThemeContext);
+  return (
+    <button onClick={onClick} style={{
+      padding:"6px 12px",borderRadius:9,border:"none",cursor:"pointer",fontSize:11,fontWeight:700,
+      background:active?`linear-gradient(145deg,${ACC_HI},${ACCENT})`:`linear-gradient(145deg,${SURF_HI},${SURFACE})`,
+      color:active?"#fff":DIM,boxShadow:active?"none":SO,
+    }}>{label}</button>
+  );
+}
+
+function Section({ title, icon, children, defaultOpen=false }) {
+  const { SURF_HI, SURFACE, SURF_LO, SO, BORDER, TEXT, FAINT } = useContext(ThemeContext);
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div style={{
+      background:`linear-gradient(155deg,${SURF_HI},${SURFACE})`,
+      borderRadius:13,overflow:"hidden",
+      boxShadow:SO, border:`1px solid ${BORDER}`,
+    }}>
+      <div onClick={()=>setOpen(v=>!v)} style={{
+        display:"flex",alignItems:"center",gap:10,padding:"10px 14px",cursor:"pointer",userSelect:"none",
+      }}>
+        <div style={{
+          width:32,height:32,borderRadius:9,flexShrink:0,
+          background:`linear-gradient(145deg,${SURF_HI},${SURF_LO})`,
+          boxShadow:SO,
+          display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,
+        }}>{icon}</div>
+        <span style={{flex:1,fontSize:13,fontWeight:800,color:TEXT}}>{title}</span>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={FAINT} strokeWidth="2.2" strokeLinecap="round"
+          style={{transform:open?"rotate(180deg)":"none",transition:"transform .22s",flexShrink:0}}>
+          <polyline points="6 9 12 15 18 9"/>
+        </svg>
+      </div>
+      {open && (
+        <div className="sec-open" style={{padding:"0 14px 14px",borderTop:`1px solid ${BORDER}`}}>
+          {children}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Info({ title, text, color }) {
+  const { BLUE, DIM } = useContext(ThemeContext);
+  const c = color || BLUE;
+  return (
+    <div style={{
+      background:`linear-gradient(145deg,${c}0d,${c}05)`,
+      border:`1px solid ${c}30`,
+      borderRadius:10,padding:"10px 12px",marginTop:10,
+    }}>
+      <div style={{fontSize:11,fontWeight:700,color:c,marginBottom:4}}>💡 {title}</div>
+      <div style={{fontSize:11,color:DIM,lineHeight:1.6}}>{text}</div>
+    </div>
+  );
+}
+
+function TimeInput({ value, onChange, min=0, max=24 }) {
+  const { BG_DEEP, TEXT, FAINT, SI } = useContext(ThemeContext);
+  const v = Number(value) || 0;
+  const h = Math.floor(v);
+  const m = (v % 1 >= 0.5) ? 30 : 0;
+  const disp = `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`;
+  const dec = () => { const n = Math.round((v - 0.5) * 2) / 2; onChange(Math.max(min, n)); };
+  const inc = () => { const n = Math.round((v + 0.5) * 2) / 2; onChange(Math.min(max, n)); };
+  return (
+    <div style={{display:"flex",alignItems:"center",background:BG_DEEP,borderRadius:7,boxShadow:SI,overflow:"hidden"}}>
+      <button onClick={dec} style={{width:20,height:26,border:"none",cursor:"pointer",background:"transparent",color:FAINT,fontSize:14,padding:0,lineHeight:1}}>‹</button>
+      <span style={{fontSize:11,fontWeight:700,color:TEXT,minWidth:36,textAlign:"center"}}>{disp}</span>
+      <button onClick={inc} style={{width:20,height:26,border:"none",cursor:"pointer",background:"transparent",color:FAINT,fontSize:14,padding:0,lineHeight:1}}>›</button>
+    </div>
+  );
+}
+
 // ─── MAIN ────────────────────────────────────────────────────────
 export default function SettingsView({ settings, setSettings }) {
-  const { BG, BG_DEEP, SURFACE, SURF_HI, SURF_LO, BORDER, TEXT, DIM, FAINT, ACCENT, ACC_HI, GREEN, BLUE, PURPLE, GOLD, RED, TEAL, SO, SI } = useContext(ThemeContext);
+  const { BG_DEEP, SURF_HI, SURFACE, SURF_LO, BORDER, TEXT, DIM, FAINT, ACCENT, ACC_HI, GREEN, BLUE, PURPLE, GOLD, RED, TEAL, SO, SI } = useContext(ThemeContext);
   const lang = useContext(LangContext);
   const t = createT(lang);
   const css = `
@@ -35,142 +179,6 @@ select{color-scheme:dark}
 `;
   const upd = (k, v) => setSettings(s=>({...s,[k]:v}));
 
-  // ─── ATOMS (inside component to close over theme vars) ───────────
-  function Toggle({ on, onChange }) {
-    return (
-      <div onClick={()=>onChange(!on)} style={{
-        width:44,height:24,borderRadius:12,cursor:"pointer",position:"relative",
-        background:on?`linear-gradient(145deg,${ACC_HI},${ACCENT})`:`linear-gradient(145deg,${SURF_LO},${BG_DEEP})`,
-        boxShadow:on?`0 0 8px ${ACCENT}44`:SI,transition:"background .2s",flexShrink:0,
-      }}>
-        <div style={{
-          position:"absolute",top:3,left:on?21:3,width:18,height:18,borderRadius:9,
-          background:"linear-gradient(135deg,#fff,#ddd)",
-          boxShadow:"0 1px 4px rgba(0,0,0,0.4)",transition:"left .2s",
-        }}/>
-      </div>
-    );
-  }
-
-  function NumInput({ value, onChange, min=0, max=999, suffix="" }) {
-    return (
-      <div style={{display:"flex",alignItems:"center",gap:4,background:BG_DEEP,borderRadius:9,boxShadow:SI,padding:"4px 6px"}}>
-        <button onClick={()=>onChange(Math.max(min,value-1))} style={{
-          width:26,height:26,borderRadius:7,border:"none",cursor:"pointer",
-          background:`linear-gradient(145deg,${SURF_HI},${SURFACE})`,color:TEXT,fontSize:14,
-          display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,boxShadow:SO,
-        }}>−</button>
-        <span style={{fontSize:13,fontWeight:700,color:TEXT,minWidth:32,textAlign:"center"}}>
-          {value}{suffix}
-        </span>
-        <button onClick={()=>onChange(Math.min(max,value+1))} style={{
-          width:26,height:26,borderRadius:7,border:"none",cursor:"pointer",
-          background:`linear-gradient(145deg,${SURF_HI},${SURFACE})`,color:TEXT,fontSize:14,
-          display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,boxShadow:SO,
-        }}>+</button>
-      </div>
-    );
-  }
-
-  function Radio({ on, onChange }) {
-    return (
-      <div onClick={onChange} style={{
-        width:20,height:20,borderRadius:10,cursor:"pointer",flexShrink:0,
-        border:`2px solid ${on?ACCENT:FAINT}`,
-        background:on?ACCENT:"transparent",
-        boxShadow:on?`0 0 8px ${ACCENT}55`:"none",
-        transition:"all .15s",
-      }}/>
-    );
-  }
-
-  function Row({ label, hint, children, last }) {
-    return (
-      <div style={{
-        display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,
-        padding:"11px 0",
-        borderBottom:last?`none`:`1px solid ${BORDER}`,
-      }}>
-        <div style={{flex:1,minWidth:0}}>
-          <div style={{fontSize:13,fontWeight:600,color:TEXT}}>{label}</div>
-          {hint && <div style={{fontSize:10,color:FAINT,marginTop:2}}>{hint}</div>}
-        </div>
-        <div style={{flexShrink:0}}>{children}</div>
-      </div>
-    );
-  }
-
-  function Chip({ label, active, onClick }) {
-    return (
-      <button onClick={onClick} style={{
-        padding:"6px 12px",borderRadius:9,border:"none",cursor:"pointer",fontSize:11,fontWeight:700,
-        background:active?`linear-gradient(145deg,${ACC_HI},${ACCENT})`:`linear-gradient(145deg,${SURF_HI},${SURFACE})`,
-        color:active?"#fff":DIM,boxShadow:active?"none":SO,
-      }}>{label}</button>
-    );
-  }
-
-  function Section({ title, icon, children, defaultOpen=false }) {
-    const [open, setOpen] = useState(defaultOpen);
-    return (
-      <div style={{
-        background:`linear-gradient(155deg,${SURF_HI},${SURFACE})`,
-        borderRadius:13,overflow:"hidden",
-        boxShadow:SO, border:`1px solid ${BORDER}`,
-      }}>
-        <div onClick={()=>setOpen(v=>!v)} style={{
-          display:"flex",alignItems:"center",gap:10,padding:"10px 14px",cursor:"pointer",userSelect:"none",
-        }}>
-          <div style={{
-            width:32,height:32,borderRadius:9,flexShrink:0,
-            background:`linear-gradient(145deg,${SURF_HI},${SURF_LO})`,
-            boxShadow:SO,
-            display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,
-          }}>{icon}</div>
-          <span style={{flex:1,fontSize:13,fontWeight:800,color:TEXT}}>{title}</span>
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={FAINT} strokeWidth="2.2" strokeLinecap="round"
-            style={{transform:open?"rotate(180deg)":"none",transition:"transform .22s",flexShrink:0}}>
-            <polyline points="6 9 12 15 18 9"/>
-          </svg>
-        </div>
-        {open && (
-          <div className="sec-open" style={{padding:"0 14px 14px",borderTop:`1px solid ${BORDER}`}}>
-            {children}
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  function Info({ title, text, color=BLUE }) {
-    return (
-      <div style={{
-        background:`linear-gradient(145deg,${color}0d,${color}05)`,
-        border:`1px solid ${color}30`,
-        borderRadius:10,padding:"10px 12px",marginTop:10,
-      }}>
-        <div style={{fontSize:11,fontWeight:700,color,marginBottom:4}}>💡 {title}</div>
-        <div style={{fontSize:11,color:DIM,lineHeight:1.6}}>{text}</div>
-      </div>
-    );
-  }
-
-  function TimeInput({ value, onChange, min=0, max=24 }) {
-    const v = Number(value) || 0;
-    const h = Math.floor(v);
-    const m = (v % 1 >= 0.5) ? 30 : 0;
-    const disp = `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`;
-    const dec = () => { const n = Math.round((v - 0.5) * 2) / 2; onChange(Math.max(min, n)); };
-    const inc = () => { const n = Math.round((v + 0.5) * 2) / 2; onChange(Math.min(max, n)); };
-    return (
-      <div style={{display:"flex",alignItems:"center",background:BG_DEEP,borderRadius:7,boxShadow:SI,overflow:"hidden"}}>
-        <button onClick={dec} style={{width:20,height:26,border:"none",cursor:"pointer",background:"transparent",color:FAINT,fontSize:14,padding:0,lineHeight:1}}>‹</button>
-        <span style={{fontSize:11,fontWeight:700,color:TEXT,minWidth:36,textAlign:"center"}}>{disp}</span>
-        <button onClick={inc} style={{width:20,height:26,border:"none",cursor:"pointer",background:"transparent",color:FAINT,fontSize:14,padding:0,lineHeight:1}}>›</button>
-      </div>
-    );
-  }
-
   // ── weekSchedule helpers ──────────────────────────────────────
   const weekSchedule = settings.weekSchedule || DAY_NAMES.map((_,i) => ({
     enabled: i < 6, start: i===5?10:9, end: i===5?15:18,
@@ -178,7 +186,6 @@ select{color-scheme:dark}
   }));
   const updDay = (i, patch) => upd("weekSchedule", weekSchedule.map((d,idx) => idx===i ? {...d,...patch} : d));
 
-  // Queue mode helper — maps 3 booleans to single selection
   const queueMode = settings.queueAutoFifo ? "fifo" : settings.queueBroadcast ? "broadcast" : "manual";
   const setQueueMode = m => setSettings(s=>({
     ...s,
@@ -187,15 +194,12 @@ select{color-scheme:dark}
     queueManual:      m==="manual",
   }));
 
-  // Reminders (array of 3)
   const reminders = settings.autoReminders || [
     {enabled:true, hoursBefore:24},
     {enabled:false,hoursBefore:2},
     {enabled:false,hoursBefore:1},
   ];
   const updReminder = (idx, patch) => upd("autoReminders", reminders.map((r,i)=>i===idx?{...r,...patch}:r));
-
-  const days = t('set.days').split(',');
 
   return (
     <>
