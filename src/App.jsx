@@ -25,7 +25,7 @@ import { BG, BG_DEEP, SURFACE, SURF_HI, SURF_LO, BORDER, TEXT, DIM, FAINT, ACCEN
 // ─── CSS ────────────────────────────────────────────────────────
 const makeCSS = (theme) => `
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-body,html{margin:0;padding:0;background:${theme.BG}}
+body,html{margin:0;padding:0;background:${theme.BG}${theme.BG_IMAGE ? `;background-image:${theme.BG_IMAGE};background-size:cover;background-position:center top;background-attachment:fixed;background-repeat:no-repeat` : ""}}
 ::-webkit-scrollbar{width:5px;height:5px}
 ::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.1);border-radius:3px}
 @keyframes spin{to{transform:rotate(360deg)}}
@@ -377,6 +377,21 @@ function TopBar({ tab, onChange, settings, setSettings }) {
             <span style={{fontSize:12,position:"relative",zIndex:1}}>🚗</span>
           </I3>
           <div style={{fontSize:13,fontWeight:800,letterSpacing:-0.3,color:TEXT}}>{tabLabel}</div>
+          {tab==="schedule" && settings && setSettings && [6,8,10,12].map(n=>{
+            const totalH = (settings.workEnd - settings.workStart) * 60;
+            const targetHpx = Math.round(totalH / n);
+            const active = Math.abs(settings.hourHeightPx - targetHpx) < 3;
+            return (
+              <button key={`h${n}`} onClick={()=>setSettings(s=>({...s,hourHeightPx:Math.round((s.workEnd-s.workStart)*60/n)}))} style={{
+                padding:"4px 8px",borderRadius:8,border:"none",cursor:"pointer",
+                background:active?`linear-gradient(165deg,#5b9bff,#2563eb)`:`linear-gradient(135deg,${SURF_HI},${SURFACE})`,
+                color:active?"#fff":DIM,
+                fontSize:11,fontWeight:active?800:600,
+                boxShadow:active?`0 3px 8px rgba(91,155,255,0.5)`:SO,
+                transition:"all .15s",
+              }}>{n}г</button>
+            );
+          })}
         </div>
         <div style={{display:"flex",gap:6,alignItems:"center"}}>
           {tab==="schedule" && settings && setSettings && [3,5,7,10].map(n=>{
@@ -389,7 +404,7 @@ function TopBar({ tab, onChange, settings, setSettings }) {
                 fontSize:11,fontWeight:active?800:600,
                 boxShadow:active?`0 3px 8px ${GOLD}55`:SO,
                 transition:"all .15s",
-              }}>{n}</button>
+              }}>{n}д</button>
             );
           })}
           {instruction && (
@@ -700,7 +715,7 @@ export default function App() {
     <>
       <style>{css}</style>
       <div style={{
-        minHeight:"100vh",background:theme.BG,color:theme.TEXT,
+        minHeight:"100vh",background:theme.BG_IMAGE?"transparent":theme.BG,color:theme.TEXT,
         fontFamily:"ui-sans-serif,-apple-system,BlinkMacSystemFont,system-ui,sans-serif",
         paddingBottom:90
       }}>

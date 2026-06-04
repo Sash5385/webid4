@@ -1111,14 +1111,14 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                       border: `1.5px solid ${borderColor}`,
                       borderRadius:8, cursor:"pointer", zIndex:1,
                       display:"flex", flexDirection:"column",
-                      alignItems:"flex-start", justifyContent:"center",
-                      padding:"0 7px",
+                      alignItems:"center", justifyContent:"center",
+                      padding:0,
                     }}>
                     {hasSurcharge && <span style={{position:"absolute", top:3, left:4, fontSize:9, fontWeight:800, color:"rgba(247,201,72,0.95)", lineHeight:1}}>+{slot.surcharge}₴</span>}
                     {isVip && <span style={{position:"absolute", top:3, right:4, fontSize:10, lineHeight:1}}>👑</span>}
                     {isBlocked && <span style={{position:"absolute", top:3, left:4, fontSize:8, fontWeight:600, color:"rgba(239,68,68,0.65)", lineHeight:1}}>закрито</span>}
                     {!isSticky && !isBlocked && !isVip && !hasSurcharge && <span style={{position:"absolute", top:3, right:4, fontSize:9, lineHeight:1, opacity:0.5}}>◦</span>}
-                    <span style={{fontSize:10, fontWeight:800, lineHeight:1, color}}>{time}</span>
+                    <span style={{fontSize:5, fontWeight:800, lineHeight:1, color}}>{time}</span>
                     {isBlocked && (() => { const qc = queueMap[`${dateStrCol}_${time}`]; return qc > 0 ? (
                       <div style={{position:"absolute", bottom:2, right:4, display:"flex", alignItems:"center", gap:1}}>
                         <svg width="8" height="8" viewBox="0 0 24 24" fill={GOLD}><circle cx="12" cy="7" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>
@@ -1148,9 +1148,13 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                   height:(colLunch.end - colLunch.start)*60*PX_PER_MIN,
                   background:`repeating-linear-gradient(135deg, transparent, transparent 6px, rgba(255,255,255,0.04) 6px, rgba(255,255,255,0.04) 12px)`,
                   borderRadius:8, pointerEvents:"none",
-                  display:"flex",alignItems:"center",justifyContent:"center",
-                  fontSize:16,color:TEXT_FAINT,letterSpacing:2
-                }}>🍽️ ☕</div>
+                  display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:3,
+                }}>
+                  <svg viewBox="0 0 272.7 238.5" style={{width:Math.min(24,(colLunch.end-colLunch.start)*60*PX_PER_MIN*0.45),opacity:0.55}} fill="#FFC72C">
+                    <path d="m195.8 17.933c23.3 0 42.2 98.3 42.2 219.7h34c0-130.7-34.3-236.5-76.3-236.5-24 0-45.2 31.7-59.2 81.5-14-49.8-35.2-81.5-59-81.5-42 0-76.2 105.7-76.2 236.4h34c0-121.4 18.7-219.6 42-219.6s42.2 90.8 42.2 202.8h33.8c0-112 19-202.8 42.3-202.8"/>
+                  </svg>
+                  <span style={{fontSize:7,fontWeight:700,color:TEXT_FAINT,letterSpacing:0.5,textTransform:"uppercase"}}>обід</span>
+                </div>
               )}
 
               {/* Viewing indicators — student selected this time but hasn't booked yet */}
@@ -1495,7 +1499,8 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
             fontSize:11,fontWeight:700,color:TEXT_FAINT,textAlign:"center",
           }}>{slotOptions.time}</div>
 
-          {/* VIP */}
+          {/* VIP і надбавки — тільки для відкритих слотів */}
+          {slotOptions.slot?.available !== false ? <>
           <button onClick={()=>applySlotOption(slotOptions.dateStr, slotOptions.time, "vip")} style={{
             width:"100%",padding:"11px 14px",border:"none",cursor:"pointer",
             background:"none",borderBottom:`1px solid rgba(255,255,255,0.05)`,
@@ -1505,7 +1510,6 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
             <span>👑</span> VIP слот
           </button>
 
-          {/* Надбавки */}
           {[100,200,300].map((amt,i)=>(
             <button key={amt} onClick={()=>applySlotOption(slotOptions.dateStr, slotOptions.time, amt)} style={{
               width:"100%",padding:"11px 14px",border:"none",cursor:"pointer",
@@ -1518,6 +1522,11 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
               <span>+{amt}₴</span>
             </button>
           ))}
+          </> : (
+            <div style={{padding:"12px 14px",color:TEXT_FAINT,fontSize:12,textAlign:"center"}}>
+              Слот закрито
+            </div>
+          )}
 
           {/* Скинути — тільки якщо є що скидати */}
           {(slotOptions.slot?.vipOnly || slotOptions.slot?.surcharge) && (
