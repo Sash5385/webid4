@@ -8,16 +8,18 @@ const db = admin.database();
 const OFFER_WINDOW_MS = 30 * 60 * 1000; // 30 хвилин
 
 // Хелпер: відправити push студенту
-async function pushStudent(uid, title, body) {
+async function pushStudent(uid, title, body, data = {}) {
   const snap = await db.ref(`users/${uid}/fcmTokens/web/token`).get();
   const token = snap.val();
   if (!token) return;
+  const link = data.url || "https://id4drive.pro/cabinet";
   await admin.messaging().send({
     token,
     notification: { title, body },
+    data: Object.fromEntries(Object.entries({ url: link, ...data }).map(([k,v]) => [k, String(v)])),
     webpush: {
       notification: { icon: "/favicon.svg" },
-      fcmOptions: { link: "https://id4drive.pro" },
+      fcmOptions: { link },
     },
   }).catch(() => {});
 }
@@ -85,9 +87,11 @@ exports.onQueueInvite = onValueUpdated(
     // In-app сповіщення: клієнт підписаний на цей шлях
     await db.ref(`users/${uid}/queueOffers/${slotKey}`).set({ date, time, until, slotKey }).catch(() => {});
 
+    const url = `https://id4drive.pro/cabinet?date=${date}&time=${encodeURIComponent(time)}`;
     await pushStudent(uid,
       "🎉 Слот зарезервовано для вас!",
-      `${date} о ${time} — у вас 30 хвилин щоб записатись`
+      `${date} о ${time} — у вас 30 хвилин щоб записатись`,
+      { url, date, time, slotKey }
     );
   }
 );
