@@ -696,7 +696,7 @@ export default function App() {
           Promise.resolve().then(() => {
             remove(ref(db, `bookings/${b.userId}/${b.id}`))
               .catch(() => {})
-              .finally(() => pendingDeletesRef.current.delete(b.id));
+              .finally(() => setTimeout(() => pendingDeletesRef.current.delete(b.id), 3000));
           });
         }
       });

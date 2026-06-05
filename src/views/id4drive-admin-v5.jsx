@@ -880,9 +880,6 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
         setCancellingSet(s=>{ const ns=new Set(s); ns.delete(b.id); return ns; });
         const idsC = b._mergedIds || [b.id];
         setBookings(bs=>bs.filter(x=>!idsC.includes(x.id)));
-        if (b.userId) {
-          idsC.forEach(id => remove(ref(db, `bookings/${b.userId}/${id}`)).catch(()=>{}));
-        }
         delete cancelTimers.current[b.id];
       }, 2000);
     }
@@ -1359,9 +1356,6 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                             setCancellingSet(s=>{ const ns=new Set(s); ns.delete(b.id); return ns; });
                             const idsX = b._mergedIds || [b.id];
                             setBookings(bs=>bs.filter(x=>!idsX.includes(x.id)));
-                            if (b.userId) {
-                              idsX.forEach(id => remove(ref(db, `bookings/${b.userId}/${id}`)).catch(()=>{}));
-                            }
                             delete cancelTimers.current[b.id];
                           }, 2000);
                         }}
