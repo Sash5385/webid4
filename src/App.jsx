@@ -640,6 +640,7 @@ export default function App() {
       const all = [];
       Object.entries(data).forEach(([uid, userBkgs]) => {
         Object.values(userBkgs).forEach(b => {
+          if (b.status === 'cancelled') return;
           all.push({
             ...b,
             id:        b.id || `fb_${uid}_${Math.random()}`,
@@ -652,6 +653,7 @@ export default function App() {
           });
         });
       });
+      const allIds = new Set(all.map(fb => fb.id));
       setBookings(prev => {
         const prevMap = new Map(prev.map(b => [b.id, b]));
         return all
@@ -660,6 +662,14 @@ export default function App() {
             (moveSaveTimers.current[fb.id] || activeDragIds.current.has(fb.id))
               ? (prevMap.get(fb.id) || fb)
               : fb
+          )
+          .concat(
+            prev.filter(b =>
+              !allIds.has(b.id) &&
+              !pendingDeletesRef.current.has(b.id) &&
+              b.status !== 'cancelled' &&
+              (moveSaveTimers.current[b.id] || activeDragIds.current.has(b.id))
+            )
           );
       });
     });
@@ -716,6 +726,9 @@ export default function App() {
         // 3. Status change → save immediately
         if (p.status !== b.status) {
           update(ref(db, `bookings/${b.userId}/${b.id}`), { status: b.status }).catch(() => {});
+          if (b.status === 'cancelled') {
+            Promise.resolve().then(() => setBookings(bs => bs.filter(x => x.id !== b.id)));
+          }
 
         // 4. Move/resize → debounce 600ms so we don't spam Firebase on every pointermove
         } else if (p.startMin !== b.startMin || p.durMin !== b.durMin || p.day !== b.day) {

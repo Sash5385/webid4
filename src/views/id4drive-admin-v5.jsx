@@ -1209,7 +1209,8 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                 const isVipSlot = b.type === "vip-slot";
                 const slotTimeStr = String(Math.floor(b.startMin/60)).padStart(2,'0')+':'+String(b.startMin%60).padStart(2,'0');
                 const queueCount = b.date ? (queueMap[`${b.date}_${slotTimeStr}`] || 0) : 0;
-                const isDimmed = !isBlock && !isVipSlot && (b.status==="cancelled" || b.status==="noshow" || isCancelling);
+                if (b.status === "cancelled") return null;
+                const isDimmed = !isBlock && !isVipSlot && (b.status==="noshow" || isCancelling);
                 const svc = settings.services.find(s=>s.id===b.serviceId)
                          || settings.services.find(s=>s.active && s.type===(b.serviceType||b.type) && Number(s.duration)===b.durMin);
                 const basePrice = svc
@@ -2784,7 +2785,14 @@ export default function App() {
 
   const handleAction = (action, b) => {
     if (action === "confirm")  setBookings(bs=>bs.map(x=>x.id===b.id?{...x,status:"confirmed"}:x));
-    if (action === "cancel")   setBookings(bs=>bs.map(x=>x.id===b.id?{...x,status:"cancelled"}:x));
+    if (action === "cancel") {
+      if (b.userId && b.id) {
+        update(ref(db, `bookings/${b.userId}/${b.id}`), { status:"cancelled", cancelledAt:Date.now(), cancelledBy:"admin" }).catch(()=>{});
+        setBookings(bs=>bs.map(x=>x.id===b.id?{...x,status:"cancelled"}:x));
+      } else {
+        setBookings(bs=>bs.filter(x=>x.id!==b.id));
+      }
+    }
     if (action === "noshow")   setBookings(bs=>bs.map(x=>x.id===b.id?{...x,status:"noshow"}:x));
     if (action === "call")     window.location.href = `tel:${b.phone}`;
     if (action === "sms")      window.location.href = `sms:${b.phone}`;
