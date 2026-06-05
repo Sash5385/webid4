@@ -1462,7 +1462,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
       <div onClick={()=>setBubbleData(null)} style={{position:"fixed",inset:"0 0 80px 0",zIndex:100}}>
         <div onClick={e=>e.stopPropagation()} style={{
           position:"absolute",
-          top: Math.max(60, Math.min(bubbleData.clientY - 50, window.innerHeight - 130)),
+          top: Math.max(60, Math.min(bubbleData.clientY - 50, window.innerHeight - 170)),
           left: Math.max(10, Math.min(bubbleData.clientX - 10, window.innerWidth - 180)),
           width:168,
           background:`linear-gradient(135deg,${SURFACE},${BG_DEEP})`,
@@ -1476,6 +1476,13 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
               {getDayInfo(bubbleData.day).label} {getDayInfo(bubbleData.day).num}
             </span>
           </div>
+          <button onClick={()=>{setFormData(bubbleData);setBubbleData(null);}} style={{
+            width:"100%",padding:"9px 12px",borderRadius:10,border:"none",cursor:"pointer",
+            background:`linear-gradient(165deg,#f59e0b,#d97706)`,
+            color:"#fff",fontSize:12,fontWeight:800,
+            boxShadow:`0 4px 12px rgba(245,158,11,0.4)`,
+            marginBottom:6
+          }}>👤 Записати учня</button>
           <button onClick={()=>{setCreateSlotData(bubbleData);setBubbleData(null);}} style={{
             width:"100%",padding:"9px 12px",borderRadius:10,border:"none",cursor:"pointer",
             background:`linear-gradient(165deg,${GREEN},#16a34a)`,
