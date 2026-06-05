@@ -587,16 +587,16 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   // Довгий тап: VIP, надбавка або скидання
   const applySlotOption = (dateStr, time, option) => {
     const slotId = `slot${time.replace(":", "")}`;
-    const [hh, mm] = time.split(":").map(Number);
-    const startMin = hh * 60 + mm;
-    const today = new Date(); today.setHours(0,0,0,0);
-    const day = Math.round((new Date(dateStr + "T12:00:00") - today) / 86400000);
+    const currentSlot = slotOptions?.slot || {};
     if (option === "vip") {
-      update(ref(db, `timeslots/${dateStr}/${slotId}`), { available: true, adminBlocked: false, vipOnly: true, surcharge: null }).catch(() => {});
+      update(ref(db, `timeslots/${dateStr}/${slotId}`), { available: true, adminBlocked: false, vipOnly: true }).catch(() => {});
     } else if (option === "reset") {
       update(ref(db, `timeslots/${dateStr}/${slotId}`), { available: true, adminBlocked: false, vipOnly: false, surcharge: null }).catch(() => {});
+    } else if (option === "surcharge_remove") {
+      update(ref(db, `timeslots/${dateStr}/${slotId}`), { surcharge: null }).catch(() => {});
     } else {
-      update(ref(db, `timeslots/${dateStr}/${slotId}`), { available: true, adminBlocked: false, vipOnly: false, surcharge: option }).catch(() => {});
+      // Надбавка: зберігаємо поточний стан vipOnly та adminBlocked
+      update(ref(db, `timeslots/${dateStr}/${slotId}`), { surcharge: option }).catch(() => {});
     }
     setSlotOptions(null);
   };
@@ -862,7 +862,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   const handleAction = (action, b) => {
     if (action === "confirm") setBookings(bs=>bs.map(x=>x.id===b.id?{...x,status:"confirmed"}:x));
     if (action === "cancel") {
-      // Відновити вільні слоти
+      // Видалити слоти з timeslots — не залишати вільний блок
       if (b.startMin !== undefined && b.durMin) {
         const dateStr = b.date || absDayToDateStr(b.day);
         const updates = {};
@@ -870,13 +870,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
           const slotMin = b.startMin + i;
           const hh = String(Math.floor(slotMin / 60)).padStart(2, '0');
           const mm = String(slotMin % 60).padStart(2, '0');
-          const path = `timeslots/${dateStr}/slot${hh}${mm}`;
-          if (i % 60 === 0) {
-            updates[`${path}/available`] = true;
-            updates[`${path}/time`] = `${hh}:${mm}`;
-          } else {
-            updates[path] = null;
-          }
+          updates[`timeslots/${dateStr}/slot${hh}${mm}`] = null;
         }
         update(ref(db, '/'), updates).catch(() => {});
       }

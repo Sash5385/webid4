@@ -723,12 +723,31 @@ export default function App() {
           moveSaveTimers.current[b.id] = setTimeout(() => {
             const hh = String(Math.floor(b.startMin / 60)).padStart(2, "0");
             const mm = String(b.startMin % 60).padStart(2, "0");
+            const newDate = dayIdxToDate(b.day);
+            const oldDate = p.date || dayIdxToDate(p.day);
+            const oldHh = String(Math.floor(p.startMin / 60)).padStart(2, "0");
+            const oldMm = String(p.startMin % 60).padStart(2, "0");
+            const slotUpdates = {};
+            // Видалити старий слот з timeslots (щоб не залишався вільний)
+            for (let i = 0; i < p.durMin; i += 30) {
+              const sm = p.startMin + i;
+              const sh = String(Math.floor(sm/60)).padStart(2,'0'), smm = String(sm%60).padStart(2,'0');
+              slotUpdates[`timeslots/${oldDate}/slot${sh}${smm}`] = null;
+            }
+            // Позначити новий слот як зайнятий
+            for (let i = 0; i < b.durMin; i += 60) {
+              const sm = b.startMin + i;
+              const sh = String(Math.floor(sm/60)).padStart(2,'0'), smm = String(sm%60).padStart(2,'0');
+              slotUpdates[`timeslots/${newDate}/slot${sh}${smm}/available`] = false;
+              slotUpdates[`timeslots/${newDate}/slot${sh}${smm}/time`] = `${sh}:${smm}`;
+            }
+            update(ref(db, '/'), slotUpdates).catch(() => {});
             update(ref(db, `bookings/${b.userId}/${b.id}`), {
               startMin: b.startMin,
               durMin:   b.durMin,
               durationHours: b.durMin / 60,
               day:      b.day,
-              date:     dayIdxToDate(b.day),
+              date:     newDate,
               time:     `${hh}:${mm}`,
             }).catch(() => {});
             delete moveSaveTimers.current[b.id];
