@@ -41,7 +41,7 @@ const fmtDate = d => {
   const [,mo,dy]=d.split("-");
   return `${parseInt(dy)} ${months[parseInt(mo)]}`;
 };
-const priceOf  = b => { const s=SERVICES[b.svcId]; return s?(b.durMin/60)*(b.type==="school"?600:700)+(b.surcharge||0):0; };
+const priceOf  = b => (b.price || 0) + (b.surcharge || 0);
 const initials = n => n.split(" ").map(p=>p[0]).slice(0,2).join("").toUpperCase();
 const typeColor = t => t==="school" ? GREEN : GOLD;
 const typeGrad  = t => t==="school"
@@ -122,11 +122,12 @@ const Ico = {
   noshow:   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round"><circle cx="12" cy="12" r="9"/><line x1="8" y1="12" x2="16" y2="12"/></svg>,
   trash:    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>,
   reschedule:<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 16 14"/></svg>,
+  delete:   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>,
   chevron:  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke={DIM} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"/></svg>,
 };
 
 // ─── BOOKING CARD (expand / collapse) ──────────────────────────
-function BookingCard({ b, expanded, onToggle, onConfirm, onCancel, onNoshow }) {
+function BookingCard({ b, expanded, onToggle, onConfirm, onCancel, onNoshow, onDelete }) {
   const svc   = SERVICES[b.svcId];
   const cat   = b.catId ? CATEGORIES[b.catId] : null;
   const STATUS_MAP = getStatusMap(T);
@@ -147,6 +148,7 @@ function BookingCard({ b, expanded, onToggle, onConfirm, onCancel, onNoshow }) {
     ...(b.status!=="cancelled" ? [
       { label:"Скасувати", gr:"linear-gradient(145deg,#ef4444,#b91c1c)", icon:Ico.trash, fn:()=>onCancel(b.id) },
     ] : []),
+    { label:"Видалити", gr:"linear-gradient(145deg,#6b7280,#374151)", icon:Ico.delete, fn:()=>onDelete(b.id) },
   ];
 
   return (
@@ -593,6 +595,13 @@ export default function BookingsView({ settings }) {
   const confirm = id => setStatus(id, "confirmed");
   const cancel  = id => setStatus(id, "cancelled");
   const noshow  = id => setStatus(id, "noshow");
+  const deleteBooking = id => {
+    const bk = data.find(b => b.id === id);
+    if (!bk?.userId) return;
+    setData(d => d.filter(b => b.id !== id));
+    setExpandedId(null);
+    remove(ref(db, `bookings/${bk.userId}/${id}`));
+  };
 
   const applyDate = b => {
     const today = new Date().toISOString().split("T")[0];
@@ -735,7 +744,7 @@ export default function BookingsView({ settings }) {
             <div style={{display:"flex",flexDirection:"column",gap:7}}>
               {items.map(b=>(
                 <BookingCard key={b.id} b={b} expanded={expandedId===b.id}
-                  onToggle={()=>toggle(b.id)} onConfirm={confirm} onCancel={cancel} onNoshow={noshow}/>
+                  onToggle={()=>toggle(b.id)} onConfirm={confirm} onCancel={cancel} onNoshow={noshow} onDelete={deleteBooking}/>
               ))}
             </div>
           </div>
