@@ -654,11 +654,13 @@ export default function App() {
       });
       setBookings(prev => {
         const prevMap = new Map(prev.map(b => [b.id, b]));
-        return all.map(fb =>
-          (moveSaveTimers.current[fb.id] || activeDragIds.current.has(fb.id))
-            ? (prevMap.get(fb.id) || fb)
-            : fb
-        );
+        return all
+          .filter(fb => !pendingDeletesRef.current.has(fb.id))
+          .map(fb =>
+            (moveSaveTimers.current[fb.id] || activeDragIds.current.has(fb.id))
+              ? (prevMap.get(fb.id) || fb)
+              : fb
+          );
       });
     });
   }, [adminUser]);
@@ -668,16 +670,24 @@ export default function App() {
   // Tracks bookings currently being dragged/resized (set at onPointerDown, before first save timer)
   const activeDragIds = React.useRef(new Set());
 
+  const pendingDeletesRef = React.useRef(new Set());
+
   const handleSetBookings = fn => {
+    // Compute next state outside updater to safely call Firebase ops
     setBookings(prev => {
       const next = typeof fn === "function" ? fn(prev) : fn;
       const prevMap = new Map(prev.map(b => [b.id, b]));
       const nextIds  = new Set(next.map(b => b.id));
 
-      // 1. Deleted bookings → remove from Firebase
+      // 1. Deleted bookings → remove from Firebase (outside updater via microtask)
       prev.forEach(b => {
         if (!nextIds.has(b.id) && b.userId && b.id) {
-          remove(ref(db, `bookings/${b.userId}/${b.id}`)).catch(() => {});
+          pendingDeletesRef.current.add(b.id);
+          Promise.resolve().then(() => {
+            remove(ref(db, `bookings/${b.userId}/${b.id}`))
+              .catch(() => {})
+              .finally(() => pendingDeletesRef.current.delete(b.id));
+          });
         }
       });
 
