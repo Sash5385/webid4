@@ -1,5 +1,5 @@
 const { onSchedule } = require("firebase-functions/v2/scheduler");
-const { onValueUpdated } = require("firebase-functions/v2/database");
+const { onValueUpdated, onValueWritten } = require("firebase-functions/v2/database");
 const admin = require("firebase-admin");
 
 admin.initializeApp();
@@ -127,6 +127,36 @@ exports.cascadeQueueInvites = onSchedule({ schedule: "every 10 minutes", region:
     }
   }
 });
+
+// Адмін відкрив заблокований слот → запрошуємо першого в черзі
+exports.onAdminSlotOpened = onValueWritten(
+  { ref: "timeslots/{date}/{slotId}", region: "europe-west1" },
+  async (event) => {
+    const before = event.data.before?.val();
+    const after  = event.data.after?.val();
+    if (!before || !after) return;
+    // Тригер тільки: adminBlocked true → false, available → true
+    if (before.adminBlocked !== true) return;
+    if (after.adminBlocked !== false || after.available !== true) return;
+
+    const { date } = event.params;
+    const time = after.time;
+    if (!time) return;
+
+    const slotKey = `${date}_${time}`;
+    const qSnap = await db.ref(`queue/${slotKey}/entries`).get();
+    if (!qSnap.exists()) return;
+
+    const entries = Object.entries(qSnap.val())
+      .map(([uid, e]) => ({ uid, ...e }))
+      .filter(e => e.status === "waiting")
+      .sort((a, b) => (a.addedAt || 0) - (b.addedAt || 0));
+
+    if (!entries.length) return;
+    // Ставимо першого як "offered" → onQueueInvite відправить push і зарезервує слот
+    await db.ref(`queue/${slotKey}/entries/${entries[0].uid}`).update({ status: "offered" });
+  }
+);
 
 // Runs every hour — unlocks VIP slots within 48h and sends push to all non-VIP students
 exports.unlockVipSlots = onSchedule("every 1 hours", async () => {
