@@ -41,7 +41,7 @@ const fmtDate = d => {
   const [,mo,dy]=d.split("-");
   return `${parseInt(dy)} ${months[parseInt(mo)]}`;
 };
-const priceOf  = b => { const s=SERVICES[b.svcId]; return s?(b.durMin/60)*(b.type==="school"?600:700):0; };
+const priceOf  = b => { const s=SERVICES[b.svcId]; return s?(b.durMin/60)*(b.type==="school"?600:700)+(b.surcharge||0):0; };
 const initials = n => n.split(" ").map(p=>p[0]).slice(0,2).join("").toUpperCase();
 const typeColor = t => t==="school" ? GREEN : GOLD;
 const typeGrad  = t => t==="school"
