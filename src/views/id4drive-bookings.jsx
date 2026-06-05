@@ -563,6 +563,28 @@ export default function BookingsView({ settings }) {
     setExpandedId(null);
     const bk = data.find(b => b.id === id);
     if (bk?.userId) update(ref(db, `bookings/${bk.userId}/${id}`), { status });
+
+    // Відновити слоти при скасуванні
+    if (status === "cancelled" && bk?.date && bk?.time) {
+      const [h, m] = bk.time.split(':').map(Number);
+      const durMin = (bk.durationHours || 1) * 60;
+      const interval = settings?.snapMin || 30;
+      const updates = {};
+      for (let i = 0; i < durMin; i += interval) {
+        const slotMin = h * 60 + m + i;
+        const sH = String(Math.floor(slotMin / 60)).padStart(2, '0');
+        const sM = String(slotMin % 60).padStart(2, '0');
+        const path = `timeslots/${bk.date}/slot${sH}${sM}`;
+        if (i % 60 === 0) {
+          updates[`${path}/available`] = true;
+          updates[`${path}/time`] = `${sH}:${sM}`;
+        } else {
+          updates[path] = null; // видалити 30-хв фантом
+        }
+      }
+      update(ref(db, '/'), updates).catch(() => {});
+    }
+
     if (status === "cancelled" && queue.filter(q => q.status === "waiting").length > 0) {
       setQueueOffer({ cancelledBk: bk, waiting: queue.filter(q => q.status === "waiting") });
     }
