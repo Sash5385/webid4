@@ -234,7 +234,7 @@ function ScheduleInfo() {
 }
 
 // ─── BOTTOM NAV ──────────────────────────────────────────────────
-function BottomNav({ active, onChange, settings }) {
+function BottomNav({ active, onChange, settings, chatUnread }) {
   const lang = useContext(LangContext);
   const tl = createT(lang);
   const visible = TAB_IDS.filter(t => settings?.navTabs?.includes(t.id) ?? true);
@@ -268,13 +268,13 @@ function BottomNav({ active, onChange, settings }) {
               position:"relative"
             }}>
               {TabIcons[t.id]?.(34,active===t.id)}
-              {t.badge && (
+              {(t.id === 'chats' ? chatUnread : t.badge) > 0 && (
                 <div style={{
                   position:"absolute",top:-4,right:-4,
                   background:ACCENT,color:"#fff",borderRadius:10,
                   padding:"1px 5px",fontSize:9,fontWeight:800,
                   boxShadow:`0 0 8px ${ACCENT}88`,lineHeight:1.4
-                }}>{t.badge}</div>
+                }}>{t.id === 'chats' ? chatUnread : t.badge}</div>
               )}
             </div>
             <span style={{fontSize:9,fontWeight:700,color:active===t.id?ACCENT:FAINT,whiteSpace:"nowrap"}}>{tl(t.lk)}</span>
@@ -511,11 +511,16 @@ export default function App() {
   const [bookings,   setBookings] = useState(INITIAL_BOOKINGS);
   const [selectedBooking,  setSelectedBooking]  = useState(null);
   const [newBookingData,   setNewBookingData]    = useState(null);
+  const [chatUnread, setChatUnread] = useState(0);
 
   const switchTab = t => {
     setTab(t);
     setTabVisits(v => ({...v, [t]: (v[t]||0) + 1}));
     setOpenInfos({});
+    if (t === 'chats') {
+      setChatUnread(0);
+      if ('clearAppBadge' in navigator) navigator.clearAppBadge();
+    }
   };
   const toggleInfo = key => setOpenInfos(s => ({...s, [key]: !s[key]}));
 
@@ -525,6 +530,29 @@ export default function App() {
     window.addEventListener("id4drive-nav", nav);
     return () => window.removeEventListener("id4drive-nav", nav);
   }, []);
+
+  // Subscribe to unread chat count from chatMeta
+  useEffect(() => {
+    if (!adminUser) return;
+    const r = ref(db, 'chatMeta');
+    const unsub = onValue(r, snap => {
+      const data = snap.val() || {};
+      const total = Object.values(data).reduce((s, m) => s + (m?.unreadForAdmin || 0), 0);
+      setChatUnread(total);
+      if (total > 0 && 'setAppBadge' in navigator) navigator.setAppBadge(total);
+      else if ('clearAppBadge' in navigator) navigator.clearAppBadge();
+    });
+    return unsub;
+  }, [adminUser]);
+
+  // Clear badge when app comes into focus
+  useEffect(() => {
+    const onFocus = () => {
+      if (tab === 'chats' && 'clearAppBadge' in navigator) navigator.clearAppBadge();
+    };
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, [tab]);
 
   // Register FCM token when admin logs in
   useEffect(() => {
@@ -727,7 +755,7 @@ export default function App() {
             <ViewRenderer tab={tab} settings={settings} setSettings={setSettings} bookings={bookings} setBookings={handleSetBookings} onSlotClick={setSelectedBooking} onEmptySlotClick={setNewBookingData} openInfos={openInfos} toggleInfo={toggleInfo} activeDragIds={activeDragIds} navTo={switchTab}/>
           </Suspense>
         </div>
-        <BottomNav active={tab} onChange={switchTab} settings={settings}/>
+        <BottomNav active={tab} onChange={switchTab} settings={settings} chatUnread={chatUnread}/>
       </div>
     </>
     </LangContext.Provider>
