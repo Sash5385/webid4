@@ -880,11 +880,14 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
         }
         update(ref(db, '/'), updates).catch(() => {});
       }
-      // Затемнення 2с → видалення (так само як значок ×)
+      // Затемнення 2с → видалення
       setCancellingSet(s=>new Set([...s, b.id]));
       cancelTimers.current[b.id] = setTimeout(()=>{
         setCancellingSet(s=>{ const ns=new Set(s); ns.delete(b.id); return ns; });
         setBookings(bs=>bs.filter(x=>x.id!==b.id));
+        if (b.userId && b.id) {
+          remove(ref(db, `bookings/${b.userId}/${b.id}`)).catch(()=>{});
+        }
         delete cancelTimers.current[b.id];
       }, 2000);
     }
@@ -1359,6 +1362,9 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                           cancelTimers.current[b.id] = setTimeout(()=>{
                             setCancellingSet(s=>{ const ns=new Set(s); ns.delete(b.id); return ns; });
                             setBookings(bs=>bs.filter(x=>x.id!==b.id));
+                            if (b.userId && b.id) {
+                              remove(ref(db, `bookings/${b.userId}/${b.id}`)).catch(()=>{});
+                            }
                             delete cancelTimers.current[b.id];
                           }, 2000);
                         }}
