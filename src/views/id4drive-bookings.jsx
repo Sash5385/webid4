@@ -472,11 +472,12 @@ export default function BookingsView({ settings }) {
       if (!d) return;
       const all = [];
       Object.entries(d).forEach(([uid, userBkgs]) => {
-        Object.values(userBkgs).forEach(raw => {
+        Object.entries(userBkgs).forEach(([bkId, raw]) => {
           const timeStr = raw.time || "00:00";
           const [hh, mm] = timeStr.split(":").map(Number);
           all.push({
             ...raw,
+            id:       raw.id || bkId,
             userId:   uid,
             name:     raw.studentName || raw.name || "Без імені",
             phone:    raw.phone    || "",
