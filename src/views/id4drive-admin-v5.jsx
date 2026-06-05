@@ -1079,6 +1079,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                 const isVip = slot.vipOnly;
                 const isBlocked = slot.adminBlocked;
                 const hasSurcharge = !!slot.surcharge;
+                const hasViewer = (viewingSlots[dateStrCol] || []).includes(time);
                 const isSticky = (isVip || isBlocked || hasSurcharge) ? true : isStickySlot(dateStrCol, time);
                 const bg = isVip ? "rgba(168,85,247,0.15)" : isBlocked ? "rgba(239,68,68,0.15)" : hasSurcharge ? "rgba(247,201,72,0.15)" : isSticky ? "rgba(99,211,120,0.15)" : "rgba(255,255,255,0.05)";
                 const borderColor = isVip ? "rgba(168,85,247,0.55)" : isBlocked ? "rgba(239,68,68,0.5)" : hasSurcharge ? "rgba(247,201,72,0.6)" : isSticky ? "rgba(99,211,120,0.45)" : "rgba(255,255,255,0.12)";
@@ -1118,6 +1119,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                     {isVip && <span style={{position:"absolute", top:3, right:4, fontSize:10, lineHeight:1}}>👑</span>}
                     {isBlocked && <span style={{position:"absolute", top:3, left:4, fontSize:8, fontWeight:600, color:"rgba(239,68,68,0.65)", lineHeight:1}}>закрито</span>}
                     {!isSticky && !isBlocked && !isVip && !hasSurcharge && <span style={{position:"absolute", top:3, right:4, fontSize:9, lineHeight:1, opacity:0.5}}>◦</span>}
+                    {hasViewer && <span style={{position:"absolute", bottom:3, right:4, fontSize:8, lineHeight:1, opacity:0.8}}>👁</span>}
                     <span style={{fontSize:7.5, fontWeight:800, lineHeight:1, color}}>{time}</span>
                     {isBlocked && (() => { const qc = queueMap[`${dateStrCol}_${time}`]; return qc > 0 ? (
                       <div style={{position:"absolute", bottom:2, right:4, display:"flex", alignItems:"center", gap:1}}>
@@ -1157,8 +1159,11 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                 </div>
               )}
 
-              {/* Viewing indicators — student selected this time but hasn't booked yet */}
-              {(viewingSlots[dateStrCol] || []).map(time => {
+              {/* Viewing indicators — only for TAKEN slots (open slots already show 👁 inside) */}
+              {(viewingSlots[dateStrCol] || []).filter(time => {
+                const s = openSlots[dateStrCol]?.[time];
+                return !s || s.adminBlocked; // skip if slot is open and available
+              }).map(time => {
                 const [h, m] = time.split(":").map(Number);
                 const topPx = minToPx(h * 60 + m);
                 return (
