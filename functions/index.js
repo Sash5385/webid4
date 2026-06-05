@@ -72,7 +72,9 @@ exports.onQueueInvite = onValueUpdated(
 
     const uid     = event.params.uid;
     const slotKey = event.params.slotKey; // "2026-06-10_09:00"
-    const [date, time] = slotKey.split("_");
+    const sep = slotKey.lastIndexOf("_");
+    const date = slotKey.slice(0, sep);
+    const time = slotKey.slice(sep + 1);
     if (!date || !time) return;
     const slotId = `slot${time.replace(":", "")}`;
 
