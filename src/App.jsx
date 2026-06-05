@@ -380,29 +380,29 @@ function TopBar({ tab, onChange, settings, setSettings }) {
           {tab==="schedule" && settings && setSettings && [6,8,10,12].map(n=>{
             const totalH = (settings.workEnd - settings.workStart) * 60;
             const targetHpx = Math.round(totalH / n);
-            const active = Math.abs(settings.hourHeightPx - targetHpx) < 3;
+            const active = Math.abs(settings.hourHeightPx - targetHpx) < 5;
             return (
               <button key={`h${n}`} onClick={()=>setSettings(s=>({...s,hourHeightPx:Math.round((s.workEnd-s.workStart)*60/n)}))} style={{
                 padding:"4px 8px",borderRadius:8,border:"none",cursor:"pointer",
-                background:active?`linear-gradient(165deg,#5b9bff,#2563eb)`:`linear-gradient(135deg,${SURF_HI},${SURFACE})`,
-                color:active?"#fff":DIM,
+                background:active?`linear-gradient(165deg,#5b9bff,#2563eb)`:`rgba(255,255,255,0.08)`,
+                color:active?"#fff":"rgba(255,255,255,0.55)",
                 fontSize:11,fontWeight:active?800:600,
-                boxShadow:active?`0 3px 8px rgba(91,155,255,0.5)`:SO,
+                boxShadow:active?`0 3px 8px rgba(91,155,255,0.5)`:"none",
                 transition:"all .15s",
               }}>{n}г</button>
             );
           })}
         </div>
         <div style={{display:"flex",gap:6,alignItems:"center"}}>
-          {tab==="schedule" && settings && setSettings && [3,5,7,10].map(n=>{
+          {tab==="schedule" && settings && setSettings && [3,5,6,7,10].map(n=>{
             const active = settings.daysShown===n;
             return (
               <button key={n} onClick={()=>setSettings(s=>({...s,daysShown:n}))} style={{
                 padding:"4px 9px",borderRadius:8,border:"none",cursor:"pointer",
-                background:active?`linear-gradient(165deg,${GOLD},#e6a800)`:`linear-gradient(135deg,${SURF_HI},${SURFACE})`,
-                color:active?"#1a1200":DIM,
+                background:active?`linear-gradient(165deg,${GOLD},#e6a800)`:`rgba(255,255,255,0.08)`,
+                color:active?"#1a1200":"rgba(255,255,255,0.55)",
                 fontSize:11,fontWeight:active?800:600,
-                boxShadow:active?`0 3px 8px ${GOLD}55`:SO,
+                boxShadow:active?`0 3px 8px ${GOLD}55`:"none",
                 transition:"all .15s",
               }}>{n}д</button>
             );
@@ -596,6 +596,8 @@ export default function App() {
         autoCancel:      settings.autoCancel,
         autoQueueOffer:  settings.autoQueueOffer,
         language:        settings.language        ?? "uk",
+        theme:           settings.theme           ?? "dark",
+        customBlocks:    settings.customBlocks    ?? [],
       }).catch(() => {});
     }, 800);
   // eslint-disable-next-line react-hooks/exhaustive-deps
