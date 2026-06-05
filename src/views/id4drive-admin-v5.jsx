@@ -862,7 +862,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   const handleAction = (action, b) => {
     if (action === "confirm") setBookings(bs=>bs.map(x=>x.id===b.id?{...x,status:"confirmed"}:x));
     if (action === "cancel") {
-      // Видалити слоти з timeslots — не залишати вільний блок
+      // Відновити слоти: годинні → available:true, 30-хв фантоми → null
       if (b.startMin !== undefined && b.durMin) {
         const dateStr = b.date || absDayToDateStr(b.day);
         const updates = {};
@@ -870,7 +870,13 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
           const slotMin = b.startMin + i;
           const hh = String(Math.floor(slotMin / 60)).padStart(2, '0');
           const mm = String(slotMin % 60).padStart(2, '0');
-          updates[`timeslots/${dateStr}/slot${hh}${mm}`] = null;
+          const path = `timeslots/${dateStr}/slot${hh}${mm}`;
+          if (i % 60 === 0) {
+            updates[`${path}/available`] = true;
+            updates[`${path}/time`] = `${hh}:${mm}`;
+          } else {
+            updates[path] = null;
+          }
         }
         update(ref(db, '/'), updates).catch(() => {});
       }
@@ -1350,6 +1356,20 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                           e.stopPropagation();
                           xVisibleRef.current = false;
                           setQuickCancelId(null);
+                          // Відновити слоти одразу
+                          if (b.startMin !== undefined && b.durMin) {
+                            const dateStr = b.date || absDayToDateStr(b.day);
+                            const slotUpd = {};
+                            for (let i = 0; i < b.durMin; i += 30) {
+                              const slotMin = b.startMin + i;
+                              const hh = String(Math.floor(slotMin/60)).padStart(2,'0');
+                              const mm = String(slotMin%60).padStart(2,'0');
+                              const path = `timeslots/${dateStr}/slot${hh}${mm}`;
+                              if (i % 60 === 0) { slotUpd[`${path}/available`]=true; slotUpd[`${path}/time`]=`${hh}:${mm}`; }
+                              else { slotUpd[path] = null; }
+                            }
+                            update(ref(db,'/'), slotUpd).catch(()=>{});
+                          }
                           // Починаємо 2с відлік — затемнення → видалення
                           setCancellingSet(s=>new Set([...s, b.id]));
                           cancelTimers.current[b.id] = setTimeout(()=>{
