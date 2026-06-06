@@ -616,20 +616,13 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
     el.style.transform = "";
   }, [dayOffset]);
 
-  // При маунті скролимо до сьогодні (PAST_DAYS колонок від початку)
+  // Скролимо до сьогодні при зміні COL_W (включаючи завантаження settings з Firebase)
   useEffect(() => {
-    const scrollToToday = () => {
-      if (gridRef.current) {
-        const colW = calcRef.current.COL_W || 70;
-        const left = PAST_DAYS * (colW + 4);
-        gridRef.current.scrollLeft = left;
-        if (headersInnerRef.current) headersInnerRef.current.style.transform = `translateX(-${left}px)`;
-      }
-    };
-    scrollToToday();
-    setTimeout(scrollToToday, 50);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    if (!gridRef.current) return;
+    const left = PAST_DAYS * (COL_W + 4);
+    gridRef.current.scrollLeft = left;
+    if (headersInnerRef.current) headersInnerRef.current.style.transform = `translateX(-${left}px)`;
+  }, [COL_W]); // eslint-disable-line react-hooks/exhaustive-deps
   const [bubbleData, setBubbleData] = useState(null);
   const [formData, setFormData] = useState(null);
   const [createSlotData, setCreateSlotData] = useState(null); // {day, startMin}
