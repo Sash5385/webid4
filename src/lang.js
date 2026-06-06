@@ -166,9 +166,9 @@ const S = {
   'set.lunch.from':   { uk:'З',               en:'From'           },
   'set.lunch.to':     { uk:'До',              en:'To'             },
 
-  'set.snap.title':   { uk:'Крок сітки часу', en:'Time grid step' },
-  'set.snap.info_t':  { uk:'Крок прив\'язки', en:'Snap step'      },
-  'set.snap.info':    { uk:'При перетягуванні слотів у розкладі час «прилипає» до найближчого кроку. 15 хв — зручно для більшості. 5 хв — точніше. 30 хв — швидше.', en:'When dragging slots, time "snaps" to the nearest step. 15 min — works for most. 5 min — more precise. 30 min — faster.' },
+  'set.snap.title':   { uk:'Крок часу',        en:'Time grid step' },
+  'set.snap.info_t':  { uk:'Точність часу',    en:'Snap step'      },
+  'set.snap.info':    { uk:'При перетягуванні слотів час округляється до найближчого кроку. 15 хв — зручно для більшості. 5 хв — точніше. 30 хв — швидше.', en:'When dragging slots, time rounds to the nearest step. 15 min — works for most. 5 min — more precise. 30 min — faster.' },
   'set.snap.label':   { uk:'Крок при перетягуванні', en:'Drag snap step' },
 
   'set.svc.title':    { uk:'Послуги та ціни', en:'Services & prices' },
@@ -210,12 +210,12 @@ const S = {
   'set.queue.manual': { uk:'Вручну',                          en:'Manual'                 },
   'set.queue.manual_h':{ uk:'Інструктор сам обирає кого запросити', en:'Instructor chooses who to invite' },
 
-  'set.sticky.title': { uk:'Прилипання вільних слотів', en:'Free slot sticky' },
-  'set.sticky.info_t':{ uk:'Як показувати вільний час?', en:'How to show free time?' },
-  'set.sticky.info':  { uk:'Якщо є запис на 12:00–14:00, а учень хоче 1 годину — які слоти йому показати? "До" — тільки 11:00, "Після" — тільки 14:00, "Обидва" — учень обирає сам. Рекомендується "Обидва" для максимальної гнучкості.', en:'If there\'s a booking 12:00–14:00 and a student wants 1 hour — which slots to show? "Before" — only 11:00, "After" — only 14:00, "Both" — student chooses. "Both" recommended for max flexibility.' },
-  'set.sticky.before':{ uk:'Тільки попередній слот',    en:'Only previous slot'     },
-  'set.sticky.after': { uk:'Тільки наступний слот',     en:'Only next slot'         },
-  'set.sticky.both':  { uk:'Обидва — вибір учня',       en:'Both — student chooses' },
+  'set.sticky.title': { uk:'Вільні слоти поряд із записом', en:'Free slots near booking' },
+  'set.sticky.info_t':{ uk:'Які слоти показувати учню?', en:'Which slots to show?' },
+  'set.sticky.info':  { uk:'Якщо є запис на 12:00–14:00, а учень хоче 1 годину — показати слот до запису (11:00), після (14:00) чи обидва? Рекомендується "Обидва" для максимальної гнучкості.', en:'If there\'s a booking 12:00–14:00 and a student wants 1 hour — show the slot before (11:00), after (14:00), or both? "Both" recommended for max flexibility.' },
+  'set.sticky.before':{ uk:'Тільки перед записом',      en:'Only before booking'    },
+  'set.sticky.after': { uk:'Тільки після запису',       en:'Only after booking'     },
+  'set.sticky.both':  { uk:'Обидва — учень обирає сам', en:'Both — student chooses' },
 
   'set.auto.title':   { uk:'Авто-повідомлення',     en:'Auto messages'          },
   'set.auto.info_t':  { uk:'Автоматичні повідомлення', en:'Automatic messages'   },

@@ -4,7 +4,21 @@ import { db } from "../firebase";
 import { LangContext } from "../App";
 import { createT, T } from "../lang";
 
-import { BG, BG_DEEP, SURFACE, SURF_HI, SURF_LO, BORDER, TEXT, DIM, FAINT, ACCENT, ACC_HI, GREEN, BLUE, PURPLE, GOLD, RED, SO, SI } from "../theme.js";
+import { BG, BG_DEEP, SURFACE, SURF_HI, SURF_LO, BORDER, TEXT, DIM, FAINT, ACCENT, ACC_HI, GREEN, BLUE, PURPLE, GOLD, RED, TEAL, SO, SI } from "../theme.js";
+
+const PALETTE = [
+  { id:"green",   color:GREEN  },
+  { id:"yellow",  color:GOLD   },
+  { id:"blue",    color:BLUE   },
+  { id:"purple",  color:PURPLE },
+  { id:"red",     color:ACCENT },
+  { id:"teal",    color:TEAL   },
+  { id:"pink",    color:"#f472b6" },
+  { id:"orange",  color:"#fb923c" },
+  { id:"indigo",  color:"#818cf8" },
+  { id:"lime",    color:"#a3e635" },
+];
+const colorOf = id => PALETTE.find(p=>p.id===id)?.color || GREEN;
 
 const CSS = `
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -127,12 +141,12 @@ const Ico = {
 };
 
 // ─── BOOKING CARD (expand / collapse) ──────────────────────────
-function BookingCard({ b, expanded, onToggle, onConfirm, onCancel, onNoshow, onDelete }) {
-  const svc   = SERVICES[b.svcId];
+function BookingCard({ b, expanded, onToggle, onConfirm, onCancel, onNoshow, onDelete, svcs }) {
+  const svc   = (svcs || SERVICES)[b.svcId];
   const cat   = b.catId ? CATEGORIES[b.catId] : null;
   const STATUS_MAP = getStatusMap(T);
   const st    = STATUS_MAP[b.status] || STATUS_MAP.confirmed;
-  const tc    = typeColor(b.type);
+  const tc    = svc?.color || typeColor(b.type);
   const price = priceOf(b);
 
   const actions = [
@@ -288,7 +302,7 @@ function QuickFilters({ active, onChange }) {
 }
 
 // ─── FILTER SHEET ───────────────────────────────────────────────
-function FilterSheet({ filters, setFilters, sortBy, setSortBy, groupBy, setGroupBy, onClose }) {
+function FilterSheet({ filters, setFilters, sortBy, setSortBy, groupBy, setGroupBy, onClose, svcs }) {
   const FChip = ({label,active,onClick}) => (
     <button onClick={onClick} style={{
       padding:"7px 14px", borderRadius:12, border:"none", cursor:"pointer",
@@ -325,7 +339,7 @@ function FilterSheet({ filters, setFilters, sortBy, setSortBy, groupBy, setGroup
         </FRow>
         <FRow label="Послуга">
           <FChip label="Всі" active={!filters.svcId} onClick={()=>setFilters(f=>({...f,svcId:null}))}/>
-          {Object.entries(SERVICES).map(([id,s])=>(
+          {Object.entries(svcs || SERVICES).map(([id,s])=>(
             <FChip key={id} label={s.name} active={filters.svcId===id} onClick={()=>setFilters(f=>({...f,svcId:id}))}/>
           ))}
         </FRow>
@@ -362,7 +376,7 @@ function FilterSheet({ filters, setFilters, sortBy, setSortBy, groupBy, setGroup
 }
 
 // ─── ADD TO QUEUE MODAL ─────────────────────────────────────────
-function AddToQueueModal({ onSave, onClose }) {
+function AddToQueueModal({ onSave, onClose, svcs }) {
   const [form, setForm] = useState({ name:"", phone:"", svcId:"sv1" });
   const upd = (k,v) => setForm(f=>({...f,[k]:v}));
   const valid = form.name.trim() && form.phone.trim();
@@ -389,7 +403,7 @@ function AddToQueueModal({ onSave, onClose }) {
         <div style={{marginBottom:16}}>
           <div style={{fontSize:10,color:FAINT,letterSpacing:1,marginBottom:5}}>ПОСЛУГА</div>
           <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-            {Object.entries(SERVICES).map(([id,s])=>(
+            {Object.entries(svcs || SERVICES).map(([id,s])=>(
               <button key={id} onClick={()=>upd("svcId",id)} style={{
                 padding:"6px 12px",borderRadius:9,border:"none",cursor:"pointer",fontSize:12,fontWeight:700,
                 background:form.svcId===id?`linear-gradient(145deg,${s.color}44,${s.color}22)`:`linear-gradient(145deg,${SURF_HI},${SURFACE})`,
@@ -450,7 +464,7 @@ function QueueOfferModal({ cancelledBk, waiting, queueMode, onInvite, onClose })
         </div>
         <div style={{display:"flex",gap:10}}>
           <button onClick={onClose} style={{flex:1,padding:"13px",borderRadius:14,border:"none",cursor:"pointer",background:`linear-gradient(145deg,${SURF_HI},${SURFACE})`,color:DIM,fontSize:13,fontWeight:700,boxShadow:SO}}>Пізніше</button>
-          <button onClick={()=>selected.length>0&&onInvite(selected)} disabled={selected.length===0} style={{
+          <button onClick={()=>selected.length>0&&onInvite(waiting.filter(q=>selected.includes(q.id)))} disabled={selected.length===0} style={{
             flex:2,padding:"13px",borderRadius:14,border:"none",cursor:"pointer",fontSize:13,fontWeight:700,
             background:selected.length>0?"linear-gradient(165deg,#c084fc,#7c3aed)":`linear-gradient(145deg,${SURF_HI},${SURFACE})`,
             color:selected.length>0?"#fff":FAINT,
@@ -467,6 +481,17 @@ export default function BookingsView({ settings }) {
   const lang = useContext(LangContext);
   const t = createT(lang);
   const [data,       setData]       = useState(RAW); // RAW as initial fallback
+  const [svcsMap,    setSvcsMap]    = useState(SERVICES);
+
+  useEffect(() => {
+    return onValue(ref(db, "admin_data/services"), snap => {
+      const arr = snap.val();
+      if (!Array.isArray(arr)) return;
+      const map = {};
+      arr.forEach(s => { if (s?.id) map[s.id] = { ...s, color: colorOf(s.colorId) }; });
+      if (Object.keys(map).length) setSvcsMap(map);
+    });
+  }, []);
 
   useEffect(() => {
     return onValue(ref(db, "bookings"), snap => {
@@ -480,6 +505,7 @@ export default function BookingsView({ settings }) {
           all.push({
             ...raw,
             id:       raw.id || bkId,
+            _key:     bkId,
             userId:   uid,
             name:     raw.studentName || raw.name || "Без імені",
             phone:    raw.phone    || "",
@@ -565,7 +591,7 @@ export default function BookingsView({ settings }) {
     setData(d => d.map(b => b.id===id ? {...b, status} : b));
     setExpandedId(null);
     const bk = data.find(b => b.id === id);
-    if (bk?.userId) update(ref(db, `bookings/${bk.userId}/${id}`), { status });
+    if (bk?.userId) update(ref(db, `bookings/${bk.userId}/${bk._key || id}`), { status });
 
     // Відновити слоти при скасуванні
     if (status === "cancelled" && bk?.date && bk?.time) {
@@ -588,9 +614,7 @@ export default function BookingsView({ settings }) {
       update(ref(db, '/'), updates).catch(() => {});
     }
 
-    if (status === "cancelled" && queue.filter(q => q.status === "waiting").length > 0) {
-      setQueueOffer({ cancelledBk: bk, waiting: queue.filter(q => q.status === "waiting") });
-    }
+    // Queue invitations are handled automatically by the onSlotFreed Cloud Function (FIFO)
   };
   const confirm = id => setStatus(id, "confirmed");
   const cancel  = id => setStatus(id, "cancelled");
@@ -600,7 +624,7 @@ export default function BookingsView({ settings }) {
     if (!bk?.userId) return;
     setData(d => d.filter(b => b.id !== id));
     setExpandedId(null);
-    remove(ref(db, `bookings/${bk.userId}/${id}`));
+    remove(ref(db, `bookings/${bk.userId}/${bk._key || id}`));
   };
 
   const applyDate = b => {
@@ -619,7 +643,7 @@ export default function BookingsView({ settings }) {
   };
 
   let list = data.filter(b =>
-    (filters.status==="all" || b.status===filters.status) &&
+    (filters.status==="all" ? b.status!=="cancelled" : b.status===filters.status) &&
     (filters.type==="all"   || b.type===filters.type) &&
     (!filters.svcId  || b.svcId===filters.svcId) &&
     (!filters.catId  || b.catId===filters.catId) &&
@@ -683,7 +707,7 @@ export default function BookingsView({ settings }) {
               {queue.length === 0 ? (
                 <div style={{textAlign:"center",padding:"14px 0",color:FAINT,fontSize:12}}>Черга порожня</div>
               ) : queue.filter(q=>q.status!=="archived").map(q => {
-                const svc = SERVICES[q.svcId] || {};
+                const svc = svcsMap[q.svcId] || {};
                 const stColor = q.status==="offered" ? GOLD : q.status==="booked" ? GREEN : PURPLE;
                 const stLabel = q.status==="offered" ? "Запрошено" : q.status==="booked" ? "Записаний" : "Очікує";
                 return (
@@ -743,7 +767,7 @@ export default function BookingsView({ settings }) {
             )}
             <div style={{display:"flex",flexDirection:"column",gap:7}}>
               {items.map(b=>(
-                <BookingCard key={b.id} b={b} expanded={expandedId===b.id}
+                <BookingCard key={b.id} b={b} expanded={expandedId===b.id} svcs={svcsMap}
                   onToggle={()=>toggle(b.id)} onConfirm={confirm} onCancel={cancel} onNoshow={noshow} onDelete={deleteBooking}/>
               ))}
             </div>
@@ -767,11 +791,12 @@ export default function BookingsView({ settings }) {
           sortBy={sortBy}      setSortBy={setSortBy}
           groupBy={groupBy}    setGroupBy={setGroupBy}
           onClose={()=>setShowFilters(false)}
+          svcs={svcsMap}
         />
       )}
 
       {/* ADD TO QUEUE MODAL */}
-      {addQueueOpen && <AddToQueueModal onSave={form=>{addToQueue(form);setAddQueueOpen(false);}} onClose={()=>setAddQueueOpen(false)}/>}
+      {addQueueOpen && <AddToQueueModal onSave={form=>{addToQueue(form);setAddQueueOpen(false);}} onClose={()=>setAddQueueOpen(false)} svcs={svcsMap}/>}
 
       {/* QUEUE OFFER MODAL */}
       {queueOffer && (
@@ -779,7 +804,7 @@ export default function BookingsView({ settings }) {
           cancelledBk={queueOffer.cancelledBk}
           waiting={queueOffer.waiting}
           queueMode={queueMode}
-          onInvite={ids=>{ids.forEach(id=>markOffered(id));setQueueOffer(null);}}
+          onInvite={items=>{items.forEach(item=>markOffered(item));setQueueOffer(null);}}
           onClose={()=>setQueueOffer(null)}
         />
       )}

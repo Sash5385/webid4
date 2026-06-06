@@ -519,14 +519,17 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
         const slotMap = {};
         const viewTimes = [];
         const slotSet = new Set();
-        Object.values(dateSlots).forEach(slot => {
-          if (slot.time) {
-            slotSet.add(slot.time);
+        Object.entries(dateSlots).forEach(([slotKey, slot]) => {
+          // Derive time from key (slot1000 → '10:00') as fallback when time field is missing
+          const m = slotKey.match(/^slot(\d{2})(\d{2})$/);
+          const slotTime = slot.time || (m ? `${m[1]}:${m[2]}` : null);
+          if (slotTime) {
+            slotSet.add(slotTime);
             if (slot.available !== false || slot.adminBlocked || slot.vipOnly || slot.surcharge) {
-              slotMap[slot.time] = { available: slot.available !== false, adminBlocked: !!slot.adminBlocked, vipOnly: !!slot.vipOnly, surcharge: slot.surcharge || null };
+              slotMap[slotTime] = { available: slot.available !== false, adminBlocked: !!slot.adminBlocked, vipOnly: !!slot.vipOnly, surcharge: slot.surcharge || null };
             }
           }
-          if (slot.viewing && Object.keys(slot.viewing).length > 0) viewTimes.push(slot.time);
+          if (slot.viewing && Object.keys(slot.viewing).length > 0) viewTimes.push(slotTime);
         });
         if (Object.keys(slotMap).length) slots[date] = slotMap;
         if (viewTimes.length) viewing[date] = viewTimes;
@@ -585,9 +588,9 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   const toggleSlotFree = (dateStr, time, slot) => {
     const slotId = `slot${time.replace(":", "")}`;
     if (slot.adminBlocked) {
-      update(ref(db, `timeslots/${dateStr}/${slotId}`), { available: true, adminBlocked: false }).catch(() => {});
+      update(ref(db, `timeslots/${dateStr}/${slotId}`), { available: true, adminBlocked: false, time }).catch(() => {});
     } else {
-      update(ref(db, `timeslots/${dateStr}/${slotId}`), { available: false, adminBlocked: true, vipOnly: false, surcharge: null }).catch(() => {});
+      update(ref(db, `timeslots/${dateStr}/${slotId}`), { available: false, adminBlocked: true, vipOnly: false, surcharge: null, time }).catch(() => {});
     }
   };
 
@@ -595,14 +598,23 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   const applySlotOption = (dateStr, time, option) => {
     const slotId = `slot${time.replace(":", "")}`;
     const currentSlot = slotOptions?.slot || {};
+    const isClosed = currentSlot.available === false;
     if (option === "vip") {
-      update(ref(db, `timeslots/${dateStr}/${slotId}`), { available: true, adminBlocked: false, vipOnly: true }).catch(() => {});
+      if (isClosed) {
+        // Закритий VIP — залишаємо закритим, додаємо VIP прапор
+        update(ref(db, `timeslots/${dateStr}/${slotId}`), { vipOnly: true }).catch(() => {});
+      } else {
+        update(ref(db, `timeslots/${dateStr}/${slotId}`), { available: true, adminBlocked: false, vipOnly: true }).catch(() => {});
+      }
     } else if (option === "reset") {
-      update(ref(db, `timeslots/${dateStr}/${slotId}`), { available: true, adminBlocked: false, vipOnly: false, surcharge: null }).catch(() => {});
+      if (isClosed) {
+        update(ref(db, `timeslots/${dateStr}/${slotId}`), { vipOnly: false, surcharge: null }).catch(() => {});
+      } else {
+        update(ref(db, `timeslots/${dateStr}/${slotId}`), { available: true, adminBlocked: false, vipOnly: false, surcharge: null }).catch(() => {});
+      }
     } else if (option === "surcharge_remove") {
       update(ref(db, `timeslots/${dateStr}/${slotId}`), { surcharge: null }).catch(() => {});
     } else {
-      // Надбавка: зберігаємо поточний стан vipOnly та adminBlocked
       update(ref(db, `timeslots/${dateStr}/${slotId}`), { surcharge: option }).catch(() => {});
     }
     setSlotOptions(null);
@@ -675,8 +687,9 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   const onPointerDown = (e, b, mode) => {
     e.preventDefault(); e.stopPropagation();
     const isBlock = b.type === "block";
-    const dragData = { id:b.id, mode, isBlock, startClientY:e.clientY, startClientX:e.clientX, startMinutes:b.startMin, startDur:b.durMin, startDay:b.day };
+    const dragData = { id:b.id, mergedIds:b._mergedIds||null, mode, isBlock, startClientY:e.clientY, startClientX:e.clientX, startMinutes:b.startMin, startDur:b.durMin, startDay:b.day };
     activeDragIds?.current?.add(b.id);
+    if (b._mergedIds) b._mergedIds.forEach(id => activeDragIds?.current?.add(id));
 
     if (mode === "top" || mode === "bottom") {
       navigator.vibrate?.(6);
@@ -762,36 +775,47 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
       const dxRaw = e.clientX - drag.startClientX;
       const deltaMin = dy / PX_PER_MIN;
       const setBookingsFn = setBookingsRef.current || setBookings;
-      setBookingsFn(bs => bs.map(b => {
-        if (b.id !== drag.id) return b;
-        if (drag.mode === "move") {
-          const newDay = Math.max(dayOffset, Math.min(dayOffset + N_DAYS - 1, drag.startDay + Math.round(dxRaw/(COL_W+4))));
-          let s = snap(drag.startMinutes + deltaMin);
-          s = Math.max(workStart*60, Math.min(workEnd*60 - b.durMin, s));
-          const wouldOverlap = bs.some(x => x.id!==b.id && x.day===newDay && s<x.startMin+x.durMin && s+b.durMin>x.startMin);
-          if (wouldOverlap) return b;
-          return {...b, startMin:s, day:newDay};
-        } else if (drag.mode === "bottom") {
-          let d = snap(drag.startDur + deltaMin);
-          const nextStart = bs.filter(x=>x.id!==b.id&&x.day===b.day&&x.startMin>b.startMin)
-            .reduce((mn,x)=>Math.min(mn,x.startMin), workEnd*60);
-          d = Math.max(60, Math.min(d, nextStart - b.startMin));
-          return {...b, durMin:d};
-        } else if (drag.mode === "top") {
-          let s = snap(drag.startMinutes + deltaMin);
-          const maxS = drag.startMinutes + drag.startDur - 60;
-          const floorStart = bs.filter(x=>x.id!==b.id&&x.day===b.day&&x.startMin+x.durMin<=drag.startMinutes)
-            .reduce((mx,x)=>Math.max(mx,x.startMin+x.durMin), workStart*60);
-          s = Math.max(floorStart, Math.min(maxS, s));
-          const diff = s - drag.startMinutes;
-          return {...b, startMin:s, durMin: drag.startDur - diff};
-        }
-        return b;
-      }));
+      const allDragIds = drag.mergedIds ? new Set(drag.mergedIds) : new Set([drag.id]);
+      setBookingsFn(bs => {
+        // Compute original per-segment offsets from drag.startMinutes (for merged cards)
+        const baseBooking = bs.find(b => b.id === drag.id);
+        if (!baseBooking) return bs;
+        return bs.map(b => {
+          const isMerged = drag.mergedIds && drag.mergedIds.includes(b.id);
+          if (b.id !== drag.id && !isMerged) return b;
+          const segOffset = b.startMin - baseBooking.startMin; // relative position within merged group
+          if (drag.mode === "move") {
+            const newDay = Math.max(dayOffset, Math.min(dayOffset + N_DAYS - 1, drag.startDay + Math.round(dxRaw/(COL_W+4))));
+            let s = snap(drag.startMinutes + deltaMin) + segOffset;
+            s = Math.max(workStart*60, Math.min(workEnd*60 - b.durMin, s));
+            const wouldOverlap = bs.some(x => !allDragIds.has(x.id) && x.day===newDay && s<x.startMin+x.durMin && s+b.durMin>x.startMin);
+            if (wouldOverlap) return b;
+            return {...b, startMin:s, day:newDay};
+          } else if (drag.mode === "bottom") {
+            if (b.id !== drag.id) return b; // only resize the primary (last segment)
+            let d = snap(drag.startDur + deltaMin);
+            const nextStart = bs.filter(x=>!allDragIds.has(x.id)&&x.day===b.day&&x.startMin>b.startMin)
+              .reduce((mn,x)=>Math.min(mn,x.startMin), workEnd*60);
+            d = Math.max(60, Math.min(d, nextStart - b.startMin));
+            return {...b, durMin:d};
+          } else if (drag.mode === "top") {
+            if (b.id !== drag.id) return b;
+            let s = snap(drag.startMinutes + deltaMin);
+            const maxS = drag.startMinutes + drag.startDur - 60;
+            const floorStart = bs.filter(x=>!allDragIds.has(x.id)&&x.day===b.day&&x.startMin+x.durMin<=drag.startMinutes)
+              .reduce((mx,x)=>Math.max(mx,x.startMin+x.durMin), workStart*60);
+            s = Math.max(floorStart, Math.min(maxS, s));
+            const diff = s - drag.startMinutes;
+            return {...b, startMin:s, durMin: drag.startDur - diff};
+          }
+          return b;
+        });
+      });
     };
     const onUp = () => {
       const wasDragging = !!dragRef.current;
       const endedId = dragRef.current?.id ?? pendingDragRef.current?.id;
+      const endedMergedIds = dragRef.current?.mergedIds ?? pendingDragRef.current?.mergedIds ?? null;
       dragRef.current = null;
       setDragId(null);
       clearTimeout(holdTimerRef.current);
@@ -805,7 +829,10 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
         setTimeout(() => { dragEndedRef.current = false; }, 400);
       }
       // Remove from activeDragIds after save debounce window (700ms > 600ms save timer)
-      if (endedId) setTimeout(() => { activeDragIds?.current?.delete(endedId); }, 700);
+      if (endedId) setTimeout(() => {
+        activeDragIds?.current?.delete(endedId);
+        endedMergedIds?.forEach(id => activeDragIds?.current?.delete(id));
+      }, 700);
       swipeRef.current = null;
     };
     const onResize = () => { setWindowW(window.innerWidth); setWindowH(window.innerHeight); };
@@ -867,25 +894,30 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   const handleAction = (action, b) => {
     if (action === "confirm") setBookings(bs=>bs.map(x=>x.id===b.id?{...x,status:"confirmed"}:x));
     if (action === "cancel") {
-      // Відновити слоти: годинні → available:true, 30-хв фантоми → null
-      if (b.startMin !== undefined && b.durMin) {
-        const dateStr = b.date || absDayToDateStr(b.day);
-        const updates = {};
-        for (let i = 0; i < b.durMin; i += 30) {
-          const slotMin = b.startMin + i;
-          const hh = String(Math.floor(slotMin / 60)).padStart(2, '0');
-          const mm = String(slotMin % 60).padStart(2, '0');
-          const path = `timeslots/${dateStr}/slot${hh}${mm}`;
-          if (i % 60 === 0) {
-            updates[`${path}/available`] = true;
-            updates[`${path}/time`] = `${hh}:${mm}`;
-          } else {
-            updates[path] = null;
+      // Відновити timeslots
+      const cancelOne = (mb) => {
+        if (mb.startMin !== undefined && mb.durMin) {
+          const dateStr = mb.date || absDayToDateStr(mb.day);
+          const upd = {};
+          for (let i = 0; i < mb.durMin; i += 60) {
+            const sm = mb.startMin + i;
+            const hh = String(Math.floor(sm/60)).padStart(2,'0'), mm = String(sm%60).padStart(2,'0');
+            upd[`timeslots/${dateStr}/slot${hh}${mm}/available`] = true;
           }
+          if (Object.keys(upd).length) update(ref(db,'/'), upd).catch(()=>{});
         }
-        update(ref(db, '/'), updates).catch(() => {});
-      }
-      // Затемнення 2с → видалення
+        // Позначити cancelled у Firebase (обидва можливих ключі)
+        if (mb.userId) {
+          const ks = [...new Set([mb._fbKey, mb.id].filter(Boolean))];
+          ks.forEach(k => update(ref(db, `bookings/${mb.userId}/${k}`),
+            { status:"cancelled", cancelledAt:Date.now(), cancelledBy:"admin" }).catch(()=>{}));
+        }
+      };
+      const allToCancel = b._mergedIds
+        ? bookings.filter(x => b._mergedIds.includes(x.id))
+        : [b];
+      allToCancel.forEach(cancelOne);
+      // Затемнення 2с → видалення з локального стану
       setCancellingSet(s=>new Set([...s, b.id]));
       cancelTimers.current[b.id] = setTimeout(()=>{
         setCancellingSet(s=>{ const ns=new Set(s); ns.delete(b.id); return ns; });
@@ -949,8 +981,8 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   return (
     <>
     <style>{GLOBAL_CSS}</style>
-    <Card style={{padding:"6px 3px 10px", overflow:"hidden"}}>
-      <div style={{display:"flex", maxHeight:"calc(100vh - 156px)", overflow:"hidden"}}>
+    <Card style={{padding:"6px 3px 0", overflow:"hidden", flex:1, minHeight:0, display:"flex", flexDirection:"column"}}>
+      <div style={{display:"flex", flex:1, minHeight:0, overflow:"hidden"}}>
 
         {/* TIME COLUMN — fixed left, never scrolls */}
         <div style={{
@@ -1122,8 +1154,8 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                       padding:0,
                     }}>
                     {hasSurcharge && <span style={{position:"absolute", top:3, left:4, fontSize:9, fontWeight:800, color:"rgba(247,201,72,0.95)", lineHeight:1}}>+{slot.surcharge}₴</span>}
-                    {isVip && <span style={{position:"absolute", top:3, right:4, fontSize:10, lineHeight:1}}>👑</span>}
-                    {isBlocked && <span style={{position:"absolute", top:3, left:4, fontSize:8, fontWeight:600, color:"rgba(239,68,68,0.65)", lineHeight:1}}>закрито</span>}
+                    {(isVip || slot.vipOnly) && <span style={{position:"absolute", top:3, right:4, fontSize:10, lineHeight:1}}>👑</span>}
+
                     {!isSticky && !isBlocked && !isVip && !hasSurcharge && <span style={{position:"absolute", top:3, right:4, fontSize:9, lineHeight:1, opacity:0.5}}>◦</span>}
                     {hasViewer && <span style={{position:"absolute", bottom:3, right:4, fontSize:8, lineHeight:1, opacity:0.8}}>👁</span>}
                     <span style={{fontSize:7.5, fontWeight:800, lineHeight:1, color}}>{time}</span>
@@ -1533,8 +1565,12 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
             fontSize:11,fontWeight:700,color:TEXT_FAINT,textAlign:"center",
           }}>{slotOptions.time}</div>
 
-          {/* VIP і надбавки — тільки для відкритих слотів */}
-          {slotOptions.slot?.available !== false ? <>
+          {/* VIP + надбавки — для відкритих і закритих слотів */}
+          {slotOptions.slot?.available === false && (
+            <div style={{padding:"8px 14px 4px",color:TEXT_FAINT,fontSize:10,fontWeight:600,letterSpacing:0.5}}>
+              ЗАКРИТИЙ СЛОТ
+            </div>
+          )}
           <button onClick={()=>applySlotOption(slotOptions.dateStr, slotOptions.time, "vip")} style={{
             width:"100%",padding:"11px 14px",border:"none",cursor:"pointer",
             background:"none",borderBottom:`1px solid rgba(255,255,255,0.05)`,
@@ -1543,7 +1579,6 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
           }}>
             <span>👑</span> VIP слот
           </button>
-
           {[100,200,300].map((amt,i)=>(
             <button key={amt} onClick={()=>applySlotOption(slotOptions.dateStr, slotOptions.time, amt)} style={{
               width:"100%",padding:"11px 14px",border:"none",cursor:"pointer",
@@ -1556,11 +1591,6 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
               <span>+{amt}₴</span>
             </button>
           ))}
-          </> : (
-            <div style={{padding:"12px 14px",color:TEXT_FAINT,fontSize:12,textAlign:"center"}}>
-              Слот закрито
-            </div>
-          )}
 
           {/* Скинути — тільки якщо є що скидати */}
           {(slotOptions.slot?.vipOnly || slotOptions.slot?.surcharge) && (
@@ -2813,7 +2843,9 @@ export default function App() {
     if (action === "confirm")  setBookings(bs=>bs.map(x=>x.id===b.id?{...x,status:"confirmed"}:x));
     if (action === "cancel") {
       if (b.userId && b.id) {
-        update(ref(db, `bookings/${b.userId}/${b.id}`), { status:"cancelled", cancelledAt:Date.now(), cancelledBy:"admin" }).catch(()=>{});
+        // Скасовуємо обидва можливі вузли (дубль міг з'явитись від старого коду)
+        const keys = [...new Set([b._fbKey, b.id].filter(Boolean))];
+        keys.forEach(k => update(ref(db, `bookings/${b.userId}/${k}`), { status:"cancelled", cancelledAt:Date.now(), cancelledBy:"admin" }).catch(()=>{}));
         setBookings(bs=>bs.map(x=>x.id===b.id?{...x,status:"cancelled"}:x));
       } else {
         setBookings(bs=>bs.filter(x=>x.id!==b.id));

@@ -240,7 +240,7 @@ function BottomNav({ active, onChange, settings, chatUnread }) {
   const visible = TAB_IDS.filter(t => settings?.navTabs?.includes(t.id) ?? true);
   return (
     <div style={{
-      position:"fixed",bottom:0,left:0,right:0,
+      flexShrink:0,
       padding:"0 3px 10px",
       background:"transparent",
       zIndex:50,
@@ -414,17 +414,6 @@ function TopBar({ tab, onChange, settings, setSettings }) {
               </I3>
             </button>
           )}
-          <button onClick={()=>onChange?.("settings")} style={{background:"none",border:"none",cursor:"pointer",padding:0}}>
-            <div style={{
-              width:24,height:24,borderRadius:12,
-              background: tab==="settings"
-                ? "linear-gradient(165deg,#ff7a5c,#ff5a3c)"
-                : "linear-gradient(165deg,#9ee07a,#5fb83d)",
-              display:"flex",alignItems:"center",justifyContent:"center",
-              fontSize:9,fontWeight:800,color:"#fff",
-              boxShadow:"-2px 3px 8px rgba(0,0,0,0.4),inset 1px 1px 0 rgba(255,255,255,0.2)"
-            }}>ОЛ</div>
-          </button>
         </div>
       </div>
       {showInfo && instruction && (
@@ -460,10 +449,10 @@ const DEFAULT_SETTINGS = {
   autoWelcome:{enabled:true}, autoConfirm:{enabled:true},
   autoCancel:{enabled:true}, autoQueueOffer:{enabled:true},
   services: [
-    { id:"sv1", name:"Автошкола 1 год", type:"school",  duration:60,  price:600,  colorId:"green",  active:true,  description:"Урок з автошколи" },
-    { id:"sv2", name:"Автошкола 2 год", type:"school",  duration:120, price:1100, colorId:"green",  active:true,  description:"" },
-    { id:"sv3", name:"Приватний 1 год", type:"private", duration:60,  price:700,  colorId:"yellow", active:true,  description:"" },
-    { id:"sv4", name:"Приватний 2 год", type:"private", duration:120, price:1300, colorId:"yellow", active:true,  description:"" },
+    { id:"sv1", name:"Автошкола 1 год", type:"school",  duration:60,  price:700,  colorId:"green",  active:true,  description:"" },
+    { id:"sv2", name:"Автошкола 2 год", type:"school",  duration:120, price:1400, colorId:"green",  active:true,  description:"" },
+    { id:"sv3", name:"Приватний 1 год", type:"private", duration:60,  price:1000, colorId:"yellow", active:true,  description:"" },
+    { id:"sv4", name:"Приватний 2 год", type:"private", duration:120, price:2000, colorId:"yellow", active:true,  description:"" },
   ],
   categories: [
     { id:"cat-vip", name:"VIP",      colorId:"purple" },
@@ -472,8 +461,8 @@ const DEFAULT_SETTINGS = {
 };
 
 // ─── VIEW RENDERER ───────────────────────────────────────────────
-function ViewRenderer({ tab, settings, setSettings, bookings, setBookings, onSlotClick, onEmptySlotClick, openInfos, toggleInfo, activeDragIds, navTo }) {
-  if (tab === "schedule")  return <ScheduleView settings={settings} setSettings={setSettings} bookings={bookings} setBookings={setBookings} onSlotClick={onSlotClick} onEmptySlotClick={onEmptySlotClick} activeDragIds={activeDragIds} navTo={navTo}/>;
+function ViewRenderer({ tab, settings, setSettings, bookings, setBookings, onSlotClick, onEmptySlotClick, openInfos, toggleInfo, activeDragIds, navTo, slotExistsRef }) {
+  if (tab === "schedule")  return <ScheduleView settings={settings} setSettings={setSettings} bookings={bookings} setBookings={setBookings} onSlotClick={onSlotClick} onEmptySlotClick={onEmptySlotClick} activeDragIds={activeDragIds} navTo={navTo} slotExistsRef={slotExistsRef}/>;
   if (tab === "settings")  return <SettingsView settings={settings} setSettings={setSettings}/>;
   if (tab === "bookings")  return <BookingsView settings={settings}/>;
   if (tab === "queue")     return <QueueView settings={settings}/>;
@@ -571,7 +560,7 @@ export default function App() {
           ...d,
           snapMin: d.interval ?? d.snapMin ?? s.snapMin,
           profile: d.profile ? { ...s.profile, ...d.profile } : s.profile,
-          services:    Array.isArray(d.services)    ? d.services    : s.services,
+          services:    Array.isArray(d.services) && !d.services.some(sv=>sv.id==='sv5') && d.services.find(sv=>sv.id==='sv1')?.price===700 ? d.services : DEFAULT_SETTINGS.services,
           categories:  Array.isArray(d.categories)  ? d.categories  : s.categories,
           weekends:    Array.isArray(d.weekends)     ? d.weekends    : s.weekends,
           navTabs:      Array.isArray(d.navTabs)       ? d.navTabs      : s.navTabs,
@@ -639,11 +628,12 @@ export default function App() {
       if (!data) return;
       const all = [];
       Object.entries(data).forEach(([uid, userBkgs]) => {
-        Object.values(userBkgs).forEach(b => {
+        Object.entries(userBkgs).forEach(([key, b]) => {
           if (b.status === 'cancelled') return;
           all.push({
             ...b,
-            id:        b.id || `fb_${uid}_${Math.random()}`,
+            id:        b.id || key,   // стабільний fallback — ключ вузла Firebase
+            _fbKey:    key,           // реальний ключ вузла для запису в Firebase
             userId:    uid,
             day:       dateToDayIdx(b.date),
             startMin:  b.startMin ?? (parseInt((b.time||"0:0").split(":")[0])*60 + parseInt((b.time||"0:0").split(":")[1])),
@@ -677,93 +667,129 @@ export default function App() {
 
   // Debounce map for move/resize saves (avoids Firebase write on every pointermove)
   const moveSaveTimers = React.useRef({});
+  // Original positions captured at drag start — used for slot restoration
+  const moveOriginals = React.useRef({});
   // Tracks bookings currently being dragged/resized (set at onPointerDown, before first save timer)
   const activeDragIds = React.useRef(new Set());
+  // Map of existing Firebase timeslot nodes: { dateStr: Set<"HH:MM"> }
+  const slotExistsRef = React.useRef({});
 
   const pendingDeletesRef = React.useRef(new Set());
 
   const handleSetBookings = fn => {
-    // Compute next state outside updater to safely call Firebase ops
     setBookings(prev => {
       const next = typeof fn === "function" ? fn(prev) : fn;
       const prevMap = new Map(prev.map(b => [b.id, b]));
       const nextIds  = new Set(next.map(b => b.id));
 
-      // 1. Deleted bookings → remove from Firebase (outside updater via microtask)
-      prev.forEach(b => {
-        if (!nextIds.has(b.id) && b.userId && b.id) {
-          pendingDeletesRef.current.add(b.id);
-          Promise.resolve().then(() => {
-            remove(ref(db, `bookings/${b.userId}/${b.id}`))
-              .catch(() => {})
-              .finally(() => setTimeout(() => pendingDeletesRef.current.delete(b.id), 3000));
-          });
-        }
-      });
+      // Під час drag пропускаємо всю Firebase-логіку крім debounce-таймера позиції.
+      // Це запобігає випадковим delete/create операціям під час кожного pointermove.
+      const dragging = activeDragIds.current.size > 0;
+
+      if (!dragging) {
+        // 1. Deleted bookings → mark cancelled in Firebase
+        prev.forEach(b => {
+          if (!nextIds.has(b.id) && b.userId && b.id) {
+            pendingDeletesRef.current.add(b.id);
+            Promise.resolve().then(() => {
+              const keys = [...new Set([b._fbKey, b.id].filter(Boolean))];
+              const now = Date.now();
+              Promise.all(keys.map(k =>
+                update(ref(db, `bookings/${b.userId}/${k}`), { status:'cancelled', cancelledAt:now, cancelledBy:'admin' }).catch(() =>
+                  remove(ref(db, `bookings/${b.userId}/${k}`)).catch(() => {})
+                )
+              )).finally(() => setTimeout(() => pendingDeletesRef.current.delete(b.id), 3000));
+            });
+          }
+        });
+      }
 
       next.forEach(b => {
         const p = prevMap.get(b.id);
 
-        // 2. New admin-created bookings (no userId) → save under admin UID
-        if (!p && !b.userId && b.id && adminUser) {
-          const hh = String(Math.floor(b.startMin / 60)).padStart(2, "0");
-          const mm = String(b.startMin % 60).padStart(2, "0");
-          const date = dayIdxToDate(b.day);
-          update(ref(db, `bookings/${adminUser.uid}/${b.id}`), {
-            ...b,
-            userId: adminUser.uid,
-            date,
-            time: `${hh}:${mm}`,
-            durationHours: b.durMin / 60,
-          }).catch(() => {});
-          b.userId = adminUser.uid;
-          b.date   = date;
-          return;
+        if (!dragging) {
+          // 2. New admin-created bookings (no userId) → save under admin UID
+          if (!p && !b.userId && b.id && adminUser) {
+            const hh = String(Math.floor(b.startMin / 60)).padStart(2, "0");
+            const mm = String(b.startMin % 60).padStart(2, "0");
+            const date = dayIdxToDate(b.day);
+            update(ref(db, `bookings/${adminUser.uid}/${b.id}`), {
+              ...b,
+              userId: adminUser.uid,
+              date,
+              time: `${hh}:${mm}`,
+              durationHours: b.durMin / 60,
+            }).catch(() => {});
+            b.userId = adminUser.uid;
+            b.date   = date;
+            return;
+          }
         }
 
         if (!b.userId || !b.id || !p) return;
 
-        // 3. Status change → save immediately
-        if (p.status !== b.status) {
-          update(ref(db, `bookings/${b.userId}/${b.id}`), { status: b.status }).catch(() => {});
-          if (b.status === 'cancelled') {
-            Promise.resolve().then(() => setBookings(bs => bs.filter(x => x.id !== b.id)));
+        if (!dragging) {
+          // 3. Status change → save immediately
+          if (p.status !== b.status) {
+            update(ref(db, `bookings/${b.userId}/${b._fbKey || b.id}`), { status: b.status }).catch(() => {});
+            if (b.status === 'cancelled') {
+              Promise.resolve().then(() => setBookings(bs => bs.filter(x => x.id !== b.id)));
+            }
+            return;
           }
+        }
 
-        // 4. Move/resize → debounce 600ms so we don't spam Firebase on every pointermove
-        } else if (p.startMin !== b.startMin || p.durMin !== b.durMin || p.day !== b.day) {
+        // 4. Move/resize → debounce (працює і під час drag, і після)
+        if (p.startMin !== b.startMin || p.durMin !== b.durMin || p.day !== b.day) {
+          // Capture original position only once (first detection), before any intermediate frames
+          if (!moveSaveTimers.current[b.id]) {
+            moveOriginals.current[b.id] = { startMin: p.startMin, durMin: p.durMin, day: p.day, date: p.date };
+          }
           clearTimeout(moveSaveTimers.current[b.id]);
           moveSaveTimers.current[b.id] = setTimeout(() => {
+            const orig = moveOriginals.current[b.id] || p;
             const hh = String(Math.floor(b.startMin / 60)).padStart(2, "0");
             const mm = String(b.startMin % 60).padStart(2, "0");
             const newDate = dayIdxToDate(b.day);
-            const oldDate = p.date || dayIdxToDate(p.day);
-            const oldHh = String(Math.floor(p.startMin / 60)).padStart(2, "0");
-            const oldMm = String(p.startMin % 60).padStart(2, "0");
-            const slotUpdates = {};
-            // Видалити старий слот з timeslots (щоб не залишався вільний)
-            for (let i = 0; i < p.durMin; i += 30) {
-              const sm = p.startMin + i;
-              const sh = String(Math.floor(sm/60)).padStart(2,'0'), smm = String(sm%60).padStart(2,'0');
-              slotUpdates[`timeslots/${oldDate}/slot${sh}${smm}`] = null;
-            }
-            // Позначити новий слот як зайнятий
-            for (let i = 0; i < b.durMin; i += 60) {
-              const sm = b.startMin + i;
-              const sh = String(Math.floor(sm/60)).padStart(2,'0'), smm = String(sm%60).padStart(2,'0');
-              slotUpdates[`timeslots/${newDate}/slot${sh}${smm}/available`] = false;
-              slotUpdates[`timeslots/${newDate}/slot${sh}${smm}/time`] = `${sh}:${smm}`;
-            }
-            update(ref(db, '/'), slotUpdates).catch(() => {});
-            update(ref(db, `bookings/${b.userId}/${b.id}`), {
+            const oldDate = orig.date || dayIdxToDate(orig.day);
+            // Спочатку зберігаємо букінг, потім читаємо слоти і оновлюємо їх.
+            // moveSaveTimers[id] видаляємо тільки після підтвердження — це захищає від
+            // перезапису локального стану Firebase listener до завершення запису.
+            update(ref(db, `bookings/${b.userId}/${b._fbKey || b.id}`), {
               startMin: b.startMin,
               durMin:   b.durMin,
               durationHours: b.durMin / 60,
               day:      b.day,
               date:     newDate,
               time:     `${hh}:${mm}`,
-            }).catch(() => {});
-            delete moveSaveTimers.current[b.id];
+            }).then(() => {
+              const datesToFetch = oldDate === newDate
+                ? [get(ref(db, `timeslots/${oldDate}`))]
+                : [get(ref(db, `timeslots/${oldDate}`)), get(ref(db, `timeslots/${newDate}`))];
+              return Promise.all(datesToFetch).then(snaps => {
+                const oldSnap = snaps[0].val() || {};
+                const newSnap = oldDate === newDate ? oldSnap : (snaps[1].val() || {});
+                const slotUpdates = {};
+                for (let i = 0; i < orig.durMin; i += 60) {
+                  const sm = orig.startMin + i;
+                  const sh = String(Math.floor(sm/60)).padStart(2,'0'), smm = String(sm%60).padStart(2,'0');
+                  if (oldSnap[`slot${sh}${smm}`] !== undefined) {
+                    slotUpdates[`timeslots/${oldDate}/slot${sh}${smm}/available`] = true;
+                  }
+                }
+                for (let i = 0; i < b.durMin; i += 60) {
+                  const sm = b.startMin + i;
+                  const sh = String(Math.floor(sm/60)).padStart(2,'0'), smm = String(sm%60).padStart(2,'0');
+                  if (newSnap[`slot${sh}${smm}`] !== undefined) {
+                    slotUpdates[`timeslots/${newDate}/slot${sh}${smm}/available`] = false;
+                  }
+                }
+                if (Object.keys(slotUpdates).length) return update(ref(db, '/'), slotUpdates);
+              });
+            }).catch(() => {}).finally(() => {
+              delete moveSaveTimers.current[b.id];
+              delete moveOriginals.current[b.id];
+            });
           }, 600);
         }
       });
@@ -787,14 +813,20 @@ export default function App() {
     <>
       <style>{css}</style>
       <div style={{
-        minHeight:"100vh",background:theme.BG_IMAGE?"transparent":theme.BG,color:theme.TEXT,
+        height:"100dvh",background:theme.BG_IMAGE?"transparent":theme.BG,color:theme.TEXT,
         fontFamily:"ui-sans-serif,-apple-system,BlinkMacSystemFont,system-ui,sans-serif",
-        paddingBottom:90
+        display:"flex",flexDirection:"column"
       }}>
         <TopBar tab={tab} onChange={switchTab} settings={settings} setSettings={setSettings}/>
-        <div className="tab-anim" key={`${tab}-${tabVisits[tab]||0}`} style={{padding: tab==="schedule" ? "0 3px 0" : "14px 14px 0"}}>
+        <div className="tab-anim" key={`${tab}-${tabVisits[tab]||0}`} style={{
+          flex:1, minHeight:0,
+          overflowY: tab==="schedule" ? "hidden" : "auto",
+          padding: tab==="schedule" ? "0 3px 11px" : "14px 14px 14px",
+          display: tab==="schedule" ? "flex" : "block",
+          flexDirection:"column"
+        }}>
           <Suspense fallback={<Loader/>}>
-            <ViewRenderer tab={tab} settings={settings} setSettings={setSettings} bookings={bookings} setBookings={handleSetBookings} onSlotClick={setSelectedBooking} onEmptySlotClick={setNewBookingData} openInfos={openInfos} toggleInfo={toggleInfo} activeDragIds={activeDragIds} navTo={switchTab}/>
+            <ViewRenderer tab={tab} settings={settings} setSettings={setSettings} bookings={bookings} setBookings={handleSetBookings} onSlotClick={setSelectedBooking} onEmptySlotClick={setNewBookingData} openInfos={openInfos} toggleInfo={toggleInfo} activeDragIds={activeDragIds} navTo={switchTab} slotExistsRef={slotExistsRef}/>
           </Suspense>
         </div>
         <BottomNav active={tab} onChange={switchTab} settings={settings} chatUnread={chatUnread}/>

@@ -121,11 +121,13 @@ function Section({ title, icon, children, defaultOpen=false }) {
           <polyline points="6 9 12 15 18 9"/>
         </svg>
       </div>
-      {open && (
-        <div className="sec-open" style={{padding:"0 14px 14px",borderTop:`1px solid ${BORDER}`}}>
-          {children}
+      <div className="sec-body" style={{gridTemplateRows:open?"1fr":"0fr"}}>
+        <div>
+          <div style={{padding:"0 14px 14px",borderTop:open?`1px solid ${BORDER}`:"none"}}>
+            {children}
+          </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }
@@ -174,8 +176,8 @@ export default function SettingsView({ settings, setSettings }) {
 input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:4px;border-radius:2px;background:${BG_DEEP};outline:none;box-shadow:${SI}}
 input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:9px;background:linear-gradient(145deg,${ACC_HI},${ACCENT});cursor:pointer;box-shadow:0 2px 6px rgba(255,90,60,0.5)}
 select{color-scheme:dark}
-@keyframes sec-open{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
-.sec-open{animation:sec-open .16s ease both}
+.sec-body{display:grid;transition:grid-template-rows .22s ease}
+.sec-body>div{overflow:hidden}
 `;
   const upd = (k, v) => setSettings(s=>({...s,[k]:v}));
 
@@ -335,10 +337,10 @@ select{color-scheme:dark}
           </div>
         </Section>
 
-        {/* ── ПРИЛИПАННЯ ── */}
+        {/* ── ВІЛЬНІ СЛОТИ ПОРЯД ── */}
         <Section title={t('set.sticky.title')} icon="📌">
           <Info color={BLUE} title={t('set.sticky.info_t')} text={t('set.sticky.info')}/>
-          <Row label={lang==="en"?"Enable feature":"Увімкнути функцію"} hint={lang==="en"?"When off — all adjacent free slots are shown":"Вимкнено — показуються всі суміжні вільні слоти"}>
+          <Row label={lang==="en"?"Enable feature":"Увімкнути"} hint={lang==="en"?"When off — all adjacent free slots are shown":"Вимкнено — всі вільні слоти видно завжди"}>
             <Toggle on={settings.stickyTimeEnabled !== false} onChange={v=>upd("stickyTimeEnabled",v)}/>
           </Row>
           {settings.stickyTimeEnabled !== false && (

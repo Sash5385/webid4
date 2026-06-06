@@ -406,7 +406,7 @@ const colorOf = (id) => PALETTE.find(p=>p.id===id)?.color || GREEN;
 // ═══════════════════════════════════════════════════════════════
 // SCHEDULE VIEW with drag/resize + pinch-to-zoom + day-count
 // ═══════════════════════════════════════════════════════════════
-function ScheduleView({ settings, setSettings, onSlotClick, bookings, setBookings }) {
+function ScheduleView({ settings, setSettings, onSlotClick, bookings, setBookings, activeDragIds }) {
   const [drag, setDrag] = useState(null);
   const gridRef = useRef(null);
   const [pinch, setPinch] = useState(null);
@@ -422,6 +422,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, bookings, setBooking
 
   const onPointerDown = (e, b, mode) => {
     e.preventDefault(); e.stopPropagation();
+    if (activeDragIds) activeDragIds.current.add(b.id);
     setDrag({
       id:b.id, mode,
       startClientY:e.clientY, startClientX:e.clientX,
@@ -456,14 +457,17 @@ function ScheduleView({ settings, setSettings, onSlotClick, bookings, setBooking
         return b;
       }));
     };
-    const onUp = () => setDrag(null);
+    const onUp = () => {
+      if (activeDragIds) activeDragIds.current.delete(drag.id);
+      setDrag(null);
+    };
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp);
     return () => {
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
     };
-  }, [drag, settings.snapMin, settings.workStart, settings.workEnd, PX_PER_MIN, COL_W, setBookings]);
+  }, [drag, settings.snapMin, settings.workStart, settings.workEnd, PX_PER_MIN, COL_W, setBookings, activeDragIds]);
 
   // Pinch zoom: 2 fingers vertically -> change hourHeightPx
   const touchesRef = useRef([]);
@@ -503,9 +507,9 @@ function ScheduleView({ settings, setSettings, onSlotClick, bookings, setBooking
   };
 
   return (
-    <Card style={{padding:14}}>
+    <Card style={{padding:"10px 10px 0", display:"flex", flexDirection:"column", flex:1, minHeight:0}}>
       {/* Day headers */}
-      <div style={{display:"flex", paddingLeft:TIME_COL_W, gap:6, marginBottom:8, overflowX:"auto"}}>
+      <div style={{display:"flex", paddingLeft:TIME_COL_W, gap:6, marginBottom:8, overflowX:"auto", flexShrink:0}}>
         {days.map((d,i)=>(
           <div key={i} className="pillow" style={{
             width:COL_W, padding:"8px 0", textAlign:"center",
@@ -525,7 +529,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, bookings, setBooking
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
         onWheel={onWheel}
-        style={{display:"flex", overflowX:"auto", overflowY:"auto", maxHeight:560, touchAction:"pan-x pan-y"}}
+        style={{display:"flex", overflowX:"auto", overflowY:"auto", flex:1, minHeight:0, touchAction:"pan-x pan-y"}}
       >
         <div style={{width:TIME_COL_W, flexShrink:0, position:"relative", height:gridHeight}}>
           {hours.map(h=>(
@@ -622,7 +626,8 @@ function ScheduleView({ settings, setSettings, onSlotClick, bookings, setBooking
       {/* Footer / info */}
       <div style={{
         display:"flex",gap:16,marginTop:14,paddingLeft:TIME_COL_W,
-        fontSize:11,color:TEXT_FAINT,flexWrap:"wrap"
+        fontSize:11,color:TEXT_FAINT,flexWrap:"wrap",flexShrink:0,
+        paddingBottom:6
       }}>
         <span>↕ Тягни за блок щоб перемістити</span>
         <span>↕ Тягни за край щоб змінити час</span>
@@ -1205,15 +1210,15 @@ export default function App() {
     <>
       <style>{GLOBAL_CSS}</style>
       <div style={{
-        minHeight:"100vh", background:BG, color:TEXT,
+        height:"100dvh", background:BG, color:TEXT,
         fontFamily:"ui-sans-serif,-apple-system,BlinkMacSystemFont,system-ui,sans-serif",
-        paddingBottom:90
+        display:"flex", flexDirection:"column"
       }}>
         {/* TOP BAR */}
         <div style={{
           padding:"14px 18px",
           display:"flex",alignItems:"center",justifyContent:"space-between",
-          position:"sticky",top:0,
+          flexShrink:0,
           background:`linear-gradient(180deg,${BG} 60%,rgba(28,29,33,0.92))`,
           backdropFilter:"blur(20px)", zIndex:20,
           borderBottom:`1px solid ${BORDER}`
@@ -1235,7 +1240,14 @@ export default function App() {
         </div>
 
         {/* CONTENT */}
-        <div style={{padding:"16px 14px 0"}}>{renderView()}</div>
+        <div style={{
+          flex:1, minHeight:0,
+          overflowY: tab==="schedule" ? "hidden" : "auto",
+          padding: tab==="schedule" ? "8px 8px 0" : "16px 14px 16px",
+          display: tab==="schedule" ? "flex" : "block",
+          flexDirection:"column",
+          boxSizing:"border-box"
+        }}>{renderView()}</div>
 
         {/* FAB on schedule */}
         {tab==="schedule" && (
@@ -1252,7 +1264,7 @@ export default function App() {
 
         {/* BOTTOM NAV — 8 tabs scrollable */}
         <div style={{
-          position:"fixed",bottom:0,left:0,right:0,
+          flexShrink:0,
           background:`linear-gradient(180deg,${SURFACE},${SURFACE_LO})`,
           borderTop:`1px solid ${BORDER}`,
           boxShadow:"0 -8px 24px rgba(0,0,0,0.35)",

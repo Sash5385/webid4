@@ -26,9 +26,15 @@ export async function registerAdminFCM() {
     console.log("FCM permission:", permission);
     if (permission !== "granted") return;
 
-    // Wait for SW to be ready
-    const swReg = await navigator.serviceWorker.ready;
-    console.log("FCM SW ready:", swReg.scope);
+    let swReg
+    try {
+      const regs = await navigator.serviceWorker.getRegistrations()
+      swReg = regs.find(r => (r.active?.scriptURL || r.installing?.scriptURL || '').includes('firebase-messaging-sw'))
+        || await navigator.serviceWorker.register('/firebase-messaging-sw.js')
+    } catch (_) {
+      swReg = undefined
+    }
+    console.log("FCM SW scope:", swReg?.scope);
 
     const messaging = getMessaging(app);
     const token = await getToken(messaging, { vapidKey: VAPID_KEY, serviceWorkerRegistration: swReg });

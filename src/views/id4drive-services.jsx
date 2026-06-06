@@ -53,11 +53,10 @@ const CSS = `
 
 // ─── MOCK DATA ───────────────────────────────────────────────────
 const INIT_SERVICES = [
-  { id:"sv1", name:"Автошкола 1 год",  type:"school",  duration:60,  price:600,  colorId:"green",  active:true,  archived:false, description:"Стандартний урок для учнів автошколи", accessCats:["cat-all"], lessons:0, income:0, instructions:"" },
-  { id:"sv2", name:"Автошкола 2 год",  type:"school",  duration:120, price:1100, colorId:"green",  active:true,  archived:false, description:"Подвійний урок для автошколи",          accessCats:["cat-all"], lessons:0, income:0, instructions:"" },
-  { id:"sv3", name:"Приватний 1 год",  type:"private", duration:60,  price:700,  colorId:"yellow", active:true,  archived:false, description:"Приватний урок для будь-якого учня",    accessCats:["cat-all"], lessons:0, income:0, instructions:"" },
-  { id:"sv4", name:"Приватний 2 год",  type:"private", duration:120, price:1300, colorId:"yellow", active:true,  archived:false, description:"Подвійний приватний урок",              accessCats:["cat-vip","cat-std"], lessons:0, income:0, instructions:"" },
-  { id:"sv5", name:"VIP інтенсив",     type:"private", duration:180, price:2200, colorId:"purple", active:true,  archived:false, description:"3-годинний VIP урок для досвідчених",  accessCats:["cat-vip"], lessons:0, income:0, instructions:"" },
+  { id:"sv1", name:"Автошкола 1 год", type:"school",  duration:60,  price:700,  colorId:"green",  active:true,  archived:false, description:"", accessCats:["cat-all"], lessons:0, income:0, instructions:"" },
+  { id:"sv2", name:"Автошкола 2 год", type:"school",  duration:120, price:1400, colorId:"green",  active:true,  archived:false, description:"", accessCats:["cat-all"], lessons:0, income:0, instructions:"" },
+  { id:"sv3", name:"Приватний 1 год", type:"private", duration:60,  price:1000, colorId:"yellow", active:true,  archived:false, description:"", accessCats:["cat-all"], lessons:0, income:0, instructions:"" },
+  { id:"sv4", name:"Приватний 2 год", type:"private", duration:120, price:2000, colorId:"yellow", active:true,  archived:false, description:"", accessCats:["cat-all"], lessons:0, income:0, instructions:"" },
 ];
 
 // ─── HELPERS ────────────────────────────────────────────────────
