@@ -458,7 +458,7 @@ const colorOf = (id) => PALETTE.find(p=>p.id===id)?.color || GREEN;
 // ═══════════════════════════════════════════════════════════════
 // SCHEDULE VIEW with drag/resize + pinch-to-zoom + day-count
 // ═══════════════════════════════════════════════════════════════
-function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bookings, setBookings, activeDragIds, navTo }) {
+function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bookings, setBookings, activeDragIds, navTo, slotExistsRef }) {
   const [dragId, setDragId] = useState(null);
   const [holdId, setHoldId] = useState(null);
   const [quickCancelId, setQuickCancelId] = useState(null);
@@ -467,8 +467,8 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   const cancelTimers = useRef({});
   const [windowW, setWindowW] = useState(window.innerWidth);
   const [windowH, setWindowH] = useState(window.innerHeight);
-  const PAST_DAYS = 7;
-  const [dayOffset, setDayOffset] = useState(-7);
+  const PAST_DAYS = 30;
+  const [dayOffset, setDayOffset] = useState(-PAST_DAYS);
   const dragRef = useRef(null);
   const calcRef = useRef({});
   const setBookingsRef = useRef(null);
@@ -514,20 +514,27 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
       const val = snap.val() || {};
       const slots = {};
       const viewing = {};
+      const exists = {};
       Object.entries(val).forEach(([date, dateSlots]) => {
         const slotMap = {};
         const viewTimes = [];
+        const slotSet = new Set();
         Object.values(dateSlots).forEach(slot => {
-          if (slot.time && (slot.available !== false || slot.adminBlocked || slot.vipOnly)) {
-            slotMap[slot.time] = { available: slot.available !== false, adminBlocked: !!slot.adminBlocked, vipOnly: !!slot.vipOnly, surcharge: slot.surcharge || null };
+          if (slot.time) {
+            slotSet.add(slot.time);
+            if (slot.available !== false || slot.adminBlocked || slot.vipOnly || slot.surcharge) {
+              slotMap[slot.time] = { available: slot.available !== false, adminBlocked: !!slot.adminBlocked, vipOnly: !!slot.vipOnly, surcharge: slot.surcharge || null };
+            }
           }
           if (slot.viewing && Object.keys(slot.viewing).length > 0) viewTimes.push(slot.time);
         });
         if (Object.keys(slotMap).length) slots[date] = slotMap;
         if (viewTimes.length) viewing[date] = viewTimes;
+        if (slotSet.size) exists[date] = slotSet;
       });
       setOpenSlots(slots);
       setViewingSlots(viewing);
+      if (slotExistsRef) slotExistsRef.current = exists;
     });
     return () => unsub();
   }, []);
@@ -644,7 +651,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
 
   const TIME_COL_W = 34;
   const HEADER_H = 50;
-  const N_DAYS = PAST_DAYS + 28; // 7 минулих + 28 майбутніх
+  const N_DAYS = PAST_DAYS + 35;
   const COL_W = Math.max(48, Math.floor((windowW - 14 - TIME_COL_W - (settings.daysShown - 1) * 4) / Math.max(1, settings.daysShown)));
   const allDaySchedules = (settings.weekSchedule || []).filter(d => d.start != null);
   const effectiveWorkStart = allDaySchedules.length
