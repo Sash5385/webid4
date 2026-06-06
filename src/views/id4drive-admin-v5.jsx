@@ -616,13 +616,14 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
     el.style.transform = "";
   }, [dayOffset]);
 
-  // Скролимо до сьогодні при зміні COL_W (включаючи завантаження settings з Firebase)
+  // Скролимо до сьогодні при зміні daysShown (включаючи завантаження settings з Firebase)
   useEffect(() => {
     if (!gridRef.current) return;
-    const left = PAST_DAYS * (COL_W + 4);
+    const colW = calcRef.current.COL_W || 70;
+    const left = PAST_DAYS * (colW + 4);
     gridRef.current.scrollLeft = left;
     if (headersInnerRef.current) headersInnerRef.current.style.transform = `translateX(-${left}px)`;
-  }, [COL_W]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [settings.daysShown]); // eslint-disable-line react-hooks/exhaustive-deps
   const [bubbleData, setBubbleData] = useState(null);
   const [formData, setFormData] = useState(null);
   const [createSlotData, setCreateSlotData] = useState(null); // {day, startMin}
