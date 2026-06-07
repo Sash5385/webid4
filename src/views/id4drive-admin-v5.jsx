@@ -1457,6 +1457,15 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                             }
                             update(ref(db,'/'), slotUpd).catch(()=>{});
                           }
+                          // Прямий запис cancelled у Firebase одразу (не покладаємось на 2с-таймер)
+                          const idsCancel = b._mergedIds || [b.id];
+                          idsCancel.forEach(id => {
+                            const mb = bookingsRef.current?.find(x => x.id === id) || (id === b.id ? b : null);
+                            if (!mb?.userId) return;
+                            const ks = [...new Set([mb._fbKey, mb.id].filter(Boolean))];
+                            ks.forEach(k => update(ref(db, `bookings/${mb.userId}/${k}`),
+                              { status:"cancelled", cancelledAt:Date.now(), cancelledBy:"admin" }).catch(()=>{}));
+                          });
                           // Починаємо 2с відлік — затемнення → видалення
                           setCancellingSet(s=>new Set([...s, b.id]));
                           cancelTimers.current[b.id] = setTimeout(()=>{
