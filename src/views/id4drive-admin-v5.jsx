@@ -687,7 +687,12 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   const onPointerDown = (e, b, mode) => {
     e.preventDefault(); e.stopPropagation();
     const isBlock = b.type === "block";
-    const dragData = { id:b.id, mergedIds:b._mergedIds||null, mode, isBlock, startClientY:e.clientY, startClientX:e.clientX, startMinutes:b.startMin, startDur:b.durMin, startDay:b.day };
+    // Зберігаємо початкові позиції всіх сегментів — потрібно для відновлення слотів в onUp
+    const dragIds = b._mergedIds ? [b.id, ...b._mergedIds] : [b.id];
+    const origPositions = bookings
+      .filter(x => dragIds.includes(x.id))
+      .map(x => ({ id: x.id, startMin: x.startMin, durMin: x.durMin, day: x.day }));
+    const dragData = { id:b.id, mergedIds:b._mergedIds||null, mode, isBlock, startClientY:e.clientY, startClientX:e.clientX, startMinutes:b.startMin, startDur:b.durMin, startDay:b.day, origPositions };
     activeDragIds?.current?.add(b.id);
     if (b._mergedIds) b._mergedIds.forEach(id => activeDragIds?.current?.add(id));
 
@@ -844,26 +849,46 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
       const wasDragging = !!dragRef.current;
       const endedId = dragRef.current?.id ?? pendingDragRef.current?.id;
       const endedMergedIds = dragRef.current?.mergedIds ?? pendingDragRef.current?.mergedIds ?? null;
+      // Захоплюємо origPositions ДО очистки dragRef
+      const origPositions = dragRef.current?.origPositions ?? null;
 
-      // Immediate Firebase save on drag release — prevents snap-back to old day
+      // Immediate Firebase save on drag release + timeslot restore
       if (wasDragging && endedId) {
         const bks = bookingsRef.current;
         const idsToSave = [...new Set(endedMergedIds ? [endedId, ...endedMergedIds] : [endedId])];
+        const slotUpdates = {};
         idsToSave.forEach(id => {
           const b = bks?.find(x => x.id === id);
           if (!b?.userId) return;
           const newDate = absDayToDateStr(b.day);
           const hh = String(Math.floor(b.startMin / 60)).padStart(2, "0");
           const mm = String(b.startMin % 60).padStart(2, "0");
+          // Зберігаємо букінг
           update(ref(db, `bookings/${b.userId}/${b._fbKey || b.id}`), {
-            startMin: b.startMin,
-            durMin:   b.durMin,
-            durationHours: b.durMin / 60,
-            day:  b.day,
-            date: newDate,
-            time: `${hh}:${mm}`,
+            startMin: b.startMin, durMin: b.durMin,
+            durationHours: b.durMin / 60, day: b.day, date: newDate, time: `${hh}:${mm}`,
           }).catch(() => {});
+          // Оновлюємо слоти лише якщо є origPositions (drag справді відбувся)
+          if (!origPositions) return;
+          const orig = origPositions.find(o => o.id === id);
+          if (!orig) return;
+          const oldDate = absDayToDateStr(orig.day);
+          // Стара позиція → вільно
+          for (let i = 0; i < orig.durMin; i += 60) {
+            const sm = orig.startMin + i;
+            const sh = String(Math.floor(sm/60)).padStart(2,'0'), smm = String(sm%60).padStart(2,'0');
+            slotUpdates[`timeslots/${oldDate}/slot${sh}${smm}/available`] = true;
+            slotUpdates[`timeslots/${oldDate}/slot${sh}${smm}/time`] = `${sh}:${smm}`;
+          }
+          // Нова позиція → зайнято
+          for (let i = 0; i < b.durMin; i += 60) {
+            const sm = b.startMin + i;
+            const sh = String(Math.floor(sm/60)).padStart(2,'0'), smm = String(sm%60).padStart(2,'0');
+            slotUpdates[`timeslots/${newDate}/slot${sh}${smm}/available`] = false;
+            slotUpdates[`timeslots/${newDate}/slot${sh}${smm}/time`] = `${sh}:${smm}`;
+          }
         });
+        if (Object.keys(slotUpdates).length) update(ref(db, '/'), slotUpdates).catch(() => {});
       }
 
       dragRef.current = null;

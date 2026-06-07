@@ -762,23 +762,6 @@ export default function App() {
               day:      b.day,
               date:     newDate,
               time:     `${hh}:${mm}`,
-            }).then(() => {
-              const slotUpdates = {};
-              // Стара позиція → вільно (відновлюємо те, що було до букінгу)
-              for (let i = 0; i < orig.durMin; i += 60) {
-                const sm = orig.startMin + i;
-                const sh = String(Math.floor(sm/60)).padStart(2,'0'), smm = String(sm%60).padStart(2,'0');
-                slotUpdates[`timeslots/${oldDate}/slot${sh}${smm}/available`] = true;
-                slotUpdates[`timeslots/${oldDate}/slot${sh}${smm}/time`] = `${sh}:${smm}`;
-              }
-              // Нова позиція → зайнято
-              for (let i = 0; i < b.durMin; i += 60) {
-                const sm = b.startMin + i;
-                const sh = String(Math.floor(sm/60)).padStart(2,'0'), smm = String(sm%60).padStart(2,'0');
-                slotUpdates[`timeslots/${newDate}/slot${sh}${smm}/available`] = false;
-                slotUpdates[`timeslots/${newDate}/slot${sh}${smm}/time`] = `${sh}:${smm}`;
-              }
-              return update(ref(db, '/'), slotUpdates);
             }).catch(() => {}).finally(() => {
               delete moveSaveTimers.current[b.id];
               delete moveOriginals.current[b.id];
