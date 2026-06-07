@@ -1170,16 +1170,36 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                   if (dragRef.current || pendingDragRef.current) return;
                   const rect = e.currentTarget.getBoundingClientRect();
                   const rawMin = calcRef.current.workStart * 60 + (e.clientY - rect.top) / calcRef.current.PX_PER_MIN;
-                  const minute = Math.round(rawMin / 5) * 5;
-                  emptyHoldPosRef.current = { startY: e.clientY, day: absDay, startMin: minute, freeSnap: true };
+                  // Шаг 30 хвилин
+                  const minute = Math.round(rawMin / 30) * 30;
+                  emptyHoldPosRef.current = { startY: e.clientY, day: absDay, startMin: minute, dateStr: dateStrCol };
                   emptyHoldTimerRef.current = setTimeout(() => {
                     if (!emptyHoldPosRef.current) return;
+                    // Утримання → bubble для нового букінгу
                     setBubbleData({ day: absDay, startMin: minute, clientX: e.clientX, clientY: e.clientY, freeSnap: true });
                     emptyHoldPosRef.current = null;
                   }, 480);
                 }}
-                onPointerMove={()=>{ clearTimeout(emptyHoldTimerRef.current); emptyHoldPosRef.current = null; }}
-                onPointerUp={()=>{ clearTimeout(emptyHoldTimerRef.current); emptyHoldPosRef.current = null; }}
+                onPointerMove={e=>{
+                  if (!emptyHoldPosRef.current) return;
+                  if (Math.abs(e.clientY - emptyHoldPosRef.current.startY) > 8) {
+                    clearTimeout(emptyHoldTimerRef.current);
+                    emptyHoldPosRef.current = null;
+                  }
+                }}
+                onPointerUp={e=>{
+                  const pos = emptyHoldPosRef.current;
+                  clearTimeout(emptyHoldTimerRef.current);
+                  emptyHoldPosRef.current = null;
+                  // Короткий клік (hold не спрацював) → одразу створити вільний слот
+                  if (pos && !dragEndedRef.current) {
+                    const hh = String(Math.floor(pos.startMin/60)).padStart(2,'0');
+                    const mm = String(pos.startMin%60).padStart(2,'0');
+                    update(ref(db, `timeslots/${pos.dateStr}/slot${hh}${mm}`), {
+                      available: true, time: `${hh}:${mm}`
+                    }).catch(()=>{});
+                  }
+                }}
                 onPointerCancel={()=>{ clearTimeout(emptyHoldTimerRef.current); emptyHoldPosRef.current = null; }}
                 onPointerLeave={()=>{ clearTimeout(emptyHoldTimerRef.current); emptyHoldPosRef.current = null; }}
                 style={{
