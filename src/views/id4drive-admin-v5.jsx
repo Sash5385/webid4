@@ -1249,7 +1249,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
               })}
 
               {/* 30-min grid lines */}
-              {Array.from({length:(settings.workEnd-settings.workStart)*2-1},(_,i)=>{
+              {Array.from({length:(effectiveWorkEnd-effectiveWorkStart)*2-1},(_,i)=>{
                 const isHour=(i+1)%2===0;
                 return <div key={i} style={{
                   position:"absolute",left:0,right:0,
