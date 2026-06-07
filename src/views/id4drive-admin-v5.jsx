@@ -491,6 +491,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   const [openSlots, setOpenSlots] = useState({}); // { "2025-06-01": ["07:00","08:00",...] }
   const [viewingSlots, setViewingSlots] = useState({});
   const [genLoadingDays, setGenLoadingDays] = useState(new Set());
+  const [isGeneratingAll, setIsGeneratingAll] = useState(false);
   const [queueMap, setQueueMap] = useState({}); // { "YYYY-MM-DD_HH:MM": count }
 
   useEffect(() => {
@@ -550,13 +551,15 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
 
   const generateDaySlots = async (absDay) => {
     const dateStr = absDayToDateStr(absDay);
-    const d = new Date(dateStr);
-    const dow = (d.getDay() + 6) % 7;
+    const d = new Date(dateStr + "T12:00:00");
+    const dow = (d.getDay() + 6) % 7; // Mon=0..Sun=6
     const ov = (settings.dateOverrides || []).find(o => o.date === dateStr);
     if (ov?.type === "closed") return;
     const ws = (settings.weekSchedule || [])[dow] || {};
-    const start        = Math.min(ov?.start ?? ws.start ?? settings.workStart ?? 9, settings.workStart ?? 9);
-    const end          = Math.max(ov?.end  ?? ws.end  ?? settings.workEnd   ?? 18, settings.workEnd   ?? 18);
+    if (ws.enabled === false) return; // день вимкнений у графіку — пропускаємо
+    // Пріоритет: dateOverride > weekSchedule-день > глобальні налаштування
+    const start        = ov?.start ?? ws.start ?? settings.workStart ?? 9;
+    const end          = ov?.end   ?? ws.end   ?? settings.workEnd   ?? 18;
     const lunchEnabled = ov?.lunchEnabled ?? ws.lunchEnabled ?? settings.lunchEnabled ?? true;
     const lunchStart   = ov?.lunchStart   ?? ws.lunchStart   ?? settings.lunchStart  ?? 12;
     const lunchEnd     = ov?.lunchEnd     ?? ws.lunchEnd     ?? settings.lunchEnd    ?? 13;
@@ -582,6 +585,15 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   const clearDaySlots = async (absDay) => {
     const dateStr = absDayToDateStr(absDay);
     await remove(ref(db, `timeslots/${dateStr}`));
+  };
+
+  const generateAllSlots = async () => {
+    setIsGeneratingAll(true);
+    const limit = settings.calendarOpenDays || 30;
+    for (let d = 0; d <= limit; d++) {
+      await generateDaySlots(d);
+    }
+    setIsGeneratingAll(false);
   };
 
   // Клік: вільний ↔ зайнятий (2 стани)
@@ -1042,8 +1054,23 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
           display:"flex", flexDirection:"column",
           borderRight:`1px solid rgba(255,255,255,0.07)`,
         }}>
-          {/* Spacer aligns with sticky day headers */}
-          <div style={{height:HEADER_H + 4, flexShrink:0}}/>
+          {/* Кнопка «Згенерувати всі слоти» — у кутовому спейсері */}
+          <div style={{height:HEADER_H + 4, flexShrink:0, display:"flex", alignItems:"center", justifyContent:"center"}}>
+            <button
+              onClick={isGeneratingAll ? undefined : generateAllSlots}
+              title={`Згенерувати слоти на ${settings.calendarOpenDays||30} днів за графіком`}
+              style={{
+                width:28, height:28, borderRadius:8, border:"none", cursor: isGeneratingAll?"default":"pointer",
+                background: isGeneratingAll ? "rgba(99,211,120,0.12)" : "rgba(99,211,120,0.18)",
+                display:"flex", alignItems:"center", justifyContent:"center",
+                transition:"background .15s",
+              }}>
+              {isGeneratingAll
+                ? <div style={{width:12,height:12,borderRadius:"50%",border:"2px solid rgba(99,211,120,0.3)",borderTopColor:"rgba(99,211,120,0.9)",animation:"spin .7s linear infinite"}}/>
+                : <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(99,211,120,0.9)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
+              }
+            </button>
+          </div>
           <div style={{overflow:"hidden", flex:1, position:"relative"}}>
             <div ref={timeColRef} style={{position:"absolute", top:0, left:0, right:0, height:gridHeight}}>
               {Array.from({length:(effectiveWorkEnd-effectiveWorkStart)*2+1},(_,i)=>{
