@@ -949,13 +949,12 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
         if (mb.startMin !== undefined && mb.durMin) {
           const dateStr = mb.date || absDayToDateStr(mb.day);
           const upd = {};
-          for (let i = 0; i < mb.durMin; i += 30) {
+          for (let i = 0; i < mb.durMin; i += 60) {
             const sm = mb.startMin + i;
             const hh = String(Math.floor(sm/60)).padStart(2,'0'), mm = String(sm%60).padStart(2,'0');
             upd[`timeslots/${dateStr}/slot${hh}${mm}/available`] = true;
-            upd[`timeslots/${dateStr}/slot${hh}${mm}/time`] = `${hh}:${mm}`;
           }
-          update(ref(db,'/'), upd).catch(()=>{});
+          if (Object.keys(upd).length) update(ref(db,'/'), upd).catch(()=>{});
         }
         // Позначити cancelled у Firebase (обидва можливих ключі)
         if (mb.userId) {
@@ -1453,8 +1452,8 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                               const hh = String(Math.floor(slotMin/60)).padStart(2,'0');
                               const mm = String(slotMin%60).padStart(2,'0');
                               const path = `timeslots/${dateStr}/slot${hh}${mm}`;
-                              slotUpd[`${path}/available`] = true;
-                              slotUpd[`${path}/time`] = `${hh}:${mm}`;
+                              if (i % 60 === 0) { slotUpd[`${path}/available`]=true; slotUpd[`${path}/time`]=`${hh}:${mm}`; }
+                              else { slotUpd[path] = null; }
                             }
                             update(ref(db,'/'), slotUpd).catch(()=>{});
                           }

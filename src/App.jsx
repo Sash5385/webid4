@@ -773,28 +773,15 @@ export default function App() {
                 for (let i = 0; i < orig.durMin; i += 60) {
                   const sm = orig.startMin + i;
                   const sh = String(Math.floor(sm/60)).padStart(2,'0'), smm = String(sm%60).padStart(2,'0');
-                  // Звільняємо старий слот — створюємо вузол якщо його не було
-                  slotUpdates[`timeslots/${oldDate}/slot${sh}${smm}/available`] = true;
-                  slotUpdates[`timeslots/${oldDate}/slot${sh}${smm}/time`] = `${sh}:${smm}`;
-                  // Також прибираємо 30-хв «фантом» від клієнтського markSlotsUnavailable
-                  const smHalf = sm + 30;
-                  if (smHalf < orig.startMin + orig.durMin) {
-                    const shh = String(Math.floor(smHalf/60)).padStart(2,'0'), smmH = String(smHalf%60).padStart(2,'0');
-                    slotUpdates[`timeslots/${oldDate}/slot${shh}${smmH}/available`] = true;
-                    slotUpdates[`timeslots/${oldDate}/slot${shh}${smmH}/time`] = `${shh}:${smmH}`;
+                  if (oldSnap[`slot${sh}${smm}`] !== undefined) {
+                    slotUpdates[`timeslots/${oldDate}/slot${sh}${smm}/available`] = true;
                   }
                 }
                 for (let i = 0; i < b.durMin; i += 60) {
                   const sm = b.startMin + i;
                   const sh = String(Math.floor(sm/60)).padStart(2,'0'), smm = String(sm%60).padStart(2,'0');
-                  // Зайнятий новий слот — створюємо вузол якщо його не було
-                  slotUpdates[`timeslots/${newDate}/slot${sh}${smm}/available`] = false;
-                  slotUpdates[`timeslots/${newDate}/slot${sh}${smm}/time`] = `${sh}:${smm}`;
-                  const smHalf = sm + 30;
-                  if (smHalf < b.startMin + b.durMin) {
-                    const shh = String(Math.floor(smHalf/60)).padStart(2,'0'), smmH = String(smHalf%60).padStart(2,'0');
-                    slotUpdates[`timeslots/${newDate}/slot${shh}${smmH}/available`] = false;
-                    slotUpdates[`timeslots/${newDate}/slot${shh}${smmH}/time`] = `${shh}:${smmH}`;
+                  if (newSnap[`slot${sh}${smm}`] !== undefined) {
+                    slotUpdates[`timeslots/${newDate}/slot${sh}${smm}/available`] = false;
                   }
                 }
                 if (Object.keys(slotUpdates).length) return update(ref(db, '/'), slotUpdates);
