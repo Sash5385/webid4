@@ -62,8 +62,19 @@ const Ic = {
   table:  s => <I3 s={s} gr={`linear-gradient(135deg,${SURF_HI},${SURFACE})`}><svg width={s*.55} height={s*.55} viewBox="0 0 24 24" fill="none" stroke={TEXT} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2V9M9 21H5a2 2 0 0 1-2-2V9m0 0h18"/></svg></I3>,
 };
 
+// ─── COLOR PALETTE (same as id4drive-services) ──────────────────
+const PALETTE = [
+  { id:"green",   color:GREEN  },
+  { id:"yellow",  color:GOLD   },
+  { id:"blue",    color:BLUE   },
+  { id:"purple",  color:PURPLE },
+  { id:"red",     color:ACCENT },
+  { id:"orange",  color:"#fb923c" },
+];
+const colorOf = id => PALETTE.find(p=>p.id===id)?.color || GREEN;
+
 // ─── MOCK DATA ──────────────────────────────────────────────────
-const SERVICES = {
+const SERVICES_DEFAULT = {
   sv1:{ name:"Автошкола 1г", color:GREEN  },
   sv2:{ name:"Автошкола 2г", color:GREEN  },
   sv3:{ name:"Приватний 1г", color:GOLD   },
@@ -470,7 +481,10 @@ function FilterSheet({ filters, setFilters, sortBy, setSortBy, groupBy, setGroup
 }
 
 // ─── MAIN BOOKINGS VIEW ─────────────────────────────────────────
-export default function BookingsView({ onSlotClick }) {
+export default function BookingsView({ onSlotClick, settings }) {
+  const SERVICES = settings?.services?.length
+    ? Object.fromEntries(settings.services.map(s => [s.id, { name: s.name, color: colorOf(s.colorId) }]))
+    : SERVICES_DEFAULT;
   const [data, setData] = useState(RAW);
   const [mode, setMode] = useState("cards"); // cards | table
   const [filters, setFilters] = useState({ status:"all", type:"all", svcId:null, catId:null, datePreset:"all" });

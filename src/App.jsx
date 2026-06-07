@@ -549,18 +549,30 @@ export default function App() {
     registerAdminFCM().catch(() => {});
   }, [adminUser]);
 
+  // Sync services from admin_data/services → settings.services (source of truth for colors)
+  useEffect(() => {
+    if (!adminUser) return;
+    return onValue(ref(db, "admin_data/services"), snap => {
+      const arr = snap.val();
+      if (Array.isArray(arr) && arr.length > 0) {
+        setSettings(s => ({ ...s, services: arr }));
+      }
+    });
+  }, [adminUser]);
+
   // Load settings from Firebase on login
   useEffect(() => {
     if (!adminUser) { setSettingsLoaded(false); return; }
     get(ref(db, 'admin_settings')).then(snap => {
       const d = snap.val();
       if (d) {
+        const { services: _ignoredServices, ...dRest } = d;
         setSettings(s => ({
           ...s,
-          ...d,
+          ...dRest,
           snapMin: d.interval ?? d.snapMin ?? s.snapMin,
           profile: d.profile ? { ...s.profile, ...d.profile } : s.profile,
-          services:    Array.isArray(d.services) && !d.services.some(sv=>sv.id==='sv5') && d.services.find(sv=>sv.id==='sv1')?.price===700 ? d.services : DEFAULT_SETTINGS.services,
+          // services come exclusively from admin_data/services listener — do not overwrite here
           categories:  Array.isArray(d.categories)  ? d.categories  : s.categories,
           weekends:    Array.isArray(d.weekends)     ? d.weekends    : s.weekends,
           navTabs:      Array.isArray(d.navTabs)       ? d.navTabs      : s.navTabs,

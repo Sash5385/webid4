@@ -940,7 +940,8 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   for (let h = settings.workStart; h <= settings.workEnd; h++) hours.push(h);
 
   const slotColor = (b) => {
-    const svc = settings.services.find(s=>s.id===b.serviceId);
+    const svc = settings.services.find(s=>s.id===b.serviceId)
+             || settings.services.find(s=>s.active && s.type===(b.serviceType||b.type) && Number(s.duration)===b.durMin);
     return colorOf(svc?.colorId);
   };
 
