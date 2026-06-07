@@ -849,14 +849,10 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
       const wasDragging = !!dragRef.current;
       const endedId = dragRef.current?.id ?? pendingDragRef.current?.id;
       const endedMergedIds = dragRef.current?.mergedIds ?? pendingDragRef.current?.mergedIds ?? null;
-      // Захоплюємо origPositions ДО очистки dragRef
-      const origPositions = dragRef.current?.origPositions ?? null;
-
-      // Immediate Firebase save on drag release + timeslot restore
+      // Immediate Firebase save on drag release
       if (wasDragging && endedId) {
         const bks = bookingsRef.current;
         const idsToSave = [...new Set(endedMergedIds ? [endedId, ...endedMergedIds] : [endedId])];
-        const slotUpdates = {};
         idsToSave.forEach(id => {
           const b = bks?.find(x => x.id === id);
           if (!b?.userId) return;
@@ -868,27 +864,8 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
             startMin: b.startMin, durMin: b.durMin,
             durationHours: b.durMin / 60, day: b.day, date: newDate, time: `${hh}:${mm}`,
           }).catch(() => {});
-          // Оновлюємо слоти лише якщо є origPositions (drag справді відбувся)
-          if (!origPositions) return;
-          const orig = origPositions.find(o => o.id === id);
-          if (!orig) return;
-          const oldDate = absDayToDateStr(orig.day);
-          // Стара позиція → вільно
-          for (let i = 0; i < orig.durMin; i += 60) {
-            const sm = orig.startMin + i;
-            const sh = String(Math.floor(sm/60)).padStart(2,'0'), smm = String(sm%60).padStart(2,'0');
-            slotUpdates[`timeslots/${oldDate}/slot${sh}${smm}/available`] = true;
-            slotUpdates[`timeslots/${oldDate}/slot${sh}${smm}/time`] = `${sh}:${smm}`;
-          }
-          // Нова позиція → зайнято
-          for (let i = 0; i < b.durMin; i += 60) {
-            const sm = b.startMin + i;
-            const sh = String(Math.floor(sm/60)).padStart(2,'0'), smm = String(sm%60).padStart(2,'0');
-            slotUpdates[`timeslots/${newDate}/slot${sh}${smm}/available`] = false;
-            slotUpdates[`timeslots/${newDate}/slot${sh}${smm}/time`] = `${sh}:${smm}`;
-          }
         });
-        if (Object.keys(slotUpdates).length) update(ref(db, '/'), slotUpdates).catch(() => {});
+        // Timeslots не чіпаємо при drag-move — уникаємо появи фантомних зелених слотів.
       }
 
       dragRef.current = null;
