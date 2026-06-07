@@ -773,16 +773,16 @@ export default function App() {
                 for (let i = 0; i < orig.durMin; i += 60) {
                   const sm = orig.startMin + i;
                   const sh = String(Math.floor(sm/60)).padStart(2,'0'), smm = String(sm%60).padStart(2,'0');
-                  if (oldSnap[`slot${sh}${smm}`] !== undefined) {
-                    slotUpdates[`timeslots/${oldDate}/slot${sh}${smm}/available`] = true;
-                  }
+                  // Завжди звільняємо — якщо вузол не існував, створюємо
+                  slotUpdates[`timeslots/${oldDate}/slot${sh}${smm}/available`] = true;
+                  slotUpdates[`timeslots/${oldDate}/slot${sh}${smm}/time`] = `${sh}:${smm}`;
                 }
                 for (let i = 0; i < b.durMin; i += 60) {
                   const sm = b.startMin + i;
                   const sh = String(Math.floor(sm/60)).padStart(2,'0'), smm = String(sm%60).padStart(2,'0');
-                  if (newSnap[`slot${sh}${smm}`] !== undefined) {
-                    slotUpdates[`timeslots/${newDate}/slot${sh}${smm}/available`] = false;
-                  }
+                  // Зайнятий новий слот — також створюємо якщо не існував
+                  slotUpdates[`timeslots/${newDate}/slot${sh}${smm}/available`] = false;
+                  slotUpdates[`timeslots/${newDate}/slot${sh}${smm}/time`] = `${sh}:${smm}`;
                 }
                 if (Object.keys(slotUpdates).length) return update(ref(db, '/'), slotUpdates);
               });
