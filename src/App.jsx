@@ -790,7 +790,7 @@ export default function App() {
               delete moveSaveTimers.current[b.id];
               delete moveOriginals.current[b.id];
             });
-          }, 600);
+          }, 50);
         }
       });
 

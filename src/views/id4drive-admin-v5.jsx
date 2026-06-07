@@ -816,6 +816,28 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
       const wasDragging = !!dragRef.current;
       const endedId = dragRef.current?.id ?? pendingDragRef.current?.id;
       const endedMergedIds = dragRef.current?.mergedIds ?? pendingDragRef.current?.mergedIds ?? null;
+
+      // Immediate Firebase save on drag release — prevents snap-back to old day
+      if (wasDragging && endedId) {
+        const bks = bookingsRef.current;
+        const idsToSave = endedMergedIds ? [endedId, ...endedMergedIds] : [endedId];
+        idsToSave.forEach(id => {
+          const b = bks?.find(x => x.id === id);
+          if (!b?.userId) return;
+          const newDate = absDayToDateStr(b.day);
+          const hh = String(Math.floor(b.startMin / 60)).padStart(2, "0");
+          const mm = String(b.startMin % 60).padStart(2, "0");
+          update(ref(db, `bookings/${b.userId}/${b._fbKey || b.id}`), {
+            startMin: b.startMin,
+            durMin:   b.durMin,
+            durationHours: b.durMin / 60,
+            day:  b.day,
+            date: newDate,
+            time: `${hh}:${mm}`,
+          }).catch(() => {});
+        });
+      }
+
       dragRef.current = null;
       setDragId(null);
       clearTimeout(holdTimerRef.current);
@@ -828,7 +850,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
         dragEndedRef.current = true;
         setTimeout(() => { dragEndedRef.current = false; }, 400);
       }
-      // Remove from activeDragIds after save debounce window (700ms > 600ms save timer)
+      // Remove from activeDragIds after save debounce window
       if (endedId) setTimeout(() => {
         activeDragIds?.current?.delete(endedId);
         endedMergedIds?.forEach(id => activeDragIds?.current?.delete(id));
