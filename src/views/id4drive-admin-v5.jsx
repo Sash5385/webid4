@@ -777,29 +777,57 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
       const setBookingsFn = setBookingsRef.current || setBookings;
       const allDragIds = drag.mergedIds ? new Set(drag.mergedIds) : new Set([drag.id]);
       setBookingsFn(bs => {
-        // Compute original per-segment offsets from drag.startMinutes (for merged cards)
         const baseBooking = bs.find(b => b.id === drag.id);
         if (!baseBooking) return bs;
+
+        if (drag.mode === "move") {
+          // Цільовий день — від абсолютної позиції вказівника над сіткою (стійко до скролу),
+          // а не від зсуву dxRaw, який ламається при горизонтальному скролі сітки.
+          let newDay;
+          const gridEl = gridRef.current;
+          if (gridEl) {
+            const rect = gridEl.getBoundingClientRect();
+            const xInContent = e.clientX - rect.left + gridEl.scrollLeft;
+            newDay = dayOffset + Math.floor(xInContent / (COL_W + 4));
+          } else {
+            newDay = drag.startDay + Math.round(dxRaw / (COL_W + 4));
+          }
+          newDay = Math.max(dayOffset, Math.min(dayOffset + N_DAYS - 1, newDay));
+
+          // Уся об'єднана картка рухається як єдина жорстка група (зберігаючи зсуви сегментів)
+          const segIds = drag.mergedIds && drag.mergedIds.length ? drag.mergedIds : [drag.id];
+          const segs = bs.filter(b => segIds.includes(b.id));
+          if (!segs.length) return bs;
+          const baseStart = snap(drag.startMinutes + deltaMin);
+          const targets = segs.map(b => ({
+            id: b.id, durMin: b.durMin,
+            s: baseStart + (b.startMin - baseBooking.startMin),
+          }));
+          // Зсув групи в межі робочих годин (без стиснення відносних позицій)
+          const minS = Math.min(...targets.map(t => t.s));
+          const maxE = Math.max(...targets.map(t => t.s + t.durMin));
+          let shift = 0;
+          if (minS < workStart * 60) shift = workStart * 60 - minS;
+          if (maxE + shift > workEnd * 60) shift = Math.min(shift, workEnd * 60 - maxE);
+          targets.forEach(t => { t.s += shift; });
+          // Атомарна перевірка накладання — якщо хоч один сегмент конфліктує, тримаємо всю групу
+          const overlap = targets.some(t => bs.some(x =>
+            !segIds.includes(x.id) && x.day === newDay &&
+            t.s < x.startMin + x.durMin && t.s + t.durMin > x.startMin));
+          if (overlap) return bs;
+          const tMap = new Map(targets.map(t => [t.id, t.s]));
+          return bs.map(b => tMap.has(b.id) ? { ...b, startMin: tMap.get(b.id), day: newDay } : b);
+        }
+
         return bs.map(b => {
-          const isMerged = drag.mergedIds && drag.mergedIds.includes(b.id);
-          if (b.id !== drag.id && !isMerged) return b;
-          const segOffset = b.startMin - baseBooking.startMin; // relative position within merged group
-          if (drag.mode === "move") {
-            const newDay = Math.max(dayOffset, Math.min(dayOffset + N_DAYS - 1, drag.startDay + Math.round(dxRaw/(COL_W+4))));
-            let s = snap(drag.startMinutes + deltaMin) + segOffset;
-            s = Math.max(workStart*60, Math.min(workEnd*60 - b.durMin, s));
-            const wouldOverlap = bs.some(x => !allDragIds.has(x.id) && x.day===newDay && s<x.startMin+x.durMin && s+b.durMin>x.startMin);
-            if (wouldOverlap) return b;
-            return {...b, startMin:s, day:newDay};
-          } else if (drag.mode === "bottom") {
-            if (b.id !== drag.id) return b; // only resize the primary (last segment)
+          if (b.id !== drag.id) return b; // resize торкається лише первинного сегмента
+          if (drag.mode === "bottom") {
             let d = snap(drag.startDur + deltaMin);
             const nextStart = bs.filter(x=>!allDragIds.has(x.id)&&x.day===b.day&&x.startMin>b.startMin)
               .reduce((mn,x)=>Math.min(mn,x.startMin), workEnd*60);
             d = Math.max(60, Math.min(d, nextStart - b.startMin));
             return {...b, durMin:d};
           } else if (drag.mode === "top") {
-            if (b.id !== drag.id) return b;
             let s = snap(drag.startMinutes + deltaMin);
             const maxS = drag.startMinutes + drag.startDur - 60;
             const floorStart = bs.filter(x=>!allDragIds.has(x.id)&&x.day===b.day&&x.startMin+x.durMin<=drag.startMinutes)
@@ -820,7 +848,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
       // Immediate Firebase save on drag release — prevents snap-back to old day
       if (wasDragging && endedId) {
         const bks = bookingsRef.current;
-        const idsToSave = endedMergedIds ? [endedId, ...endedMergedIds] : [endedId];
+        const idsToSave = [...new Set(endedMergedIds ? [endedId, ...endedMergedIds] : [endedId])];
         idsToSave.forEach(id => {
           const b = bks?.find(x => x.id === id);
           if (!b?.userId) return;
