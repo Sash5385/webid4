@@ -763,29 +763,22 @@ export default function App() {
               date:     newDate,
               time:     `${hh}:${mm}`,
             }).then(() => {
-              const datesToFetch = oldDate === newDate
-                ? [get(ref(db, `timeslots/${oldDate}`))]
-                : [get(ref(db, `timeslots/${oldDate}`)), get(ref(db, `timeslots/${newDate}`))];
-              return Promise.all(datesToFetch).then(snaps => {
-                const oldSnap = snaps[0].val() || {};
-                const newSnap = oldDate === newDate ? oldSnap : (snaps[1].val() || {});
-                const slotUpdates = {};
-                for (let i = 0; i < orig.durMin; i += 60) {
-                  const sm = orig.startMin + i;
-                  const sh = String(Math.floor(sm/60)).padStart(2,'0'), smm = String(sm%60).padStart(2,'0');
-                  // Завжди звільняємо — якщо вузол не існував, створюємо
-                  slotUpdates[`timeslots/${oldDate}/slot${sh}${smm}/available`] = true;
-                  slotUpdates[`timeslots/${oldDate}/slot${sh}${smm}/time`] = `${sh}:${smm}`;
-                }
-                for (let i = 0; i < b.durMin; i += 60) {
-                  const sm = b.startMin + i;
-                  const sh = String(Math.floor(sm/60)).padStart(2,'0'), smm = String(sm%60).padStart(2,'0');
-                  // Зайнятий новий слот — також створюємо якщо не існував
-                  slotUpdates[`timeslots/${newDate}/slot${sh}${smm}/available`] = false;
-                  slotUpdates[`timeslots/${newDate}/slot${sh}${smm}/time`] = `${sh}:${smm}`;
-                }
-                if (Object.keys(slotUpdates).length) return update(ref(db, '/'), slotUpdates);
-              });
+              const slotUpdates = {};
+              // Стара позиція → вільно (відновлюємо те, що було до букінгу)
+              for (let i = 0; i < orig.durMin; i += 60) {
+                const sm = orig.startMin + i;
+                const sh = String(Math.floor(sm/60)).padStart(2,'0'), smm = String(sm%60).padStart(2,'0');
+                slotUpdates[`timeslots/${oldDate}/slot${sh}${smm}/available`] = true;
+                slotUpdates[`timeslots/${oldDate}/slot${sh}${smm}/time`] = `${sh}:${smm}`;
+              }
+              // Нова позиція → зайнято
+              for (let i = 0; i < b.durMin; i += 60) {
+                const sm = b.startMin + i;
+                const sh = String(Math.floor(sm/60)).padStart(2,'0'), smm = String(sm%60).padStart(2,'0');
+                slotUpdates[`timeslots/${newDate}/slot${sh}${smm}/available`] = false;
+                slotUpdates[`timeslots/${newDate}/slot${sh}${smm}/time`] = `${sh}:${smm}`;
+              }
+              return update(ref(db, '/'), slotUpdates);
             }).catch(() => {}).finally(() => {
               delete moveSaveTimers.current[b.id];
               delete moveOriginals.current[b.id];
