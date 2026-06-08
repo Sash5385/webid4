@@ -1,6 +1,6 @@
 import React, { useState, useEffect, lazy, Suspense, createContext, useContext } from "react";
 import { ref, onValue, update, push, remove, get } from "firebase/database";
-import { db, registerAdminFCM } from "./firebase";
+import { db, registerAdminFCM, onAdminForegroundMessage } from "./firebase";
 import { useAdminAuth, LoginScreen } from "./AdminAuth";
 import { setGlobalLang, createT } from "./lang";
 import { ThemeContext, getTheme } from "./theme.js";
@@ -547,6 +547,25 @@ export default function App() {
   useEffect(() => {
     if (!adminUser) return;
     registerAdminFCM().catch(() => {});
+  }, [adminUser]);
+
+  // Show foreground push notifications (when admin tab is open)
+  useEffect(() => {
+    if (!adminUser) return;
+    return onAdminForegroundMessage((payload) => {
+      const title = payload.notification?.title || "ID4Drive";
+      const body  = payload.notification?.body  || "";
+      if (Notification.permission === "granted" && "serviceWorker" in navigator) {
+        navigator.serviceWorker.ready.then(reg => {
+          reg.showNotification(title, {
+            body,
+            icon: "/favicon.svg",
+            tag: "admin-" + Date.now(),
+            requireInteraction: true,
+          });
+        });
+      }
+    });
   }, [adminUser]);
 
   // Sync services from admin_data/services → settings.services (source of truth for colors)

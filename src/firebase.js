@@ -1,7 +1,7 @@
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getDatabase, ref, set } from "firebase/database";
-import { getMessaging, getToken } from "firebase/messaging";
+import { getMessaging, getToken, onMessage } from "firebase/messaging";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDO6-LTuBoNHi6uS5KcOpmBuyvgJSouYpk",
@@ -48,5 +48,14 @@ export async function registerAdminFCM() {
     }
   } catch (e) {
     console.error("Admin FCM error:", e.code, e.message);
+  }
+}
+
+export function onAdminForegroundMessage(callback) {
+  try {
+    const messaging = getMessaging(app);
+    return onMessage(messaging, callback);
+  } catch {
+    return () => {};
   }
 }
