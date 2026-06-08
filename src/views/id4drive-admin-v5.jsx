@@ -861,24 +861,6 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
       const wasDragging = !!dragRef.current;
       const endedId = dragRef.current?.id ?? pendingDragRef.current?.id;
       const endedMergedIds = dragRef.current?.mergedIds ?? pendingDragRef.current?.mergedIds ?? null;
-      // Immediate Firebase save on drag release
-      if (wasDragging && endedId) {
-        const bks = bookingsRef.current;
-        const idsToSave = [...new Set(endedMergedIds ? [endedId, ...endedMergedIds] : [endedId])];
-        idsToSave.forEach(id => {
-          const b = bks?.find(x => x.id === id);
-          if (!b?.userId) return;
-          const newDate = absDayToDateStr(b.day);
-          const hh = String(Math.floor(b.startMin / 60)).padStart(2, "0");
-          const mm = String(b.startMin % 60).padStart(2, "0");
-          // Зберігаємо букінг
-          update(ref(db, `bookings/${b.userId}/${b._fbKey || b.id}`), {
-            startMin: b.startMin, durMin: b.durMin,
-            durationHours: b.durMin / 60, day: b.day, date: newDate, time: `${hh}:${mm}`,
-          }).catch(() => {});
-        });
-        // Timeslots не чіпаємо при drag-move — уникаємо появи фантомних зелених слотів.
-      }
 
       dragRef.current = null;
       setDragId(null);
