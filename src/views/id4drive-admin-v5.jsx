@@ -1485,14 +1485,16 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                         return (
                           <div style={{
                             position:"absolute", top:2, left:2, right:2, bottom:2,
-                            display:"flex", flexDirection:"column", justifyContent:"space-evenly",
+                            display:"flex", flexDirection:"column", justifyContent:"center",
+                            alignItems:"center", gap:1,
                             overflow:"hidden", zIndex:2,
                           }}>
                             {lines.map((ln, i) => (
                               <div key={i} style={{
                                 fontSize: fs, fontWeight: ln.w, color: ln.c,
                                 lineHeight: 1.2, textAlign:"center",
-                                whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis",
+                                whiteSpace:"normal", wordBreak:"break-word", overflowWrap:"anywhere",
+                                width:"100%",
                                 textShadow:"0 1px 2px rgba(0,0,0,0.55)",
                               }}>{ln.text}</div>
                             ))}
@@ -1865,8 +1867,35 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
     )}
 
     <NewBookingModal data={formData} onClose={()=>setFormData(null)}
-      onConfirm={b=>{setBookings(bs=>[...bs,b]);setFormData(null);}}
-      settings={{...settings, workStart: effectiveWorkStart, workEnd: effectiveWorkEnd}}/>
+      onConfirm={b=>{
+        if (b.id) {
+          const fbData = {
+            id: b.id, date: b.date || "", time: fmtTime(b.startMin),
+            startMin: b.startMin, durMin: b.durMin,
+            studentName: b.name, name: b.name, phone: b.phone,
+            serviceId: b.serviceId, serviceType: b.type, type: b.type,
+            status: b.status, tsc: b.tsc || "", hours: b.hoursDone || 0,
+            createdAt: Date.now(), createdBy: "admin",
+            ...(b.note && { note: b.note }),
+          };
+          const uid = b.userId || "admin";
+          update(ref(db, `bookings/${uid}/${b.id}`), fbData).catch(()=>{});
+        }
+        if (b.date && b.startMin !== undefined && b.durMin) {
+          const slotUpd = {};
+          for (let i = 0; i < b.durMin; i += 60) {
+            const slotMin = b.startMin + i;
+            const sh = String(Math.floor(slotMin / 60)).padStart(2, '0');
+            const sm = String(slotMin % 60).padStart(2, '0');
+            slotUpd[`timeslots/${b.date}/slot${sh}${sm}/available`] = false;
+            slotUpd[`timeslots/${b.date}/slot${sh}${sm}/time`] = `${sh}:${sm}`;
+          }
+          update(ref(db, '/'), slotUpd).catch(() => {});
+        }
+        setFormData(null);
+      }}
+      settings={{...settings, workStart: effectiveWorkStart, workEnd: effectiveWorkEnd}}
+      bookings={bookings}/>
 
     {createSlotData && <CreateSlotSheet data={createSlotData} settings={settings} onClose={()=>setCreateSlotData(null)}/>}
     </>
@@ -1986,7 +2015,9 @@ function BookingModal({ booking, onClose, onAction, settings }) {
   const svc   = settings.services.find(s => s.id === booking.serviceId)
              || settings.services.find(s => s.active && s.type===(booking.serviceType||booking.type) && Number(s.duration)===booking.durMin);
   const c     = colorOf(svc?.colorId);
-  const day   = getDayInfo(booking.day);
+  const day = booking.date
+    ? (() => { const d = new Date(booking.date + "T12:00:00"); const dow = (d.getDay()+6)%7; return { num:d.getDate(), month:_MLABELS[d.getMonth()], label:_DLABELS[dow], fullLabel:_DLABELS_FULL[dow], wk:dow>=5 }; })()
+    : getDayInfo(booking.day);
   const basePrice = svc
     ? Math.round((svc.price / svc.duration) * booking.durMin)
     : booking.price && booking.durationHours
@@ -2194,7 +2225,7 @@ function DrumRoll({ items, currentIdx, onChange, label, itemH=42, visible=4 }) {
 // ═══════════════════════════════════════════════════════════════
 // NEW BOOKING MODAL — compact bottom sheet
 // ═══════════════════════════════════════════════════════════════
-function NewBookingModal({ data, onClose, onConfirm, settings }) {
+function NewBookingModal({ data, onClose, onConfirm, settings, bookings = [] }) {
   const timeStep = data?.freeSnap ? 5 : (settings.snapMin || 30);
   const timeItems = useMemo(()=>{
     const arr=[];
@@ -2226,7 +2257,7 @@ function NewBookingModal({ data, onClose, onConfirm, settings }) {
       setStudents(Object.entries(d).map(([uid, u]) => {
         const p = u.profile || {};
         return { id:uid, name:p.name||u.name||"Учень", phone:p.phone||u.phone||"" };
-      }).filter(s=>s.name!=="Учень"||s.phone).sort((a,b)=>a.name.localeCompare(b.name,"uk")));
+      }).filter(s=>s.name!=="Учень"||s.phone));
     });
     return () => off(r, "value", handler);
   }, []);
@@ -2243,6 +2274,20 @@ function NewBookingModal({ data, onClose, onConfirm, settings }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   },[!!data]);
 
+  const sortedStudents = useMemo(() => {
+    const lastBooked = {};
+    bookings.forEach(b => {
+      if (b.userId && b.createdAt && (!lastBooked[b.userId] || b.createdAt > lastBooked[b.userId]))
+        lastBooked[b.userId] = b.createdAt;
+    });
+    return [...students].sort((a, b) => {
+      const la = lastBooked[a.id] || 0;
+      const lb = lastBooked[b.id] || 0;
+      if (la || lb) return lb - la;
+      return a.name.localeCompare(b.name, "uk");
+    });
+  }, [students, bookings]);
+
   if(!data) return null;
 
   const isNewStudent = selStudent?.id === "new";
@@ -2257,7 +2302,7 @@ function NewBookingModal({ data, onClose, onConfirm, settings }) {
   });
 
   const q        = search.toLowerCase().trim();
-  const filtered = q ? students.filter(s=>s.name.toLowerCase().includes(q)||s.phone.includes(q)) : students;
+  const filtered = q ? sortedStudents.filter(s=>s.name.toLowerCase().includes(q)||s.phone.includes(q)) : sortedStudents;
 
   const SL = ({children})=>(
     <div style={{fontSize:10,fontWeight:700,letterSpacing:1.2,color:TEXT_FAINT,
@@ -3078,9 +3123,7 @@ export default function App() {
       const uid = b.userId || "admin";
       update(ref(db, `bookings/${uid}/${b.id}`), fbData).catch(()=>{});
     }
-    // Generate free slots for this day (skips existing), then mark booking slots as taken
     if (b.date && b.startMin !== undefined && b.durMin) {
-      if (b.day !== undefined) generateDaySlots(b.day).catch(() => {});
       const slotUpd = {};
       for (let i = 0; i < b.durMin; i += 60) {
         const slotMin = b.startMin + i;
@@ -3202,7 +3245,7 @@ export default function App() {
         <BookingModal booking={selectedBooking} onClose={()=>setSelectedBooking(null)}
           onAction={handleAction} settings={settings}/>
         <NewBookingModal data={newBookingData} onClose={()=>setNewBookingData(null)}
-          onConfirm={handleNewBooking} settings={(() => {
+          onConfirm={handleNewBooking} bookings={bookings} settings={(() => {
             const sched = (settings.weekSchedule || []).filter(d => d.start != null);
             const eStart = sched.length ? Math.min(settings.workStart, ...sched.map(d=>d.start)) : settings.workStart;
             const eEnd   = sched.length ? Math.max(settings.workEnd,   ...sched.map(d=>d.end ?? settings.workEnd)) : settings.workEnd;
