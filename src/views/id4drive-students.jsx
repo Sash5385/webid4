@@ -93,7 +93,7 @@ function Progress({ hours, offset }) {
       </div>
       {offset > 0 && (
         <div style={{fontSize:9,color:FAINT,marginTop:3}}>
-          з них {offset} год перенесено · {hours} год тут
+          з них {offset} год додано · {hours} год тут
         </div>
       )}
     </div>
@@ -277,7 +277,7 @@ function Card({ s, expanded, onToggle, onBlock, onUpdate, onDelete }) {
               {s.type==="school" && (
                 <div style={{background:BG_DEEP,borderRadius:9,padding:"9px 11px",boxShadow:SI}}>
                   <div style={{fontSize:9,color:FAINT,letterSpacing:1,textTransform:"uppercase",marginBottom:7}}>
-                    Перенесено з іншої школи
+                    Додати години
                   </div>
                   <div style={{display:"flex",alignItems:"center",gap:8}}>
                     <button
