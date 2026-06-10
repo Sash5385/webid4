@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { ref, onValue, off, update } from "firebase/database";
+import { ref, onValue, off, update, push, remove } from "firebase/database";
 import { db } from "../firebase";
 
 import { BG_DEEP, SURFACE, SURF_HI, BORDER, TEXT, DIM, FAINT, ACCENT, ACC_HI, GREEN, BLUE, GOLD, RED, SO, SI } from "../theme.js";
@@ -37,6 +37,7 @@ const ICONS = {
   chev:     Svg(<><polyline points="6 9 12 15 18 9"/></>, 16, FAINT),
   search:   Svg(<><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></>, 15, FAINT),
   filter:   Svg(<><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></>, 16),
+  trash:    Svg(<><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></>, 18, "white", 2),
 };
 
 
@@ -57,21 +58,95 @@ function Btn({ icon, label, onClick, color, danger }) {
 }
 
 // ─── PROGRESS BAR ────────────────────────────────────────────────
-function Progress({ hours }) {
-  const pct = Math.min((hours / 40) * 100, 100);
+function Progress({ hours, offset }) {
+  const total = hours + (offset || 0);
+  const pct = Math.min((total / 40) * 100, 100);
   const done = pct >= 100;
   return (
     <div>
       <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
         <span style={{fontSize:11,color:DIM}}>Прогрес автошколи</span>
-        <span style={{fontSize:11,fontWeight:800,color:done?ACCENT:GREEN}}>{hours}/40 год · {Math.round(pct)}%</span>
+        <span style={{fontSize:11,fontWeight:800,color:done?ACCENT:GREEN}}>{total}/40 год · {Math.round(pct)}%</span>
       </div>
       <div style={{height:5,background:BG_DEEP,borderRadius:3,boxShadow:SI,overflow:"hidden"}}>
-        <div style={{
-          height:"100%",width:`${pct}%`,borderRadius:3,
-          background:done?`linear-gradient(90deg,${ACC_HI},${ACCENT})`:`linear-gradient(90deg,${BLUE},${GREEN})`,
-          boxShadow:`0 0 6px ${done?ACCENT:GREEN}44`,
-        }}/>
+        {offset > 0 && (
+          <div style={{
+            position:"relative",height:"100%",width:`${pct}%`,borderRadius:3,
+            background:done?`linear-gradient(90deg,${ACC_HI},${ACCENT})`:`linear-gradient(90deg,${BLUE},${GREEN})`,
+            boxShadow:`0 0 6px ${done?ACCENT:GREEN}44`,
+            overflow:"hidden",
+          }}>
+            <div style={{
+              position:"absolute",left:0,top:0,bottom:0,
+              width:`${Math.min((offset/total)*100,100)}%`,
+              background:"rgba(255,255,255,0.18)",
+            }}/>
+          </div>
+        )}
+        {!offset && (
+          <div style={{
+            height:"100%",width:`${pct}%`,borderRadius:3,
+            background:done?`linear-gradient(90deg,${ACC_HI},${ACCENT})`:`linear-gradient(90deg,${BLUE},${GREEN})`,
+            boxShadow:`0 0 6px ${done?ACCENT:GREEN}44`,
+          }}/>
+        )}
+      </div>
+      {offset > 0 && (
+        <div style={{fontSize:9,color:FAINT,marginTop:3}}>
+          з них {offset} год перенесено · {hours} год тут
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── NEW STUDENT FORM ────────────────────────────────────────────
+function NewStudentForm({ onSave, onCancel }) {
+  const [d, setD] = useState({ name:"", phone:"", discount:0, notes:"", type:"private" });
+  const inp = (k, label, opts={}) => (
+    <div>
+      <div style={{fontSize:9,color:FAINT,letterSpacing:1,textTransform:"uppercase",marginBottom:4}}>{label}</div>
+      <input type={opts.type||"text"} value={d[k]??""} onChange={e=>setD(x=>({...x,[k]:e.target.value}))}
+        style={{background:BG_DEEP,border:`1.5px solid ${BORDER}`,borderRadius:8,color:TEXT,fontSize:13,padding:"7px 10px",outline:"none",width:"100%",fontFamily:"inherit"}}/>
+    </div>
+  );
+  return (
+    <div style={{
+      background:`linear-gradient(155deg,${SURF_HI},${SURFACE})`,
+      borderRadius:13, border:`1px solid ${BORDER}`, boxShadow:SO,
+      padding:"14px 14px 16px", display:"flex", flexDirection:"column", gap:9,
+    }}>
+      <div style={{fontSize:13,fontWeight:800,color:TEXT,marginBottom:2}}>Новий учень</div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7}}>
+        {inp("name","Ім'я")}
+        {inp("phone","Телефон")}
+        {inp("discount","Знижка %",{type:"number"})}
+        <div>
+          <div style={{fontSize:9,color:FAINT,letterSpacing:1,textTransform:"uppercase",marginBottom:4}}>Тип</div>
+          <div style={{display:"flex",gap:6}}>
+            {[["private","Приват."],["school","Автошк."]].map(([k,l])=>(
+              <button key={k} onClick={()=>setD(x=>({...x,type:k}))} style={{
+                flex:1,padding:"7px 4px",borderRadius:8,border:"none",cursor:"pointer",
+                fontSize:11,fontWeight:700,
+                background:d.type===k?`linear-gradient(145deg,${ACC_HI},${ACCENT})`:`linear-gradient(145deg,${SURF_HI},${SURFACE})`,
+                color:d.type===k?"#fff":DIM,boxShadow:SO,
+              }}>{l}</button>
+            ))}
+          </div>
+        </div>
+      </div>
+      <div>
+        <div style={{fontSize:9,color:FAINT,letterSpacing:1,textTransform:"uppercase",marginBottom:4}}>Нотатки</div>
+        <textarea value={d.notes} onChange={e=>setD(x=>({...x,notes:e.target.value}))} rows={2}
+          style={{background:BG_DEEP,border:`1.5px solid ${BORDER}`,borderRadius:8,color:TEXT,fontSize:13,padding:"7px 10px",outline:"none",width:"100%",fontFamily:"inherit",resize:"none"}}/>
+      </div>
+      <div style={{display:"flex",gap:7}}>
+        <button onClick={()=>onSave(d)} disabled={!d.name.trim()} style={{
+          flex:1,padding:"10px",borderRadius:10,border:"none",cursor:"pointer",
+          background:d.name.trim()?`linear-gradient(145deg,${ACC_HI},${ACCENT})`:"rgba(255,255,255,0.05)",
+          color:d.name.trim()?"#fff":FAINT,fontSize:13,fontWeight:700,boxShadow:SO,
+        }}>Додати</button>
+        <button onClick={onCancel} style={{flex:1,padding:"10px",borderRadius:10,border:"none",cursor:"pointer",background:`linear-gradient(145deg,${SURF_HI},${SURFACE})`,color:DIM,fontSize:13,fontWeight:700,boxShadow:SO}}>Скасувати</button>
       </div>
     </div>
   );
@@ -121,8 +196,9 @@ function EditForm({ s, onSave, onCancel }) {
 }
 
 // ─── STUDENT CARD ────────────────────────────────────────────────
-function Card({ s, expanded, onToggle, onBlock, onUpdate }) {
-  const [editMode, setEditMode] = useState(false);
+function Card({ s, expanded, onToggle, onBlock, onUpdate, onDelete }) {
+  const [editMode,   setEditMode]   = useState(false);
+  const [confirmDel, setConfirmDel] = useState(false);
 
   const typeColor = s.type === "school" ? GREEN : GOLD;
   const typeLabel = s.type === "school" ? "Автошкола" : "Приватний";
@@ -192,10 +268,43 @@ function Card({ s, expanded, onToggle, onBlock, onUpdate }) {
               <div style={{background:BG_DEEP,borderRadius:9,padding:"9px 11px",boxShadow:SI}}>
                 <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:s.type==="school"?9:0}}>
                   <span style={{fontSize:11,fontWeight:800,color:typeColor}}>{typeLabel}</span>
-                  {s.type==="school" && <span style={{fontSize:10,color:FAINT}}>· {s.hours}/40 год</span>}
+                  {s.type==="school" && <span style={{fontSize:10,color:FAINT}}>· {s.hours+(s.hoursOffset||0)}/40 год</span>}
                 </div>
-                {s.type==="school" && <Progress hours={s.hours}/>}
+                {s.type==="school" && <Progress hours={s.hours} offset={s.hoursOffset||0}/>}
               </div>
+
+              {/* Transfer hours from another school */}
+              {s.type==="school" && (
+                <div style={{background:BG_DEEP,borderRadius:9,padding:"9px 11px",boxShadow:SI}}>
+                  <div style={{fontSize:9,color:FAINT,letterSpacing:1,textTransform:"uppercase",marginBottom:7}}>
+                    Перенесено з іншої школи
+                  </div>
+                  <div style={{display:"flex",alignItems:"center",gap:8}}>
+                    <button
+                      onClick={()=>onUpdate(s.id,{hoursOffset:Math.max(0,(s.hoursOffset||0)-1)})}
+                      style={{
+                        width:30,height:30,borderRadius:9,border:"none",cursor:"pointer",flexShrink:0,
+                        background:`linear-gradient(145deg,${SURF_HI},${SURFACE})`,
+                        color:TEXT,fontSize:18,fontWeight:700,boxShadow:SO,
+                        display:"flex",alignItems:"center",justifyContent:"center",lineHeight:1,
+                      }}>−</button>
+                    <div style={{flex:1,textAlign:"center"}}>
+                      <span style={{fontSize:20,fontWeight:900,color:(s.hoursOffset||0)>0?GREEN:FAINT}}>
+                        {s.hoursOffset||0}
+                      </span>
+                      <span style={{fontSize:11,color:FAINT,marginLeft:5}}>год</span>
+                    </div>
+                    <button
+                      onClick={()=>onUpdate(s.id,{hoursOffset:Math.min(39,(s.hoursOffset||0)+1)})}
+                      style={{
+                        width:30,height:30,borderRadius:9,border:"none",cursor:"pointer",flexShrink:0,
+                        background:`linear-gradient(145deg,${SURF_HI},${SURFACE})`,
+                        color:TEXT,fontSize:18,fontWeight:700,boxShadow:SO,
+                        display:"flex",alignItems:"center",justifyContent:"center",lineHeight:1,
+                      }}>+</button>
+                  </div>
+                </div>
+              )}
 
               {/* 6 action buttons 3×2 */}
               <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:7}}>
@@ -205,6 +314,23 @@ function Card({ s, expanded, onToggle, onBlock, onUpdate }) {
                 <Btn icon={ICONS.chat}     label="Чат"      onClick={()=>navTo("chats")}         color={BLUE}/>
                 <Btn icon={ICONS.edit}     label="Редагувати" onClick={()=>setEditMode(true)}/>
                 <Btn icon={s.blocked?ICONS.unban:ICONS.ban} label={s.blocked?"Розблок.":"Заблок."} onClick={()=>onBlock(s.id)} danger={!s.blocked}/>
+                <Btn icon={ICONS.trash} label="Видалити" onClick={()=>setConfirmDel(true)} danger/>
+              </div>
+
+              {/* delete confirmation */}
+              {confirmDel && (
+                <div className="ex" style={{background:"rgba(239,68,68,0.08)",border:"1px solid rgba(239,68,68,0.25)",borderRadius:10,padding:"11px 13px",display:"flex",flexDirection:"column",gap:9}}>
+                  <div style={{fontSize:12,fontWeight:700,color:"#fca5a5"}}>Видалити учня назавжди?</div>
+                  <div style={{fontSize:11,color:DIM}}>Цю дію не можна скасувати.</div>
+                  <div style={{display:"flex",gap:7}}>
+                    <button onClick={()=>onDelete(s.id)} style={{flex:1,padding:"9px",borderRadius:9,border:"none",cursor:"pointer",background:"linear-gradient(145deg,rgba(239,68,68,.5),rgba(185,28,28,.4))",color:"#fff",fontSize:12,fontWeight:700,boxShadow:SO}}>Так, видалити</button>
+                    <button onClick={()=>setConfirmDel(false)} style={{flex:1,padding:"9px",borderRadius:9,border:"none",cursor:"pointer",background:`linear-gradient(145deg,${SURF_HI},${SURFACE})`,color:DIM,fontSize:12,fontWeight:700,boxShadow:SO}}>Скасувати</button>
+                  </div>
+                </div>
+              )}
+
+              {/* placeholder to close the original grid */}
+              <div style={{display:"none"}}>
               </div>
               {/* VIP toggle */}
               <div
@@ -273,6 +399,7 @@ export default function StudentsView() {
   const [search,     setSearch]     = useState("");
   const [filterType, setFilterType] = useState("all");
   const [loading,    setLoading]    = useState(true);
+  const [showNew,    setShowNew]    = useState(false);
 
   useEffect(() => {
     const r = ref(db, "users");
@@ -285,8 +412,9 @@ export default function StudentsView() {
           name:     p.name      || u.name      || "Учень",
           phone:    p.phone     || u.phone     || "",
           type:     p.type      || u.type      || "private",
-          hours:    u.hours     || 0,
-          discount: u.discount  || 0,
+          hours:       u.hours       || 0,
+          hoursOffset: u.hoursOffset || 0,
+          discount:    u.discount    || 0,
           notes:    u.notes     || "",
           blocked:  u.blocked   || false,
           isVip:    u.isVip     || false,
@@ -312,6 +440,27 @@ export default function StudentsView() {
     update(ref(db, `users/${id}`), patch).catch(() => {});
   };
 
+  const deleteStudent = id => {
+    setStudents(ss => ss.filter(x => x.id !== id));
+    setExpanded(e => { const n = new Set(e); n.delete(id); return n; });
+    remove(ref(db, `users/${id}`)).catch(() => {});
+  };
+
+  const createStudent = async (data) => {
+    const newRef = await push(ref(db, "users"), {
+      name:     data.name.trim(),
+      phone:    data.phone.trim(),
+      type:     data.type,
+      discount: Number(data.discount) || 0,
+      notes:    data.notes.trim(),
+      blocked:  false,
+      isVip:    false,
+      hours:    0,
+    });
+    setShowNew(false);
+    setExpanded(e => new Set([...e, newRef.key]));
+  };
+
   const q = search.toLowerCase();
   const list = students
     .filter(s =>
@@ -325,6 +474,26 @@ export default function StudentsView() {
       <style>{CSS}</style>
       <div style={{display:"flex",flexDirection:"column",gap:7,fontFamily:"ui-sans-serif,-apple-system,system-ui,sans-serif",color:TEXT}}>
 
+        {/* header */}
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:2}}>
+          <div style={{fontSize:15,fontWeight:800,color:TEXT}}>Учні</div>
+          <button onClick={()=>setShowNew(v=>!v)} style={{
+            display:"flex",alignItems:"center",gap:5,
+            background:showNew?`linear-gradient(145deg,${SURF_HI},${SURFACE})`:`linear-gradient(145deg,${ACC_HI},${ACCENT})`,
+            border:"none",borderRadius:10,padding:"7px 13px",cursor:"pointer",
+            fontSize:13,fontWeight:700,color:"#fff",boxShadow:SO,
+          }}>
+            <span style={{fontSize:16,lineHeight:1}}>{showNew?"×":"+"}</span>
+            {showNew ? "Закрити" : "Учень"}
+          </button>
+        </div>
+
+        {/* new student form */}
+        {showNew && (
+          <div className="ex">
+            <NewStudentForm onSave={createStudent} onCancel={()=>setShowNew(false)}/>
+          </div>
+        )}
 
         {/* search */}
         <div style={{background:BG_DEEP,borderRadius:11,boxShadow:SI,padding:"3px 11px",display:"flex",alignItems:"center",gap:7}}>
@@ -353,6 +522,7 @@ export default function StudentsView() {
             onToggle={toggle}
             onBlock={block}
             onUpdate={updateStudent}
+            onDelete={deleteStudent}
           />
         ))}
 

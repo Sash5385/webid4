@@ -74,7 +74,7 @@
     "notifications": {
       "$uid": {
         ".read": "auth != null && auth.uid === $uid",
-        ".write": "auth != null && auth.uid === 'IjyqouYBDUg5KGzs3U27PUcs8Uj1'"
+        ".write": "auth != null && (auth.uid === $uid || auth.uid === 'IjyqouYBDUg5KGzs3U27PUcs8Uj1')"
       }
     },
     "settings": {

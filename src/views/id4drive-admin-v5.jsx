@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useLayoutEffect, useMemo } from "react";
-import { ref, update, get, onValue, remove } from "firebase/database";
+import { ref, update, get, onValue, off, remove } from "firebase/database";
 import { db } from "../firebase";
 
 import { BG, BG_DEEP, SURFACE, SURF_HI, SURF_LO, BORDER, TEXT, DIM, FAINT, ACCENT, ACC_HI, GREEN, BLUE, PURPLE, GOLD, RED, SO, SI } from "../theme.js";
@@ -28,7 +28,7 @@ const PALETTE = [
 // GLOBAL CSS (slots from v4, rest v3)
 // ═══════════════════════════════════════════════════════════════
 const GLOBAL_CSS = `
-* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
 body, html, #root { margin:0; padding:0; }
 
 /* ─── 3D PILLOW SLOTS (from v4, color via CSS var) ─── */
@@ -315,20 +315,6 @@ const getDayInfo = (offsetFromToday) => {
   return { num: d.getDate(), month: _MLABELS[d.getMonth()], label: _DLABELS[dow], fullLabel: _DLABELS_FULL[dow], wk: dow >= 5 };
 };
 
-const STUDENTS = [
-  { id:"s1",  name:"Марія Коваль",   phone:"+380671234567" },
-  { id:"s2",  name:"Іван Петренко",  phone:"+380509876543" },
-  { id:"s3",  name:"Олена Мороз",    phone:"+380631112233" },
-  { id:"s4",  name:"Дмитро Сало",    phone:"+380961234567" },
-  { id:"s5",  name:"Тетяна Кравець", phone:"+380731234567" },
-  { id:"s6",  name:"Антон Білий",    phone:"+380501112233" },
-  { id:"s7",  name:"Юлія Денисюк",  phone:"+380935023739" },
-  { id:"s8",  name:"Сергій Гук",     phone:"+380961234500" },
-  { id:"s9",  name:"Наталія Бондар", phone:"+380671112244" },
-  { id:"s10", name:"Андрій Чорний",  phone:"+380501234500" },
-  { id:"s11", name:"Ірина Лесник",   phone:"+380967240853" },
-  { id:"s12", name:"Ангеліна Коник", phone:"+380681746071" },
-];
 
 // ═══════════════════════════════════════════════════════════════
 // DEFAULT SETTINGS
@@ -480,6 +466,8 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   const dragEndedRef = useRef(false);
   const swipeRef = useRef(null);
   const gridWrapRef = useRef(null);
+  const sumRowRef   = useRef(null);
+  const sumInnerRef = useRef(null);
   const xVisibleRef = useRef(false);
   const xJustShownRef = useRef(false);
   const snapTimerRef = useRef(null);
@@ -492,6 +480,8 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   const [viewingSlots, setViewingSlots] = useState({});
   const [genLoadingDays, setGenLoadingDays] = useState(new Set());
   const [isGeneratingAll, setIsGeneratingAll] = useState(false);
+  const [genToast, setGenToast] = useState(null); // { absDay, free, blocked }
+  const genToastTimer = useRef(null);
   const [queueMap, setQueueMap] = useState({}); // { "YYYY-MM-DD_HH:MM": count }
 
   useEffect(() => {
@@ -549,37 +539,68 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
     return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   };
 
-  const generateDaySlots = async (absDay) => {
-    const dateStr = absDayToDateStr(absDay);
+  // Returns {free, blocked} counts, or null if day is skipped
+  const computeDayUpdates = (dateStr, existing, force = false) => {
     const d = new Date(dateStr + "T12:00:00");
     const dow = (d.getDay() + 6) % 7; // Mon=0..Sun=6
     const ov = (settings.dateOverrides || []).find(o => o.date === dateStr);
-    if (ov?.type === "closed") return;
+    if (ov?.type === "closed") return null;
     const ws = (settings.weekSchedule || [])[dow] || {};
-    if (ws.enabled === false) return; // день вимкнений у графіку — пропускаємо
-    // Пріоритет: dateOverride > weekSchedule-день > глобальні налаштування
+    if (!force && ws.enabled === false) return null;
+    // When no per-day weekSchedule, fall back to global weekends list
+    if (!force && !ws.start && (settings.weekends || []).includes(dow)) return null;
     const start        = ov?.start ?? ws.start ?? settings.workStart ?? 9;
     const end          = ov?.end   ?? ws.end   ?? settings.workEnd   ?? 18;
     const lunchEnabled = ov?.lunchEnabled ?? ws.lunchEnabled ?? settings.lunchEnabled ?? true;
     const lunchStart   = ov?.lunchStart   ?? ws.lunchStart   ?? settings.lunchStart  ?? 12;
     const lunchEnd     = ov?.lunchEnd     ?? ws.lunchEnd     ?? settings.lunchEnd    ?? 13;
     const step = 60;
-    setGenLoadingDays(s => new Set([...s, absDay]));
-    const snap = await get(ref(db, `timeslots/${dateStr}`));
-    const existing = snap.val() || {};
     const updates = {};
     for (let min = start * 60; min < end * 60; min += step) {
       if (lunchEnabled && min >= lunchStart * 60 && min < lunchEnd * 60) continue;
       const h = String(Math.floor(min / 60)).padStart(2, "0");
       const m = String(min % 60).padStart(2, "0");
       const id = `slot${h}${m}`;
-      if (!existing[id]) {
+      if (!existing[id]?.adminBlocked) {
         updates[`timeslots/${dateStr}/${id}/time`] = `${h}:${m}`;
         updates[`timeslots/${dateStr}/${id}/available`] = true;
       }
     }
-    if (Object.keys(updates).length) await update(ref(db, "/"), updates);
-    setGenLoadingDays(s => { const ns = new Set(s); ns.delete(absDay); return ns; });
+    const intervalMin = settings.snapMin ?? 30;
+    bookings
+      .filter(b => b.date === dateStr && b.status !== "cancelled")
+      .forEach(b => {
+        const bEnd = b.startMin + b.durMin;
+        for (let cur = b.startMin; cur < bEnd; cur += intervalMin) {
+          const h = String(Math.floor(cur / 60)).padStart(2, "0");
+          const m = String(cur % 60).padStart(2, "0");
+          const id = `slot${h}${m}`;
+          updates[`timeslots/${dateStr}/${id}/available`] = false;
+          updates[`timeslots/${dateStr}/${id}/time`] = `${h}:${m}`;
+        }
+      });
+    let free = 0, blocked = 0;
+    Object.entries(updates).forEach(([k, v]) => {
+      if (k.endsWith('/available')) { if (v === true) free++; else blocked++; }
+    });
+    return { updates, free, blocked };
+  };
+
+  const generateDaySlots = async (absDay) => {
+    const dateStr = absDayToDateStr(absDay);
+    setGenLoadingDays(s => new Set([...s, absDay]));
+    try {
+      await remove(ref(db, `timeslots/${dateStr}`));
+      const result = computeDayUpdates(dateStr, {}, true);
+      if (result && Object.keys(result.updates).length) {
+        await update(ref(db, "/"), result.updates);
+      }
+      clearTimeout(genToastTimer.current);
+      setGenToast({ absDay, free: result?.free ?? 0, blocked: result?.blocked ?? 0 });
+      genToastTimer.current = setTimeout(() => setGenToast(null), 3000);
+    } finally {
+      setGenLoadingDays(s => { const ns = new Set(s); ns.delete(absDay); return ns; });
+    }
   };
 
   const clearDaySlots = async (absDay) => {
@@ -589,11 +610,25 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
 
   const generateAllSlots = async () => {
     setIsGeneratingAll(true);
-    const limit = settings.calendarOpenDays || 30;
-    for (let d = 0; d <= limit; d++) {
-      await generateDaySlots(d);
+    try {
+      const limit = settings.calendarOpenDays || 30;
+      const allUpdates = {};
+      // Clear timeslots for all active days first, then write fresh state
+      const clearUpdates = {};
+      for (let d = 0; d <= limit; d++) {
+        clearUpdates[`timeslots/${absDayToDateStr(d)}`] = null;
+      }
+      await update(ref(db, "/"), clearUpdates);
+      // Now compute and write fresh slots (pass {} — no existing adminBlocked to preserve)
+      for (let d = 0; d <= limit; d++) {
+        const dateStr = absDayToDateStr(d);
+        const result = computeDayUpdates(dateStr, {});
+        if (result) Object.assign(allUpdates, result.updates);
+      }
+      if (Object.keys(allUpdates).length) await update(ref(db, "/"), allUpdates);
+    } finally {
+      setIsGeneratingAll(false);
     }
-    setIsGeneratingAll(false);
   };
 
   // Клік: вільний ↔ зайнятий (2 стани)
@@ -745,6 +780,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
           const dy = e.clientY - swipeRef.current.startY;
           if (Math.abs(dx) > Math.abs(dy) * 0.7 && Math.abs(dx) > 6) {
             gridWrapRef.current.style.transform = `translateX(${dx}px)`;
+            if(sumInnerRef.current) sumInnerRef.current.style.transform = `translateX(${dx}px)`;
           }
         }
       }
@@ -804,12 +840,19 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
           const gridEl = gridRef.current;
           if (gridEl) {
             const rect = gridEl.getBoundingClientRect();
-            const xInContent = e.clientX - rect.left + gridEl.scrollLeft;
+            // Subtract any leftover swipe transform so column calc stays accurate
+            const wrapTx = (() => {
+              const t = gridWrapRef.current?.style.transform;
+              const m = t && t.match(/translateX\((-?[\d.]+)px\)/);
+              return m ? parseFloat(m[1]) : 0;
+            })();
+            const xInContent = e.clientX - rect.left + gridEl.scrollLeft - wrapTx;
             newDay = dayOffset + Math.floor(xInContent / (COL_W + 4));
           } else {
             newDay = drag.startDay + Math.round(dxRaw / (COL_W + 4));
           }
-          newDay = Math.max(dayOffset, Math.min(dayOffset + N_DAYS - 1, newDay));
+          // Clamp to today..future — dragging to past days not allowed
+          newDay = Math.max(0, Math.min(dayOffset + N_DAYS - 1, newDay));
 
           // Уся об'єднана картка рухається як єдина жорстка група (зберігаючи зсуви сегментів)
           const segIds = drag.mergedIds && drag.mergedIds.length ? drag.mergedIds : [drag.id];
@@ -880,6 +923,12 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
         endedMergedIds?.forEach(id => activeDragIds?.current?.delete(id));
       }, 700);
       swipeRef.current = null;
+      // Reset any leftover swipe transform so it doesn't skew drag column calculations
+      if (gridWrapRef.current) {
+        gridWrapRef.current.style.transition = "none";
+        gridWrapRef.current.style.transform = "";
+        if(sumInnerRef.current) sumInnerRef.current.style.transform = "";
+      }
     };
     const onResize = () => { setWindowW(window.innerWidth); setWindowH(window.innerHeight); };
     window.addEventListener("pointermove", onMove);
@@ -1093,8 +1142,11 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
           onScroll={e=>{
             if (timeColRef.current)
               timeColRef.current.style.transform = `translateY(-${e.currentTarget.scrollTop}px)`;
+            if (sumRowRef.current)
+              sumRowRef.current.scrollLeft = e.currentTarget.scrollLeft;
           }}
-          style={{flex:1, overflowX:"auto", overflowY:"auto", touchAction:"pan-x pan-y", WebkitOverflowScrolling:"touch"}}
+          onContextMenu={e=>e.preventDefault()}
+          style={{flex:1, overflowX:"auto", overflowY:"auto", touchAction:"pan-x pan-y", WebkitOverflowScrolling:"touch", userSelect:"none", WebkitUserSelect:"none"}}
         >
           <div ref={gridWrapRef} style={{display:"flex", paddingTop:2}}>
           {days.map((day,colIdx)=>{
@@ -1127,7 +1179,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                   display:"flex", flexDirection:"column",
                   alignItems:"center", justifyContent:"space-between",
                   padding:"3px 2px 3px", borderRadius:10, cursor: isPastDay ? "default" : "pointer",
-                  opacity: isPastDay ? 0.35 : 1,
+                  opacity: isPastDay ? 0.35 : 1, overflow:"visible",
                   background: isToday ? `rgba(247,201,72,0.18)` : isOpenCol ? `rgba(99,211,120,0.13)` : `rgba(0,0,0,0.18)`,
                   boxShadow: isToday ? `inset 0 0 0 1.5px rgba(247,201,72,0.55)` : isOpenCol ? `inset 0 0 0 1px rgba(99,211,120,0.35)` : "none",
                 }}>
@@ -1142,6 +1194,15 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                 <div style={{fontSize:9, lineHeight:1, opacity:0.7,
                   color: isLoadingCol ? FAINT : isOpenCol ? GREEN : FAINT,
                 }}>{isPastDay ? "" : isLoadingCol ? "…" : isOpenCol ? "✓" : "＋"}</div>
+                {genToast?.absDay === absDay && (
+                  <div style={{position:"absolute", bottom:-18, left:"50%", transform:"translateX(-50%)",
+                    background: genToast.free > 0 ? "rgba(99,211,120,0.92)" : "rgba(220,80,80,0.92)",
+                    color:"#fff", fontSize:9, fontWeight:700, borderRadius:6, padding:"2px 5px",
+                    whiteSpace:"nowrap", zIndex:20, pointerEvents:"none",
+                  }}>
+                    {genToast.free > 0 ? `+${genToast.free}` : `0 / ${genToast.blocked}б`}
+                  </div>
+                )}
               </div>
 
               {/* SLOT CONTENT */}
@@ -1194,11 +1255,13 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                 }}
                 onPointerCancel={()=>{ clearTimeout(emptyHoldTimerRef.current); emptyHoldPosRef.current = null; }}
                 onPointerLeave={()=>{ clearTimeout(emptyHoldTimerRef.current); emptyHoldPosRef.current = null; }}
+                onContextMenu={e=>e.preventDefault()}
                 style={{
                   width:COL_W, height:gridHeight,
                   position:"relative", padding:"0 4px",
                   background:`linear-gradient(135deg,${BG_DEEP},rgba(0,0,0,0.55))`,
                   borderRadius:14, boxShadow:SHADOW_IN, cursor:"cell",
+                  userSelect:"none", WebkitUserSelect:"none", WebkitTouchCallout:"none",
                 }}>
 
               {/* Open/blocked/surcharge/VIP slot indicators */}
@@ -1255,7 +1318,6 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
 
                     {!isSticky && !isBlocked && !isVip && !hasSurcharge && <span style={{position:"absolute", top:3, right:4, fontSize:9, lineHeight:1, opacity:0.5}}>◦</span>}
                     {hasViewer && <span style={{position:"absolute", bottom:3, right:4, fontSize:8, lineHeight:1, opacity:0.8}}>👁</span>}
-                    <span style={{fontSize:7.5, fontWeight:800, lineHeight:1, color}}>{time}</span>
                     {isBlocked && (() => { const qc = queueMap[`${dateStrCol}_${time}`]; return qc > 0 ? (
                       <div style={{position:"absolute", bottom:2, right:4, display:"flex", alignItems:"center", gap:1}}>
                         <svg width="8" height="8" viewBox="0 0 24 24" fill={GOLD}><circle cx="12" cy="7" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>
@@ -1282,13 +1344,14 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
               {colLunch.enabled && (
                 <div style={{
                   position:"absolute",
-                  top:minToPx(colLunch.start*60), left:4, right:4,
+                  top:minToPx(colLunch.start*60), left:0, right:0,
                   height:(colLunch.end - colLunch.start)*60*PX_PER_MIN,
                   background:`repeating-linear-gradient(135deg, transparent, transparent 6px, rgba(255,255,255,0.04) 6px, rgba(255,255,255,0.04) 12px)`,
+                  border:`2px solid #1d4ed8`,
                   borderRadius:8, pointerEvents:"none",
                   display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:3,
                 }}>
-                  <svg viewBox="0 0 272.7 238.5" style={{width:Math.min(24,(colLunch.end-colLunch.start)*60*PX_PER_MIN*0.45),opacity:0.55}} fill="#FFC72C">
+                  <svg viewBox="0 0 272.7 238.5" style={{width:Math.min(24,(colLunch.end-colLunch.start)*60*PX_PER_MIN*0.45),opacity:0.55,marginTop:6}} fill="#FFC72C">
                     <path d="m195.8 17.933c23.3 0 42.2 98.3 42.2 219.7h34c0-130.7-34.3-236.5-76.3-236.5-24 0-45.2 31.7-59.2 81.5-14-49.8-35.2-81.5-59-81.5-42 0-76.2 105.7-76.2 236.4h34c0-121.4 18.7-219.6 42-219.6s42.2 90.8 42.2 202.8h33.8c0-112 19-202.8 42.3-202.8"/>
                   </svg>
                   <span style={{fontSize:7,fontWeight:700,color:TEXT_FAINT,letterSpacing:0.5,textTransform:"uppercase"}}>обід</span>
@@ -1317,27 +1380,8 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                 );
               })}
 
-              {/* Bookings — consecutive same-student adjacent bookings merged into one card */}
-              {(()=>{
-                const sorted = bookings.filter(b=>b.day===absDay).sort((a,b)=>a.startMin-b.startMin);
-                const merged = [];
-                let i = 0;
-                while (i < sorted.length) {
-                  const b = sorted[i];
-                  if (b.type==="block" || b.type==="vip-slot") { merged.push(b); i++; continue; }
-                  let totalDur = b.durMin;
-                  let j = i + 1;
-                  while (j < sorted.length) {
-                    const nx = sorted[j];
-                    if (nx.userId && nx.userId===b.userId && nx.startMin===b.startMin+totalDur && nx.type!=="block" && nx.type!=="vip-slot") {
-                      totalDur += nx.durMin; j++;
-                    } else break;
-                  }
-                  merged.push(j > i+1 ? {...b, durMin:totalDur, _mergedIds: sorted.slice(i, j).map(x=>x.id)} : b);
-                  i = j;
-                }
-                return merged;
-              })().map(b=>{
+              {/* Bookings */}
+              {bookings.filter(b=>b.day===absDay).sort((a,b)=>a.startMin-b.startMin).map(b=>{
                 const top = minToPx(b.startMin);
                 const height = b.durMin * PX_PER_MIN;
                 const c = slotColor(b);
@@ -1414,10 +1458,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                       <div className="slot-handle top" onPointerDown={e=>onPointerDown(e,b,"top")}/>
                       {!isBlock && !isVipSlot && <div className="shine-layer"/>}
                       {isVipSlot && height >= 14 && (
-                        <>
-                          <span style={{fontSize:10, fontWeight:800, color:"rgba(168,85,247,0.9)", lineHeight:1}}>{fmtTime(b.startMin)}</span>
-                          <span style={{fontSize:11, lineHeight:1, marginTop:1}}>👑</span>
-                        </>
+                        <span style={{fontSize:11, lineHeight:1}}>👑</span>
                       )}
                       {isBlock && height >= 18 && (() => {
                         const sz = Math.min(height * 0.62, 36);
@@ -1549,6 +1590,46 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
         </div>
 
       </div>{/* /outer flex */}
+
+      {/* ── Daily income sums — fixed row below grid, synced with horizontal scroll ── */}
+      <div style={{display:"flex", flexShrink:0, padding:"3px 3px 5px"}}>
+        <div style={{width:TIME_COL_W, flexShrink:0}}/>
+        <div ref={sumRowRef} style={{flex:1, overflowX:"hidden"}}>
+          <div ref={sumInnerRef} style={{display:"flex"}}>
+            {days.map((day,colIdx)=>{
+              const absDay2 = dayOffset + colIdx;
+              const daySum = bookings
+                .filter(b=>b.day===absDay2 && b.type!=="block" && b.type!=="vip-slot" && b.status!=="cancelled" && b.status!=="noshow")
+                .reduce((s,b)=>{
+                  const svc=(settings.services||[]).find(sv=>sv.id===b.serviceId||sv.id===b.svcId);
+                  const price = svc
+                    ? Math.round((svc.price/svc.duration)*b.durMin)
+                    : b.price && b.durationHours
+                      ? Math.round((b.price/(b.durationHours*60))*b.durMin)
+                      : (b.price||0);
+                  return s+price;
+                },0);
+              return (
+                <div key={absDay2} style={{width:COL_W, flexShrink:0, marginRight:colIdx<days.length-1?4:0}}>
+                  {daySum>0 ? (
+                    <div style={{
+                      background:`linear-gradient(180deg,#3a3b40,#2e2f34)`,
+                      borderRadius:7,
+                      border:`1px solid rgba(255,255,255,0.08)`,
+                      boxShadow:"0 2px 6px rgba(0,0,0,0.35)",
+                      padding:"2px 4px",
+                      textAlign:"center",
+                      fontSize:10, fontWeight:800,
+                      color:GREEN, letterSpacing:0.2,
+                      lineHeight:1.4,
+                    }}>{daySum.toLocaleString("uk")}₴</div>
+                  ) : null}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
     </Card>
 
     <BookingModal booking={localSelectedBooking} onClose={()=>setLocalSelectedBooking(null)}
@@ -1665,6 +1746,24 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
             fontSize:11,fontWeight:700,color:TEXT_FAINT,textAlign:"center",
           }}>{slotOptions.time}</div>
 
+          {/* Додати букінг */}
+          <button onClick={()=>{
+            const [h, m] = slotOptions.time.split(":").map(Number);
+            const startMin = h * 60 + m;
+            const today = new Date(); today.setHours(0,0,0,0);
+            const slotDate = new Date(slotOptions.dateStr + "T00:00:00");
+            const day = Math.round((slotDate - today) / (1000 * 60 * 60 * 24));
+            setFormData({ startMin, day });
+            setSlotOptions(null);
+          }} style={{
+            width:"100%",padding:"11px 14px",border:"none",cursor:"pointer",
+            background:"none",borderBottom:`1px solid rgba(255,255,255,0.05)`,
+            color:"#f59e0b",fontSize:13,fontWeight:700,
+            display:"flex",alignItems:"center",gap:9,
+          }}>
+            <span>👤</span> Додати букінг
+          </button>
+
           {/* VIP + надбавки — для відкритих і закритих слотів */}
           {slotOptions.slot?.available === false && (
             <div style={{padding:"8px 14px 4px",color:TEXT_FAINT,fontSize:10,fontWeight:600,letterSpacing:0.5}}>
@@ -1766,7 +1865,8 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
     )}
 
     <NewBookingModal data={formData} onClose={()=>setFormData(null)}
-      onConfirm={b=>{setBookings(bs=>[...bs,b]);setFormData(null);}} settings={settings}/>
+      onConfirm={b=>{setBookings(bs=>[...bs,b]);setFormData(null);}}
+      settings={{...settings, workStart: effectiveWorkStart, workEnd: effectiveWorkEnd}}/>
 
     {createSlotData && <CreateSlotSheet data={createSlotData} settings={settings} onClose={()=>setCreateSlotData(null)}/>}
     </>
@@ -2092,7 +2192,7 @@ function DrumRoll({ items, currentIdx, onChange, label, itemH=42, visible=4 }) {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// NEW BOOKING MODAL v3 — drum rolls for student + service
+// NEW BOOKING MODAL — compact bottom sheet
 // ═══════════════════════════════════════════════════════════════
 function NewBookingModal({ data, onClose, onConfirm, settings }) {
   const timeStep = data?.freeSnap ? 5 : (settings.snapMin || 30);
@@ -2108,28 +2208,37 @@ function NewBookingModal({ data, onClose, onConfirm, settings }) {
     settings.services.filter(s=>s.active)
   ,[settings.services]);
 
-  const serviceItems = useMemo(()=>
-    activeServices.map(s=>({ label:s.name, id:s.id, duration:s.duration, price:s.price, type:s.type||"private" }))
-  ,[activeServices]);
+  const [search,     setSearch]     = useState("");
+  const [selStudent, setSelStudent] = useState(null);
+  const [phone,      setPhone]      = useState("");
+  const [newName,    setNewName]    = useState("");
+  const [newPhone,   setNewPhone]   = useState("");
+  const [dateOffset, setDateOffset] = useState(0);
+  const [timeVal,    setTimeVal]    = useState(null);
+  const [svcId,      setSvcId]      = useState(null);
+  const [note,       setNote]       = useState("");
+  const [students,   setStudents]   = useState([]);
 
-  const [search,      setSearch]      = useState("");
-  const [selStudent,  setSelStudent]  = useState(null);
-  const [phone,       setPhone]       = useState("");
-  const [newName,     setNewName]     = useState("");
-  const [newPhone,    setNewPhone]    = useState("");
-  const [dateOffset,  setDateOffset]  = useState(0);
-  const [timeIdx,     setTimeIdx]     = useState(0);
-  const [svcIdx,      setSvcIdx]      = useState(0);
-  const [isVip,       setIsVip]       = useState(false);
+  useEffect(()=>{
+    const r = ref(db, "users");
+    const handler = onValue(r, snap => {
+      const d = snap.val() || {};
+      setStudents(Object.entries(d).map(([uid, u]) => {
+        const p = u.profile || {};
+        return { id:uid, name:p.name||u.name||"Учень", phone:p.phone||u.phone||"" };
+      }).filter(s=>s.name!=="Учень"||s.phone).sort((a,b)=>a.name.localeCompare(b.name,"uk")));
+    });
+    return () => off(r, "value", handler);
+  }, []);
 
   useEffect(()=>{
     if(data){
-      const ti=timeItems.findIndex(t=>t.value>=(data.startMin??settings.workStart*60));
-      setTimeIdx(Math.max(0, ti<0?0:ti));
+      const snapped = timeItems.find(t=>t.value>=(data.startMin??settings.workStart*60));
+      setTimeVal(snapped?.value ?? timeItems[0]?.value ?? null);
       setDateOffset(Math.max(0, data.day??0));
       setSearch(""); setSelStudent(null); setPhone("");
-      setNewName(""); setNewPhone("");
-      setSvcIdx(0);
+      setNewName(""); setNewPhone(""); setNote("");
+      setSvcId(null);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   },[!!data]);
@@ -2137,222 +2246,133 @@ function NewBookingModal({ data, onClose, onConfirm, settings }) {
   if(!data) return null;
 
   const isNewStudent = selStudent?.id === "new";
-  const selSvc     = serviceItems[svcIdx];
-  const selTime    = timeItems[timeIdx];
-  const q          = search.toLowerCase().trim();
-  const filtered   = q ? STUDENTS.filter(s=>s.name.toLowerCase().includes(q)||s.phone.includes(q)) : STUDENTS;
-  const finalName  = isNewStudent ? newName.trim() : selStudent ? selStudent.name : search.trim();
-  const finalPhone = isNewStudent ? newPhone.trim() : phone || (selStudent ? selStudent.phone : "");
-  const canConfirm = finalName.length > 1 && !!selSvc && !!selTime;
+  const selSvc    = activeServices.find(s=>s.id===svcId) ?? null;
+  const finalName = isNewStudent ? newName.trim() : selStudent ? selStudent.name : search.trim();
+  const finalPhone= isNewStudent ? newPhone.trim() : phone || (selStudent?.phone ?? "");
+  const canConfirm= finalName.length > 1 && !!selSvc && timeVal != null;
 
   const dayChips = Array.from({length:14},(_,i)=>{
     const info = getDayInfo(i);
     return { lbl: i===0?"Сьогодні":i===1?"Завтра":`${info.label} ${info.num}`, info, i };
   });
 
+  const q        = search.toLowerCase().trim();
+  const filtered = q ? students.filter(s=>s.name.toLowerCase().includes(q)||s.phone.includes(q)) : students;
+
   const SL = ({children})=>(
-    <div style={{fontSize:9,fontWeight:700,letterSpacing:1.4,color:TEXT_FAINT,
-      textTransform:"uppercase",marginBottom:6}}>{children}</div>
-  );
-
-  const inputRow = (icon, value, onChange, placeholder, type="text") => (
-    <div style={{
-      display:"flex",alignItems:"center",gap:8,
-      padding:"10px 13px",borderRadius:13,
-      background:`linear-gradient(135deg,${BG_DEEP},${SURFACE_LO})`,boxShadow:SHADOW_IN
-    }}>
-      {icon}
-      <input type={type} placeholder={placeholder} value={value}
-        onChange={e=>onChange(e.target.value)}
-        style={{flex:1,background:"none",border:"none",outline:"none",
-          color:TEXT,fontSize:14,fontWeight:600}}/>
-    </div>
-  );
-
-  const IcoUser = <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke={TEXT_FAINT} strokeWidth="2.5" strokeLinecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-7 8-7s8 3 8 7"/></svg>;
-  const IcoPhone= <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke={TEXT_FAINT} strokeWidth="2.5" strokeLinecap="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2A19.79 19.79 0 0 1 4.14 6.18 2 2 0 0 1 6.12 4h3a2 2 0 0 1 2 1.72c.13 1 .37 1.98.72 2.91a2 2 0 0 1-.45 2.11L10 12a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.93.35 1.91.59 2.91.72A2 2 0 0 1 22 16.92z"/></svg>;
-
-  // Колір героя — береться з вибраної послуги
-  const heroC = selSvc ? colorOf(selSvc.type==="school" ? "green" : "yellow") : ACCENT;
-
-  // Ініціали для аватара
-  const avatarInitials = (() => {
-    const nm = finalName.trim();
-    if (!nm) return null;
-    const parts = nm.split(" ").filter(Boolean);
-    return parts.length >= 2 ? parts[0][0]+parts[1][0] : parts[0].slice(0,2);
-  })();
-
-  const Tile = ({label, value, color}) => (
-    <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:4,
-      padding:"10px 6px 8px",borderRadius:14,
-      background:`linear-gradient(145deg,${SURFACE_HI},${SURFACE_LO})`,boxShadow:SHADOW_OUT}}>
-      <div style={{fontSize:13,fontWeight:800,color:color||TEXT,letterSpacing:-0.2}}>{value}</div>
-      <div style={{fontSize:9,fontWeight:700,color:TEXT_FAINT,letterSpacing:0.8,textTransform:"uppercase"}}>{label}</div>
-    </div>
+    <div style={{fontSize:10,fontWeight:700,letterSpacing:1.2,color:TEXT_FAINT,
+      textTransform:"uppercase",marginBottom:7}}>{children}</div>
   );
 
   return (
     <div onClick={onClose} style={{
-      position:"fixed",inset:0,background:"rgba(0,0,0,0.78)",zIndex:200,
+      position:"fixed",inset:0,background:"rgba(0,0,0,0.75)",zIndex:200,
       display:"flex",alignItems:"flex-end",justifyContent:"center",
-      backdropFilter:"blur(12px)"
+      backdropFilter:"blur(8px)",
     }}>
       <div onClick={e=>e.stopPropagation()} style={{
         width:"100%",maxWidth:480,background:BG_DEEP,
-        borderRadius:"28px 28px 0 0",
-        boxShadow:`0 -2px 0 ${heroC}44, 0 -16px 60px rgba(0,0,0,0.8)`,
-        maxHeight:"93vh",overflowY:"auto",
+        borderRadius:"24px 24px 0 0",
+        boxShadow:"0 -2px 0 rgba(99,211,120,0.25), 0 -16px 60px rgba(0,0,0,0.8)",
+        maxHeight:"90vh",overflowY:"auto",
         display:"flex",flexDirection:"column",
       }}>
 
-        {/* ══ HERO ══ */}
+        {/* ── Заголовок ── */}
         <div style={{
-          position:"relative",overflow:"hidden",
-          padding:"14px 16px 18px",
-          background:`linear-gradient(160deg,${heroC}32 0%,${heroC}12 60%,transparent 100%)`,
-          borderRadius:"28px 28px 0 0",
-          flexShrink:0,
+          padding:"12px 14px 10px",
+          borderBottom:`1px solid ${BORDER}`,
+          flexShrink:0,position:"sticky",top:0,background:BG_DEEP,zIndex:1,
         }}>
-          {/* glow blob */}
-          <div style={{position:"absolute",top:-40,right:-30,width:160,height:160,borderRadius:"50%",
-            background:`radial-gradient(circle,${heroC}44 0%,transparent 68%)`,pointerEvents:"none"}}/>
-
-          {/* handle */}
-          <div style={{width:38,height:4,borderRadius:2,background:"rgba(255,255,255,0.1)",margin:"0 auto 14px"}}/>
-
-          {/* avatar row */}
-          <div style={{display:"flex",alignItems:"center",gap:14}}>
-            {/* avatar */}
-            <div style={{
-              width:54,height:54,borderRadius:27,flexShrink:0,
-              background:avatarInitials
-                ? `linear-gradient(145deg,${heroC}cc,${heroC}88)`
-                : `linear-gradient(145deg,${SURFACE_HI},${SURFACE_LO})`,
-              boxShadow:`0 4px 16px ${heroC}55`,
+          <div style={{width:36,height:4,borderRadius:2,background:"rgba(255,255,255,0.1)",margin:"0 auto 10px"}}/>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+            <div style={{fontSize:16,fontWeight:900,color:TEXT,letterSpacing:-0.3}}>Новий запис</div>
+            <button onClick={onClose} style={{
+              background:`rgba(255,255,255,0.06)`,border:"none",cursor:"pointer",
+              width:30,height:30,borderRadius:15,
               display:"flex",alignItems:"center",justifyContent:"center",
-              fontSize:avatarInitials?20:22,fontWeight:800,color:"#fff",
-              border:`2px solid ${heroC}66`,
-            }}>
-              {avatarInitials || "＋"}
-            </div>
-
-            {/* name + status */}
-            <div style={{flex:1,minWidth:0}}>
-              {finalName ? (
-                <>
-                  <div style={{fontSize:18,fontWeight:900,color:TEXT,letterSpacing:-0.4,
-                    whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{finalName}</div>
-                  {finalPhone&&<div style={{fontSize:12,color:TEXT_DIM,marginTop:2}}>{finalPhone}</div>}
-                </>
-              ) : (
-                <div style={{fontSize:15,fontWeight:700,color:TEXT_FAINT}}>Новий запис</div>
-              )}
-              {selSvc && (
-                <div style={{marginTop:5,display:"inline-flex",alignItems:"center",gap:5,
-                  padding:"3px 10px",borderRadius:20,
-                  background:`${heroC}22`,border:`1px solid ${heroC}44`}}>
-                  <div style={{width:7,height:7,borderRadius:"50%",background:heroC,flexShrink:0}}/>
-                  <span style={{fontSize:10,fontWeight:700,color:heroC}}>{selSvc.label}</span>
-                </div>
-              )}
-            </div>
+              color:TEXT_FAINT,fontSize:18,lineHeight:1,
+            }}>×</button>
           </div>
         </div>
 
-        {/* ══ BODY ══ */}
-        <div style={{padding:"12px 14px 24px",display:"flex",flexDirection:"column",gap:12,flexShrink:0}}>
+        {/* ── Тіло ── */}
+        <div style={{padding:"14px 14px 36px",display:"flex",flexDirection:"column",gap:16}}>
 
-          {/* ── Тайли дата/час/ціна якщо все вибрано ── */}
-          {canConfirm && (
-            <div style={{display:"flex",gap:8}}>
-              <Tile label="Дата"  value={dayChips[dateOffset]?.lbl} color={GOLD}/>
-              <Tile label="Час"   value={selTime?.label}            color={BLUE}/>
-              <Tile label="Ціна"  value={`${selSvc.price}₴`}        color={GOLD}/>
-            </div>
-          )}
-
-          {/* ── УЧЕНЬ ── */}
+          {/* УЧЕНЬ */}
           <div>
             <SL>Учень</SL>
             {isNewStudent ? (
-              <div style={{display:"flex",flexDirection:"column",gap:8}}>
+              <div style={{display:"flex",flexDirection:"column",gap:7}}>
                 <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",
-                  padding:"8px 14px",borderRadius:12,
+                  padding:"7px 12px",borderRadius:11,
                   background:`${GREEN}18`,border:`1.5px solid ${GREEN}44`}}>
                   <div style={{fontSize:12,fontWeight:700,color:GREEN}}>Новий учень</div>
                   <button onClick={()=>{setSelStudent(null);setNewName("");setNewPhone("");}}
-                    style={{background:"none",border:"none",cursor:"pointer",color:TEXT_FAINT,fontSize:20,padding:"0 2px",lineHeight:1}}>×</button>
+                    style={{background:"none",border:"none",cursor:"pointer",color:TEXT_FAINT,fontSize:20,padding:0,lineHeight:1}}>×</button>
                 </div>
-                {inputRow(IcoUser,  newName,  setNewName,  "Ім'я та прізвище")}
-                {inputRow(IcoPhone, newPhone, setNewPhone, "+380...", "tel")}
+                <input type="text" placeholder="Ім'я та прізвище" value={newName}
+                  onChange={e=>setNewName(e.target.value)}
+                  style={{padding:"10px 12px",borderRadius:11,border:`1.5px solid ${BORDER}`,
+                    background:SURFACE_LO,color:TEXT,fontSize:14,fontWeight:600,outline:"none"}}/>
+                <input type="tel" placeholder="+380..." value={newPhone}
+                  onChange={e=>setNewPhone(e.target.value)}
+                  style={{padding:"10px 12px",borderRadius:11,border:`1.5px solid ${BORDER}`,
+                    background:SURFACE_LO,color:TEXT,fontSize:14,fontWeight:600,outline:"none"}}/>
               </div>
             ) : selStudent ? (
-              <>
-                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",
-                  padding:"10px 14px",borderRadius:14,
-                  background:`${GREEN}20`,border:`1.5px solid ${GREEN}50`}}>
-                  <div>
-                    <div style={{fontSize:14,fontWeight:800,color:TEXT}}>{selStudent.name}</div>
-                    <div style={{fontSize:11,color:TEXT_DIM,marginTop:1}}>{selStudent.phone}</div>
-                  </div>
-                  <button onClick={()=>{setSelStudent(null);setPhone("");setSearch("");}}
-                    style={{background:"none",border:"none",cursor:"pointer",color:TEXT_FAINT,fontSize:20,padding:"0 4px",lineHeight:1}}>×</button>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",
+                padding:"10px 13px",borderRadius:13,
+                background:`${GREEN}20`,border:`1.5px solid ${GREEN}50`}}>
+                <div>
+                  <div style={{fontSize:14,fontWeight:800,color:TEXT}}>{selStudent.name}</div>
+                  <div style={{fontSize:11,color:TEXT_DIM,marginTop:1}}>{selStudent.phone}</div>
                 </div>
-                <div style={{display:"flex",alignItems:"center",gap:8,marginTop:8,
-                  padding:"10px 13px",borderRadius:13,
-                  background:`linear-gradient(135deg,${BG_DEEP},${SURFACE_LO})`,boxShadow:SHADOW_IN}}>
-                  {IcoPhone}
-                  <input type="tel" placeholder="+380..." value={finalPhone}
-                    onChange={e=>setPhone(e.target.value)}
-                    style={{flex:1,background:"none",border:"none",outline:"none",color:TEXT_DIM,fontSize:13,fontWeight:600}}/>
-                </div>
-              </>
+                <button onClick={()=>{setSelStudent(null);setPhone("");setSearch("");}}
+                  style={{background:"none",border:"none",cursor:"pointer",color:TEXT_FAINT,fontSize:20,padding:"0 4px",lineHeight:1}}>×</button>
+              </div>
             ) : (
               <>
                 <div style={{display:"flex",alignItems:"center",gap:8,
-                  padding:"10px 13px",borderRadius:14,marginBottom:6,
-                  background:`linear-gradient(135deg,${BG_DEEP},${SURFACE_LO})`,boxShadow:SHADOW_IN}}>
-                  {IcoUser}
+                  padding:"9px 12px",borderRadius:12,marginBottom:6,
+                  background:SURFACE_LO,border:`1.5px solid ${BORDER}`}}>
+                  <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke={TEXT_FAINT} strokeWidth="2.5" strokeLinecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-7 8-7s8 3 8 7"/></svg>
                   <input type="text" placeholder="Пошук за ім'ям..."
                     value={search} onChange={e=>setSearch(e.target.value)}
                     style={{flex:1,background:"none",border:"none",outline:"none",color:TEXT,fontSize:14,fontWeight:600}}/>
-                  {search&&<button onClick={()=>setSearch("")}
-                    style={{background:"none",border:"none",cursor:"pointer",color:TEXT_FAINT,fontSize:18,padding:0,lineHeight:1}}>×</button>}
+                  {search && <button onClick={()=>setSearch("")}
+                    style={{background:"none",border:"none",cursor:"pointer",color:TEXT_FAINT,fontSize:16,padding:0,lineHeight:1}}>×</button>}
                 </div>
-                <div style={{borderRadius:14,overflow:"hidden",
-                  background:`linear-gradient(135deg,${BG_DEEP},${SURFACE_LO})`,
-                  boxShadow:SHADOW_IN,maxHeight:148,overflowY:"auto"}}>
-                  {!q&&(
+                <div style={{borderRadius:12,overflow:"hidden",border:`1px solid ${BORDER}`,maxHeight:164,overflowY:"auto"}}>
+                  {!q && (
                     <div onClick={()=>{setSelStudent({id:"new",name:"",phone:""});setNewName("");setNewPhone("");}}
-                      style={{display:"flex",alignItems:"center",gap:10,
-                        padding:"10px 14px",cursor:"pointer",borderBottom:`1px solid ${BORDER}`}}>
-                      <div style={{width:22,height:22,borderRadius:11,flexShrink:0,
+                      style={{display:"flex",alignItems:"center",gap:9,padding:"9px 13px",cursor:"pointer",
+                        borderBottom:`1px solid ${BORDER}`,background:BG_DEEP}}>
+                      <div style={{width:20,height:20,borderRadius:10,flexShrink:0,
                         background:`${GREEN}33`,border:`1.5px solid ${GREEN}55`,
                         display:"flex",alignItems:"center",justifyContent:"center",
-                        fontSize:15,color:GREEN,fontWeight:800}}>+</div>
+                        fontSize:14,color:GREEN,fontWeight:800,lineHeight:1}}>+</div>
                       <div style={{fontSize:13,fontWeight:700,color:GREEN}}>Новий учень</div>
                     </div>
                   )}
-                  {filtered.slice(0,7).map(s=>(
-                    <div key={s.id}
-                      onClick={()=>{setSelStudent(s);setPhone(s.phone);setSearch("");}}
+                  {filtered.slice(0,6).map(s=>(
+                    <div key={s.id} onClick={()=>{setSelStudent(s);setPhone(s.phone);setSearch("");}}
                       style={{display:"flex",alignItems:"center",justifyContent:"space-between",
-                        padding:"10px 14px",cursor:"pointer",borderBottom:`1px solid ${BORDER}`}}>
+                        padding:"9px 13px",cursor:"pointer",borderBottom:`1px solid ${BORDER}`,background:BG_DEEP}}>
                       <div style={{fontSize:13,fontWeight:700,color:TEXT}}>{s.name}</div>
                       <div style={{fontSize:11,color:TEXT_FAINT}}>{s.phone.slice(-7)}</div>
                     </div>
                   ))}
-                  {q&&!filtered.length&&(
-                    <div style={{padding:"12px 14px",fontSize:12,color:TEXT_FAINT,textAlign:"center"}}>Не знайдено</div>
+                  {q && !filtered.length && (
+                    <div style={{padding:"11px 13px",fontSize:12,color:TEXT_FAINT,textAlign:"center",background:BG_DEEP}}>Не знайдено</div>
                   )}
-                  {q.length>1&&!filtered.find(s=>s.name.toLowerCase()===q)&&(
+                  {q.length>1 && !filtered.find(s=>s.name.toLowerCase()===q) && (
                     <div onClick={()=>{setSelStudent({id:"new",name:"",phone:""});setNewName(search.trim());setNewPhone("");setSearch("");}}
-                      style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",cursor:"pointer"}}>
-                      <div style={{width:22,height:22,borderRadius:11,flexShrink:0,
+                      style={{display:"flex",alignItems:"center",gap:9,padding:"9px 13px",cursor:"pointer",background:BG_DEEP}}>
+                      <div style={{width:20,height:20,borderRadius:10,flexShrink:0,
                         background:`${GREEN}33`,border:`1.5px solid ${GREEN}55`,
                         display:"flex",alignItems:"center",justifyContent:"center",
-                        fontSize:15,color:GREEN,fontWeight:800}}>+</div>
+                        fontSize:14,color:GREEN,fontWeight:800,lineHeight:1}}>+</div>
                       <div style={{fontSize:13,fontWeight:700,color:GREEN}}>Додати «{search.trim()}»</div>
                     </div>
                   )}
@@ -2361,91 +2381,133 @@ function NewBookingModal({ data, onClose, onConfirm, settings }) {
             )}
           </div>
 
-          {/* ── ДАТА ── */}
+          {/* ДАТА */}
           <div>
             <SL>Дата</SL>
-            <div style={{display:"flex",gap:6,overflowX:"auto",paddingBottom:4,scrollbarWidth:"none"}}>
+            <div style={{display:"flex",gap:6,overflowX:"auto",paddingBottom:2,scrollbarWidth:"none"}}>
               {dayChips.map(({lbl,info,i})=>{
-                const active=i===dateOffset;
+                const active = i===dateOffset;
                 return (
                   <button key={i} onClick={()=>setDateOffset(i)} style={{
-                    flexShrink:0,padding:"7px 12px",borderRadius:12,border:"none",cursor:"pointer",
-                    background:active?`linear-gradient(165deg,${GOLD},#e6a800)`:`linear-gradient(135deg,${SURFACE_HI},${SURFACE_LO})`,
+                    flexShrink:0,padding:"7px 11px",borderRadius:11,border:"none",cursor:"pointer",
+                    background:active?`linear-gradient(165deg,${GOLD},#e6a800)`:SURFACE_LO,
                     color:active?"#1a1200":info.wk?ACCENT:TEXT_DIM,
-                    fontSize:12,fontWeight:active?800:600,
+                    fontSize:11,fontWeight:active?800:600,
                     boxShadow:active?`0 4px 12px ${GOLD}55`:SHADOW_OUT,
-                    transition:"all .15s"
+                    transition:"all .12s",
                   }}>
                     <div>{lbl}</div>
-                    {i>1&&<div style={{fontSize:9,opacity:0.7,marginTop:1}}>{info.month}</div>}
+                    {i>1&&<div style={{fontSize:9,opacity:0.65,marginTop:1}}>{info.month}</div>}
                   </button>
                 );
               })}
             </div>
           </div>
 
-          {/* ── ЧАС + ПОСЛУГА ── */}
-          <div style={{display:"flex",gap:10,alignItems:"flex-start"}}>
-            <div style={{flex:1}}>
-              <SL>Час початку</SL>
-              <DrumRoll items={timeItems} currentIdx={timeIdx} onChange={setTimeIdx} itemH={40} visible={3}/>
-            </div>
-            <div style={{flex:1}}>
-              <SL>Послуга</SL>
-              <DrumRoll items={serviceItems} currentIdx={svcIdx} onChange={setSvcIdx} itemH={40} visible={3}/>
+          {/* ЧАС */}
+          <div>
+            <SL>Час початку</SL>
+            <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+              {timeItems.map(t=>{
+                const active = t.value===timeVal;
+                return (
+                  <button key={t.value} onClick={()=>setTimeVal(t.value)} style={{
+                    padding:"7px 10px",borderRadius:10,border:"none",cursor:"pointer",minWidth:54,
+                    background:active?`linear-gradient(165deg,${BLUE},#1d4ed8)`:SURFACE_LO,
+                    color:active?"#fff":TEXT_DIM,
+                    fontSize:13,fontWeight:active?800:500,
+                    boxShadow:active?`0 4px 12px ${BLUE}55`:SHADOW_OUT,
+                    transition:"all .12s",
+                  }}>{t.label}</button>
+                );
+              })}
             </div>
           </div>
 
-          {/* ── VIP SLOT TOGGLE ── */}
-          <div onClick={()=>setIsVip(v=>!v)} style={{
-            display:"flex",alignItems:"center",gap:12,cursor:"pointer",
-            padding:"11px 14px",borderRadius:13,
-            background:isVip?`linear-gradient(145deg,rgba(192,132,252,0.18),rgba(124,58,237,0.1))`:`linear-gradient(135deg,${SURFACE_HI},${SURFACE_LO})`,
-            border:isVip?`1px solid rgba(192,132,252,0.35)`:`1px solid transparent`,
-            boxShadow:SHADOW_OUT,
-          }}>
-            <span style={{fontSize:20}}>👑</span>
-            <div style={{flex:1}}>
-              <div style={{fontSize:13,fontWeight:700,color:isVip?"#c084fc":TEXT}}>VIP-слот</div>
-              <div style={{fontSize:10,color:TEXT_FAINT}}>Тільки для учнів категорії VIP</div>
+          {/* ПОСЛУГА */}
+          <div>
+            <SL>Послуга</SL>
+            <div style={{display:"flex",flexDirection:"column",gap:6}}>
+              {activeServices.map(s=>{
+                const active = s.id===svcId;
+                const c = colorOf(s.colorId || (s.type==="school"?"green":"yellow"));
+                return (
+                  <button key={s.id} onClick={()=>setSvcId(s.id)} style={{
+                    display:"flex",alignItems:"center",justifyContent:"space-between",
+                    padding:"10px 13px",borderRadius:12,cursor:"pointer",
+                    background:active?`${c}1a`:SURFACE_LO,
+                    border:active?`1.5px solid ${c}55`:`1.5px solid transparent`,
+                    boxShadow:active?`0 4px 14px ${c}2a`:SHADOW_OUT,
+                    transition:"all .12s",
+                  }}>
+                    <div style={{display:"flex",alignItems:"center",gap:9}}>
+                      <div style={{width:9,height:9,borderRadius:"50%",background:c,flexShrink:0}}/>
+                      <div style={{fontSize:13,fontWeight:active?800:600,color:active?TEXT:TEXT_DIM,textAlign:"left"}}>{s.name}</div>
+                    </div>
+                    <div style={{fontSize:12,fontWeight:700,color:active?c:TEXT_FAINT,whiteSpace:"nowrap"}}>
+                      {s.price}₴ · {s.duration}хв
+                    </div>
+                  </button>
+                );
+              })}
             </div>
+          </div>
+
+          {/* ЦІНА PREVIEW */}
+          {selSvc && (
             <div style={{
-              width:44,height:24,borderRadius:12,position:"relative",
-              background:isVip?"linear-gradient(145deg,#c084fc,#7c3aed)":"linear-gradient(145deg,#1f2125,#161719)",
-              boxShadow:isVip?"0 0 8px rgba(192,132,252,0.4)":SHADOW_IN,
-              transition:"background .2s",
+              display:"flex",alignItems:"center",gap:10,
+              padding:"10px 13px",borderRadius:12,
+              background:`${GOLD}14`,border:`1px solid ${GOLD}30`,
             }}>
-              <div style={{position:"absolute",top:3,left:isVip?21:3,width:18,height:18,borderRadius:9,background:"#fff",transition:"left .2s"}}/>
+              <span style={{fontSize:15}}>💰</span>
+              <div style={{fontSize:15,fontWeight:800,color:GOLD}}>{selSvc.price}₴</div>
+              <div style={{fontSize:12,color:TEXT_DIM}}>· {selSvc.duration} хв</div>
+              {timeVal!=null && (
+                <div style={{marginLeft:"auto",fontSize:12,color:TEXT_DIM}}>
+                  {fmtTime(timeVal)} → {fmtTime(timeVal + selSvc.duration)}
+                </div>
+              )}
             </div>
-          </div>
+          )}
 
-          {/* ── КНОПКИ ── */}
+          {/* ПРИМІТКА */}
+          <input
+            type="text"
+            placeholder="Примітка (необов'язково)..."
+            value={note}
+            onChange={e=>setNote(e.target.value)}
+            style={{
+              padding:"10px 13px",borderRadius:12,
+              border:`1.5px solid ${BORDER}`,
+              background:SURFACE_LO,color:TEXT,fontSize:13,outline:"none",
+            }}
+          />
+
+          {/* CONFIRM */}
           <button disabled={!canConfirm} onClick={()=>{
             if(!canConfirm) return;
+            const today = new Date(); today.setHours(0,0,0,0);
+            const d = new Date(today); d.setDate(d.getDate() + dateOffset);
+            const dateStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
             onConfirm({
               id:`b-${Date.now()}`,
-              day:dateOffset, startMin:selTime.value, durMin:selSvc.duration,
+              day:dateOffset, date:dateStr, startMin:timeVal, durMin:selSvc.duration,
               name:finalName, phone:finalPhone, serviceId:selSvc.id,
-              type:selSvc.type||"private", status:"confirmed", tsc:"", hoursDone:0,
-              categoryId: isVip ? "cat-vip" : null,
-              isVipOnly:  isVip,
+              type:selSvc.type||"private", status:"confirmed",
+              tsc:"", hoursDone:0, categoryId:null, isVipOnly:false,
+              userId: (!isNewStudent && selStudent?.id) ? selStudent.id : null,
+              ...(note.trim() && { note:note.trim() }),
             });
             onClose();
           }} style={{
-            width:"100%",padding:"14px",borderRadius:18,border:"none",cursor:"pointer",
-            background:canConfirm?`linear-gradient(160deg,${GREEN},#4ade80)`:`linear-gradient(135deg,${SURFACE_HI},${SURFACE_LO})`,
+            width:"100%",padding:"14px",borderRadius:16,border:"none",cursor:"pointer",
+            background:canConfirm?`linear-gradient(160deg,${GREEN},#4ade80)`:`${SURFACE_LO}`,
             color:canConfirm?"#fff":TEXT_FAINT,
-            fontSize:14,fontWeight:800,letterSpacing:0.2,
+            fontSize:15,fontWeight:800,letterSpacing:0.2,
             boxShadow:canConfirm?`0 6px 20px ${GREEN}55`:SHADOW_OUT,
-            transition:"all .2s"
+            transition:"all .2s",
           }}>✓ Записати</button>
-
-          <button onClick={onClose} style={{
-            width:"100%",padding:"13px",borderRadius:18,border:"none",cursor:"pointer",
-            background:"linear-gradient(145deg,#f87171,#b91c1c)",
-            color:"#fff",fontSize:13,fontWeight:700,
-            boxShadow:"0 4px 14px #b91c1c66",letterSpacing:0.2,
-          }}>Скасувати</button>
 
         </div>
       </div>
@@ -2927,6 +2989,51 @@ export default function App() {
     }).catch(() => {});
   }, []);
 
+  // Load bookings from Firebase (realtime)
+  useEffect(() => {
+    const r = ref(db, "bookings");
+    const handler = onValue(r, snap => {
+      const d = snap.val();
+      if (!d) { setBookings([]); return; }
+      const today = new Date(); today.setHours(0,0,0,0);
+      const all = [];
+      Object.entries(d).forEach(([uid, userBkgs]) => {
+        if (!userBkgs) return;
+        Object.entries(userBkgs).forEach(([bkId, raw]) => {
+          if (!raw) return;
+          const timeStr = raw.time || (raw.startMin != null ? fmtTime(raw.startMin) : "00:00");
+          const [hh, mm] = timeStr.split(":").map(Number);
+          const dateStr = raw.date || "";
+          let day = 0;
+          if (dateStr) {
+            const bkDate = new Date(dateStr + "T00:00:00");
+            day = Math.round((bkDate - today) / 86400000);
+          }
+          all.push({
+            ...raw,
+            id:       raw.id || bkId,
+            _fbKey:   bkId,
+            userId:   uid,
+            day,
+            date:     dateStr,
+            startMin: raw.startMin ?? (hh * 60 + mm),
+            durMin:   raw.durMin ?? (raw.durationHours ? raw.durationHours * 60 : 60),
+            name:     raw.studentName || raw.name || "Учень",
+            phone:    raw.phone || "",
+            type:     raw.serviceType || raw.type || "private",
+            status:   raw.status || "confirmed",
+            tsc:      raw.tsc || "",
+            hoursDone: raw.hours || raw.hoursDone || 0,
+            categoryId: raw.categoryId || null,
+            isVipOnly:  raw.isVipOnly || false,
+          });
+        });
+      });
+      setBookings(all);
+    });
+    return () => off(r, "value", handler);
+  }, []);
+
   // Save settings to Firebase with 1s debounce
   const setSettingsAndSave = (updater) => {
     setSettings(prev => {
@@ -2957,7 +3064,35 @@ export default function App() {
     setSelectedBooking(null);
   };
 
-  const handleNewBooking = (b) => setBookings(bs=>[...bs, b]);
+  const handleNewBooking = (b) => {
+    if (b.id) {
+      const fbData = {
+        id: b.id, date: b.date || "", time: fmtTime(b.startMin),
+        startMin: b.startMin, durMin: b.durMin,
+        studentName: b.name, name: b.name, phone: b.phone,
+        serviceId: b.serviceId, serviceType: b.type, type: b.type,
+        status: b.status, tsc: b.tsc || "", hours: b.hoursDone || 0,
+        createdAt: Date.now(), createdBy: "admin",
+        ...(b.note && { note: b.note }),
+      };
+      const uid = b.userId || "admin";
+      update(ref(db, `bookings/${uid}/${b.id}`), fbData).catch(()=>{});
+    }
+    // Generate free slots for this day (skips existing), then mark booking slots as taken
+    if (b.date && b.startMin !== undefined && b.durMin) {
+      if (b.day !== undefined) generateDaySlots(b.day).catch(() => {});
+      const slotUpd = {};
+      for (let i = 0; i < b.durMin; i += 60) {
+        const slotMin = b.startMin + i;
+        const sh = String(Math.floor(slotMin / 60)).padStart(2, '0');
+        const sm = String(slotMin % 60).padStart(2, '0');
+        slotUpd[`timeslots/${b.date}/slot${sh}${sm}/available`] = false;
+        slotUpd[`timeslots/${b.date}/slot${sh}${sm}/time`] = `${sh}:${sm}`;
+      }
+      update(ref(db, '/'), slotUpd).catch(() => {});
+    }
+    // onValue listener will update setBookings automatically; skip local push to avoid duplicate
+  };
 
   const renderView = () => {
     switch(tab) {
@@ -3067,7 +3202,12 @@ export default function App() {
         <BookingModal booking={selectedBooking} onClose={()=>setSelectedBooking(null)}
           onAction={handleAction} settings={settings}/>
         <NewBookingModal data={newBookingData} onClose={()=>setNewBookingData(null)}
-          onConfirm={handleNewBooking} settings={settings}/>
+          onConfirm={handleNewBooking} settings={(() => {
+            const sched = (settings.weekSchedule || []).filter(d => d.start != null);
+            const eStart = sched.length ? Math.min(settings.workStart, ...sched.map(d=>d.start)) : settings.workStart;
+            const eEnd   = sched.length ? Math.max(settings.workEnd,   ...sched.map(d=>d.end ?? settings.workEnd)) : settings.workEnd;
+            return {...settings, workStart: eStart, workEnd: eEnd};
+          })()}/>
       </div>
     </>
   );

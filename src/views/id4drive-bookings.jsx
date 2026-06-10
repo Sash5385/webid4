@@ -427,7 +427,7 @@ function AddToQueueModal({ onSave, onClose, svcs }) {
 }
 
 // ─── QUEUE OFFER MODAL ──────────────────────────────────────────
-function QueueOfferModal({ cancelledBk, waiting, queueMode, onInvite, onClose }) {
+function QueueOfferModal({ cancelledBk, waiting, queueMode, onInvite, onClose, svcsMap }) {
   const [selected, setSelected] = useState(
     queueMode === "fifo" ? [waiting[0]?.id] : queueMode === "broadcast" ? waiting.map(q=>q.id) : []
   );
@@ -456,7 +456,7 @@ function QueueOfferModal({ cancelledBk, waiting, queueMode, onInvite, onClose })
               <div style={{width:4,height:32,borderRadius:3,background:PURPLE,flexShrink:0}}/>
               <div style={{flex:1}}>
                 <div style={{fontSize:13,fontWeight:800,color:TEXT}}>{q.name}</div>
-                <div style={{fontSize:10,color:DIM}}>{q.phone} · {SERVICES[q.svcId]?.name||q.svcId}</div>
+                <div style={{fontSize:10,color:DIM}}>{q.phone} · {(svcsMap||SERVICES)[q.svcId]?.name||q.svcId}</div>
               </div>
               {selected.includes(q.id) && <span style={{fontSize:16}}>✓</span>}
             </div>
@@ -804,6 +804,7 @@ export default function BookingsView({ settings }) {
           cancelledBk={queueOffer.cancelledBk}
           waiting={queueOffer.waiting}
           queueMode={queueMode}
+          svcsMap={svcsMap}
           onInvite={items=>{items.forEach(item=>markOffered(item));setQueueOffer(null);}}
           onClose={()=>setQueueOffer(null)}
         />

@@ -108,7 +108,13 @@ const fmtDate = d => {
   const m = parseInt(d.split("-")[1]);
   return `${parseInt(day)} ${months[m]}`;
 };
-const priceOf = b => { const s = SERVICES[b.svcId]; return s ? (b.durMin/60)*( b.type==="school"?600:700) : 0; };
+const priceOf = b => {
+  if (b.price != null) return b.price;
+  const s = SERVICES[b.svcId];
+  if (!s) return 0;
+  const base = (b.durMin/60) * (b.type==="school"?600:700);
+  return b.discountPct > 0 ? Math.round(base * (1 - b.discountPct/100)) : base;
+};
 
 // ─── SHARED ─────────────────────────────────────────────────────
 function Pill({ label, color, bg }) {

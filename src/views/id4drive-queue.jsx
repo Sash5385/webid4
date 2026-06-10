@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { ref, onValue, update, push, remove } from "firebase/database";
 import { db } from "../firebase";
 import { BG, BG_DEEP, SURFACE, SURF_HI, SURF_LO, BORDER, TEXT, DIM, FAINT, ACCENT, ACC_HI, GREEN, BLUE, PURPLE, GOLD, RED, SO, SI } from "../theme.js";
@@ -127,8 +127,8 @@ function AddModal({ onSave, onClose }) {
 }
 
 // ─── QUEUE ITEM ROW ──────────────────────────────────────────────
-function QueueRow({ item, pos, onInvite, onBooked, onArchive, onDelete, dragHandleProps, isDragging }) {
-  const svc = SERVICES[item.svcId] || {};
+function QueueRow({ item, pos, onInvite, onBooked, onArchive, onDelete, dragHandleProps, isDragging, svcMap }) {
+  const svc = (svcMap || SERVICES)[item.svcId] || {};
   const st  = STATUS_CFG[item.status] || STATUS_CFG.waiting;
   const ini = (item.name||"?").split(" ").map(w=>w[0]).slice(0,2).join("").toUpperCase();
 
@@ -226,6 +226,12 @@ export default function QueueView({ settings }) {
   const [showAdd,   setShowAdd]   = useState(false);
   const [showArch,  setShowArch]  = useState(false);
 
+  const svcMap = useMemo(() => {
+    const m = { ...SERVICES };
+    (settings?.services || []).forEach(s => { if (s?.id) m[s.id] = { name: s.name, color: s.colorId }; });
+    return m;
+  }, [settings?.services]);
+
   // Firebase sync — підтримує і клієнтську структуру queue/${slotKey}/entries/${uid}
   useEffect(() => {
     return onValue(ref(db, "queue"), snap => {
@@ -316,6 +322,7 @@ export default function QueueView({ settings }) {
                 item={item}
                 pos={idx+1}
                 isDragging={false}
+                svcMap={svcMap}
                 onInvite={()=>invite(item.id)}
                 onBooked={()=>booked(item.id)}
                 onArchive={()=>archive(item.id)}
@@ -356,6 +363,7 @@ export default function QueueView({ settings }) {
                 {archived.map(item=>(
                   <QueueRow
                     key={item.id} item={item} pos="—" isDragging={false}
+                    svcMap={svcMap}
                     onInvite={()=>{}} onBooked={()=>{}} onArchive={()=>{}}
                     onDelete={()=>del(item.id)}
                     dragHandleProps={{}}

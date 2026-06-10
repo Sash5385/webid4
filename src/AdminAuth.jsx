@@ -43,7 +43,7 @@ export function LoginScreen() {
     <div style={{ minHeight:"100vh", background:BG_DEEP, display:"flex", alignItems:"center", justifyContent:"center" }}>
       <div style={{ background:`linear-gradient(135deg,${SURF_HI},${SURFACE})`, borderRadius:20, padding:"32px 28px", width:"100%", maxWidth:360, boxShadow:SO, border:`1px solid ${BORDER}` }}>
         <div style={{ textAlign:"center", marginBottom:28 }}>
-          <div style={{ fontSize:32, marginBottom:8 }}>🚗</div>
+          <img src="/icon-192.png" alt="ID4Drive" style={{width:72,height:72,borderRadius:"50%",marginBottom:8,boxShadow:"-3px 5px 14px rgba(0,0,0,0.45)"}}/>
           <div style={{ fontSize:20, fontWeight:800, color:TEXT }}>ID4Drive Admin</div>
           <div style={{ fontSize:13, color:DIM, marginTop:4 }}>Вхід для інструктора</div>
         </div>

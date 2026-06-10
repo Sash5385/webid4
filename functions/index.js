@@ -66,7 +66,41 @@ async function pushAdmin(title, body) {
   }
 }
 
-// Всі зміни букінгу → push адміну або клієнту
+// Хелпер: заблокувати / звільнити timeslots для букінгу
+function buildSlotUpdates(bookingData, available) {
+  const { date, time, durationHours, durMin, startMin } = bookingData || {};
+  if (!date || (!time && startMin == null)) return {};
+  const INTERVAL = 30;
+  let start;
+  if (startMin != null) {
+    start = startMin;
+  } else {
+    const [h, m] = (time || "0:0").split(":").map(Number);
+    start = h * 60 + m;
+  }
+  const dur = durMin ?? ((durationHours || 1) * 60);
+  const updates = {};
+  for (let cur = start; cur < start + dur; cur += INTERVAL) {
+    const hh = String(Math.floor(cur / 60)).padStart(2, "0");
+    const mm = String(cur % 60).padStart(2, "0");
+    if (available) {
+      // Half-hour slots (9:30, 10:30…) were only created by blockSlots — delete them.
+      // Hour-boundary slots were generated — restore to available.
+      if (cur % 60 !== 0) {
+        updates[`timeslots/${date}/slot${hh}${mm}`] = null;
+      } else {
+        updates[`timeslots/${date}/slot${hh}${mm}/available`] = true;
+        updates[`timeslots/${date}/slot${hh}${mm}/time`] = `${hh}:${mm}`;
+      }
+    } else {
+      updates[`timeslots/${date}/slot${hh}${mm}/available`] = false;
+      updates[`timeslots/${date}/slot${hh}${mm}/time`] = `${hh}:${mm}`;
+    }
+  }
+  return updates;
+}
+
+// Всі зміни букінгу → push адміну або клієнту + синхронізація timeslots
 exports.onBookingChanged = onValueWritten(
   { ref: "bookings/{uid}/{bookingId}", region: "europe-west1" },
   async (event) => {
@@ -77,18 +111,24 @@ exports.onBookingChanged = onValueWritten(
     const date   = (after || before)?.date || "—";
     const time   = (after || before)?.time || "—";
 
-    // Новий запис (before = null)
-    if (before === null && after && after.cancelledBy !== "admin") {
-      console.log(`onBookingChanged: new booking uid=${uid}`);
-      await pushAdmin("📋 Новий запис", `${name} · ${date} о ${time}`);
+    // Новий запис (before = null) — блокуємо слоти
+    if (before === null && after) {
+      const slotUpd = buildSlotUpdates(after, false);
+      if (Object.keys(slotUpd).length) await db.ref("/").update(slotUpd).catch(() => {});
+      if (after.cancelledBy !== "admin") {
+        console.log(`onBookingChanged: new booking uid=${uid}`);
+        await pushAdmin("📋 Новий запис", `${name} · ${date} о ${time}`);
+      }
       return;
     }
 
     if (!before || !after) return;
 
-    // Учень скасував
+    // Учень скасував — звільняємо слоти
     if (after.cancelledBy === "student" && before.cancelledBy !== "student") {
       console.log(`onBookingChanged: student cancel uid=${uid}`);
+      const slotUpd = buildSlotUpdates(before, true);
+      if (Object.keys(slotUpd).length) await db.ref("/").update(slotUpd).catch(() => {});
       await pushAdmin("❌ Урок скасовано", `${name} · ${date} о ${time}`);
       return;
     }
@@ -103,9 +143,11 @@ exports.onBookingChanged = onValueWritten(
       return;
     }
 
-    // Адмін скасував
+    // Адмін скасував — звільняємо слоти
     if (after.status === "cancelled" && before.status !== "cancelled" && after.cancelledBy === "admin") {
       console.log(`onBookingChanged: admin cancelled uid=${uid}`);
+      const slotUpd = buildSlotUpdates(before, true);
+      if (Object.keys(slotUpd).length) await db.ref("/").update(slotUpd).catch(() => {});
       await pushStudent(uid, "❌ Урок скасовано", `${date} о ${time}`, {
         url: "https://id4drive.pro/cabinet/bookings",
       });
@@ -113,18 +155,20 @@ exports.onBookingChanged = onValueWritten(
       return;
     }
 
-    // Адмін переніс урок (змінилась дата або час, статус активний)
+    // Перенесено — тільки блокуємо нове місце (старе залишається blocked до ручної генерації)
     const rescheduled = after.status !== "cancelled" &&
       (after.date !== before.date || after.time !== before.time);
     if (rescheduled) {
+      const blockUpd = buildSlotUpdates(after, false);
+      if (Object.keys(blockUpd).length) await db.ref("/").update(blockUpd).catch(() => {});
       const oldDate = before.date || "—";
       const oldTime = before.time || "—";
       const body = `Новий час: ${date} о ${time} (було ${oldDate} о ${oldTime})`;
-      console.log(`onBookingChanged: rescheduled uid=${uid}`);
-      await pushStudent(uid, "🔄 Урок перенесено", body, {
-        url: "https://id4drive.pro/cabinet/bookings",
-      });
-      await saveNotification(uid, "🔄 Урок перенесено", body, "booking_rescheduled");
+      const bookingId = event.params.bookingId;
+      console.log(`onBookingChanged: rescheduled uid=${uid} bookingId=${bookingId} — queuing notif`);
+      await db.ref(`rescheduleQueue/${uid}/${bookingId}`).set({
+        uid, body, sendAfter: Date.now() + 60000,
+      }).catch(() => {});
       return;
     }
   }
@@ -260,8 +304,8 @@ exports.unlockVipSlots = onSchedule("every 1 hours", async () => {
   const usersSnap = await db.ref("users").get();
   const usersData = usersSnap.val() || {};
   const tokens = Object.values(usersData)
-    .filter(u => u.fcmToken && !u.isVip)
-    .map(u => u.fcmToken);
+    .filter(u => u.fcmTokens?.web?.token && !u.isVip)
+    .map(u => u.fcmTokens.web.token);
   if (!tokens.length) return;
 
   for (let i = 0; i < tokens.length; i += 500) {
@@ -273,8 +317,85 @@ exports.unlockVipSlots = onSchedule("every 1 hours", async () => {
       },
       webpush: {
         notification: { icon: "/favicon.svg" },
-        fcmOptions: { link: "https://id4drive.pro/book" },
+        fcmOptions: { link: "https://id4drive.pro/cabinet" },
       },
     }).catch(() => {});
   }
 });
+
+// Слот у найближчі 10 днів звільнився (скасування/розблокування) → пуш всім хто записувався за місяць
+exports.onSlotFreed = onValueWritten(
+  { ref: "timeslots/{date}/{slotId}", region: "europe-west1" },
+  async (event) => {
+    const before = event.data.before?.val();
+    const after  = event.data.after?.val();
+
+    // Тільки перехід available: false → true
+    if (!before || before.available !== false) return;
+    if (!after  || after.available  !== true)  return;
+
+    const { date } = event.params;
+
+    // Тільки найближчі 10 днів
+    const slotDate = new Date(date + "T00:00:00");
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const diffDays = Math.round((slotDate - today) / 86400000);
+    if (diffDays < 0 || diffDays > 10) return;
+
+    const time = after.time;
+    if (!time) return;
+
+    // Клієнти що записувались за останній місяць
+    const oneMonthAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
+    const bookingsSnap = await db.ref("bookings").get();
+    const bookingsData = bookingsSnap.val() || {};
+
+    const notifyUids = new Set();
+    for (const [uid, userBookings] of Object.entries(bookingsData)) {
+      if (!userBookings || typeof userBookings !== "object") continue;
+      for (const booking of Object.values(userBookings)) {
+        if ((booking.createdAt || 0) >= oneMonthAgo) {
+          notifyUids.add(uid);
+          break;
+        }
+      }
+    }
+
+    const dateFormatted = slotDate.toLocaleDateString("uk", { day: "numeric", month: "long", weekday: "short" });
+    const title = "🚗 Звільнився слот!";
+    const body  = `${dateFormatted} о ${time} — є вільне місце`;
+    const url   = `https://id4drive.pro/cabinet?date=${date}`;
+
+    for (const uid of notifyUids) {
+      await pushStudent(uid, title, body, { url, date, time }).catch(() => {});
+      await saveNotification(uid, title, body, "slot_freed").catch(() => {});
+    }
+  }
+);
+
+// Відправляє відкладені повідомлення про перенос уроку (дебаунс 1 хвилина)
+exports.flushRescheduleQueue = onSchedule(
+  { schedule: "every 1 minutes", region: "europe-west1" },
+  async () => {
+    const snap = await db.ref("rescheduleQueue").get();
+    if (!snap.exists()) return;
+    const now = Date.now();
+    const tasks = [];
+    snap.forEach(userSnap => {
+      const uid = userSnap.key;
+      userSnap.forEach(bookingSnap => {
+        const entry = bookingSnap.val();
+        if (entry && entry.sendAfter <= now) {
+          tasks.push({ uid, bookingId: bookingSnap.key, body: entry.body });
+        }
+      });
+    });
+    await Promise.all(tasks.map(async ({ uid, bookingId, body }) => {
+      await pushStudent(uid, "🔄 Урок перенесено", body, { url: "https://id4drive.pro/cabinet/bookings" });
+      await saveNotification(uid, "🔄 Урок перенесено", body, "booking_rescheduled");
+      await db.ref(`rescheduleQueue/${uid}/${bookingId}`).remove();
+      console.log(`flushRescheduleQueue: sent to uid=${uid} bookingId=${bookingId}`);
+    }));
+  }
+);

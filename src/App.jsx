@@ -34,14 +34,6 @@ body,html{margin:0;padding:0;background:${theme.BG}${theme.BG_IMAGE ? `;backgrou
 .tab-anim{animation:fade-tab .22s ease both}
 `;
 
-// ─── INLINE VIEWS (schedule + settings already in v5 — rebuilt here compactly) ──
-// Кожна вкладка — окремий компонент нижче або lazy-loaded
-
-// ─── LAZY VIEWS ─────────────────────────────────────────────────
-// У реальному проекті це були б:
-// const BookingsView  = lazy(()=>import("./id4drive-bookings"));
-// Тут — inline заглушки з повідомленням, бо всі компоненти в окремих файлах
-
 // ─── ICONS (3D pillow) ───────────────────────────────────────────
 const I3 = ({children,gr,s=36,r=12})=>(
   <div style={{
@@ -105,134 +97,6 @@ const TAB_TITLES = {
 };
 
 
-// ─── PLACEHOLDER (поки не підключено) ────────────────────────────
-function Placeholder({ tab, file }) {
-  return (
-    <div style={{
-      display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",
-      gap:16,padding:"40px 20px",
-      background:`linear-gradient(135deg,${SURF_HI},${SURFACE})`,
-      borderRadius:20,margin:"0 0 12px",
-      boxShadow:SO,border:`1px solid ${BORDER}`
-    }}>
-      {TabIcons[tab]?.(64,true)}
-      <div style={{textAlign:"center"}}>
-        <div style={{fontSize:16,fontWeight:800,color:TEXT,marginBottom:6}}>{TAB_TITLES[tab]}</div>
-        <div style={{fontSize:12,color:DIM,marginBottom:12}}>Компонент підключається з файлу:</div>
-        <div style={{
-          fontSize:12,color:ACCENT,fontWeight:700,
-          background:"rgba(255,90,60,0.1)",padding:"6px 14px",borderRadius:10,
-          border:"1px solid rgba(255,90,60,0.2)",fontFamily:"monospace"
-        }}>{file}</div>
-      </div>
-      <div style={{fontSize:11,color:FAINT,textAlign:"center",maxWidth:280}}>
-        У production-версії тут рендериться повний компонент через lazy import
-      </div>
-    </div>
-  );
-}
-
-// ─── SCHEDULE MINI (вбудована заглушка з інфо) ───────────────────
-function ScheduleInfo() {
-  const files = [
-    { file:"id4drive-admin-v5.jsx",    comp:"ScheduleView + SettingsView", lines:1304 },
-    { file:"id4drive-bookings.jsx",    comp:"BookingsView",                lines:703  },
-    { file:"id4drive-students.jsx",    comp:"StudentsView",                lines:683  },
-    { file:"id4drive-services.jsx",    comp:"ServicesView",                lines:612  },
-    { file:"id4drive-chats.jsx",       comp:"ChatsView",                   lines:647  },
-    { file:"id4drive-templates.jsx",   comp:"TemplatesView",               lines:597  },
-    { file:"id4drive-stats.jsx",       comp:"StatsView",                   lines:462  },
-  ];
-  const totalLines = files.reduce((s,f)=>s+f.lines,0);
-
-  return (
-    <div style={{display:"flex",flexDirection:"column",gap:10}}>
-      {/* header card */}
-      <div style={{
-        background:`linear-gradient(135deg,rgba(255,90,60,0.15),rgba(255,90,60,0.05))`,
-        borderRadius:20,padding:"20px",
-        border:`1px solid rgba(255,90,60,0.25)`,
-        boxShadow:SO
-      }}>
-        <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:16}}>
-          <I3 s={52} r={16} gr="linear-gradient(165deg,#ff7a5c,#ff5a3c)">
-            <span style={{fontSize:26,position:"relative",zIndex:1}}>🚗</span>
-          </I3>
-          <div>
-            <div style={{fontSize:20,fontWeight:900,color:TEXT,letterSpacing:-0.5}}>ID4Drive Admin</div>
-            <div style={{fontSize:12,color:DIM,marginTop:2}}>Панель управління інструктора</div>
-          </div>
-        </div>
-        <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8}}>
-          {[
-            {label:"Файлів",    val:files.length,        c:BLUE},
-            {label:"Рядків",    val:totalLines,          c:GOLD},
-            {label:"Вкладок",   val:8,                   c:ACCENT},
-          ].map(s=>(
-            <div key={s.label} style={{
-              background:`linear-gradient(135deg,${BG_DEEP},${SURF_LO})`,
-              borderRadius:12,padding:"10px",textAlign:"center",
-              boxShadow:"inset 3px 3px 8px rgba(0,0,0,0.4)"
-            }}>
-              <div style={{fontSize:18,fontWeight:900,color:s.c}}>{s.val}</div>
-              <div style={{fontSize:9,color:FAINT,letterSpacing:1,textTransform:"uppercase",marginTop:2}}>{s.label}</div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* files list */}
-      <div style={{
-        background:`linear-gradient(135deg,${SURF_HI},${SURFACE})`,
-        borderRadius:20,padding:"16px",boxShadow:SO,
-        border:`1px solid ${BORDER}`
-      }}>
-        <div style={{fontSize:10,color:FAINT,letterSpacing:1.5,textTransform:"uppercase",marginBottom:12}}>Структура проекту</div>
-        {files.map((f,i)=>(
-          <div key={i} style={{
-            display:"flex",alignItems:"center",gap:10,
-            padding:"10px 12px",marginBottom:6,borderRadius:12,
-            background:`linear-gradient(135deg,${BG_DEEP},${SURF_LO})`,
-            boxShadow:"inset 2px 2px 6px rgba(0,0,0,0.35)"
-          }}>
-            {TabIcons[TAB_IDS[i]?.id]?.(32,false)}
-            <div style={{flex:1,minWidth:0}}>
-              <div style={{fontSize:11,color:ACCENT,fontWeight:700,fontFamily:"monospace",marginBottom:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{f.file}</div>
-              <div style={{fontSize:10,color:DIM}}>{f.comp}</div>
-            </div>
-            <div style={{
-              fontSize:10,color:FAINT,fontWeight:700,
-              background:`${SURF_HI}`,padding:"2px 8px",borderRadius:8,flexShrink:0
-            }}>{f.lines} рядк.</div>
-          </div>
-        ))}
-      </div>
-
-      {/* integration guide */}
-      <div style={{
-        background:`linear-gradient(135deg,${SURF_HI},${SURFACE})`,
-        borderRadius:20,padding:"16px",boxShadow:SO,
-        border:`1px solid ${BORDER}`
-      }}>
-        <div style={{fontSize:10,color:FAINT,letterSpacing:1.5,textTransform:"uppercase",marginBottom:12}}>Як підключити</div>
-        {[
-          "1. Завантаж всі .jsx файли в папку /src/views/",
-          "2. В App.jsx зроби lazy import кожного компонента",
-          "3. Передай спільні settings та setSettings через props або Context",
-          "4. Підключи Firebase — замість mock data використай реальні запити",
-          "5. Задеплой на Vercel або Firebase Hosting",
-        ].map((s,i)=>(
-          <div key={i} style={{
-            fontSize:12,color:DIM,padding:"8px 12px",marginBottom:4,
-            borderRadius:10,background:`rgba(255,255,255,0.02)`,
-            borderLeft:`3px solid ${ACCENT}44`
-          }}>{s}</div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 // ─── BOTTOM NAV ──────────────────────────────────────────────────
 function BottomNav({ active, onChange, settings, chatUnread }) {
   const lang = useContext(LangContext);
@@ -247,7 +111,7 @@ function BottomNav({ active, onChange, settings, chatUnread }) {
       pointerEvents:"none",
     }}>
       <div style={{
-        background:`linear-gradient(180deg,${SURFACE},${SURF_LO})`,
+        background:`linear-gradient(180deg,#3a3b40,#2e2f34)`,
         borderRadius:26,
         border:`1px solid rgba(255,255,255,0.08)`,
         boxShadow:"0 12px 40px rgba(0,0,0,0.65), 0 4px 16px rgba(0,0,0,0.4), 0 -1px 0 rgba(255,255,255,0.05)",
@@ -366,54 +230,52 @@ function TopBar({ tab, onChange, settings, setSettings }) {
   return (
     <div style={{position:"sticky",top:0,zIndex:20}}>
       <div style={{
-        padding:"6px 12px",
+        padding:"4px 8px",
         display:"flex",alignItems:"center",justifyContent:"space-between",
         background:`linear-gradient(180deg,${BG} 60%,rgba(28,29,33,0.9))`,
         backdropFilter:"blur(20px)",
         borderBottom:`1px solid ${showInfo ? "transparent" : BORDER}`,
       }}>
-        <div style={{display:"flex",alignItems:"center",gap:7}}>
-          <I3 s={22} r={7} gr="linear-gradient(165deg,#ff7a5c,#ff5a3c)">
-            <span style={{fontSize:12,position:"relative",zIndex:1}}>🚗</span>
-          </I3>
-          <div style={{fontSize:13,fontWeight:800,letterSpacing:-0.3,color:TEXT}}>{tabLabel}</div>
-          {tab==="schedule" && settings && setSettings && [6,8,10,12].map(n=>{
+        <div style={{display:"flex",alignItems:"center",gap:5}}>
+          <img src="/icon-192.png" alt="ID4Drive" style={{width:22,height:22,borderRadius:"50%",flexShrink:0,boxShadow:"-2px 3px 8px rgba(0,0,0,0.45)"}}/>
+          {tab!=="schedule" && <div style={{fontSize:13,fontWeight:800,letterSpacing:-0.3,color:TEXT}}>{tabLabel}</div>}
+          {tab==="schedule" && settings && setSettings && [6,8,9,10,12].map(n=>{
             const totalH = (settings.workEnd - settings.workStart) * 60;
             const targetHpx = Math.round(totalH / n);
             const active = Math.abs(settings.hourHeightPx - targetHpx) < 5;
             return (
               <button key={`h${n}`} onClick={()=>setSettings(s=>({...s,hourHeightPx:Math.round((s.workEnd-s.workStart)*60/n)}))} style={{
-                padding:"4px 8px",borderRadius:8,border:"none",cursor:"pointer",
+                padding:"4px 7px",borderRadius:9,border:"none",cursor:"pointer",
                 background:active?`linear-gradient(165deg,#5b9bff,#2563eb)`:`rgba(255,255,255,0.08)`,
                 color:active?"#fff":"rgba(255,255,255,0.55)",
-                fontSize:11,fontWeight:active?800:600,
                 boxShadow:active?`0 3px 8px rgba(91,155,255,0.5)`:"none",
                 transition:"all .15s",
-              }}>{n}г</button>
+                display:"flex",flexDirection:"column",alignItems:"center",lineHeight:1,gap:1,
+              }}>
+                <span style={{fontSize:15,fontWeight:800}}>{n}</span>
+                <span style={{fontSize:8,fontWeight:600,opacity:0.8}}>годин</span>
+              </button>
             );
           })}
         </div>
-        <div style={{display:"flex",gap:6,alignItems:"center"}}>
+        <div style={{display:"flex",gap:4,alignItems:"center"}}>
+          {tab==="schedule" && <div style={{width:1,height:28,background:"rgba(255,255,255,0.15)",borderRadius:1,marginRight:2}}/>}
           {tab==="schedule" && settings && setSettings && [3,5,6,7,10].map(n=>{
             const active = settings.daysShown===n;
             return (
               <button key={n} onClick={()=>setSettings(s=>({...s,daysShown:n}))} style={{
-                padding:"4px 9px",borderRadius:8,border:"none",cursor:"pointer",
+                padding:"4px 7px",borderRadius:9,border:"none",cursor:"pointer",
                 background:active?`linear-gradient(165deg,${GOLD},#e6a800)`:`rgba(255,255,255,0.08)`,
                 color:active?"#1a1200":"rgba(255,255,255,0.55)",
-                fontSize:11,fontWeight:active?800:600,
                 boxShadow:active?`0 3px 8px ${GOLD}55`:"none",
                 transition:"all .15s",
-              }}>{n}д</button>
+                display:"flex",flexDirection:"column",alignItems:"center",lineHeight:1,gap:1,
+              }}>
+                <span style={{fontSize:15,fontWeight:800}}>{n}</span>
+                <span style={{fontSize:8,fontWeight:600,opacity:0.8}}>діб</span>
+              </button>
             );
           })}
-          {instruction && (
-            <button onClick={()=>setShowInfo(v=>!v)} style={{background:"none",border:"none",cursor:"pointer",padding:0}}>
-              <I3 s={24} r={7} gr={showInfo?"linear-gradient(165deg,#fcd34d,#d97706)":"linear-gradient(135deg,#2e3034,#26282c)"}>
-                <span style={{fontSize:12,position:"relative",zIndex:1,lineHeight:1}}>💡</span>
-              </I3>
-            </button>
-          )}
         </div>
       </div>
       {showInfo && instruction && (
@@ -674,6 +536,7 @@ export default function App() {
           });
         });
       });
+
       const allIds = new Set(all.map(fb => fb.id));
       setBookings(prev => {
         const prevMap = new Map(prev.map(b => [b.id, b]));
@@ -704,8 +567,7 @@ export default function App() {
   const activeDragIds = React.useRef(new Set());
   // Map of existing Firebase timeslot nodes: { dateStr: Set<"HH:MM"> }
   const slotExistsRef = React.useRef({});
-
-  const pendingDeletesRef = React.useRef(new Set());
+const pendingDeletesRef = React.useRef(new Set());
 
   const handleSetBookings = fn => {
     setBookings(prev => {
@@ -716,12 +578,45 @@ export default function App() {
       // Під час drag пропускаємо всю Firebase-логіку крім debounce-таймера позиції.
       // Це запобігає випадковим delete/create операціям під час кожного pointermove.
       const dragging = activeDragIds.current.size > 0;
+      const intervalMin = settings.snapMin ?? 30;
+
+      const blockSlots = (date, startMin, durMin) => {
+        if (!date) return;
+        const upd = {};
+        for (let cur = startMin; cur < startMin + durMin; cur += intervalMin) {
+          const h = String(Math.floor(cur / 60)).padStart(2, "0");
+          const m = String(cur % 60).padStart(2, "0");
+          upd[`timeslots/${date}/slot${h}${m}/available`] = false;
+          upd[`timeslots/${date}/slot${h}${m}/time`] = `${h}:${m}`;
+        }
+        if (Object.keys(upd).length) update(ref(db, "/"), upd).catch(() => {});
+      };
+
+      const freeSlots = (date, startMin, durMin) => {
+        if (!date) return;
+        const existsForDate = slotExistsRef.current[date];
+        const upd = {};
+        for (let cur = startMin; cur < startMin + durMin; cur += intervalMin) {
+          const h = String(Math.floor(cur / 60)).padStart(2, "0");
+          const m = String(cur % 60).padStart(2, "0");
+          const key = `timeslots/${date}/slot${h}${m}`;
+          // Half-hour slots (9:30, 10:30…) were never generated — always delete them.
+          // Hour-boundary slots restore to available if they exist, else delete.
+          if (cur % 60 === 0 && existsForDate?.has(`${h}:${m}`)) {
+            upd[`${key}/available`] = true;
+          } else {
+            upd[key] = null;
+          }
+        }
+        if (Object.keys(upd).length) update(ref(db, "/"), upd).catch(() => {});
+      };
 
       if (!dragging) {
-        // 1. Deleted bookings → mark cancelled in Firebase
+        // 1. Deleted bookings → mark cancelled in Firebase + free timeslots
         prev.forEach(b => {
           if (!nextIds.has(b.id) && b.userId && b.id) {
             pendingDeletesRef.current.add(b.id);
+            freeSlots(b.date, b.startMin, b.durMin);
             Promise.resolve().then(() => {
               const keys = [...new Set([b._fbKey, b.id].filter(Boolean))];
               const now = Date.now();
@@ -739,7 +634,7 @@ export default function App() {
         const p = prevMap.get(b.id);
 
         if (!dragging) {
-          // 2. New admin-created bookings (no userId) → save under admin UID
+          // 2. New admin-created bookings (no userId) → save under admin UID + block timeslots
           if (!p && !b.userId && b.id && adminUser) {
             const hh = String(Math.floor(b.startMin / 60)).padStart(2, "0");
             const mm = String(b.startMin % 60).padStart(2, "0");
@@ -751,6 +646,7 @@ export default function App() {
               time: `${hh}:${mm}`,
               durationHours: b.durMin / 60,
             }).catch(() => {});
+            blockSlots(date, b.startMin, b.durMin);
             b.userId = adminUser.uid;
             b.date   = date;
             return;
@@ -762,10 +658,14 @@ export default function App() {
         if (!dragging) {
           // 3. Status change → save immediately
           if (p.status !== b.status) {
-            update(ref(db, `bookings/${b.userId}/${b._fbKey || b.id}`), { status: b.status }).catch(() => {});
+            const patch = { status: b.status };
             if (b.status === 'cancelled') {
+              patch.cancelledBy = 'admin';
+              patch.cancelledAt = Date.now();
+              freeSlots(b.date, b.startMin, b.durMin);
               Promise.resolve().then(() => setBookings(bs => bs.filter(x => x.id !== b.id)));
             }
+            update(ref(db, `bookings/${b.userId}/${b._fbKey || b.id}`), patch).catch(() => {});
             return;
           }
         }
@@ -783,9 +683,8 @@ export default function App() {
             const mm = String(b.startMin % 60).padStart(2, "0");
             const newDate = dayIdxToDate(b.day);
             const oldDate = orig.date || dayIdxToDate(orig.day);
-            // Спочатку зберігаємо букінг, потім читаємо слоти і оновлюємо їх.
-            // moveSaveTimers[id] видаляємо тільки після підтвердження — це захищає від
-            // перезапису локального стану Firebase listener до завершення запису.
+            // Only block new position — freeing old is done via generate, not on drag.
+            blockSlots(newDate, b.startMin, b.durMin);
             update(ref(db, `bookings/${b.userId}/${b._fbKey || b.id}`), {
               startMin: b.startMin,
               durMin:   b.durMin,
@@ -820,7 +719,7 @@ export default function App() {
     <>
       <style>{css}</style>
       <div style={{
-        height:"100dvh",background:theme.BG_IMAGE?"transparent":theme.BG,color:theme.TEXT,
+        height:"100dvh",background:"transparent",color:theme.TEXT,
         fontFamily:"ui-sans-serif,-apple-system,BlinkMacSystemFont,system-ui,sans-serif",
         display:"flex",flexDirection:"column"
       }}>
