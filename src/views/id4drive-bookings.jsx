@@ -50,6 +50,12 @@ const RAW = [];
 
 // ─── HELPERS ───────────────────────────────────────────────────
 const fmtTime = m => `${String(Math.floor(m/60)).padStart(2,"0")}:${String(m%60).padStart(2,"0")}`;
+const fmtTs = ts => {
+  if (!ts) return null;
+  const d = new Date(ts);
+  const months=["","Січ","Лют","Бер","Кві","Тра","Чер","Лип","Сер","Вер","Жов","Лис","Гру"];
+  return `${d.getDate()} ${months[d.getMonth()+1]} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
+};
 const fmtDate = d => {
   const months=["","Січ","Лют","Бер","Кві","Тра","Чер","Лип","Сер","Вер","Жов","Лис","Гру"];
   const [,mo,dy]=d.split("-");
@@ -242,11 +248,27 @@ function BookingCard({ b, expanded, onToggle, onConfirm, onCancel, onNoshow, onD
           <div style={{fontSize:12,color:DIM,marginBottom:13,paddingLeft:2}}>{b.phone}{b.tsc?` · ${b.tsc}`:""}</div>
 
           {/* Info chips */}
-          <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:b.type==="school"?12:0}}>
+          <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:b.type==="school"?12:8}}>
             <InfoChip value={fmtDate(b.date)}                                        color={TEXT}/>
             <InfoChip value={`${fmtTime(b.startMin)}–${fmtTime(b.startMin+b.durMin)}`} color={BLUE}/>
             <InfoChip value={`${price} ₴`}                                          color={GOLD}/>
           </div>
+
+          {/* Booking/reschedule timestamps */}
+          {(b.createdAt || b.rescheduledAt) && (
+            <div style={{display:"flex",flexDirection:"column",gap:3,marginBottom:12}}>
+              {b.createdAt && (
+                <div style={{fontSize:10,color:FAINT}}>
+                  <span style={{color:DIM}}>Записано:</span> {fmtTs(b.createdAt)}
+                </div>
+              )}
+              {b.rescheduledAt && (
+                <div style={{fontSize:10,color:FAINT}}>
+                  <span style={{color:"#f59e0b"}}>Перенесено:</span> {fmtTs(b.rescheduledAt)}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Progress bar (school only) */}
           {b.type==="school" && (

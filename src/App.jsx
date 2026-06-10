@@ -692,6 +692,7 @@ const pendingDeletesRef = React.useRef(new Set());
               day:      b.day,
               date:     newDate,
               time:     `${hh}:${mm}`,
+              rescheduledAt: Date.now(),
             }).catch(() => {}).finally(() => {
               delete moveSaveTimers.current[b.id];
               delete moveOriginals.current[b.id];
