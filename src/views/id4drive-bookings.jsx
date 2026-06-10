@@ -577,6 +577,7 @@ export default function BookingsView({ settings }) {
               status: entry.status || 'waiting',
               addedAt: entry.addedAt || 0,
               studentType: entry.studentType,
+              durationHours: entry.durationHours,
               slotKey: id,
             });
           });
@@ -742,6 +743,7 @@ export default function BookingsView({ settings }) {
                         {q.slotKey && <span style={{color:FAINT}}>{q.phone||svc.name?" · ":""}{q.slotKey.replace("_"," ")}</span>}
                       </div>
                     </div>
+                    {(()=>{const h=q.durationHours||(svc.name||"").match(/(\d+)г/)?.[1];return h?(<div style={{padding:"3px 7px",borderRadius:7,background:"rgba(247,201,72,0.15)",border:"1px solid rgba(247,201,72,0.3)",fontSize:11,fontWeight:900,color:GOLD,flexShrink:0,whiteSpace:"nowrap"}}>{h} год</div>):null;})()}
                     <span style={{fontSize:9,color:stColor,fontWeight:700,background:`${stColor}20`,padding:"2px 7px",borderRadius:6,flexShrink:0}}>{stLabel}</span>
                     {q.status==="waiting" && (
                       <button onClick={()=>markOffered(q)} style={{background:"linear-gradient(145deg,#c084fc,#7c3aed)",border:"none",borderRadius:7,padding:"4px 9px",cursor:"pointer",color:"#fff",fontSize:11,fontWeight:700,flexShrink:0}}>Запросити</button>

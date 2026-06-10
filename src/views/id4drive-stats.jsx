@@ -388,15 +388,15 @@ export default function StatsView() {
           <Card style={{padding:"12px"}}>
             <div style={{fontSize:9,color:FAINT,letterSpacing:1,textTransform:"uppercase",fontWeight:700,marginBottom:9}}>По днях</div>
             {weekData.map((d, i) => {
-              const maxL = Math.max(...weekData.map(x => x.lessons), 1);
-              const pct  = d.lessons / maxL;
+              const maxI = Math.max(...weekData.map(x => x.income), 1);
+              const pct  = d.income / maxI;
               return (
                 <div key={i} style={{display:"flex",alignItems:"center",gap:6,marginBottom:6}}>
                   <span style={{fontSize:9,color:FAINT,fontWeight:700,width:16,textAlign:"right",flexShrink:0}}>{d.label}</span>
                   <div style={{flex:1,height:5,background:BG_DEEP,borderRadius:3,boxShadow:SI,overflow:"hidden"}}>
-                    <div style={{height:"100%",width:`${pct*100}%`,borderRadius:3,background:`linear-gradient(90deg,${BLUE},${PURPLE})`,transition:"width .5s ease"}}/>
+                    <div style={{height:"100%",width:`${pct*100}%`,borderRadius:3,background:`linear-gradient(90deg,${GOLD},${GREEN})`,transition:"width .5s ease"}}/>
                   </div>
-                  <span style={{fontSize:9,color:DIM,fontWeight:700,width:12,flexShrink:0}}>{d.lessons}</span>
+                  <span style={{fontSize:9,color:GOLD,fontWeight:800,width:34,textAlign:"right",flexShrink:0}}>{d.income ? fmtK(d.income) : <span style={{color:FAINT}}>—</span>}</span>
                 </div>
               );
             })}

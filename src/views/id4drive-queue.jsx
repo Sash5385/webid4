@@ -127,10 +127,17 @@ function AddModal({ onSave, onClose }) {
 }
 
 // ─── QUEUE ITEM ROW ──────────────────────────────────────────────
+function getHours(item, svc) {
+  if (item.durationHours) return item.durationHours;
+  const m = (svc.name || "").match(/(\d+)г/);
+  return m ? parseInt(m[1]) : null;
+}
+
 function QueueRow({ item, pos, onInvite, onBooked, onArchive, onDelete, dragHandleProps, isDragging, svcMap }) {
   const svc = (svcMap || SERVICES)[item.svcId] || {};
   const st  = STATUS_CFG[item.status] || STATUS_CFG.waiting;
   const ini = (item.name||"?").split(" ").map(w=>w[0]).slice(0,2).join("").toUpperCase();
+  const hrs = getHours(item, svc);
 
   return (
     <div className={`drag-item fade-in ${isDragging?"dragging":""}`} style={{
@@ -172,6 +179,14 @@ function QueueRow({ item, pos, onInvite, onBooked, onArchive, onDelete, dragHand
         <div style={{fontSize:9,color:FAINT,flexShrink:0,textAlign:"right"}}>
           {fmtWait(item.addedAt)}
         </div>
+        {/* hours badge */}
+        {hrs && (
+          <div style={{
+            padding:"4px 7px",borderRadius:7,flexShrink:0,
+            background:`rgba(247,201,72,0.15)`,border:`1px solid rgba(247,201,72,0.3)`,
+            fontSize:11,fontWeight:900,color:GOLD,whiteSpace:"nowrap",
+          }}>{hrs} год</div>
+        )}
         {/* status chip */}
         <span style={{background:st.bg,color:st.color,padding:"3px 8px",borderRadius:7,fontSize:10,fontWeight:700,flexShrink:0,whiteSpace:"nowrap"}}>
           {st.label}
