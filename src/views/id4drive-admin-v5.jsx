@@ -1871,7 +1871,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
         if (b.id) {
           const fbData = {
             id: b.id, date: b.date || "", time: fmtTime(b.startMin),
-            startMin: b.startMin, durMin: b.durMin,
+            startMin: b.startMin, durMin: b.durMin, durationHours: b.durMin / 60,
             studentName: b.name, name: b.name, phone: b.phone,
             serviceId: b.serviceId, serviceType: b.type, type: b.type,
             status: b.status, tsc: b.tsc || "", hours: b.hoursDone || 0,
@@ -1883,7 +1883,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
         }
         if (b.date && b.startMin !== undefined && b.durMin) {
           const slotUpd = {};
-          for (let i = 0; i < b.durMin; i += 60) {
+          for (let i = 0; i < b.durMin; i += 30) {
             const slotMin = b.startMin + i;
             const sh = String(Math.floor(slotMin / 60)).padStart(2, '0');
             const sm = String(slotMin % 60).padStart(2, '0');
