@@ -150,7 +150,7 @@ const Ico = {
 };
 
 // ─── BOOKING CARD (expand / collapse) ──────────────────────────
-function BookingCard({ b, expanded, onToggle, onConfirm, onCancel, onNoshow, onComplete, onDelete, svcs }) {
+function BookingCard({ b, expanded, onToggle, onConfirm, onCancel, onNoshow, onComplete, onDelete, svcs, showComplete }) {
   const svc   = (svcs || SERVICES)[b.svcId];
   const cat   = b.catId ? CATEGORIES[b.catId] : null;
   const STATUS_MAP = getStatusMap(T);
@@ -165,7 +165,7 @@ function BookingCard({ b, expanded, onToggle, onConfirm, onCancel, onNoshow, onC
     ...(b.status==="pending" ? [
       { label:"Підтвердити", gr:"linear-gradient(145deg,#9ee07a,#5fb83d)", icon:Ico.check, fn:()=>onConfirm(b.id) },
     ] : []),
-    ...(b.status==="confirmed" ? [
+    ...(b.status==="confirmed" && showComplete ? [
       { label:"Завершити", gr:"linear-gradient(145deg,#60a5fa,#2563eb)", icon:Ico.complete, fn:()=>onComplete(b.id) },
     ] : []),
     ...(b.status!=="noshow" && b.status!=="completed" ? [
@@ -799,7 +799,8 @@ export default function BookingsView({ settings }) {
             <div style={{display:"flex",flexDirection:"column",gap:7}}>
               {items.map(b=>(
                 <BookingCard key={b.id} b={b} expanded={expandedId===b.id} svcs={svcsMap}
-                  onToggle={()=>toggle(b.id)} onConfirm={confirm} onCancel={cancel} onNoshow={noshow} onComplete={complete} onDelete={deleteBooking}/>
+                  onToggle={()=>toggle(b.id)} onConfirm={confirm} onCancel={cancel} onNoshow={noshow} onComplete={complete} onDelete={deleteBooking}
+                  showComplete={settings?.showCompleteBtn !== false}/>
               ))}
             </div>
           </div>

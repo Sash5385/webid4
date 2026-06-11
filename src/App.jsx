@@ -301,7 +301,7 @@ const DEFAULT_SETTINGS = {
   lunchEnabled:true, lunchStart:12, lunchEnd:13, customBlocks:[], pendingEnabled:false,
   theme:"dark", language:"uk", queueAutoFifo:true, queueBroadcast:false, queueManual:false,
   studentCanReschedule:true, studentCanCancel:true, bookCutoffHours:2, calendarOpenDays:30,
-  stickyTime:"both", notifLocation:"topbar",
+  stickyTime:"both", notifLocation:"topbar", showCompleteBtn:true,
   navTabs:["schedule","bookings","students","services","chats","templates","stats","settings"],
   autoReminders:[
     {enabled:true,  hoursBefore:24},

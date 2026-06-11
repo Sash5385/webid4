@@ -322,8 +322,11 @@ select{color-scheme:dark}
         {/* ── ПІДТВЕРДЖЕННЯ & ЧЕРГА ── */}
         <Section title={t('set.queue.title')} icon="✅">
           <Info color={GREEN} title={t('set.queue.info_t')} text={t('set.queue.info')}/>
-          <Row label={t('set.queue.require')} hint={t('set.queue.require_h')} last>
+          <Row label={t('set.queue.require')} hint={t('set.queue.require_h')}>
             <Toggle on={settings.pendingEnabled} onChange={v=>upd("pendingEnabled",v)}/>
+          </Row>
+          <Row label={lang==="en"?"Show «Complete» button":"Кнопка «Завершити»"} hint={lang==="en"?"Show a Complete button on confirmed bookings":"Показувати кнопку «Завершити» на підтверджених записах"} last>
+            <Toggle on={settings.showCompleteBtn !== false} onChange={v=>upd("showCompleteBtn",v)}/>
           </Row>
           <div style={{paddingTop:10}}>
             <div style={{fontSize:9,color:FAINT,letterSpacing:1,textTransform:"uppercase",marginBottom:8}}>{t('set.queue.mode')}</div>
