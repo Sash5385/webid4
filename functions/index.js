@@ -50,9 +50,10 @@ async function inviteNextInQueue(slotKey, excludeUids = []) {
 async function pushAdmin(title, body) {
   const snap = await db.ref("admin/fcmToken").get();
   const token = snap.val();
-  if (!token) { console.log("pushAdmin: no token at admin/fcmToken"); return; }
+  console.log(`pushAdmin: token exists=${!!token}, title="${title}"`);
+  if (!token) { console.warn("pushAdmin: no token at admin/fcmToken"); return; }
   try {
-    await admin.messaging().send({
+    const result = await admin.messaging().send({
       token,
       notification: { title, body },
       webpush: {
@@ -60,9 +61,15 @@ async function pushAdmin(title, body) {
         fcmOptions: { link: "https://admin.id4drive.pro" },
       },
     });
-    console.log(`pushAdmin OK: ${title}`);
+    console.log(`pushAdmin OK: ${title} messageId=${result}`);
   } catch (e) {
-    console.error("pushAdmin error:", e.code, e.message);
+    console.error(`pushAdmin error: code=${e.code} msg=${e.message}`);
+    // Якщо токен протухнув — очищаємо щоб не повторювати помилку
+    if (e.code === "messaging/registration-token-not-registered" ||
+        e.code === "messaging/invalid-registration-token") {
+      await db.ref("admin/fcmToken").remove().catch(() => {});
+      console.warn("pushAdmin: stale token removed from admin/fcmToken");
+    }
   }
 }
 
@@ -115,7 +122,15 @@ exports.onBookingChanged = onValueWritten(
     if (before === null && after) {
       const slotUpd = buildSlotUpdates(after, false);
       if (Object.keys(slotUpd).length) await db.ref("/").update(slotUpd).catch(() => {});
-      if (after.cancelledBy !== "admin") {
+      if (after.createdBy === "admin" && uid !== "admin") {
+        // Адмін вручну записав учня — сповіщаємо учня
+        console.log(`onBookingChanged: admin manual booking uid=${uid}`);
+        await pushStudent(uid, "📋 Урок заплановано", `${date} о ${time}`, {
+          url: "https://id4drive.pro/cabinet/bookings",
+        });
+        await saveNotification(uid, "📋 Урок заплановано", `${date} о ${time}`, "booking_confirmed");
+      } else if (after.createdBy !== "admin") {
+        // Учень записався сам — сповіщаємо адміна
         console.log(`onBookingChanged: new booking uid=${uid}`);
         await pushAdmin("📋 Новий запис", `${name} · ${date} о ${time}`);
       }
@@ -130,6 +145,7 @@ exports.onBookingChanged = onValueWritten(
       const slotUpd = buildSlotUpdates(before, true);
       if (Object.keys(slotUpd).length) await db.ref("/").update(slotUpd).catch(() => {});
       await pushAdmin("❌ Урок скасовано", `${name} · ${date} о ${time}`);
+      if (date !== "—" && time !== "—") await inviteNextInQueue(`${date}_${time}`).catch(() => {});
       return;
     }
 
@@ -152,6 +168,7 @@ exports.onBookingChanged = onValueWritten(
         url: "https://id4drive.pro/cabinet/bookings",
       });
       await saveNotification(uid, "❌ Урок скасовано", `${date} о ${time}`, "booking_cancelled");
+      if (date !== "—" && time !== "—") await inviteNextInQueue(`${date}_${time}`).catch(() => {});
       return;
     }
 
@@ -255,9 +272,13 @@ exports.onAdminSlotOpened = onValueWritten(
     if (before.adminBlocked !== true) return;
     if (after.adminBlocked !== false || after.available !== true) return;
 
-    const { date } = event.params;
-    const time = after.time;
-    if (!time) return;
+    const { date, slotId } = event.params;
+    let time = after.time;
+    if (!time) {
+      const m = slotId.match(/^slot(\d{2})(\d{2})$/);
+      if (!m) return;
+      time = `${m[1]}:${m[2]}`;
+    }
 
     const slotKey = `${date}_${time}`;
     const qSnap = await db.ref(`queue/${slotKey}/entries`).get();
