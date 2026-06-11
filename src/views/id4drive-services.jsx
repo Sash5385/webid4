@@ -1,10 +1,10 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useContext } from "react";
 import { ref, get, set } from "firebase/database";
 import { db } from "../firebase";
 
-import { BG, BG_DEEP, SURFACE, SURF_HI, SURF_LO, BORDER, TEXT, DIM, FAINT, ACCENT, ACC_HI, GREEN, BLUE, PURPLE, GOLD, RED, TEAL, SO, SI } from "../theme.js";
+import { ThemeContext } from "../theme.js";
 
-const PALETTE = [
+const makePalette = ({GREEN, GOLD, BLUE, PURPLE, ACCENT, TEAL}) => [
   { id:"green",   name:"Зелений",    color:GREEN  },
   { id:"yellow",  name:"Жовтий",     color:GOLD   },
   { id:"blue",    name:"Синій",      color:BLUE   },
@@ -16,40 +16,15 @@ const PALETTE = [
   { id:"indigo",  name:"Індиго",     color:"#818cf8" },
   { id:"lime",    name:"Лайм",       color:"#a3e635" },
 ];
-const colorOf = id => PALETTE.find(p=>p.id===id)?.color || GREEN;
 
-const CATEGORIES = {
+const makeCategories = ({TEXT, PURPLE, BLUE, TEAL}) => ({
   "cat-all": { name:"Всі учні",   color:TEXT   },
   "cat-vip": { name:"VIP",        color:PURPLE },
   "cat-std": { name:"Стандарт",   color:BLUE   },
   "cat-new": { name:"Новачок",    color:TEAL   },
-};
+});
 
-// ─── CSS ────────────────────────────────────────────────────────
-const CSS = `
-*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-::-webkit-scrollbar{width:5px;height:5px}
-::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.1);border-radius:3px}
-.pillow{background:linear-gradient(155deg,${SURF_HI},${SURFACE});border:1px solid rgba(255,255,255,0.06);border-radius:13px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.35)}
-.icon3d{display:inline-flex;align-items:center;justify-content:center;border-radius:14px;position:relative;overflow:hidden;flex-shrink:0;box-shadow:-2px 4px 10px rgba(0,0,0,0.5),inset 1px 1px 0 rgba(255,255,255,0.25),inset -1px -1px 0 rgba(0,0,0,0.3)}
-.icon3d::before{content:'';position:absolute;top:0;right:0;width:60%;height:50%;background:radial-gradient(ellipse at top right,rgba(255,255,255,0.4) 0%,transparent 70%);pointer-events:none}
-.icon3d>svg{position:relative;z-index:1;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.4))}
-.toggle{width:46px;height:26px;border-radius:13px;cursor:pointer;position:relative;transition:background .2s;background:${SURF_LO};box-shadow:inset 2px 2px 5px rgba(0,0,0,0.4)}
-.toggle.on{background:linear-gradient(165deg,${GREEN},#5fb83d)}
-.toggle-thumb{position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:10px;background:linear-gradient(135deg,#fff,#ccc);transition:left .2s;box-shadow:-1px 2px 4px rgba(0,0,0,0.3)}
-.toggle.on .toggle-thumb{left:23px}
-/* slot preview */
-.slot-preview{position:relative;overflow:hidden;border-radius:14px}
-.slot-preview::before{content:'';position:absolute;pointer-events:none;top:2px;right:8%;width:50%;height:35%;background:radial-gradient(ellipse at top right,rgba(255,255,255,0.22) 0%,transparent 65%);border-radius:50%;filter:blur(1px);z-index:2}
-.slot-preview::after{content:'';position:absolute;pointer-events:none;bottom:0;left:0;right:0;height:30%;background:linear-gradient(to bottom,transparent,rgba(0,0,0,0.18));border-radius:0 0 14px 14px;z-index:2}
-/* drag */
-.drag-item{transition:transform .15s,box-shadow .15s;touch-action:none}
-.drag-item.dragging{opacity:0.85;box-shadow:0 16px 40px rgba(0,0,0,0.6),0 0 0 2px ${ACCENT};z-index:50;transform:scale(1.02)}
-@keyframes fade-in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
-.fade-in{animation:fade-in .2s ease both}
-@keyframes modal-in{from{opacity:0;transform:translateY(40px)}to{opacity:1;transform:translateY(0)}}
-.modal-in{animation:modal-in .25s ease both}
-`;
+// CSS is defined inside ServicesView to use theme variables
 
 // ─── MOCK DATA ───────────────────────────────────────────────────
 const INIT_SERVICES = [
@@ -72,6 +47,7 @@ function Toggle({ on, onChange }) {
   return <div className={`toggle ${on?"on":""}`} onClick={()=>onChange(!on)}><div className="toggle-thumb"/></div>;
 }
 function Inset({ children, style={} }) {
+  const { BG_DEEP, SURF_LO, SI } = useContext(ThemeContext);
   return <div style={{background:`linear-gradient(135deg,${BG_DEEP},${SURF_LO})`,borderRadius:12,boxShadow:SI,padding:"10px 14px",...style}}>{children}</div>;
 }
 
@@ -79,7 +55,7 @@ function Inset({ children, style={} }) {
 const I3 = ({children,gr,s=40,r=14})=>(
   <div className="icon3d" style={{width:s,height:s,background:gr,borderRadius:r}}>{children}</div>
 );
-const Ic = {
+const makeIc = ({ACC_HI, ACCENT, SURF_HI, SURFACE, DIM, TEXT}) => ({
   school: s=><I3 s={s} gr="linear-gradient(165deg,#9ee07a,#5fb83d)"><svg width={s*.6} height={s*.6} viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 10l9-5 9 5-9 5-9-5z"/><path d="M7 12v5a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2v-5"/></svg></I3>,
   car:    s=><I3 s={s} gr="linear-gradient(165deg,#c084fc,#8b5cf6)"><svg width={s*.6} height={s*.6} viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 17h14M3 17V9l3-5h12l3 5v8M5 17a2 2 0 1 0 4 0 2 2 0 1 0-4 0M15 17a2 2 0 1 0 4 0 2 2 0 1 0-4 0M3 9h18"/></svg></I3>,
   plus:   s=><I3 s={s} gr={`linear-gradient(165deg,${ACC_HI},${ACCENT})`}><svg width={s*.5} height={s*.5} viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></I3>,
@@ -91,10 +67,13 @@ const Ic = {
   lock:   s=><I3 s={s} gr="linear-gradient(165deg,#fcd34d,#d97706)"><svg width={s*.55} height={s*.55} viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></I3>,
   grid:   s=><I3 s={s} gr={`linear-gradient(135deg,${SURF_HI},${SURFACE})`}><svg width={s*.55} height={s*.55} viewBox="0 0 24 24" fill="none" stroke={TEXT} strokeWidth="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg></I3>,
   rows:   s=><I3 s={s} gr={`linear-gradient(135deg,${SURF_HI},${SURFACE})`}><svg width={s*.55} height={s*.55} viewBox="0 0 24 24" fill="none" stroke={TEXT} strokeWidth="2" strokeLinecap="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></svg></I3>,
-};
+});
 
 // ─── SLOT PREVIEW MINI ───────────────────────────────────────────
 function SlotPreview({ svc, height=80 }) {
+  const theme = useContext(ThemeContext);
+  const PALETTE = makePalette(theme);
+  const colorOf = id => PALETTE.find(p=>p.id===id)?.color || theme.GREEN;
   const c = colorOf(svc.colorId);
   return (
     <div className="slot-preview" style={{
@@ -112,6 +91,10 @@ function SlotPreview({ svc, height=80 }) {
 
 // ─── SERVICE FORM MODAL ──────────────────────────────────────────
 function ServiceFormModal({ svc, onSave, onClose }) {
+  const theme = useContext(ThemeContext);
+  const { SURFACE, BG, SURF_HI, TEXT, DIM, FAINT, ACCENT, ACC_HI, GOLD, SO } = theme;
+  const PALETTE = makePalette(theme);
+  const CATEGORIES = makeCategories(theme);
   const isNew = !svc;
   const [form, setForm] = useState(svc || {
     id: `sv-${Date.now()}`,
@@ -278,6 +261,7 @@ function ServiceFormModal({ svc, onSave, onClose }) {
 
 // ─── DELETE CONFIRM ──────────────────────────────────────────────
 function DeleteConfirm({ svc, onConfirm, onArchive, onClose }) {
+  const { SURFACE, BG, SURF_HI, TEXT, DIM, SO } = useContext(ThemeContext);
   return (
     <div onClick={onClose} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.75)",zIndex:100,display:"flex",alignItems:"flex-end",backdropFilter:"blur(8px)"}}>
       <div onClick={e=>e.stopPropagation()} className="modal-in" style={{
@@ -314,6 +298,12 @@ function DeleteConfirm({ svc, onConfirm, onArchive, onClose }) {
 
 // ─── SERVICE CARD ────────────────────────────────────────────────
 function ServiceCard({ svc, isDragging, onEdit, onToggle, onDelete, dragHandleProps }) {
+  const theme = useContext(ThemeContext);
+  const { BORDER, TEXT, DIM, FAINT, ACCENT, GREEN, BLUE, GOLD, RED, SO } = theme;
+  const Ic = makeIc(theme);
+  const PALETTE = makePalette(theme);
+  const CATEGORIES = makeCategories(theme);
+  const colorOf = id => PALETTE.find(p=>p.id===id)?.color || theme.GREEN;
   const c = colorOf(svc.colorId);
   return (
     <div className={`pillow fade-in drag-item ${isDragging?"dragging":""}`}
@@ -404,6 +394,11 @@ function ServiceCard({ svc, isDragging, onEdit, onToggle, onDelete, dragHandlePr
 
 // ─── ROW MODE ────────────────────────────────────────────────────
 function ServiceRow({ svc, onEdit, onToggle, onDelete, dragHandleProps, isDragging }) {
+  const theme = useContext(ThemeContext);
+  const { SURF_HI, SURFACE, BORDER, TEXT, DIM, FAINT, SO } = theme;
+  const Ic = makeIc(theme);
+  const PALETTE = makePalette(theme);
+  const colorOf = id => PALETTE.find(p=>p.id===id)?.color || theme.GREEN;
   const [open, setOpen] = useState(false);
   const c = colorOf(svc.colorId);
   const hasInstructions = svc.instructions && svc.instructions.trim();
@@ -484,6 +479,35 @@ function useDragReorder(items, setItems) {
 
 // ─── MAIN ────────────────────────────────────────────────────────
 export default function ServicesView() {
+  const theme = useContext(ThemeContext);
+  const { SURFACE, BG, SURF_HI, SURF_LO, TEXT, DIM, FAINT, ACCENT, ACC_HI, GREEN, SO } = theme;
+  const Ic = makeIc(theme);
+
+  const css = `
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.1);border-radius:3px}
+.pillow{background:linear-gradient(155deg,${theme.SURF_HI},${theme.SURFACE});border:1px solid rgba(255,255,255,0.06);border-radius:13px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.35)}
+.icon3d{display:inline-flex;align-items:center;justify-content:center;border-radius:14px;position:relative;overflow:hidden;flex-shrink:0;box-shadow:-2px 4px 10px rgba(0,0,0,0.5),inset 1px 1px 0 rgba(255,255,255,0.25),inset -1px -1px 0 rgba(0,0,0,0.3)}
+.icon3d::before{content:'';position:absolute;top:0;right:0;width:60%;height:50%;background:radial-gradient(ellipse at top right,rgba(255,255,255,0.4) 0%,transparent 70%);pointer-events:none}
+.icon3d>svg{position:relative;z-index:1;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.4))}
+.toggle{width:46px;height:26px;border-radius:13px;cursor:pointer;position:relative;transition:background .2s;background:${theme.SURF_LO};box-shadow:inset 2px 2px 5px rgba(0,0,0,0.4)}
+.toggle.on{background:linear-gradient(165deg,${theme.GREEN},#5fb83d)}
+.toggle-thumb{position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:10px;background:linear-gradient(135deg,#fff,#ccc);transition:left .2s;box-shadow:-1px 2px 4px rgba(0,0,0,0.3)}
+.toggle.on .toggle-thumb{left:23px}
+/* slot preview */
+.slot-preview{position:relative;overflow:hidden;border-radius:14px}
+.slot-preview::before{content:'';position:absolute;pointer-events:none;top:2px;right:8%;width:50%;height:35%;background:radial-gradient(ellipse at top right,rgba(255,255,255,0.22) 0%,transparent 65%);border-radius:50%;filter:blur(1px);z-index:2}
+.slot-preview::after{content:'';position:absolute;pointer-events:none;bottom:0;left:0;right:0;height:30%;background:linear-gradient(to bottom,transparent,rgba(0,0,0,0.18));border-radius:0 0 14px 14px;z-index:2}
+/* drag */
+.drag-item{transition:transform .15s,box-shadow .15s;touch-action:none}
+.drag-item.dragging{opacity:0.85;box-shadow:0 16px 40px rgba(0,0,0,0.6),0 0 0 2px ${theme.ACCENT};z-index:50;transform:scale(1.02)}
+@keyframes fade-in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+.fade-in{animation:fade-in .2s ease both}
+@keyframes modal-in{from{opacity:0;transform:translateY(40px)}to{opacity:1;transform:translateY(0)}}
+.modal-in{animation:modal-in .25s ease both}
+`;
+
   const [services, setServices] = useState(INIT_SERVICES);
   const [loaded, setLoaded] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
@@ -526,7 +550,7 @@ export default function ServicesView() {
 
   return (
     <>
-      <style>{CSS}</style>
+      <style>{css}</style>
       <div style={{display:"flex",flexDirection:"column",gap:8,fontFamily:"ui-sans-serif,-apple-system,system-ui,sans-serif",color:TEXT}}>
 
 

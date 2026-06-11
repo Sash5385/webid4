@@ -1,21 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useContext } from "react";
 import { ref, onValue, off, update, push, remove } from "firebase/database";
 import { db } from "../firebase";
 
-import { BG_DEEP, SURFACE, SURF_HI, BORDER, TEXT, DIM, FAINT, ACCENT, ACC_HI, GREEN, BLUE, GOLD, RED, SO, SI } from "../theme.js";
-
-const CSS = `
-*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-::-webkit-scrollbar{width:4px}
-::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.08);border-radius:2px}
-@keyframes ex{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
-.ex{animation:ex .16s ease both}
-.btn{border:none;cursor:pointer;border-radius:11px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;padding:9px 4px;transition:transform .1s,filter .1s;font-family:inherit}
-.btn:active{transform:scale(.92);filter:brightness(.8)}
-.btn span{font-size:9px;font-weight:700;letter-spacing:.2px}
-.icon3d{display:inline-flex;align-items:center;justify-content:center;border-radius:14px;position:relative;overflow:hidden;flex-shrink:0;box-shadow:-2px 4px 10px rgba(0,0,0,0.5),inset 1px 1px 0 rgba(255,255,255,0.25),inset -1px -1px 0 rgba(0,0,0,0.3)}
-.icon3d::before{content:'';position:absolute;top:0;right:0;width:60%;height:50%;background:radial-gradient(ellipse at top right,rgba(255,255,255,0.4) 0%,transparent 70%);pointer-events:none}
-`;
+import { ThemeContext } from "../theme.js";
 
 const M = ["","Січ","Лют","Бер","Кві","Тра","Чер","Лип","Сер","Вер","Жов","Лис","Гру"];
 const fmtS = d => { if(!d) return "—"; const [,m,day]=d.split("-"); return `${parseInt(day)} ${M[parseInt(m)]}`; };
@@ -34,8 +21,8 @@ const ICONS = {
   edit:     Svg(<><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"/></>),
   ban:      Svg(<><circle cx="12" cy="12" r="9"/><line x1="6" y1="6" x2="18" y2="18"/></>, 18, "white", 2.2),
   unban:    Svg(<><polyline points="20 6 9 17 4 12"/></>, 18, "white", 2.5),
-  chev:     Svg(<><polyline points="6 9 12 15 18 9"/></>, 16, FAINT),
-  search:   Svg(<><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></>, 15, FAINT),
+  chev:     Svg(<><polyline points="6 9 12 15 18 9"/></>, 16, "#5a5c62"),
+  search:   Svg(<><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></>, 15, "#5a5c62"),
   filter:   Svg(<><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></>, 16),
   trash:    Svg(<><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></>, 18, "white", 2),
 };
@@ -43,6 +30,7 @@ const ICONS = {
 
 // ─── ACTION BUTTON ───────────────────────────────────────────────
 function Btn({ icon, label, onClick, color, danger }) {
+  const { SURFACE, SURF_HI, DIM, SO } = useContext(ThemeContext);
   const bg = danger
     ? "linear-gradient(145deg,rgba(239,68,68,.2),rgba(185,28,28,.12))"
     : color
@@ -59,6 +47,7 @@ function Btn({ icon, label, onClick, color, danger }) {
 
 // ─── PROGRESS BAR ────────────────────────────────────────────────
 function Progress({ hours, offset }) {
+  const { BG_DEEP, DIM, FAINT, ACCENT, ACC_HI, GREEN, BLUE, SI } = useContext(ThemeContext);
   const total = hours + (offset || 0);
   const pct = Math.min((total / 40) * 100, 100);
   const done = pct >= 100;
@@ -102,6 +91,7 @@ function Progress({ hours, offset }) {
 
 // ─── NEW STUDENT FORM ────────────────────────────────────────────
 function NewStudentForm({ onSave, onCancel }) {
+  const { BG_DEEP, SURFACE, SURF_HI, BORDER, TEXT, DIM, FAINT, ACCENT, ACC_HI, SO } = useContext(ThemeContext);
   const [d, setD] = useState({ name:"", phone:"", discount:0, notes:"", type:"private" });
   const inp = (k, label, opts={}) => (
     <div>
@@ -154,6 +144,7 @@ function NewStudentForm({ onSave, onCancel }) {
 
 // ─── EDIT FORM ───────────────────────────────────────────────────
 function EditForm({ s, onSave, onCancel }) {
+  const { BG_DEEP, SURFACE, SURF_HI, BORDER, TEXT, DIM, FAINT, ACCENT, ACC_HI, SO } = useContext(ThemeContext);
   const [d, setD] = useState({ name:s.name, phone:s.phone, discount:s.discount??0, notes:s.notes||"", type:s.type });
   const inp = (k, label, opts={}) => (
     <div>
@@ -197,6 +188,7 @@ function EditForm({ s, onSave, onCancel }) {
 
 // ─── STUDENT CARD ────────────────────────────────────────────────
 function Card({ s, expanded, onToggle, onBlock, onUpdate, onDelete }) {
+  const { BG_DEEP, SURFACE, SURF_HI, BORDER, TEXT, DIM, FAINT, ACCENT, GREEN, BLUE, GOLD, RED, SO, SI } = useContext(ThemeContext);
   const [editMode,   setEditMode]   = useState(false);
   const [confirmDel, setConfirmDel] = useState(false);
 
@@ -394,6 +386,19 @@ function Card({ s, expanded, onToggle, onBlock, onUpdate, onDelete }) {
 
 // ─── MAIN ────────────────────────────────────────────────────────
 export default function StudentsView() {
+  const { BG_DEEP, SURFACE, SURF_HI, BORDER, TEXT, DIM, FAINT, ACCENT, ACC_HI, GREEN, SO, SI } = useContext(ThemeContext);
+  const css = `
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+::-webkit-scrollbar{width:4px}
+::-webkit-scrollbar-thumb{background:${BORDER};border-radius:2px}
+@keyframes ex{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
+.ex{animation:ex .16s ease both}
+.btn{border:none;cursor:pointer;border-radius:11px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;padding:9px 4px;transition:transform .1s,filter .1s;font-family:inherit}
+.btn:active{transform:scale(.92);filter:brightness(.8)}
+.btn span{font-size:9px;font-weight:700;letter-spacing:.2px}
+.icon3d{display:inline-flex;align-items:center;justify-content:center;border-radius:14px;position:relative;overflow:hidden;flex-shrink:0;box-shadow:-2px 4px 10px rgba(0,0,0,0.5),inset 1px 1px 0 rgba(255,255,255,0.25),inset -1px -1px 0 rgba(0,0,0,0.3)}
+.icon3d::before{content:'';position:absolute;top:0;right:0;width:60%;height:50%;background:radial-gradient(ellipse at top right,rgba(255,255,255,0.4) 0%,transparent 70%);pointer-events:none}
+`;
   const [students,   setStudents]   = useState([]);
   const [expanded,   setExpanded]   = useState(new Set());
   const [search,     setSearch]     = useState("");
@@ -471,7 +476,7 @@ export default function StudentsView() {
 
   return (
     <>
-      <style>{CSS}</style>
+      <style>{css}</style>
       <div style={{display:"flex",flexDirection:"column",gap:7,fontFamily:"ui-sans-serif,-apple-system,system-ui,sans-serif",color:TEXT}}>
 
         {/* header */}

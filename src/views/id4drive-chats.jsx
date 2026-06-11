@@ -3,50 +3,9 @@ import { ref, onValue, off, push, update, set, increment } from "firebase/databa
 import { db } from "../firebase";
 import { LangContext } from "../App";
 
-import { BG, BG_DEEP, SURFACE, SURF_HI, SURF_LO, BORDER, TEXT, DIM, FAINT, ACCENT, ACC_HI, GREEN, BLUE, PURPLE, GOLD, SO, SI } from "../theme.js";
+import { ThemeContext } from "../theme.js";
 
-const CSS = `
-*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-::-webkit-scrollbar{width:4px;height:4px}
-::-webkit-scrollbar-thumb{background:var(--scrollbar-thumb);border-radius:2px}
-
-.bubble-out{
-  background:linear-gradient(135deg,#2a5298,#1a3a70);
-  border-radius:16px 16px 3px 16px;
-  box-shadow:0 2px 8px rgba(0,0,0,0.3);
-}
-.bubble-in{
-  background:linear-gradient(135deg,var(--surf-hi),var(--surface));
-  border-radius:16px 16px 16px 3px;
-  box-shadow:0 2px 8px rgba(0,0,0,0.25);
-}
-.bubble-sys{
-  background:rgba(128,128,128,0.1);
-  border-radius:10px;
-  border:1px solid var(--border);
-}
-.bubble-broadcast{
-  background:linear-gradient(135deg,rgba(168,85,247,0.25),rgba(124,58,237,0.15));
-  border-radius:16px 16px 3px 16px;
-  border:1px solid rgba(168,85,247,0.3);
-}
-
-.chat-row{cursor:pointer;transition:background .12s;user-select:none}
-.chat-row:active{background:rgba(128,128,128,0.05)}
-.chat-row.open{background:linear-gradient(135deg,rgba(91,155,255,0.1),rgba(91,155,255,0.04))}
-.chat-row.broadcast-open{background:linear-gradient(135deg,rgba(168,85,247,0.12),rgba(124,58,237,0.06))}
-
-.msg-input{background:transparent;border:none;outline:none;color:var(--text);font-size:13px;resize:none;font-family:inherit;flex:1;padding:0;line-height:1.4;max-height:80px;overflow-y:auto}
-
-@keyframes drop{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
-.drop{animation:drop .18s ease both}
-
-@keyframes msg-in{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
-.msg-in{animation:msg-in .15s ease both}
-
-@keyframes del-shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
-.del-confirm{animation:del-shake .25s ease}
-`;
+// CSS is defined inside ChatsView to use theme variables
 
 const QUICK = ["Підтверджую урок ✅","Урок скасовано ❌","Нагадую: завтра","Будь ласка, підтвердіть","До зустрічі 👋"];
 const HUES = [160, 220, 30, 280, 340, 200, 40, 300, 100, 180];
@@ -55,6 +14,7 @@ const nowTime = () => new Date().toLocaleTimeString("uk", {hour:"2-digit", minut
 
 // ─── HELPERS ────────────────────────────────────────────────────
 const Ava = ({ name, hue, size=36, online, isBroadcast }) => {
+  const { GREEN, BG } = useContext(ThemeContext);
   if (isBroadcast) return (
     <div style={{width:size,height:size,borderRadius:size/2,background:"linear-gradient(145deg,rgba(168,85,247,0.8),rgba(109,40,217,0.9))",
       display:"flex",alignItems:"center",justifyContent:"center",fontSize:size*.45,flexShrink:0,boxShadow:"0 2px 10px rgba(168,85,247,0.5)"}}>📢</div>
@@ -73,6 +33,7 @@ const Ava = ({ name, hue, size=36, online, isBroadcast }) => {
 
 // ─── CONVERSATION ────────────────────────────────────────────────
 function Conversation({ contact, messages, onSend, isBroadcast }) {
+  const { BORDER, BG_DEEP, SURF_LO, SURF_HI, SURFACE, FAINT, DIM, GOLD, SI, SO, ACC_HI, ACCENT, TEXT } = useContext(ThemeContext);
   const [text, setText] = useState("");
   const [quick, setQuick] = useState(false);
   const bottomRef = useRef(null);
@@ -166,6 +127,50 @@ const GENERAL_ID = "__general__";
 
 export default function ChatsView() {
   const lang = useContext(LangContext);
+  const { BG, BG_DEEP, SURFACE, SURF_HI, SURF_LO, BORDER, TEXT, DIM, FAINT, ACCENT, SO, SI } = useContext(ThemeContext);
+
+  const css = `
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-thumb{background:${FAINT};border-radius:2px}
+
+.bubble-out{
+  background:linear-gradient(135deg,#2a5298,#1a3a70);
+  border-radius:16px 16px 3px 16px;
+  box-shadow:0 2px 8px rgba(0,0,0,0.3);
+}
+.bubble-in{
+  background:linear-gradient(135deg,${SURF_HI},${SURFACE});
+  border-radius:16px 16px 16px 3px;
+  box-shadow:0 2px 8px rgba(0,0,0,0.25);
+}
+.bubble-sys{
+  background:rgba(128,128,128,0.1);
+  border-radius:10px;
+  border:1px solid ${BORDER};
+}
+.bubble-broadcast{
+  background:linear-gradient(135deg,rgba(168,85,247,0.25),rgba(124,58,237,0.15));
+  border-radius:16px 16px 3px 16px;
+  border:1px solid rgba(168,85,247,0.3);
+}
+
+.chat-row{cursor:pointer;transition:background .12s;user-select:none}
+.chat-row:active{background:rgba(128,128,128,0.05)}
+.chat-row.open{background:linear-gradient(135deg,rgba(91,155,255,0.1),rgba(91,155,255,0.04))}
+.chat-row.broadcast-open{background:linear-gradient(135deg,rgba(168,85,247,0.12),rgba(124,58,237,0.06))}
+
+.msg-input{background:transparent;border:none;outline:none;color:${TEXT};font-size:13px;resize:none;font-family:inherit;flex:1;padding:0;line-height:1.4;max-height:80px;overflow-y:auto}
+
+@keyframes drop{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
+.drop{animation:drop .18s ease both}
+
+@keyframes msg-in{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
+.msg-in{animation:msg-in .15s ease both}
+
+@keyframes del-shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
+.del-confirm{animation:del-shake .25s ease}
+`;
   const [contacts,      setContacts]      = useState([]);
   const [messages,      setMessages]      = useState({}); // { [uid]: [{...}] }
   const [generalMsgs,   setGeneralMsgs]   = useState([]);
@@ -335,7 +340,7 @@ export default function ChatsView() {
 
   return (
     <>
-      <style>{CSS}</style>
+      <style>{css}</style>
       <div style={{fontFamily:"ui-sans-serif,-apple-system,system-ui,sans-serif",color:TEXT}}>
 
         {/* ── SEARCH ── */}

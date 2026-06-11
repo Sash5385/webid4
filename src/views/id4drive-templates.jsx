@@ -4,10 +4,10 @@ import { db } from "../firebase";
 import { LangContext } from "../App";
 import { createT } from "../lang";
 
-import { BG, BG_DEEP, SURFACE, SURF_HI, SURF_LO, BORDER, TEXT, DIM, FAINT, ACCENT, ACC_HI, GREEN, BLUE, PURPLE, GOLD, RED, TEAL, SO, SI } from "../theme.js";
+import { ThemeContext, GOLD, GREEN, RED, TEAL, BLUE, PURPLE } from "../theme.js";
 
 // ─── CSS ────────────────────────────────────────────────────────
-const CSS = `
+const makeCSS = (SURF_HI, SURFACE, SURF_LO) => `
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 ::-webkit-scrollbar{width:5px}
 ::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.1);border-radius:3px}
@@ -99,6 +99,7 @@ function Toggle({ on, onChange }) {
   return <div className={`toggle ${on?"on":""}`} onClick={()=>onChange(!on)}><div className="toggle-thumb"/></div>;
 }
 function Inset({ children, style={} }) {
+  const { BG_DEEP, SURF_LO, SI } = useContext(ThemeContext);
   return <div style={{background:`linear-gradient(135deg,${BG_DEEP},${SURF_LO})`,borderRadius:12,boxShadow:SI,padding:"10px 14px",...style}}>{children}</div>;
 }
 const chOf  = id => CHANNELS.find(c=>c.id===id)||CHANNELS[0];
@@ -121,6 +122,7 @@ function BodyPreview({ body, style={} }) {
 
 // ─── SEND MODAL ──────────────────────────────────────────────────
 function SendModal({ tpl, onClose }) {
+  const { SURFACE, BG, DIM, FAINT, SURF_HI, ACC_HI, ACCENT, SO, TEXT } = useContext(ThemeContext);
   const [selected, setSelected] = useState([]);
   const [channel, setChannel] = useState(tpl.channel);
   const [preview, setPreview] = useState(tpl.body);
@@ -203,6 +205,7 @@ function SendModal({ tpl, onClose }) {
 
 // ─── EDIT FORM MODAL ─────────────────────────────────────────────
 function EditModal({ tpl, onSave, onClose }) {
+  const { SURFACE, BG, DIM, FAINT, SURF_HI, ACC_HI, ACCENT, SO, SI, BG_DEEP, SURF_LO, TEXT } = useContext(ThemeContext);
   const isNew = !tpl;
   const [form, setForm] = useState(tpl || {
     id:`t-${Date.now()}`, catId:"custom", title:"", channel:"chat",
@@ -329,6 +332,7 @@ function EditModal({ tpl, onSave, onClose }) {
 
 // ─── TEMPLATE CARD ───────────────────────────────────────────────
 function TemplateCard({ tpl, onEdit, onSend, onToggle, onDelete, viewMode }) {
+  const { SURF_HI, SURFACE, SO, TEXT, DIM, FAINT, BORDER, ACCENT } = useContext(ThemeContext);
   const [expanded, setExpanded] = useState(false);
   const [longPressTimer, setLongPressTimer] = useState(null);
   const [inlineEdit, setInlineEdit] = useState(false);
@@ -446,6 +450,8 @@ function TemplateCard({ tpl, onEdit, onSend, onToggle, onDelete, viewMode }) {
 
 // ─── MAIN ────────────────────────────────────────────────────────
 export default function TemplatesView() {
+  const { TEXT, FAINT, ACC_HI, ACCENT, SURF_HI, SURFACE, SURF_LO } = useContext(ThemeContext);
+  const css = makeCSS(SURF_HI, SURFACE, SURF_LO);
   const lang = useContext(LangContext);
   const t = createT(lang);
   const [templates, setTemplates] = useState(INIT_TEMPLATES);
@@ -485,7 +491,7 @@ export default function TemplatesView() {
 
   return (
     <>
-      <style>{CSS}</style>
+      <style>{css}</style>
       <div style={{display:"flex",flexDirection:"column",gap:12,fontFamily:"ui-sans-serif,-apple-system,system-ui,sans-serif",color:TEXT}}>
 
         {/* ── LIST ── */}

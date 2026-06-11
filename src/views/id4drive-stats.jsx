@@ -4,18 +4,7 @@ import { db } from "../firebase";
 import { LangContext } from "../App";
 import { createT } from "../lang";
 
-import { BG_DEEP, SURFACE, SURF_HI, SURF_LO, BORDER, TEXT, DIM, FAINT, ACCENT, ACC_HI, GREEN, BLUE, PURPLE, GOLD, RED, SO, SI } from "../theme.js";
-
-const CSS = `
-*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-::-webkit-scrollbar{width:4px}
-::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.08);border-radius:2px}
-@keyframes bar-grow{from{height:0%}to{height:var(--h)}}
-@keyframes line-draw{from{stroke-dashoffset:var(--len)}to{stroke-dashoffset:0}}
-.line-anim{animation:line-draw 1s ease both}
-@keyframes fade-up{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
-.fu{animation:fade-up .2s ease both}
-`;
+import { ThemeContext } from "../theme.js";
 
 const UK_MONTHS     = ["Січ","Лют","Бер","Кві","Тра","Чер","Лип","Сер","Вер","Жов","Лис","Гру"];
 const UK_WEEK_LABELS= ["Пн","Вт","Ср","Чт","Пт","Сб"];
@@ -115,21 +104,28 @@ function trendPct(cur, prev) {
 }
 
 // ─── UI COMPONENTS ──────────────────────────────────────────────
-const Card = ({children, style={}}) => (
-  <div className="fu" style={{
-    background:`linear-gradient(155deg,${SURF_HI},${SURFACE})`,
-    borderRadius:13, overflow:"hidden",
-    boxShadow:`0 2px 8px rgba(0,0,0,.35),0 0 0 1px ${BORDER}`,
-    ...style,
-  }}>{children}</div>
-);
+const Card = ({children, style={}}) => {
+  const { SURF_HI, SURFACE, BORDER } = useContext(ThemeContext);
+  return (
+    <div className="fu" style={{
+      background:`linear-gradient(155deg,${SURF_HI},${SURFACE})`,
+      borderRadius:13, overflow:"hidden",
+      boxShadow:`0 2px 8px rgba(0,0,0,.35),0 0 0 1px ${BORDER}`,
+      ...style,
+    }}>{children}</div>
+  );
+};
 
-const Inset = ({children, style={}}) => (
-  <div style={{background:BG_DEEP, borderRadius:10, boxShadow:SI, ...style}}>{children}</div>
-);
+const Inset = ({children, style={}}) => {
+  const { BG_DEEP, SI } = useContext(ThemeContext);
+  return (
+    <div style={{background:BG_DEEP, borderRadius:10, boxShadow:SI, ...style}}>{children}</div>
+  );
+};
 
 // ─── SVG LINE CHART ──────────────────────────────────────────────
 function LineChart({ data, valueKey, color, height=120 }) {
+  const { FAINT } = useContext(ThemeContext);
   const W=320, H=height, P=12;
   const vals = data.map(d => d[valueKey]);
   const max = Math.max(...vals), min = Math.min(...vals);
@@ -168,6 +164,7 @@ function LineChart({ data, valueKey, color, height=120 }) {
 
 // ─── SVG BAR CHART ───────────────────────────────────────────────
 function BarChart({ data, valueKey, color, height=120 }) {
+  const { FAINT } = useContext(ThemeContext);
   const W=320, H=height, P=12;
   const vals = data.map(d => d[valueKey]);
   const max  = Math.max(...vals) || 1;
@@ -204,6 +201,7 @@ function BarChart({ data, valueKey, color, height=120 }) {
 
 // ─── DONUT ───────────────────────────────────────────────────────
 function Donut({ school, total, size=76 }) {
+  const { SURF_HI, GREEN, GOLD, TEXT } = useContext(ThemeContext);
   const pct = total ? school/total : 0;
   const r=26, cx=size/2, cy=size/2, c=2*Math.PI*r;
   return (
@@ -221,22 +219,37 @@ function Donut({ school, total, size=76 }) {
 }
 
 // ─── CHIP ────────────────────────────────────────────────────────
-const Chip = ({label, active, onClick, color}) => (
-  <button onClick={onClick} style={{
-    padding:"6px 12px", borderRadius:9, border:"none", cursor:"pointer", fontSize:11, fontWeight:700, flexShrink:0,
-    background: active ? `linear-gradient(145deg,${color||ACC_HI},${color?color+"bb":ACCENT})` : `linear-gradient(145deg,${SURF_HI},${SURFACE})`,
-    color: active ? "#fff" : DIM, boxShadow: active ? "none" : SO,
-  }}>{label}</button>
-);
+const Chip = ({label, active, onClick, color}) => {
+  const { ACC_HI, ACCENT, SURF_HI, SURFACE, DIM, SO } = useContext(ThemeContext);
+  return (
+    <button onClick={onClick} style={{
+      padding:"6px 12px", borderRadius:9, border:"none", cursor:"pointer", fontSize:11, fontWeight:700, flexShrink:0,
+      background: active ? `linear-gradient(145deg,${color||ACC_HI},${color?color+"bb":ACCENT})` : `linear-gradient(145deg,${SURF_HI},${SURFACE})`,
+      color: active ? "#fff" : DIM, boxShadow: active ? "none" : SO,
+    }}>{label}</button>
+  );
+};
 
 // ─── MAIN ────────────────────────────────────────────────────────
 export default function StatsView() {
+  const { BG_DEEP, SURFACE, SURF_HI, BORDER, TEXT, DIM, FAINT, ACCENT, ACC_HI, GREEN, BLUE, PURPLE, GOLD, RED, SO, SI } = useContext(ThemeContext);
   const lang = useContext(LangContext);
   const t = createT(lang);
   const [period,    setPeriod]    = useState("month");
   const [chartType, setChartType] = useState("line");
   const [metric,    setMetric]    = useState("income");
   const [bookings,  setBookings]  = useState([]);
+
+  const css = `
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+::-webkit-scrollbar{width:4px}
+::-webkit-scrollbar-thumb{background:${BORDER};border-radius:2px}
+@keyframes bar-grow{from{height:0%}to{height:var(--h)}}
+@keyframes line-draw{from{stroke-dashoffset:var(--len)}to{stroke-dashoffset:0}}
+.line-anim{animation:line-draw 1s ease both}
+@keyframes fade-up{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+.fu{animation:fade-up .2s ease both}
+`;
 
   useEffect(() => {
     return onValue(ref(db, "bookings"), snap => {
@@ -293,7 +306,7 @@ export default function StatsView() {
 
   return (
     <>
-      <style>{CSS}</style>
+      <style>{css}</style>
       <div style={{display:"flex",flexDirection:"column",gap:8,fontFamily:"ui-sans-serif,-apple-system,system-ui,sans-serif",color:TEXT}}>
 
         {/* ── PERIOD ── */}

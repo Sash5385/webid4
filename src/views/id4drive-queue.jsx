@@ -1,37 +1,16 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useContext } from "react";
 import { ref, onValue, update, push, remove } from "firebase/database";
 import { db } from "../firebase";
-import { BG, BG_DEEP, SURFACE, SURF_HI, SURF_LO, BORDER, TEXT, DIM, FAINT, ACCENT, ACC_HI, GREEN, BLUE, PURPLE, GOLD, RED, SO, SI } from "../theme.js";
+import { ThemeContext } from "../theme.js";
 
 const PURPLE2 = "#c084fc";
 const TEAL    = "#2dd4bf";
 
-const CSS = `
-*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-::-webkit-scrollbar{width:5px}
-::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.1);border-radius:3px}
-.icon3d{display:inline-flex;align-items:center;justify-content:center;border-radius:14px;position:relative;overflow:hidden;flex-shrink:0;box-shadow:-2px 4px 10px rgba(0,0,0,0.5),inset 1px 1px 0 rgba(255,255,255,0.25),inset -1px -1px 0 rgba(0,0,0,0.3)}
-.icon3d::before{content:'';position:absolute;top:0;right:0;width:60%;height:50%;background:radial-gradient(ellipse at top right,rgba(255,255,255,0.4) 0%,transparent 70%);pointer-events:none}
-.drag-item{transition:transform .12s,box-shadow .12s;touch-action:none}
-.drag-item.dragging{opacity:.85;box-shadow:0 16px 40px rgba(0,0,0,0.6),0 0 0 2px ${PURPLE2};z-index:50;transform:scale(1.01)}
-@keyframes fade-in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
-.fade-in{animation:fade-in .18s ease both}
-@keyframes modal-in{from{opacity:0;transform:translateY(40px)}to{opacity:1;transform:translateY(0)}}
-.modal-in{animation:modal-in .22s ease both}
-`;
-
 const SERVICES = {
-  sv1:{ name:"Автошкола 1г", color:GREEN  },
-  sv2:{ name:"Автошкола 2г", color:GREEN  },
-  sv3:{ name:"Приватний 1г", color:GOLD   },
-  sv4:{ name:"Приватний 2г", color:GOLD   },
-};
-
-const STATUS_CFG = {
-  waiting:  { label:"Очікує",       color:PURPLE2, bg:"rgba(192,132,252,0.15)" },
-  offered:  { label:"Запрошено",    color:GOLD,    bg:"rgba(247,201,72,0.15)"  },
-  booked:   { label:"Записаний",    color:GREEN,   bg:"rgba(126,217,87,0.15)"  },
-  archived: { label:"Архів",        color:FAINT,   bg:"rgba(255,255,255,0.06)" },
+  sv1:{ name:"Автошкола 1г", color:"#7ed957"  },
+  sv2:{ name:"Автошкола 2г", color:"#7ed957"  },
+  sv3:{ name:"Приватний 1г", color:"#f7c948"  },
+  sv4:{ name:"Приватний 2г", color:"#f7c948"  },
 };
 
 function fmtWait(ts) {
@@ -73,6 +52,7 @@ function useDragReorder(items, setItems) {
 
 // ─── ADD TO QUEUE MODAL ──────────────────────────────────────────
 function AddModal({ onSave, onClose }) {
+  const { SURFACE, BG, BG_DEEP, BORDER, TEXT, FAINT, SURF_HI, DIM, SO } = useContext(ThemeContext);
   const [form, setForm] = useState({ name:"", phone:"", svcId:"sv1", note:"" });
   const upd = (k,v) => setForm(f=>({...f,[k]:v}));
   const valid = form.name.trim() && form.phone.trim();
@@ -134,6 +114,15 @@ function getHours(item, svc) {
 }
 
 function QueueRow({ item, pos, onInvite, onBooked, onArchive, onDelete, dragHandleProps, isDragging, svcMap }) {
+  const { SURF_HI, SURFACE, SO, BORDER, FAINT, TEXT, DIM, GOLD, GREEN, RED } = useContext(ThemeContext);
+
+  const STATUS_CFG = {
+    waiting:  { label:"Очікує",       color:PURPLE2, bg:"rgba(192,132,252,0.15)" },
+    offered:  { label:"Запрошено",    color:GOLD,    bg:"rgba(247,201,72,0.15)"  },
+    booked:   { label:"Записаний",    color:GREEN,   bg:"rgba(126,217,87,0.15)"  },
+    archived: { label:"Архів",        color:FAINT,   bg:"rgba(255,255,255,0.06)" },
+  };
+
   const svc = (svcMap || SERVICES)[item.svcId] || {};
   const st  = STATUS_CFG[item.status] || STATUS_CFG.waiting;
   const ini = (item.name||"?").split(" ").map(w=>w[0]).slice(0,2).join("").toUpperCase();
@@ -237,9 +226,24 @@ function QueueRow({ item, pos, onInvite, onBooked, onArchive, onDelete, dragHand
 
 // ─── MAIN ────────────────────────────────────────────────────────
 export default function QueueView({ settings }) {
+  const { BG_DEEP, SURF_HI, SURFACE, BORDER, TEXT, DIM, FAINT, GOLD, GREEN, SO, SI } = useContext(ThemeContext);
   const [all,       setAll]       = useState([]);
   const [showAdd,   setShowAdd]   = useState(false);
   const [showArch,  setShowArch]  = useState(false);
+
+  const css = `
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+::-webkit-scrollbar{width:5px}
+::-webkit-scrollbar-thumb{background:${BORDER};border-radius:3px}
+.icon3d{display:inline-flex;align-items:center;justify-content:center;border-radius:14px;position:relative;overflow:hidden;flex-shrink:0;box-shadow:-2px 4px 10px rgba(0,0,0,0.5),inset 1px 1px 0 rgba(255,255,255,0.25),inset -1px -1px 0 rgba(0,0,0,0.3)}
+.icon3d::before{content:'';position:absolute;top:0;right:0;width:60%;height:50%;background:radial-gradient(ellipse at top right,rgba(255,255,255,0.4) 0%,transparent 70%);pointer-events:none}
+.drag-item{transition:transform .12s,box-shadow .12s;touch-action:none}
+.drag-item.dragging{opacity:.85;box-shadow:0 16px 40px rgba(0,0,0,0.6),0 0 0 2px ${PURPLE2};z-index:50;transform:scale(1.01)}
+@keyframes fade-in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+.fade-in{animation:fade-in .18s ease both}
+@keyframes modal-in{from{opacity:0;transform:translateY(40px)}to{opacity:1;transform:translateY(0)}}
+.modal-in{animation:modal-in .22s ease both}
+`;
 
   const svcMap = useMemo(() => {
     const m = { ...SERVICES };
@@ -294,7 +298,7 @@ export default function QueueView({ settings }) {
 
   return (
     <>
-      <style>{CSS}</style>
+      <style>{css}</style>
       <div style={{display:"flex",flexDirection:"column",gap:10,fontFamily:"ui-sans-serif,-apple-system,system-ui,sans-serif",color:TEXT}}>
 
         {/* ── STATS ── */}
