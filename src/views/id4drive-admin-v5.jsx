@@ -1,16 +1,11 @@
-import { useState, useRef, useEffect, useLayoutEffect, useMemo } from "react";
+import { useState, useRef, useEffect, useLayoutEffect, useMemo, useContext } from "react";
 import { ref, update, get, onValue, off, remove } from "firebase/database";
 import { db } from "../firebase";
 
-import { BG, BG_DEEP, SURFACE, SURF_HI, SURF_LO, BORDER, TEXT, DIM, FAINT, ACCENT, ACC_HI, GREEN, BLUE, PURPLE, GOLD, RED, SO, SI } from "../theme.js";
-// local aliases for legacy names used in this file
-const SURFACE_HI = SURF_HI;
-const SURFACE_LO = SURF_LO;
-const TEXT_DIM   = DIM;
-const TEXT_FAINT = FAINT;
+import { ThemeContext, GREEN, BLUE, PURPLE, GOLD, RED, ACCENT, ACC_HI, SURFACE, SURF_HI, TEXT } from "../theme.js";
+// module-level aliases for vars used in ICONS (arrow fns, cannot use hooks)
 const ACCENT_HI  = ACC_HI;
-const SHADOW_OUT = SO;
-const SHADOW_IN  = SI;
+const SURFACE_HI = SURF_HI;
 
 // Palette for service colors
 const PALETTE = [
@@ -27,7 +22,7 @@ const PALETTE = [
 // ═══════════════════════════════════════════════════════════════
 // GLOBAL CSS (slots from v4, rest v3)
 // ═══════════════════════════════════════════════════════════════
-const GLOBAL_CSS = `
+const makeGlobalCSS = (SURFACE_LO, ACCENT) => `
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
 body, html, #root { margin:0; padding:0; }
 
@@ -397,6 +392,8 @@ const DEFAULT_SETTINGS = {
 // SHARED UI HELPERS
 // ═══════════════════════════════════════════════════════════════
 function Card({ children, style={}, inset=false }) {
+  const { SURFACE, BORDER, SO, SI } = useContext(ThemeContext);
+  const SHADOW_OUT = SO, SHADOW_IN = SI;
   return (
     <div style={{
       background: SURFACE, borderRadius:20,
@@ -407,6 +404,7 @@ function Card({ children, style={}, inset=false }) {
   );
 }
 function SectionTitle({ children, right }) {
+  const { FAINT: TEXT_FAINT } = useContext(ThemeContext);
   return (
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
       <div style={{fontSize:11,color:TEXT_FAINT,fontWeight:700,letterSpacing:2,textTransform:"uppercase"}}>{children}</div>
@@ -428,6 +426,8 @@ function Pill({ label, color, bg }) {
   }}>{label}</span>;
 }
 function statusPill(s) {
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  const { ACCENT } = useContext(ThemeContext);
   const M = {
     pending:["Очікує",ACCENT,"rgba(255,90,60,0.15)"],
     confirmed:["Підтверджено",GREEN,"rgba(126,217,87,0.15)"],
@@ -445,6 +445,8 @@ const colorOf = (id) => PALETTE.find(p=>p.id===id)?.color || GREEN;
 // SCHEDULE VIEW with drag/resize + pinch-to-zoom + day-count
 // ═══════════════════════════════════════════════════════════════
 function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bookings, setBookings, activeDragIds, navTo, slotExistsRef }) {
+  const { BG, BG_DEEP, SURFACE, SURF_HI, SURF_LO, BORDER, TEXT, DIM, FAINT, ACCENT, ACC_HI, SO, SI } = useContext(ThemeContext);
+  const SURFACE_HI = SURF_HI, SURFACE_LO = SURF_LO, TEXT_DIM = DIM, TEXT_FAINT = FAINT, ACCENT_HI = ACC_HI, SHADOW_OUT = SO, SHADOW_IN = SI;
   const [dragId, setDragId] = useState(null);
   const [holdId, setHoldId] = useState(null);
   const [quickCancelId, setQuickCancelId] = useState(null);
@@ -1090,7 +1092,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
 
   return (
     <>
-    <style>{GLOBAL_CSS}</style>
+    <style>{makeGlobalCSS(SURF_LO, ACCENT)}</style>
     <Card style={{padding:"6px 3px 0", overflow:"hidden", flex:1, minHeight:0, display:"flex", flexDirection:"column"}}>
       <div style={{display:"flex", flex:1, minHeight:0, overflow:"hidden"}}>
 
@@ -1290,8 +1292,9 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                 return Object.entries(openSlots[dateStrCol] || {}).map(([time, slot]) => {
                 const [h, m] = time.split(":").map(Number);
                 const startMin = h * 60 + m;
+                if (startMin < effectiveWorkStart * 60 || startMin >= effectiveWorkEnd * 60) return null;
                 const nextMin = sortedMins.find(t => t > startMin) ?? (startMin + 60);
-                const slotHeightMin = Math.min(60, nextMin - startMin);
+                const slotHeightMin = Math.min(60, nextMin - startMin, effectiveWorkEnd * 60 - startMin);
                 const isVip = slot.vipOnly;
                 const isBlocked = slot.adminBlocked;
                 const hasSurcharge = !!slot.surcharge;
@@ -1379,7 +1382,10 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
               {/* Viewing indicators — only for TAKEN slots (open slots already show 👁 inside) */}
               {(viewingSlots[dateStrCol] || []).filter(time => {
                 const s = openSlots[dateStrCol]?.[time];
-                return !s || s.adminBlocked; // skip if slot is open and available
+                if (s && !s.adminBlocked) return false;
+                const [h, m] = time.split(":").map(Number);
+                const sm = h * 60 + m;
+                return sm >= effectiveWorkStart * 60 && sm < effectiveWorkEnd * 60;
               }).map(time => {
                 const [h, m] = time.split(":").map(Number);
                 const topPx = minToPx(h * 60 + m);
@@ -1400,8 +1406,14 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
 
               {/* Bookings */}
               {bookings.filter(b=>b.day===absDay).sort((a,b)=>a.startMin-b.startMin).map(b=>{
-                const top = minToPx(b.startMin);
-                const height = b.durMin * PX_PER_MIN;
+                if (b.status === "cancelled") return null;
+                const wsMin = effectiveWorkStart * 60;
+                const weMin = effectiveWorkEnd * 60;
+                if (b.startMin >= weMin || b.startMin + b.durMin <= wsMin) return null;
+                const visStart = Math.max(b.startMin, wsMin);
+                const visEnd   = Math.min(b.startMin + b.durMin, weMin);
+                const top    = minToPx(visStart);
+                const height = (visEnd - visStart) * PX_PER_MIN;
                 const c = slotColor(b);
                 const isPending = b.status==="pending" && settings.pendingEnabled;
                 const isCancelling = cancellingSet.has(b.id);
@@ -1409,7 +1421,6 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                 const isVipSlot = b.type === "vip-slot";
                 const slotTimeStr = String(Math.floor(b.startMin/60)).padStart(2,'0')+':'+String(b.startMin%60).padStart(2,'0');
                 const queueCount = b.date ? (queueMap[`${b.date}_${slotTimeStr}`] || 0) : 0;
-                if (b.status === "cancelled") return null;
                 const isDimmed = !isBlock && !isVipSlot && (b.status==="noshow" || isCancelling);
                 const svc = settings.services.find(s=>s.id===b.serviceId)
                          || settings.services.find(s=>s.active && s.type===(b.serviceType||b.type) && Number(s.duration)===b.durMin);
@@ -1924,6 +1935,8 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
 // CREATE SLOT SHEET — вільний слот з вибором часу і тривалості
 // ═══════════════════════════════════════════════════════════════
 function CreateSlotSheet({ data, settings, onClose }) {
+  const { BG, BG_DEEP, SURFACE, SURF_HI, SURF_LO, BORDER, TEXT, DIM, FAINT, ACCENT, ACC_HI, SO, SI } = useContext(ThemeContext);
+  const SURFACE_HI = SURF_HI, SURFACE_LO = SURF_LO, TEXT_DIM = DIM, TEXT_FAINT = FAINT, ACCENT_HI = ACC_HI, SHADOW_OUT = SO, SHADOW_IN = SI;
   const slotStep = settings.slotCreateStep || 30;
   const timeItems = useMemo(() => {
     const arr = [];
@@ -2006,6 +2019,8 @@ function CreateSlotSheet({ data, settings, onClose }) {
 // BOOKING DETAIL MODAL
 // ═══════════════════════════════════════════════════════════════
 function BookingModal({ booking, onClose, onAction, settings }) {
+  const { BG, BG_DEEP, SURFACE, SURF_HI, SURF_LO, BORDER, TEXT, DIM, FAINT, ACCENT, ACC_HI, SO, SI } = useContext(ThemeContext);
+  const SURFACE_HI = SURF_HI, SURFACE_LO = SURF_LO, TEXT_DIM = DIM, TEXT_FAINT = FAINT, ACCENT_HI = ACC_HI, SHADOW_OUT = SO, SHADOW_IN = SI;
   const [queueEntries, setQueueEntries] = useState([]);
   useEffect(() => {
     if (!booking) return;
@@ -2170,6 +2185,8 @@ function BookingModal({ booking, onClose, onAction, settings }) {
 // DRUM ROLL PICKER (iOS-style scroll wheel)
 // ═══════════════════════════════════════════════════════════════
 function DrumRoll({ items, currentIdx, onChange, label, itemH=42, visible=4 }) {
+  const { BG_DEEP, SURF_LO, DIM, FAINT, SI } = useContext(ThemeContext);
+  const SURFACE_LO = SURF_LO, TEXT_DIM = DIM, TEXT_FAINT = FAINT, SHADOW_IN = SI;
   const ref = useRef(null);
   const timerRef = useRef(null);
   const containerH = itemH * visible;
@@ -2244,6 +2261,8 @@ function DrumRoll({ items, currentIdx, onChange, label, itemH=42, visible=4 }) {
 // NEW BOOKING MODAL — compact bottom sheet
 // ═══════════════════════════════════════════════════════════════
 function NewBookingModal({ data, onClose, onConfirm, settings, bookings = [] }) {
+  const { BG, BG_DEEP, SURFACE, SURF_HI, SURF_LO, BORDER, TEXT, DIM, FAINT, ACCENT, ACC_HI, SO, SI } = useContext(ThemeContext);
+  const SURFACE_HI = SURF_HI, SURFACE_LO = SURF_LO, TEXT_DIM = DIM, TEXT_FAINT = FAINT, ACCENT_HI = ACC_HI, SHADOW_OUT = SO, SHADOW_IN = SI;
   const timeStep = data?.freeSnap ? 5 : (settings.snapMin || 30);
   const timeItems = useMemo(()=>{
     const arr=[];
@@ -2582,6 +2601,8 @@ function NewBookingModal({ data, onClose, onConfirm, settings, bookings = [] }) 
 // NUM INPUT — локальний стан, не скаче при наборі
 // ═══════════════════════════════════════════════════════════════
 function NumInput({ value, onChange, min, max, suffix }) {
+  const { BG_DEEP, SURF_LO, TEXT, DIM, SI } = useContext(ThemeContext);
+  const SURFACE_LO = SURF_LO, TEXT_DIM = DIM, SHADOW_IN = SI;
   const [draft, setDraft] = useState(String(value));
   useEffect(() => { setDraft(String(value)); }, [value]);
   const commit = (raw) => {
@@ -2616,6 +2637,8 @@ function NumInput({ value, onChange, min, max, suffix }) {
 // SETTINGS — все настройки
 // ═══════════════════════════════════════════════════════════════
 function SettingsView({ settings, setSettings }) {
+  const { BG, BG_DEEP, SURFACE, SURF_HI, SURF_LO, BORDER, TEXT, DIM, FAINT, ACCENT, ACC_HI, SO, SI } = useContext(ThemeContext);
+  const SURFACE_HI = SURF_HI, SURFACE_LO = SURF_LO, TEXT_DIM = DIM, TEXT_FAINT = FAINT, ACCENT_HI = ACC_HI, SHADOW_OUT = SO, SHADOW_IN = SI;
   const upd = (k, v) => setSettings(s => ({...s, [k]:v}));
   const updNested = (k1, k2, v) => setSettings(s => ({...s, [k1]:{...s[k1], [k2]:v}}));
 
@@ -2633,7 +2656,7 @@ function SettingsView({ settings, setSettings }) {
 
   return (
     <>
-    <style>{GLOBAL_CSS}</style>
+    <style>{makeGlobalCSS(SURF_LO, ACCENT)}</style>
     <div style={{display:"flex",flexDirection:"column",gap:14}}>
 
       {/* ── PROFILE ── */}
@@ -3008,6 +3031,7 @@ function SettingsView({ settings, setSettings }) {
 // STUB for other tabs
 // ═══════════════════════════════════════════════════════════════
 function StubView({ title }) {
+  const { DIM: TEXT_DIM, FAINT: TEXT_FAINT } = useContext(ThemeContext);
   return (
     <Card style={{padding:30,textAlign:"center"}}>
       <div style={{fontSize:14,color:TEXT_DIM,marginBottom:10}}>{title}</div>
@@ -3036,6 +3060,9 @@ const TITLES = {
 };
 
 export default function App() {
+  const { BG, BG_DEEP, SURFACE, SURF_HI, SURF_LO, BORDER, TEXT, DIM, FAINT, ACCENT, ACC_HI, SO, SI } = useContext(ThemeContext);
+  const SURFACE_HI = SURF_HI, SURFACE_LO = SURF_LO, TEXT_DIM = DIM, TEXT_FAINT = FAINT, ACCENT_HI = ACC_HI, SHADOW_OUT = SO, SHADOW_IN = SI;
+  const css = makeGlobalCSS(SURF_LO, ACCENT);
   const [tab, setTab] = useState("schedule");
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
   const [bookings, setBookings] = useState(initialBookings);
@@ -3168,7 +3195,7 @@ export default function App() {
 
   return (
     <>
-      <style>{GLOBAL_CSS}</style>
+      <style>{css}</style>
       <div style={{
         minHeight:"100vh", background:BG, color:TEXT,
         fontFamily:"ui-sans-serif,-apple-system,BlinkMacSystemFont,system-ui,sans-serif",
