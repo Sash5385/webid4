@@ -405,10 +405,15 @@ export default function App() {
     return () => window.removeEventListener('focus', onFocus);
   }, [tab]);
 
-  // Register FCM token when admin logs in
+  // Register FCM token on login and every time tab becomes visible (handles token rotation)
   useEffect(() => {
     if (!adminUser) return;
     registerAdminFCM().catch(() => {});
+    const onVisible = () => {
+      if (document.visibilityState === "visible") registerAdminFCM().catch(() => {});
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
   }, [adminUser]);
 
   // Show foreground push notifications (when admin tab is open)

@@ -1,7 +1,9 @@
 import { useState, useContext } from "react";
+import { ref, get } from "firebase/database";
 import { LangContext } from "../App";
 import { ThemeContext } from "../theme.js";
 import { createT } from "../lang";
+import { db, registerAdminFCM } from "../firebase";
 
 const ALL_TABS = [
   { id:"schedule",  lk:"nav.schedule"  },
@@ -426,8 +428,87 @@ select{color-scheme:dark}
           </Row>
         </Section>
 
+        {/* ── PUSH ДІАГНОСТИКА ── */}
+        <Section title="Push-сповіщення" icon="🔔" defaultOpen={true}>
+          <PushDiag />
+        </Section>
+
         <div style={{height:20}}/>
       </div>
     </>
+  );
+}
+
+function PushDiag() {
+  const { BG_DEEP, SURF_HI, SURFACE, BORDER, TEXT, DIM, FAINT, GREEN, RED, GOLD, BLUE, SO, SI } = useContext(ThemeContext);
+  const [status, setStatus] = useState(null);
+  const [busy,   setBusy]   = useState(false);
+
+  async function reRegister() {
+    setBusy(true); setStatus(null);
+    try {
+      const perm = Notification.permission;
+      if (perm === "denied") { setStatus({ ok: false, msg: "Нотифікації заблоковано в браузері. Дозволь в налаштуваннях сайту." }); return; }
+      await registerAdminFCM();
+      const snap = await get(ref(db, "admin/fcmToken"));
+      const tok  = snap.val();
+      setStatus(tok
+        ? { ok: true,  msg: `Токен збережено (${tok.slice(0,16)}…)` }
+        : { ok: false, msg: "Токен не збережено — перевір дозвіл у браузері" }
+      );
+    } catch(e) {
+      setStatus({ ok: false, msg: e.message });
+    } finally {
+      setBusy(false); }
+  }
+
+  async function testLocal() {
+    try {
+      if (!("Notification" in window)) { setStatus({ ok: false, msg: "Браузер не підтримує нотифікації" }); return; }
+      let perm = Notification.permission;
+      if (perm === "default") {
+        perm = await Notification.requestPermission();
+      }
+      if (perm !== "granted") {
+        setStatus({ ok: false, msg: `Дозвіл: "${perm}" — дозволь нотифікації в налаштуваннях браузера` });
+        return;
+      }
+      new Notification("🔔 ID4Drive тест", { body: "Push-нотифікації працюють!", icon: "/favicon.svg" });
+      setStatus({ ok: true, msg: "Нотифікація відправлена — перевір системний трей" });
+    } catch (e) {
+      setStatus({ ok: false, msg: `Помилка: ${e.message}` });
+    }
+  }
+
+  const perm = typeof Notification !== "undefined" ? Notification.permission : "unknown";
+  const permColor = perm === "granted" ? GREEN : perm === "denied" ? RED : GOLD;
+  const permLabel = perm === "granted" ? "✅ Дозволено" : perm === "denied" ? "❌ Заблоковано" : "⚠️ Не вирішено";
+
+  return (
+    <div style={{display:"flex",flexDirection:"column",gap:8,padding:"4px 0"}}>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"8px 12px",background:BG_DEEP,borderRadius:9,boxShadow:SI}}>
+        <span style={{fontSize:12,color:DIM}}>Дозвіл браузера</span>
+        <span style={{fontSize:12,fontWeight:800,color:permColor}}>{permLabel}</span>
+      </div>
+      <div style={{display:"flex",gap:7}}>
+        <button onClick={reRegister} disabled={busy} style={{
+          flex:1,padding:"10px 8px",borderRadius:10,border:"none",cursor:"pointer",
+          background:`linear-gradient(145deg,${SURF_HI},${SURFACE})`,
+          color:DIM,fontSize:12,fontWeight:700,boxShadow:SO,opacity:busy?.6:1,
+        }}>{busy?"…":"🔄 Оновити токен"}</button>
+        <button onClick={testLocal} style={{
+          flex:1,padding:"10px 8px",borderRadius:10,border:"none",cursor:"pointer",
+          background:`linear-gradient(145deg,rgba(126,217,87,0.18),rgba(126,217,87,0.06))`,
+          color:GREEN,fontSize:12,fontWeight:700,boxShadow:SO,
+        }}>🔔 Тест пуш</button>
+      </div>
+      {status && (
+        <div style={{
+          padding:"9px 12px",borderRadius:9,fontSize:12,fontWeight:600,
+          background:status.ok?"rgba(126,217,87,0.12)":"rgba(239,68,68,0.12)",
+          color:status.ok?GREEN:RED,border:`1px solid ${status.ok?"rgba(126,217,87,0.3)":"rgba(239,68,68,0.3)"}`,
+        }}>{status.msg}</div>
+      )}
+    </div>
   );
 }
