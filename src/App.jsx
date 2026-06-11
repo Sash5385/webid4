@@ -18,21 +18,33 @@ const TemplatesView = lazy(()=>import("./views/id4drive-templates"))
 const StatsView     = lazy(()=>import("./views/id4drive-stats"))
 const QueueView     = lazy(()=>import("./views/id4drive-queue"))
 
-const Loader = () => <div style={{color: "white", padding: "20px"}}>Завантаження...</div>;
+const Loader = () => (
+  <ThemeContext.Consumer>
+    {(theme) => <div style={{color: theme.TEXT, padding: "20px"}}>Завантаження...</div>}
+  </ThemeContext.Consumer>
+);
 
 import { BG, BG_DEEP, SURFACE, SURF_HI, SURF_LO, BORDER, TEXT, DIM, FAINT, ACCENT, ACC_HI, GREEN, BLUE, GOLD, SO } from "./theme.js";
 
 // ─── CSS ────────────────────────────────────────────────────────
-const makeCSS = (theme) => `
+const makeCSS = (theme) => {
+  const scrollThumb = theme.BG_IMAGE
+    ? `rgba(92,42,26,0.25)` // kava
+    : `rgba(255,255,255,0.1)`;
+  const spinnerBorder = theme.BG_IMAGE
+    ? `rgba(92,42,26,0.12)`
+    : `rgba(255,255,255,0.06)`;
+  return `
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 body,html{margin:0;padding:0;background:${theme.BG}${theme.BG_IMAGE ? `;background-image:${theme.BG_IMAGE};background-size:cover;background-position:center top;background-attachment:fixed;background-repeat:no-repeat` : ""}}
 ::-webkit-scrollbar{width:5px;height:5px}
-::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.1);border-radius:3px}
+::-webkit-scrollbar-thumb{background:${scrollThumb};border-radius:3px}
 @keyframes spin{to{transform:rotate(360deg)}}
-.spinner{width:32px;height:32px;border:3px solid rgba(255,255,255,0.06);border-top-color:${theme.ACCENT};border-radius:50%;animation:spin .8s linear infinite}
+.spinner{width:32px;height:32px;border:3px solid ${spinnerBorder};border-top-color:${theme.ACCENT};border-radius:50%;animation:spin .8s linear infinite}
 @keyframes fade-tab{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
 .tab-anim{animation:fade-tab .22s ease both}
 `;
+};
 
 // ─── ICONS (3D pillow) ───────────────────────────────────────────
 const I3 = ({children,gr,s=36,r=12})=>(
@@ -47,35 +59,40 @@ const I3 = ({children,gr,s=36,r=12})=>(
   </div>
 );
 
-const TabIcons = {
-  schedule: (s,active) => <I3 s={s} r={s*0.3} gr={active?"linear-gradient(165deg,#5b9bff,#2563eb)":"linear-gradient(135deg,#2e3034,#26282c)"}>
+const INACTIVE_DARK = "linear-gradient(135deg,#2e3034,#26282c)";
+const INACTIVE_KAVA = "linear-gradient(135deg,#6b3a22,#4a2210)";
+
+const makeTabIcons = (inactiveGr) => ({
+  schedule: (s,active) => <I3 s={s} r={s*0.3} gr={active?"linear-gradient(165deg,#5b9bff,#2563eb)":inactiveGr}>
     <svg width={s*.55} height={s*.55} viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/></svg>
   </I3>,
-  bookings: (s,active) => <I3 s={s} r={s*0.3} gr={active?"linear-gradient(165deg,#34d399,#059669)":"linear-gradient(135deg,#2e3034,#26282c)"}>
+  bookings: (s,active) => <I3 s={s} r={s*0.3} gr={active?"linear-gradient(165deg,#34d399,#059669)":inactiveGr}>
     <svg width={s*.55} height={s*.55} viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></svg>
   </I3>,
-  students: (s,active) => <I3 s={s} r={s*0.3} gr={active?"linear-gradient(165deg,#c084fc,#7c3aed)":"linear-gradient(135deg,#2e3034,#26282c)"}>
+  students: (s,active) => <I3 s={s} r={s*0.3} gr={active?"linear-gradient(165deg,#c084fc,#7c3aed)":inactiveGr}>
     <svg width={s*.55} height={s*.55} viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3 19c0-3 3-5 6-5s6 2 6 5M15 18c0-2 2-4 4-4s3 1 3 3"/></svg>
   </I3>,
-  services: (s,active) => <I3 s={s} r={s*0.3} gr={active?"linear-gradient(165deg,#fb923c,#ea580c)":"linear-gradient(135deg,#2e3034,#26282c)"}>
+  services: (s,active) => <I3 s={s} r={s*0.3} gr={active?"linear-gradient(165deg,#fb923c,#ea580c)":inactiveGr}>
     <svg width={s*.55} height={s*.55} viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 17h14M3 17V9l3-5h12l3 5v8M5 17a2 2 0 1 0 4 0M15 17a2 2 0 1 0 4 0M3 9h18"/></svg>
   </I3>,
-  chats: (s,active) => <I3 s={s} r={s*0.3} gr={active?"linear-gradient(165deg,#34d399,#047857)":"linear-gradient(135deg,#2e3034,#26282c)"}>
+  chats: (s,active) => <I3 s={s} r={s*0.3} gr={active?"linear-gradient(165deg,#34d399,#047857)":inactiveGr}>
     <svg width={s*.55} height={s*.55} viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12c0 5-4 8-9 8-1.5 0-3-.3-4-.7L3 21l1-4C2.5 15.5 2 13.8 2 12c0-5 4-8 9-8s10 3 10 8z"/></svg>
   </I3>,
-  templates: (s,active) => <I3 s={s} r={s*0.3} gr={active?"linear-gradient(165deg,#fcd34d,#d97706)":"linear-gradient(135deg,#2e3034,#26282c)"}>
+  templates: (s,active) => <I3 s={s} r={s*0.3} gr={active?"linear-gradient(165deg,#fcd34d,#d97706)":inactiveGr}>
     <svg width={s*.55} height={s*.55} viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
   </I3>,
-  stats: (s,active) => <I3 s={s} r={s*0.3} gr={active?"linear-gradient(165deg,#a78bfa,#6d28d9)":"linear-gradient(135deg,#2e3034,#26282c)"}>
+  stats: (s,active) => <I3 s={s} r={s*0.3} gr={active?"linear-gradient(165deg,#a78bfa,#6d28d9)":inactiveGr}>
     <svg width={s*.55} height={s*.55} viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><line x1="4" y1="20" x2="4" y2="10"/><line x1="10" y1="20" x2="10" y2="4"/><line x1="16" y1="20" x2="16" y2="14"/><line x1="22" y1="20" x2="2" y2="20"/></svg>
   </I3>,
-  settings: (s,active) => <I3 s={s} r={s*0.3} gr={active?"linear-gradient(165deg,#94a3b8,#334155)":"linear-gradient(135deg,#2e3034,#26282c)"}>
+  settings: (s,active) => <I3 s={s} r={s*0.3} gr={active?"linear-gradient(165deg,#94a3b8,#334155)":inactiveGr}>
     <svg width={s*.55} height={s*.55} viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
   </I3>,
-  queue: (s,active) => <I3 s={s} r={s*0.3} gr={active?"linear-gradient(165deg,#c084fc,#7c3aed)":"linear-gradient(135deg,#2e3034,#26282c)"}>
+  queue: (s,active) => <I3 s={s} r={s*0.3} gr={active?"linear-gradient(165deg,#c084fc,#7c3aed)":inactiveGr}>
     <svg width={s*.55} height={s*.55} viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
   </I3>,
-};
+});
+
+const TabIcons = makeTabIcons(INACTIVE_DARK);
 
 // ─── TABS CONFIG ─────────────────────────────────────────────────
 const TAB_IDS = [
@@ -101,7 +118,22 @@ const TAB_TITLES = {
 function BottomNav({ active, onChange, settings, chatUnread }) {
   const lang = useContext(LangContext);
   const tl = createT(lang);
+  const theme = useContext(ThemeContext);
+  const isKava = settings?.theme === "light";
+  const tabIcons = isKava ? makeTabIcons(INACTIVE_KAVA) : TabIcons;
   const visible = TAB_IDS.filter(t => settings?.navTabs?.includes(t.id) ?? true);
+
+  const navBg = isKava
+    ? `linear-gradient(180deg,${theme.SURF_HI},${theme.SURFACE})`
+    : "linear-gradient(180deg,#3a3b40,#2e2f34)";
+  const navBorder = isKava
+    ? `1px solid ${theme.BORDER}`
+    : "1px solid rgba(255,255,255,0.08)";
+  const navShadow = isKava
+    ? `0 8px 32px rgba(92,42,26,0.18), 0 2px 8px rgba(92,42,26,0.12)`
+    : "0 12px 40px rgba(0,0,0,0.65), 0 4px 16px rgba(0,0,0,0.4), 0 -1px 0 rgba(255,255,255,0.05)";
+  const labelInactive = isKava ? theme.DIM : FAINT;
+
   return (
     <div style={{
       flexShrink:0,
@@ -111,10 +143,10 @@ function BottomNav({ active, onChange, settings, chatUnread }) {
       pointerEvents:"none",
     }}>
       <div style={{
-        background:`linear-gradient(180deg,#3a3b40,#2e2f34)`,
+        background:navBg,
         borderRadius:26,
-        border:`1px solid rgba(255,255,255,0.08)`,
-        boxShadow:"0 12px 40px rgba(0,0,0,0.65), 0 4px 16px rgba(0,0,0,0.4), 0 -1px 0 rgba(255,255,255,0.05)",
+        border:navBorder,
+        boxShadow:navShadow,
         display:"flex", overflow:"hidden",
         pointerEvents:"auto",
       }}>
@@ -131,22 +163,22 @@ function BottomNav({ active, onChange, settings, chatUnread }) {
               opacity:active===t.id?1:0.52,
               position:"relative"
             }}>
-              {TabIcons[t.id]?.(34,active===t.id)}
+              {tabIcons[t.id]?.(34,active===t.id)}
               {(t.id === 'chats' ? chatUnread : t.badge) > 0 && (
                 <div style={{
                   position:"absolute",top:-4,right:-4,
-                  background:ACCENT,color:"#fff",borderRadius:10,
+                  background:theme.ACCENT,color:"#fff",borderRadius:10,
                   padding:"1px 5px",fontSize:9,fontWeight:800,
-                  boxShadow:`0 0 8px ${ACCENT}88`,lineHeight:1.4
+                  boxShadow:`0 0 8px ${theme.ACCENT}88`,lineHeight:1.4
                 }}>{t.id === 'chats' ? chatUnread : t.badge}</div>
               )}
             </div>
-            <span style={{fontSize:9,fontWeight:700,color:active===t.id?ACCENT:FAINT,whiteSpace:"nowrap"}}>{tl(t.lk)}</span>
+            <span style={{fontSize:9,fontWeight:700,color:active===t.id?theme.ACCENT:labelInactive,whiteSpace:"nowrap"}}>{tl(t.lk)}</span>
             {active===t.id && (
               <div style={{
                 position:"absolute",bottom:5,left:"50%",transform:"translateX(-50%)",
                 width:28,height:3,borderRadius:2,
-                background:ACCENT,boxShadow:`0 0 10px ${ACCENT}99`
+                background:theme.ACCENT,boxShadow:`0 0 10px ${theme.ACCENT}99`
               }}/>
             )}
           </button>
@@ -227,66 +259,93 @@ function TopBar({ tab, onChange, settings, setSettings }) {
   // reset when tab changes
   useEffect(() => { setShowInfo(false); }, [tab]);
 
+  const btnBase = {
+    flex:"1 1 0",minWidth:0,padding:"4px 2px",borderRadius:9,border:"none",cursor:"pointer",
+    transition:"all .15s",
+    display:"flex",flexDirection:"column",alignItems:"center",lineHeight:1,gap:1,
+  };
+
+  const theme = useContext(ThemeContext);
+  const isKava = settings?.theme === "light";
+  const topBgEnd = isKava
+    ? `${theme.BG}ee`
+    : "rgba(28,29,33,0.9)";
+  const btnInactive = isKava
+    ? `rgba(92,42,26,0.12)`
+    : `rgba(255,255,255,0.08)`;
+  const btnInactiveColor = isKava ? theme.DIM : "rgba(255,255,255,0.55)";
+
   return (
     <div style={{position:"sticky",top:0,zIndex:20}}>
       <div style={{
         padding:"4px 8px",
-        display:"flex",alignItems:"center",justifyContent:"space-between",
-        background:`linear-gradient(180deg,${BG} 60%,rgba(28,29,33,0.9))`,
+        display:"flex",alignItems:"center",
+        background:`linear-gradient(180deg,${theme.BG} 60%,${topBgEnd})`,
         backdropFilter:"blur(20px)",
-        borderBottom:`1px solid ${showInfo ? "transparent" : BORDER}`,
+        borderBottom:`1px solid ${showInfo ? "transparent" : theme.BORDER}`,
+        minHeight:42,
       }}>
-        <div style={{display:"flex",alignItems:"center",gap:5}}>
-          <img src="/icon-192.png" alt="ID4Drive" style={{width:22,height:22,borderRadius:"50%",flexShrink:0,boxShadow:"-2px 3px 8px rgba(0,0,0,0.45)"}}/>
-          {tab!=="schedule" && <div style={{fontSize:13,fontWeight:800,letterSpacing:-0.3,color:TEXT}}>{tabLabel}</div>}
-          {tab==="schedule" && settings && setSettings && [6,8,9,10,12].map(n=>{
-            const totalH = (settings.workEnd - settings.workStart) * 60;
-            const targetHpx = Math.round(totalH / n);
-            const active = Math.abs(settings.hourHeightPx - targetHpx) < 5;
-            return (
-              <button key={`h${n}`} onClick={()=>setSettings(s=>({...s,hourHeightPx:Math.round((s.workEnd-s.workStart)*60/n)}))} style={{
-                padding:"4px 7px",borderRadius:9,border:"none",cursor:"pointer",
-                background:active?`linear-gradient(165deg,#5b9bff,#2563eb)`:`rgba(255,255,255,0.08)`,
-                color:active?"#fff":"rgba(255,255,255,0.55)",
-                boxShadow:active?`0 3px 8px rgba(91,155,255,0.5)`:"none",
-                transition:"all .15s",
-                display:"flex",flexDirection:"column",alignItems:"center",lineHeight:1,gap:1,
-              }}>
-                <span style={{fontSize:15,fontWeight:800}}>{n}</span>
-                <span style={{fontSize:8,fontWeight:600,opacity:0.8}}>годин</span>
-              </button>
-            );
-          })}
-        </div>
-        <div style={{display:"flex",gap:4,alignItems:"center"}}>
-          {tab==="schedule" && <div style={{width:1,height:28,background:"rgba(255,255,255,0.15)",borderRadius:1,marginRight:2}}/>}
-          {tab==="schedule" && settings && setSettings && [3,5,6,7,10].map(n=>{
-            const active = settings.daysShown===n;
-            return (
-              <button key={n} onClick={()=>setSettings(s=>({...s,daysShown:n}))} style={{
-                padding:"4px 7px",borderRadius:9,border:"none",cursor:"pointer",
-                background:active?`linear-gradient(165deg,${GOLD},#e6a800)`:`rgba(255,255,255,0.08)`,
-                color:active?"#1a1200":"rgba(255,255,255,0.55)",
-                boxShadow:active?`0 3px 8px ${GOLD}55`:"none",
-                transition:"all .15s",
-                display:"flex",flexDirection:"column",alignItems:"center",lineHeight:1,gap:1,
-              }}>
-                <span style={{fontSize:15,fontWeight:800}}>{n}</span>
-                <span style={{fontSize:8,fontWeight:600,opacity:0.8}}>діб</span>
-              </button>
-            );
-          })}
-        </div>
+        {tab==="schedule" && settings && setSettings ? (
+          <>
+            {/* Left: годин buttons */}
+            <div style={{flex:1,display:"flex",gap:3,alignItems:"center"}}>
+              {[6,8,9,10,12].map(n=>{
+                const totalH = (settings.workEnd - settings.workStart) * 60;
+                const targetHpx = Math.round(totalH / n);
+                const active = Math.abs(settings.hourHeightPx - targetHpx) < 5;
+                return (
+                  <button key={`h${n}`} onClick={()=>setSettings(s=>({...s,hourHeightPx:Math.round((s.workEnd-s.workStart)*60/n)}))} style={{
+                    ...btnBase,
+                    background:active?`linear-gradient(165deg,#5b9bff,#2563eb)`:btnInactive,
+                    color:active?"#fff":btnInactiveColor,
+                    boxShadow:active?`0 3px 8px rgba(91,155,255,0.5)`:"none",
+                  }}>
+                    <span style={{fontSize:15,fontWeight:800}}>{n}</span>
+                    <span style={{fontSize:8,fontWeight:600,opacity:0.8}}>годин</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Center: logo */}
+            <div style={{flex:"0 0 auto",display:"flex",justifyContent:"center",alignItems:"center",padding:"0 6px"}}>
+              <img src="/icon-192.png" alt="ID4Drive" style={{width:26,height:26,borderRadius:"50%",flexShrink:0,boxShadow:"-2px 3px 8px rgba(0,0,0,0.45)"}}/>
+            </div>
+
+            {/* Right: діб buttons */}
+            <div style={{flex:1,display:"flex",gap:3,alignItems:"center"}}>
+              {[3,5,6,7,10].map(n=>{
+                const active = settings.daysShown===n;
+                return (
+                  <button key={n} onClick={()=>setSettings(s=>({...s,daysShown:n}))} style={{
+                    ...btnBase,
+                    background:active?`linear-gradient(165deg,${theme.GOLD},#e6a800)`:btnInactive,
+                    color:active?"#1a1200":btnInactiveColor,
+                    boxShadow:active?`0 3px 8px ${theme.GOLD}55`:"none",
+                  }}>
+                    <span style={{fontSize:15,fontWeight:800}}>{n}</span>
+                    <span style={{fontSize:8,fontWeight:600,opacity:0.8}}>діб</span>
+                  </button>
+                );
+              })}
+            </div>
+          </>
+        ) : (
+          <div style={{display:"flex",alignItems:"center",gap:6,flex:1}}>
+            <img src="/icon-192.png" alt="ID4Drive" style={{width:22,height:22,borderRadius:"50%",flexShrink:0,boxShadow:"-2px 3px 8px rgba(0,0,0,0.45)"}}/>
+            <div style={{fontSize:13,fontWeight:800,letterSpacing:-0.3,color:theme.TEXT}}>{tabLabel}</div>
+          </div>
+        )}
       </div>
       {showInfo && instruction && (
         <div style={{
           padding:"8px 14px 10px",
-          background:`linear-gradient(180deg,${BG},rgba(28,29,33,0.95))`,
+          background:`linear-gradient(180deg,${theme.BG},${topBgEnd})`,
           backdropFilter:"blur(20px)",
-          borderBottom:`1px solid ${BORDER}`,
-          fontSize:12,color:DIM,lineHeight:1.55,
+          borderBottom:`1px solid ${theme.BORDER}`,
+          fontSize:12,color:theme.DIM,lineHeight:1.55,
         }}>
-          <span style={{color:GOLD,fontWeight:700,marginRight:6}}>💡</span>{instruction}
+          <span style={{color:theme.GOLD,fontWeight:700,marginRight:6}}>💡</span>{instruction}
         </div>
       )}
     </div>
