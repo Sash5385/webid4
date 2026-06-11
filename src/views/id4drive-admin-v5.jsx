@@ -307,7 +307,7 @@ const getDayInfo = (offsetFromToday) => {
   const d = new Date();
   d.setDate(d.getDate() + offsetFromToday);
   const dow = (d.getDay() + 6) % 7; // Mon=0..Sun=6
-  return { num: d.getDate(), month: _MLABELS[d.getMonth()], label: _DLABELS[dow], fullLabel: _DLABELS_FULL[dow], wk: dow >= 5 };
+  return { num: d.getDate(), month: _MLABELS[d.getMonth()], year: d.getFullYear(), label: _DLABELS[dow], fullLabel: _DLABELS_FULL[dow], wk: dow >= 5 };
 };
 
 
@@ -723,7 +723,8 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   }, []);
 
   const TIME_COL_W = 34;
-  const HEADER_H = 50;
+  const HEADER_H = 64;
+  const currentYear = new Date().getFullYear();
   const N_DAYS = PAST_DAYS + 365;
   const COL_W = Math.max(48, Math.floor((windowW - 14 - TIME_COL_W - (settings.daysShown - 1) * 4) / Math.max(1, settings.daysShown)));
   const allDaySchedules = (settings.weekSchedule || []).filter(d => d.start != null);
@@ -1211,6 +1212,10 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                 <div style={{fontSize:14, fontWeight:800, lineHeight:1.2,
                   color: isClosedDay ? RED : isToday ? GOLD : isOpenCol ? GREEN : DIM,
                 }}>{day.num}</div>
+                <div style={{fontSize:8, fontWeight:700, lineHeight:1,
+                  color: isClosedDay ? RED : isToday ? GOLD : isOpenCol ? GREEN : FAINT,
+                  letterSpacing:0.2,
+                }}>{day.month}{day.year !== currentYear ? ` ${day.year}` : ""}</div>
                 <div style={{fontSize:9, lineHeight:1, opacity: isClosedDay ? 1 : 0.7,
                   color: isClosedDay ? RED : isLoadingCol ? FAINT : isOpenCol ? GREEN : FAINT,
                 }}>{isPastDay ? "" : isClosedDay ? "🔒" : isLoadingCol ? "…" : isOpenCol ? "✓" : "＋"}</div>
