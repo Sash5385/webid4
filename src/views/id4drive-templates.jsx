@@ -108,6 +108,7 @@ const trigOf= id => TRIGGERS.find(t=>t.id===id)||TRIGGERS[5];
 
 // render body with colored vars
 function BodyPreview({ body, style={} }) {
+  if (!body) return null;
   const parts = body.split(/(\{[^}]+\})/g);
   return (
     <span style={style}>
@@ -318,11 +319,11 @@ function EditModal({ tpl, onSave, onClose }) {
 
         <div style={{display:"flex",gap:10}}>
           <button onClick={onClose} style={{flex:1,padding:"13px",borderRadius:14,border:"none",cursor:"pointer",background:`linear-gradient(135deg,${SURF_HI},${SURFACE})`,color:DIM,fontSize:13,fontWeight:700,boxShadow:SO}}>Скасувати</button>
-          <button onClick={()=>{if(form.title.trim()&&form.body.trim())onSave(form);}} style={{
+          <button onClick={()=>{if((form.title||'').trim()&&(form.body||'').trim())onSave(form);}} style={{
             flex:2,padding:"13px",borderRadius:14,border:"none",cursor:"pointer",fontSize:13,fontWeight:700,
-            background:form.title.trim()&&form.body.trim()?`linear-gradient(165deg,${ACC_HI},${ACCENT})`:`linear-gradient(135deg,${SURF_HI},${SURFACE})`,
-            color:form.title.trim()&&form.body.trim()?"#fff":FAINT,
-            boxShadow:form.title.trim()&&form.body.trim()?`-2px 5px 14px rgba(255,90,60,0.45),inset 1px 1px 0 rgba(255,255,255,0.3)`:SO
+            background:(form.title||'').trim()&&(form.body||'').trim()?`linear-gradient(165deg,${ACC_HI},${ACCENT})`:`linear-gradient(135deg,${SURF_HI},${SURFACE})`,
+            color:(form.title||'').trim()&&(form.body||'').trim()?"#fff":FAINT,
+            boxShadow:(form.title||'').trim()&&(form.body||'').trim()?`-2px 5px 14px rgba(255,90,60,0.45),inset 1px 1px 0 rgba(255,255,255,0.3)`:SO
           }}>{isNew?"Створити":"Зберегти"}</button>
         </div>
       </div>
@@ -353,38 +354,36 @@ function TemplateCard({ tpl, onEdit, onSend, onToggle, onDelete, viewMode }) {
   if (viewMode === "rows") {
     return (
       <div className="fade-in" style={{
+        display:"flex",alignItems:"center",gap:8,padding:"6px 10px",
         background:`linear-gradient(155deg,${SURF_HI},${SURFACE})`,
-        borderRadius:13,marginBottom:8,overflow:"hidden",
-        boxShadow:SO,opacity:tpl.active?1:0.55
+        borderRadius:10,marginBottom:4,boxShadow:SO,
+        opacity:tpl.active?1:0.5,
+        borderLeft:`3px solid ${cat.color}`,
       }}>
-        <div style={{display:"flex",alignItems:"center",gap:8,padding:"9px 12px"}}>
-          <div style={{width:4,alignSelf:"stretch",borderRadius:3,background:cat.color,flexShrink:0}}/>
-          <span style={{fontSize:22,flexShrink:0,lineHeight:1}}>{cat.emoji}</span>
-          <div style={{flex:1,minWidth:0}}>
-            <div style={{fontSize:13,fontWeight:800,color:TEXT,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{tpl.title}</div>
-            <div style={{fontSize:10,color:DIM,marginTop:2}}>
-              <span style={{color:ch.color,fontWeight:700}}>{ch.emoji} {ch.label}</span>
-              <span style={{color:FAINT}}> · </span>
-              <span style={{color:tpl.trigger==="manual"?DIM:GOLD}}>{tpl.trigger==="manual"?"✋":"⚡"}</span>
-            </div>
+        <span style={{fontSize:17,flexShrink:0,lineHeight:1,width:22,textAlign:"center"}}>{cat.emoji}</span>
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{fontSize:12,fontWeight:700,color:TEXT,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{tpl.title}</div>
+          <div style={{fontSize:10,color:DIM,marginTop:1,display:"flex",alignItems:"center",gap:4}}>
+            <span style={{color:ch.color,fontWeight:600}}>{ch.emoji} {ch.label}</span>
+            <span style={{color:FAINT}}>·</span>
+            <span style={{color:tpl.trigger==="manual"?DIM:GOLD}}>{tpl.trigger==="manual"?"✋":"⚡"}</span>
           </div>
-          <Toggle on={tpl.active} onChange={v=>onToggle(tpl.id,v)}/>
-          <div style={{width:1,height:28,background:BORDER,flexShrink:0}}/>
-          {[
-            {grad:`linear-gradient(165deg,${ACC_HI},${ACCENT})`, fn:()=>onSend(tpl),
-              svg:<><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></>},
-            {grad:"linear-gradient(165deg,#a78bfa,#6d28d9)", fn:()=>onEdit(tpl),
-              svg:<><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></>},
-            {grad:"linear-gradient(165deg,#f87171,#dc2626)", fn:()=>onDelete(tpl.id),
-              svg:<><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></>},
-          ].map((b,i)=>(
-            <button key={i} onClick={b.fn} style={{background:"none",border:"none",cursor:"pointer",padding:"0 2px",flexShrink:0}}>
-              <div className="icon3d" style={{width:26,height:26,background:b.grad,borderRadius:8}}>
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{position:"relative",zIndex:1}}>{b.svg}</svg>
-              </div>
-            </button>
-          ))}
         </div>
+        <Toggle on={tpl.active} onChange={v=>onToggle(tpl.id,v)}/>
+        {[
+          {grad:`linear-gradient(165deg,${ACC_HI},${ACCENT})`, fn:()=>onSend(tpl),
+            svg:<><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></>},
+          {grad:"linear-gradient(165deg,#a78bfa,#6d28d9)", fn:()=>onEdit(tpl),
+            svg:<><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></>},
+          {grad:"linear-gradient(165deg,#f87171,#dc2626)", fn:()=>onDelete(tpl.id),
+            svg:<><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></>},
+        ].map((b,i)=>(
+          <button key={i} onClick={b.fn} style={{background:"none",border:"none",cursor:"pointer",padding:"0 2px",flexShrink:0}}>
+            <div className="icon3d" style={{width:24,height:24,background:b.grad,borderRadius:7}}>
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{position:"relative",zIndex:1}}>{b.svg}</svg>
+            </div>
+          </button>
+        ))}
       </div>
     );
   }
@@ -492,10 +491,10 @@ export default function TemplatesView() {
   return (
     <>
       <style>{css}</style>
-      <div style={{display:"flex",flexDirection:"column",gap:12,fontFamily:"ui-sans-serif,-apple-system,system-ui,sans-serif",color:TEXT}}>
+      <div style={{display:"flex",flexDirection:"column",gap:0,fontFamily:"ui-sans-serif,-apple-system,system-ui,sans-serif",color:TEXT}}>
 
         {/* ── LIST ── */}
-        {list.map(tpl=>(
+        {list.filter(Boolean).map(tpl=>(
           <TemplateCard
             key={tpl.id} tpl={tpl} viewMode="rows"
             onEdit={setEditTpl} onSend={setSendTpl}
