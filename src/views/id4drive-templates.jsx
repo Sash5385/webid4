@@ -333,7 +333,7 @@ function EditModal({ tpl, onSave, onClose }) {
 
 // ─── TEMPLATE CARD ───────────────────────────────────────────────
 function TemplateCard({ tpl, onEdit, onSend, onToggle, onDelete, viewMode }) {
-  const { SURF_HI, SURFACE, SO, TEXT, DIM, FAINT, BORDER, ACCENT } = useContext(ThemeContext);
+  const { SURF_HI, SURFACE, SO, TEXT, DIM, FAINT, BORDER, ACCENT, ACC_HI } = useContext(ThemeContext);
   const [expanded, setExpanded] = useState(false);
   const [longPressTimer, setLongPressTimer] = useState(null);
   const [inlineEdit, setInlineEdit] = useState(false);
