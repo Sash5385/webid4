@@ -724,7 +724,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
 
   const TIME_COL_W = 34;
   const HEADER_H = 50;
-  const N_DAYS = PAST_DAYS + 35;
+  const N_DAYS = PAST_DAYS + 365;
   const COL_W = Math.max(48, Math.floor((windowW - 14 - TIME_COL_W - (settings.daysShown - 1) * 4) / Math.max(1, settings.daysShown)));
   const allDaySchedules = (settings.weekSchedule || []).filter(d => d.start != null);
   const effectiveWorkStart = allDaySchedules.length
