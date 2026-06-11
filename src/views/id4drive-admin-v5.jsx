@@ -689,6 +689,20 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   const [localSelectedBooking, setLocalSelectedBooking] = useState(null);
   const emptyHoldTimerRef = useRef(null);
   const emptyHoldPosRef   = useRef(null);
+  const dayLongPressRef   = useRef(null);
+  const dayLongFiredRef   = useRef(false);
+
+  const toggleDayBlocked = (dateStr) => {
+    setSettings(s => {
+      const overrides = s.dateOverrides || [];
+      const existing  = overrides.find(o => o.date === dateStr);
+      if (existing?.type === 'closed') {
+        return { ...s, dateOverrides: overrides.filter(o => o.date !== dateStr) };
+      }
+      const rest = overrides.filter(o => o.date !== dateStr);
+      return { ...s, dateOverrides: [...rest, { date: dateStr, type: 'closed' }] };
+    });
+  };
 
   // Shine glint animation — one booking at a time, random, every 3s
   const bookingsRef = useRef(bookings);
@@ -1165,6 +1179,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
             const isPastDay = absDay < 0;
             const isLoadingCol = genLoadingDays.has(absDay);
             const hasAnySlotsCol = !!(openSlots[dateStrCol] && Object.keys(openSlots[dateStrCol]).length);
+            const isClosedDay = _ov?.type === 'closed';
             return (
             <div key={absDay} style={{
               display:"flex", flexDirection:"column", flexShrink:0,
@@ -1172,7 +1187,10 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
             }}>
               {/* DATE HEADER — sticky top, moves with column horizontally */}
               <div
-                onClick={e=>{ e.stopPropagation(); if(isPastDay || isLoadingCol) return; hasAnySlotsCol ? clearDaySlots(absDay) : generateDaySlots(absDay); }}
+                onClick={e=>{ e.stopPropagation(); if(dayLongFiredRef.current){dayLongFiredRef.current=false;return;} if(isPastDay || isLoadingCol || isClosedDay) return; hasAnySlotsCol ? clearDaySlots(absDay) : generateDaySlots(absDay); }}
+                onPointerDown={e=>{ if(isPastDay) return; clearTimeout(dayLongPressRef.current); dayLongFiredRef.current=false; dayLongPressRef.current=setTimeout(()=>{ dayLongFiredRef.current=true; toggleDayBlocked(dateStrCol); }, 600); }}
+                onPointerUp={()=>clearTimeout(dayLongPressRef.current)}
+                onPointerLeave={()=>clearTimeout(dayLongPressRef.current)}
                 style={{
                   position:"sticky", top:0, zIndex:4,
                   height:HEADER_H, flexShrink:0, marginBottom:4,
@@ -1180,20 +1198,20 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                   alignItems:"center", justifyContent:"space-between",
                   padding:"3px 2px 3px", borderRadius:10, cursor: isPastDay ? "default" : "pointer",
                   opacity: isPastDay ? 0.35 : 1, overflow:"visible",
-                  background: isToday ? `rgba(247,201,72,0.18)` : isOpenCol ? `rgba(99,211,120,0.13)` : `rgba(0,0,0,0.18)`,
-                  boxShadow: isToday ? `inset 0 0 0 1.5px rgba(247,201,72,0.55)` : isOpenCol ? `inset 0 0 0 1px rgba(99,211,120,0.35)` : "none",
+                  background: isClosedDay ? `rgba(220,60,60,0.13)` : isToday ? `rgba(247,201,72,0.18)` : isOpenCol ? `rgba(99,211,120,0.13)` : `rgba(0,0,0,0.18)`,
+                  boxShadow: isClosedDay ? `inset 0 0 0 1.5px rgba(220,60,60,0.7)` : isToday ? `inset 0 0 0 1.5px rgba(247,201,72,0.55)` : isOpenCol ? `inset 0 0 0 1px rgba(99,211,120,0.35)` : "none",
                 }}>
                 <div style={{fontSize:9, fontWeight:700, lineHeight:1.2,
-                  color: isToday ? GOLD : isOpenCol ? GREEN : TEXT_FAINT,
+                  color: isClosedDay ? RED : isToday ? GOLD : isOpenCol ? GREEN : TEXT_FAINT,
                   letterSpacing:0.3, overflow:"hidden", whiteSpace:"nowrap",
                   maxWidth:"100%", textOverflow:"ellipsis",
                 }}>{day.fullLabel}</div>
                 <div style={{fontSize:14, fontWeight:800, lineHeight:1.2,
-                  color: isToday ? GOLD : isOpenCol ? GREEN : DIM,
+                  color: isClosedDay ? RED : isToday ? GOLD : isOpenCol ? GREEN : DIM,
                 }}>{day.num}</div>
-                <div style={{fontSize:9, lineHeight:1, opacity:0.7,
-                  color: isLoadingCol ? FAINT : isOpenCol ? GREEN : FAINT,
-                }}>{isPastDay ? "" : isLoadingCol ? "…" : isOpenCol ? "✓" : "＋"}</div>
+                <div style={{fontSize:9, lineHeight:1, opacity: isClosedDay ? 1 : 0.7,
+                  color: isClosedDay ? RED : isLoadingCol ? FAINT : isOpenCol ? GREEN : FAINT,
+                }}>{isPastDay ? "" : isClosedDay ? "🔒" : isLoadingCol ? "…" : isOpenCol ? "✓" : "＋"}</div>
                 {genToast?.absDay === absDay && (
                   <div style={{position:"absolute", bottom:-18, left:"50%", transform:"translateX(-50%)",
                     background: genToast.free > 0 ? "rgba(99,211,120,0.92)" : "rgba(220,80,80,0.92)",
