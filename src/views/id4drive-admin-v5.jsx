@@ -1038,7 +1038,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
     const { snapMin, workStart, PX_PER_MIN } = calcRef.current;
     const rawMin = workStart * 60 + yRel / PX_PER_MIN;
     const minute = Math.round(rawMin / snapMin) * snapMin;
-    const bData = { day: absDay, startMin: minute, clientX: e.clientX, clientY: e.clientY };
+    const bData = { day: absDay, startMin: minute, clientX: e.clientX, clientY: e.clientY, dateStr: absDayToDateStr(absDay) };
     setBubbleData(bData);
   };
 
@@ -1313,7 +1313,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                   emptyHoldTimerRef.current = setTimeout(() => {
                     if (!emptyHoldPosRef.current) return;
                     // Утримання → bubble для нового букінгу
-                    setBubbleData({ day: absDay, startMin: minute, clientX: e.clientX, clientY: e.clientY, freeSnap: true });
+                    setBubbleData({ day: absDay, startMin: minute, clientX: e.clientX, clientY: e.clientY, freeSnap: true, dateStr: dateStrCol });
                     emptyHoldPosRef.current = null;
                   }, 480);
                 }}
@@ -1862,6 +1862,17 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
             color:"#fff",fontSize:12,fontWeight:800,
             boxShadow:`0 4px 12px rgba(245,158,11,0.4)`,
           }}>👤 Записати учня</button>
+          <button onClick={()=>{
+            const sh = String(Math.floor(bubbleData.startMin/60)).padStart(2,'0');
+            const sn = String(bubbleData.startMin%60).padStart(2,'0');
+            setPersonalEventData({ dateStr: bubbleData.dateStr || absDayToDateStr(bubbleData.day), time: `${sh}:${sn}` });
+            setBubbleData(null);
+          }} style={{
+            marginTop:8, width:"100%",padding:"9px 12px",borderRadius:10,cursor:"pointer",
+            background:"rgba(45,212,191,0.12)",
+            color:"#2dd4bf",fontSize:12,fontWeight:800,
+            border:"1px solid rgba(45,212,191,0.3)",
+          }}>📌 Особиста подія</button>
         </div>
       </div>
     )}
