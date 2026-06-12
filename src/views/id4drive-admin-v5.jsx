@@ -718,7 +718,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   const emptyHoldPosRef   = useRef(null);
   const dayLongPressRef   = useRef(null);
   const dayLongFiredRef   = useRef(false);
-  const [scheduleLocked, setScheduleLocked] = useState(false);
+  const [scheduleLocked, setScheduleLocked] = useState(() => localStorage.getItem("scheduleLocked") === "1");
   const lockHoldTimerRef  = useRef(null);
   const lockHoldFiredRef  = useRef(false);
 
@@ -728,7 +728,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
     lockHoldTimerRef.current = setTimeout(() => {
       lockHoldFiredRef.current = true;
       navigator.vibrate?.([30, 40, 60]);
-      setScheduleLocked(v => !v);
+      setScheduleLocked(v => { const next = !v; localStorage.setItem("scheduleLocked", next ? "1" : "0"); return next; });
     }, 700);
   };
   const handleLockUp = () => clearTimeout(lockHoldTimerRef.current);
