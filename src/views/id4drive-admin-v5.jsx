@@ -456,6 +456,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   const [windowW, setWindowW] = useState(window.innerWidth);
   const [windowH, setWindowH] = useState(window.innerHeight);
   const PAST_DAYS = 30;
+  const VBUF = 5;
   const [dayOffset, setDayOffset] = useState(-PAST_DAYS);
   const dragRef = useRef(null);
   const calcRef = useRef({});
@@ -470,6 +471,8 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   const gridWrapRef = useRef(null);
   const sumRowRef   = useRef(null);
   const sumInnerRef = useRef(null);
+  const vRangeRef   = useRef({ s: Math.max(0, PAST_DAYS - VBUF), e: PAST_DAYS + 30 });
+  const [vRange, setVRange] = useState({ s: Math.max(0, PAST_DAYS - VBUF), e: PAST_DAYS + 30 });
   const xVisibleRef = useRef(false);
   const xJustShownRef = useRef(false);
   const snapTimerRef = useRef(null);
@@ -677,6 +680,23 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
     el.style.transform = "";
   }, [dayOffset]);
 
+  const computeVRange = () => {
+    const el = gridRef.current;
+    if (!el) return;
+    const { COL_W: cw, N_DAYS: nd } = calcRef.current;
+    if (!cw || !nd) return;
+    const stride = cw + 4;
+    const sl = el.scrollLeft;
+    const firstVis = Math.floor(sl / stride);
+    const lastVis  = Math.ceil((sl + el.clientWidth) / stride);
+    const s = Math.max(0, firstVis - VBUF);
+    const e = Math.min(nd - 1, lastVis + VBUF);
+    if (s !== vRangeRef.current.s || e !== vRangeRef.current.e) {
+      vRangeRef.current = { s, e };
+      setVRange({ s, e });
+    }
+  };
+
   // Скролимо до сьогодні при зміні daysShown (включаючи завантаження settings з Firebase)
   useEffect(() => {
     if (!gridRef.current) return;
@@ -684,7 +704,10 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
     const left = PAST_DAYS * (colW + 4);
     gridRef.current.scrollLeft = left;
     if (headersInnerRef.current) headersInnerRef.current.style.transform = `translateX(-${left}px)`;
+    computeVRange();
   }, [settings.daysShown]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useLayoutEffect(() => { computeVRange(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const [bubbleData, setBubbleData] = useState(null);
   const [formData, setFormData] = useState(null);
   const [createSlotData, setCreateSlotData] = useState(null); // {day, startMin}
@@ -693,6 +716,20 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   const emptyHoldPosRef   = useRef(null);
   const dayLongPressRef   = useRef(null);
   const dayLongFiredRef   = useRef(false);
+  const [scheduleLocked, setScheduleLocked] = useState(false);
+  const lockHoldTimerRef  = useRef(null);
+  const lockHoldFiredRef  = useRef(false);
+
+  const handleLockDown = (e) => {
+    e.preventDefault();
+    lockHoldFiredRef.current = false;
+    lockHoldTimerRef.current = setTimeout(() => {
+      lockHoldFiredRef.current = true;
+      navigator.vibrate?.([30, 40, 60]);
+      setScheduleLocked(v => !v);
+    }, 700);
+  };
+  const handleLockUp = () => clearTimeout(lockHoldTimerRef.current);
 
   const toggleDayBlocked = (dateStr) => {
     setSettings(s => {
@@ -726,7 +763,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   const HEADER_H = 64;
   const currentYear = new Date().getFullYear();
   const N_DAYS = PAST_DAYS + 365;
-  const COL_W = Math.max(48, Math.floor((windowW - 14 - TIME_COL_W - (settings.daysShown - 1) * 4) / Math.max(1, settings.daysShown)));
+  const COL_W = Math.max(40, Math.floor((windowW - 16 - TIME_COL_W - (settings.daysShown - 1) * 4) / Math.max(1, settings.daysShown)));
   const allDaySchedules = (settings.weekSchedule || []).filter(d => d.start != null);
   const effectiveWorkStart = allDaySchedules.length
     ? Math.min(settings.workStart, ...allDaySchedules.map(d => d.start))
@@ -749,6 +786,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   const minToPx = (m) => (m - effectiveWorkStart*60) * PX_PER_MIN;
 
   const onPointerDown = (e, b, mode) => {
+    if (scheduleLocked) return;
     e.preventDefault(); e.stopPropagation();
     const isBlock = b.type === "block";
     // Зберігаємо початкові позиції всіх сегментів — потрібно для відновлення слотів в onUp
@@ -797,7 +835,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
           const dy = e.clientY - swipeRef.current.startY;
           if (Math.abs(dx) > Math.abs(dy) * 0.7 && Math.abs(dx) > 6) {
             gridWrapRef.current.style.transform = `translateX(${dx}px)`;
-            if(sumInnerRef.current) sumInnerRef.current.style.transform = `translateX(${dx}px)`;
+            if(sumInnerRef.current) sumInnerRef.current.style.transform = `translateX(${-(gridRef.current?.scrollLeft ?? 0) + dx}px)`;
           }
         }
       }
@@ -944,7 +982,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
       if (gridWrapRef.current) {
         gridWrapRef.current.style.transition = "none";
         gridWrapRef.current.style.transform = "";
-        if(sumInnerRef.current) sumInnerRef.current.style.transform = "";
+        if(sumInnerRef.current) sumInnerRef.current.style.transform = `translateX(-${gridRef.current?.scrollLeft ?? 0}px)`;
       }
     };
     const onResize = () => { setWindowW(window.innerWidth); setWindowH(window.innerHeight); };
@@ -1076,6 +1114,8 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
 
   const [vipSlotModal, setVipSlotModal] = useState(null);
   const [slotOptions, setSlotOptions] = useState(null); // { dateStr, time, slot }
+  const [personalEventData, setPersonalEventData] = useState(null); // { dateStr, time }
+  const [personalEventView, setPersonalEventView] = useState(null); // booking object for viewing
 
   const isStickySlot = (dateStr, time) => {
     if (!settings.stickyTimeEnabled) return true;
@@ -1083,7 +1123,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
     const slotMin = h * 60 + m;
     const today = new Date(); today.setHours(0,0,0,0);
     const absDay = Math.round((new Date(dateStr + "T12:00:00") - today) / 86400000);
-    const dayBkgs = bookings.filter(b => b.day === absDay && b.type !== "block" && b.type !== "vip-slot");
+    const dayBkgs = bookings.filter(b => b.day === absDay && b.type !== "block" && b.type !== "vip-slot" && b.type !== "personal");
     const adjBefore = dayBkgs.some(b => b.startMin === slotMin + 60);
     const adjAfter  = dayBkgs.some(b => b.startMin + b.durMin === slotMin);
     if (settings.stickyTime === "before") return adjBefore;
@@ -1144,6 +1184,31 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
               })}
             </div>
           </div>
+          {/* Замок — в нижній частині стовпця часу, вирівняний із сум-рядком */}
+          <div
+            onPointerDown={handleLockDown}
+            onPointerUp={handleLockUp}
+            onPointerCancel={handleLockUp}
+            onContextMenu={e=>e.preventDefault()}
+            style={{
+              height:30, flexShrink:0,
+              display:"flex", alignItems:"center", justifyContent:"center",
+              WebkitUserSelect:"none", userSelect:"none", touchAction:"none", cursor:"pointer",
+            }}
+          >
+            {scheduleLocked ? (
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(239,68,68,0.95)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                style={{filter:"drop-shadow(0 0 5px rgba(239,68,68,0.5))"}}>
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+              </svg>
+            ) : (
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                <path d="M7 11V7a5 5 0 0 1 9.9-1"/>
+              </svg>
+            )}
+          </div>
         </div>
 
         {/* SCROLLABLE GRID — horizontal + vertical */}
@@ -1159,14 +1224,17 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
           onScroll={e=>{
             if (timeColRef.current)
               timeColRef.current.style.transform = `translateY(-${e.currentTarget.scrollTop}px)`;
-            if (sumRowRef.current)
-              sumRowRef.current.scrollLeft = e.currentTarget.scrollLeft;
+            if (sumInnerRef.current)
+              sumInnerRef.current.style.transform = `translateX(-${e.currentTarget.scrollLeft}px)`;
+            computeVRange();
           }}
           onContextMenu={e=>e.preventDefault()}
           style={{flex:1, overflowX:"auto", overflowY:"auto", touchAction:"pan-x pan-y", WebkitOverflowScrolling:"touch", userSelect:"none", WebkitUserSelect:"none"}}
         >
           <div ref={gridWrapRef} style={{display:"flex", paddingTop:2}}>
-          {days.map((day,colIdx)=>{
+          {vRange.s > 0 && <div style={{width:vRange.s*(COL_W+4), flexShrink:0}}/>}
+          {days.slice(vRange.s, vRange.e+1).map((day,_i)=>{
+            const colIdx = vRange.s + _i;
             const absDay = dayOffset + colIdx;
             const dateStrCol = absDayToDateStr(absDay);
             const isOpenCol = Object.values(openSlots[dateStrCol] || {}).some(s => s.available);
@@ -1186,12 +1254,12 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
             return (
             <div key={absDay} style={{
               display:"flex", flexDirection:"column", flexShrink:0,
-              width:COL_W, marginRight:colIdx<days.length-1?4:0,
+              width:COL_W, marginRight:colIdx<N_DAYS-1?4:0,
             }}>
               {/* DATE HEADER — sticky top, moves with column horizontally */}
               <div
-                onClick={e=>{ e.stopPropagation(); if(dayLongFiredRef.current){dayLongFiredRef.current=false;return;} if(isPastDay || isLoadingCol || isClosedDay) return; hasAnySlotsCol ? clearDaySlots(absDay) : generateDaySlots(absDay); }}
-                onPointerDown={e=>{ if(isPastDay) return; clearTimeout(dayLongPressRef.current); dayLongFiredRef.current=false; dayLongPressRef.current=setTimeout(()=>{ dayLongFiredRef.current=true; toggleDayBlocked(dateStrCol); }, 600); }}
+                onClick={e=>{ e.stopPropagation(); if(scheduleLocked) return; if(dayLongFiredRef.current){dayLongFiredRef.current=false;return;} if(isPastDay || isLoadingCol || isClosedDay) return; hasAnySlotsCol ? clearDaySlots(absDay) : generateDaySlots(absDay); }}
+                onPointerDown={e=>{ if(scheduleLocked || isPastDay) return; clearTimeout(dayLongPressRef.current); dayLongFiredRef.current=false; dayLongPressRef.current=setTimeout(()=>{ dayLongFiredRef.current=true; toggleDayBlocked(dateStrCol); }, 600); }}
                 onPointerUp={()=>clearTimeout(dayLongPressRef.current)}
                 onPointerLeave={()=>clearTimeout(dayLongPressRef.current)}
                 style={{
@@ -1234,7 +1302,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
               <div
                 onClick={e=>{ if(xJustShownRef.current){ xJustShownRef.current=false; return; } if(quickCancelId){ xVisibleRef.current=false; setQuickCancelId(null); } }}
                 onPointerDown={e=>{
-                  if (isPastDay) return;
+                  if (scheduleLocked || isPastDay) return;
                   if (e.button > 0) return;
                   if (dragRef.current || pendingDragRef.current) return;
                   const rect = e.currentTarget.getBoundingClientRect();
@@ -1311,7 +1379,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                 return (
                   <div key={`os-${time}`}
                     onPointerDown={e=>{
-                      if (isPastDay) return;
+                      if (scheduleLocked || isPastDay) return;
                       e.stopPropagation();
                       slotHoldFiredRef.current = false;
                       slotHoldTimerRef.current = setTimeout(()=>{
@@ -1424,9 +1492,10 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                 const isCancelling = cancellingSet.has(b.id);
                 const isBlock = b.type === "block";
                 const isVipSlot = b.type === "vip-slot";
+                const isPersonal = b.type === "personal";
                 const slotTimeStr = String(Math.floor(b.startMin/60)).padStart(2,'0')+':'+String(b.startMin%60).padStart(2,'0');
                 const queueCount = b.date ? (queueMap[`${b.date}_${slotTimeStr}`] || 0) : 0;
-                const isDimmed = !isBlock && !isVipSlot && (b.status==="noshow" || isCancelling);
+                const isDimmed = !isBlock && !isVipSlot && !isPersonal && (b.status==="noshow" || isCancelling);
                 const svc = settings.services.find(s=>s.id===b.serviceId)
                          || settings.services.find(s=>s.active && s.type===(b.serviceType||b.type) && Number(s.duration)===b.durMin);
                 const basePrice = svc
@@ -1446,7 +1515,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                   }}>
                     {/* Сам слот */}
                     <div
-                      className={`slot-base ${isBlock?"":"slot-colored"} ${!isBlock&&isPending?"slot-pending-ring":""} ${!isBlock&&holdId===b.id?"slot-holding":""} ${!isBlock&&shineId===b.id&&!isDimmed?"shine-active":""}`}
+                      className={`slot-base ${(isBlock||isPersonal)?"":"slot-colored"} ${!isBlock&&!isPersonal&&isPending?"slot-pending-ring":""} ${!isBlock&&!isPersonal&&holdId===b.id?"slot-holding":""} ${!isBlock&&!isPersonal&&shineId===b.id&&!isDimmed?"shine-active":""}`}
                       onPointerDown={e=>onPointerDown(e,b,"move")}
                       onContextMenu={e=>e.preventDefault()}
                       onClick={e=>{
@@ -1456,6 +1525,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                         if(dragEndedRef.current) return;
                         if(isVipSlot){ setVipSlotModal(b); return; }
                         if(isBlock){ setBlockModal(b); return; }
+                        if(isPersonal){ setPersonalEventView(b); return; }
                         if(isCancelling){
                           clearTimeout(cancelTimers.current[b.id]);
                           delete cancelTimers.current[b.id];
@@ -1469,6 +1539,14 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                         borderRadius:8,
                         background:"rgba(168,85,247,0.13)",
                         border:"1.5px solid rgba(168,85,247,0.5)",
+                        display:"flex", flexDirection:"column",
+                        alignItems:"flex-start", justifyContent:"center",
+                        padding:"0 7px", overflow:"hidden",
+                      } : isPersonal ? {
+                        position:"relative", width:"100%", height:"100%",
+                        borderRadius:8,
+                        background:"rgba(45,212,191,0.12)",
+                        border:"1.5px solid rgba(45,212,191,0.4)",
                         display:"flex", flexDirection:"column",
                         alignItems:"flex-start", justifyContent:"center",
                         padding:"0 7px", overflow:"hidden",
@@ -1490,10 +1568,32 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                         transition:"opacity 0.4s, filter 0.4s",
                       }}>
                       <div className="slot-handle top" onPointerDown={e=>onPointerDown(e,b,"top")}/>
-                      {!isBlock && !isVipSlot && <div className="shine-layer"/>}
+                      {!isBlock && !isVipSlot && !isPersonal && <div className="shine-layer"/>}
                       {isVipSlot && height >= 14 && (
                         <span style={{fontSize:11, lineHeight:1}}>👑</span>
                       )}
+                      {isPersonal && height >= 14 && (() => {
+                        const maxFs = Math.min(11, Math.floor(COL_W / 5.5));
+                        const nameLines = b.name ? b.name.split(" ") : ["Подія"];
+                        const fs = Math.max(6, Math.min(maxFs, Math.floor((height - 8) / (Math.min(nameLines.length, 2) * 1.3 + 1))));
+                        return (
+                          <div style={{
+                            position:"absolute", top:2, left:4, right:2, bottom:2,
+                            display:"flex", flexDirection:"column", justifyContent:"center",
+                            gap:1, overflow:"hidden",
+                          }}>
+                            <span style={{fontSize:Math.min(fs+1,11), lineHeight:1}}>📌</span>
+                            {nameLines.slice(0,2).map((word,i)=>(
+                              <div key={i} style={{
+                                fontSize:fs, fontWeight:700, color:"#2dd4bf",
+                                lineHeight:1.2, whiteSpace:"normal",
+                                wordBreak:"break-word", overflowWrap:"anywhere",
+                                textShadow:"0 1px 2px rgba(0,0,0,0.6)",
+                              }}>{word}</div>
+                            ))}
+                          </div>
+                        );
+                      })()}
                       {isBlock && height >= 18 && (() => {
                         const sz = Math.min(height * 0.62, 36);
                         return (
@@ -1504,7 +1604,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                           </svg>
                         );
                       })()}
-                      {!isBlock && !isVipSlot && height >= 12 && (() => {
+                      {!isBlock && !isVipSlot && !isPersonal && height >= 12 && (() => {
                         const [fName, ...lParts] = b.name.split(' ');
                         const lName = lParts.join(' ');
                         const priceColor = b.surcharge ? GOLD : "rgba(255,255,255,0.9)";
@@ -1622,6 +1722,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
             </div>
             );
           })}
+          {(N_DAYS-1-vRange.e)>0 && <div style={{width:(N_DAYS-1-vRange.e)*(COL_W+4)-4, flexShrink:0}}/>}
           </div>
         </div>
 
@@ -1632,10 +1733,12 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
         <div style={{width:TIME_COL_W, flexShrink:0}}/>
         <div ref={sumRowRef} style={{flex:1, overflowX:"hidden"}}>
           <div ref={sumInnerRef} style={{display:"flex"}}>
-            {days.map((day,colIdx)=>{
+            {vRange.s > 0 && <div style={{width:vRange.s*(COL_W+4), flexShrink:0}}/>}
+            {days.slice(vRange.s, vRange.e+1).map((day,_i)=>{
+              const colIdx = vRange.s + _i;
               const absDay2 = dayOffset + colIdx;
               const daySum = bookings
-                .filter(b=>b.day===absDay2 && b.type!=="block" && b.type!=="vip-slot" && b.status!=="cancelled" && b.status!=="noshow")
+                .filter(b=>b.day===absDay2 && b.type!=="block" && b.type!=="vip-slot" && b.type!=="personal" && b.status!=="cancelled" && b.status!=="noshow")
                 .reduce((s,b)=>{
                   const svc=(settings.services||[]).find(sv=>sv.id===b.serviceId||sv.id===b.svcId);
                   const price = svc
@@ -1646,7 +1749,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                   return s+price;
                 },0);
               return (
-                <div key={absDay2} style={{width:COL_W, flexShrink:0, marginRight:colIdx<days.length-1?4:0}}>
+                <div key={absDay2} style={{width:COL_W, flexShrink:0, marginRight:colIdx<N_DAYS-1?4:0}}>
                   {daySum>0 ? (
                     <div style={{
                       background:`linear-gradient(180deg,#3a3b40,#2e2f34)`,
@@ -1663,9 +1766,11 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                 </div>
               );
             })}
+            {(N_DAYS-1-vRange.e)>0 && <div style={{width:(N_DAYS-1-vRange.e)*(COL_W+4)-4, flexShrink:0}}/>}
           </div>
         </div>
       </div>
+
     </Card>
 
     <BookingModal booking={localSelectedBooking} onClose={()=>setLocalSelectedBooking(null)}
@@ -1800,6 +1905,19 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
             <span>👤</span> Додати букінг
           </button>
 
+          {/* Особиста подія */}
+          <button onClick={()=>{
+            setPersonalEventData({ dateStr: slotOptions.dateStr, time: slotOptions.time, slot: slotOptions.slot });
+            setSlotOptions(null);
+          }} style={{
+            width:"100%",padding:"11px 14px",border:"none",cursor:"pointer",
+            background:"none",borderBottom:`1px solid rgba(255,255,255,0.05)`,
+            color:"#2dd4bf",fontSize:13,fontWeight:700,
+            display:"flex",alignItems:"center",gap:9,
+          }}>
+            <span>📌</span> Особиста подія
+          </button>
+
           {/* VIP + надбавки — для відкритих і закритих слотів */}
           {slotOptions.slot?.available === false && (
             <div style={{padding:"8px 14px 4px",color:TEXT_FAINT,fontSize:10,fontWeight:600,letterSpacing:0.5}}>
@@ -1932,6 +2050,83 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
       bookings={bookings}/>
 
     {createSlotData && <CreateSlotSheet data={createSlotData} settings={settings} onClose={()=>setCreateSlotData(null)}/>}
+
+    <PersonalEventModal
+      data={personalEventData}
+      onClose={()=>setPersonalEventData(null)}
+      onConfirm={b=>{
+        update(ref(db, `bookings/admin/${b.id}`), b).catch(()=>{});
+        const slotUpd = {};
+        for (let i = 0; i < b.durMin; i += 30) {
+          const sm = b.startMin + i;
+          const sh = String(Math.floor(sm / 60)).padStart(2, '0');
+          const sn = String(sm % 60).padStart(2, '0');
+          slotUpd[`timeslots/${b.date}/slot${sh}${sn}/available`] = false;
+          slotUpd[`timeslots/${b.date}/slot${sh}${sn}/time`] = `${sh}:${sn}`;
+        }
+        update(ref(db, '/'), slotUpd).catch(()=>{});
+        setPersonalEventData(null);
+      }}
+    />
+
+    {/* Перегляд особистої події */}
+    {personalEventView && (
+      <div onClick={()=>setPersonalEventView(null)} style={{
+        position:"fixed",inset:0,zIndex:200,background:"rgba(0,0,0,0.6)",
+        display:"flex",alignItems:"center",justifyContent:"center",
+        backdropFilter:"blur(8px)",
+      }}>
+        <div onClick={e=>e.stopPropagation()} style={{
+          width:280,background:"#151719",
+          borderRadius:20,overflow:"hidden",
+          boxShadow:"0 8px 40px rgba(0,0,0,0.7), 0 0 0 1.5px rgba(45,212,191,0.3)",
+        }}>
+          <div style={{
+            padding:"14px 16px 12px",
+            background:"rgba(45,212,191,0.1)",
+            borderBottom:"1px solid rgba(45,212,191,0.15)",
+          }}>
+            <div style={{fontSize:13,fontWeight:800,color:"#2dd4bf"}}>
+              📌 {personalEventView.name}
+            </div>
+            <div style={{fontSize:11,color:"rgba(255,255,255,0.45)",marginTop:3}}>
+              {personalEventView.date} · {fmtTime(personalEventView.startMin)} · {personalEventView.durMin}хв
+            </div>
+          </div>
+          {personalEventView.note && (
+            <div style={{padding:"10px 16px",fontSize:13,color:"rgba(255,255,255,0.7)",lineHeight:1.5}}>
+              {personalEventView.note}
+            </div>
+          )}
+          <button
+            onClick={()=>{
+              remove(ref(db, `bookings/admin/${personalEventView.id}`)).catch(()=>{});
+              const slotUpd = {};
+              for (let i = 0; i < personalEventView.durMin; i += 30) {
+                const sm = personalEventView.startMin + i;
+                const sh = String(Math.floor(sm / 60)).padStart(2, '0');
+                const sn = String(sm % 60).padStart(2, '0');
+                if (personalEventView.wasAdminBlocked) {
+                  slotUpd[`timeslots/${personalEventView.date}/slot${sh}${sn}/available`] = false;
+                  slotUpd[`timeslots/${personalEventView.date}/slot${sh}${sn}/adminBlocked`] = true;
+                } else {
+                  slotUpd[`timeslots/${personalEventView.date}/slot${sh}${sn}/available`] = true;
+                }
+              }
+              update(ref(db, '/'), slotUpd).catch(()=>{});
+              setPersonalEventView(null);
+            }}
+            style={{
+              width:"100%",padding:"12px",border:"none",cursor:"pointer",
+              borderTop:"1px solid rgba(255,255,255,0.06)",
+              background:"none",color:"#f87171",fontSize:13,fontWeight:700,
+            }}
+          >
+            Видалити подію
+          </button>
+        </div>
+      </div>
+    )}
     </>
   );
 }
@@ -2256,6 +2451,164 @@ function DrumRoll({ items, currentIdx, onChange, label, itemH=42, visible=4 }) {
               }}>{item.label}</div>
             );
           })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// PERSONAL EVENT MODAL — bottom sheet для особистих подій
+// ═══════════════════════════════════════════════════════════════
+function PersonalEventModal({ data, onClose, onConfirm }) {
+  const { BG_DEEP, SURF_HI, SURF_LO, TEXT, DIM, FAINT } = useContext(ThemeContext);
+  const TEXT_DIM = DIM, TEXT_FAINT = FAINT;
+
+  const [title,   setTitle]   = useState("");
+  const [durMin,  setDurMin]  = useState(60);
+  const [note,    setNote]    = useState("");
+
+  useEffect(() => {
+    if (data) { setTitle(""); setDurMin(60); setNote(""); }
+  }, [!!data]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (!data) return null;
+
+  const [hh, mm] = data.time.split(":").map(Number);
+  const startMin = hh * 60 + mm;
+  const today = new Date(); today.setHours(0,0,0,0);
+  const slotDate = new Date(data.dateStr + "T00:00:00");
+  const day = Math.round((slotDate - today) / 86400000);
+  const canSave = title.trim().length > 0;
+
+  const DUR_OPTIONS = [
+    { label:"30хв", value:30 },
+    { label:"1г",   value:60 },
+    { label:"1.5г", value:90 },
+    { label:"2г",   value:120 },
+    { label:"3г",   value:180 },
+  ];
+
+  const SL = ({children}) => (
+    <div style={{fontSize:10,fontWeight:700,letterSpacing:1.2,color:TEXT_FAINT,
+      textTransform:"uppercase",marginBottom:7}}>{children}</div>
+  );
+
+  const handleSave = () => {
+    if (!canSave) return;
+    const id = `personal-${Date.now()}`;
+    onConfirm({
+      id, day, date: data.dateStr,
+      startMin, durMin,
+      name: title.trim(),
+      note: note.trim(),
+      type: "personal",
+      status: "personal",
+      tsc: "",
+      wasAdminBlocked: !!data.slot?.adminBlocked,
+      createdAt: Date.now(),
+      createdBy: "admin",
+    });
+  };
+
+  return (
+    <div onClick={onClose} style={{
+      position:"fixed",inset:0,background:"rgba(0,0,0,0.75)",zIndex:200,
+      display:"flex",alignItems:"flex-end",justifyContent:"center",
+      backdropFilter:"blur(8px)",
+    }}>
+      <div onClick={e=>e.stopPropagation()} style={{
+        width:"100%",maxWidth:480,background:BG_DEEP,
+        borderRadius:"24px 24px 0 0",
+        boxShadow:"0 -2px 0 rgba(45,212,191,0.3), 0 -16px 60px rgba(0,0,0,0.8)",
+        maxHeight:"85vh",overflowY:"auto",
+        WebkitOverflowScrolling:"touch",scrollbarWidth:"none",
+      }}>
+        {/* Заголовок */}
+        <div style={{
+          padding:"18px 18px 14px",
+          background:"linear-gradient(145deg,rgba(45,212,191,0.12),rgba(20,184,166,0.05))",
+          borderBottom:"1px solid rgba(45,212,191,0.15)",
+        }}>
+          <div style={{fontSize:18,fontWeight:800,color:"#2dd4bf",marginBottom:2}}>
+            📌 Особиста подія
+          </div>
+          <div style={{fontSize:12,color:TEXT_DIM}}>
+            {data.dateStr} · {data.time}
+          </div>
+        </div>
+
+        <div style={{padding:"16px 18px 32px",display:"flex",flexDirection:"column",gap:18}}>
+          {/* Назва */}
+          <div>
+            <SL>Назва події</SL>
+            <input
+              value={title}
+              onChange={e=>setTitle(e.target.value)}
+              placeholder="Наприклад: Технічний огляд"
+              autoFocus
+              style={{
+                width:"100%",padding:"11px 13px",
+                background:SURF_LO,border:"1.5px solid rgba(45,212,191,0.25)",
+                borderRadius:12,color:TEXT,fontSize:14,
+                outline:"none",boxSizing:"border-box",
+              }}
+            />
+          </div>
+
+          {/* Тривалість */}
+          <div>
+            <SL>Тривалість</SL>
+            <div style={{display:"flex",gap:7,flexWrap:"wrap"}}>
+              {DUR_OPTIONS.map(opt=>(
+                <button key={opt.value} onClick={()=>setDurMin(opt.value)} style={{
+                  padding:"7px 14px",borderRadius:10,border:"none",cursor:"pointer",
+                  fontWeight:700,fontSize:13,
+                  background: durMin===opt.value ? "rgba(45,212,191,0.25)" : SURF_HI,
+                  color: durMin===opt.value ? "#2dd4bf" : TEXT_DIM,
+                  boxShadow: durMin===opt.value ? "0 0 0 1.5px rgba(45,212,191,0.5)" : "none",
+                }}>
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Нотатка */}
+          <div>
+            <SL>Нотатка (необов'язково)</SL>
+            <textarea
+              value={note}
+              onChange={e=>setNote(e.target.value)}
+              placeholder="Деталі, адреса, коментар..."
+              rows={3}
+              style={{
+                width:"100%",padding:"11px 13px",resize:"none",
+                background:SURF_LO,border:"1.5px solid rgba(255,255,255,0.08)",
+                borderRadius:12,color:TEXT,fontSize:13,
+                outline:"none",boxSizing:"border-box",
+                fontFamily:"inherit",lineHeight:1.5,
+              }}
+            />
+          </div>
+
+          {/* Зберегти */}
+          <button
+            onClick={handleSave}
+            disabled={!canSave}
+            style={{
+              width:"100%",padding:"14px",border:"none",cursor:canSave?"pointer":"default",
+              borderRadius:14,fontWeight:800,fontSize:15,
+              background: canSave
+                ? "linear-gradient(135deg,#2dd4bf,#0d9488)"
+                : "rgba(255,255,255,0.07)",
+              color: canSave ? "#fff" : TEXT_FAINT,
+              boxShadow: canSave ? "0 4px 20px rgba(45,212,191,0.35)" : "none",
+              transition:"all .2s",
+            }}
+          >
+            Зберегти
+          </button>
         </div>
       </div>
     </div>
