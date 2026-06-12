@@ -3238,39 +3238,6 @@ function SettingsView({ settings, setSettings }) {
         }}>{ICONS.plus(28)} Додати послугу</button>
       </Card>
 
-      {/* ── SURCHARGES ── */}
-      <Card style={{padding:"20px"}}>
-        <SectionTitle>Надбавки до уроків</SectionTitle>
-        <div style={{fontSize:12,color:TEXT_DIM,marginBottom:14}}>
-          Суми відображаються в меню слота при виборі надбавки.
-        </div>
-        {(settings.surcharges || []).map((amt, i) => (
-          <div key={i} style={{
-            display:"flex",alignItems:"center",gap:10,marginBottom:8,
-            padding:"10px 12px",borderRadius:12,
-            background:`linear-gradient(135deg,${SURFACE_HI},${SURFACE})`,boxShadow:SHADOW_OUT,
-          }}>
-            <span style={{fontSize:13,color:GOLD,fontWeight:700,flex:1}}>Надбавка {i+1}</span>
-            <NumInput
-              value={amt}
-              onChange={v=>upd("surcharges", settings.surcharges.map((x,j)=>j===i?v:x))}
-              min={1} max={99999} suffix="₴"
-            />
-            <button onClick={()=>upd("surcharges", settings.surcharges.filter((_,j)=>j!==i))} style={{
-              background:"none",border:"none",cursor:"pointer",
-              color:"rgba(248,113,113,0.7)",fontSize:18,lineHeight:1,padding:"0 4px",
-            }}>×</button>
-          </div>
-        ))}
-        <button onClick={()=>upd("surcharges", [...(settings.surcharges||[]), 100])} style={{
-          width:"100%",padding:"12px",borderRadius:14,border:"none",cursor:"pointer",
-          background:`linear-gradient(135deg,${SURFACE_HI},${SURFACE})`,
-          color:TEXT,fontSize:13,fontWeight:700,
-          display:"flex",alignItems:"center",justifyContent:"center",gap:10,
-          boxShadow:SHADOW_OUT,marginTop:2,
-        }}>{ICONS.plus(28)} Додати надбавку</button>
-      </Card>
-
       {/* ── CATEGORIES ── */}
       <Card style={{padding:"20px"}}>
         <SectionTitle>Категорії учнів</SectionTitle>
