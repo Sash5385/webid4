@@ -1,5 +1,5 @@
 const { onSchedule } = require("firebase-functions/v2/scheduler");
-const { onValueUpdated, onValueWritten } = require("firebase-functions/v2/database");
+const { onValueCreated, onValueUpdated, onValueWritten } = require("firebase-functions/v2/database");
 const admin = require("firebase-admin");
 
 admin.initializeApp();
@@ -449,5 +449,21 @@ exports.flushRescheduleQueue = onSchedule(
       await db.ref(`rescheduleQueue/${uid}/${bookingId}`).remove();
       console.log(`flushRescheduleQueue: sent to uid=${uid} bookingId=${bookingId}`);
     }));
+  }
+);
+
+// Студент надіслав повідомлення → пуш адміну
+exports.onStudentMessage = onValueCreated(
+  { ref: "chats/{uid}/{msgId}", region: "europe-west1" },
+  async (event) => {
+    const msg = event.data.val();
+    if (!msg || msg.from !== "student") return;
+
+    const { uid } = event.params;
+    const profileSnap = await db.ref(`users/${uid}/profile`).get();
+    const name = profileSnap.val()?.name || "Студент";
+
+    const text = msg.text || "";
+    await pushAdmin(`💬 ${name}`, text.length > 100 ? text.slice(0, 100) + "…" : text);
   }
 );
