@@ -2,6 +2,7 @@ import { useState, useContext } from "react";
 import { ref, get } from "firebase/database";
 import { LangContext } from "../App";
 import { ThemeContext } from "../theme.js";
+import { UICss, useFX } from "../ui";
 import { createT } from "../lang";
 import { db, registerAdminFCM } from "../firebase";
 
@@ -22,6 +23,7 @@ const DAY_NAMES = ["Пн","Вт","Ср","Чт","Пт","Сб","Нд"];
 
 function Toggle({ on, onChange }) {
   const { ACC_HI, ACCENT, SURF_LO, BG_DEEP, SI } = useContext(ThemeContext);
+  const { shade } = useFX();
   return (
     <div onClick={()=>onChange(!on)} style={{
       width:44,height:24,borderRadius:12,cursor:"pointer",position:"relative",
@@ -31,7 +33,7 @@ function Toggle({ on, onChange }) {
       <div style={{
         position:"absolute",top:3,left:on?21:3,width:18,height:18,borderRadius:9,
         background:"linear-gradient(135deg,#fff,#ddd)",
-        boxShadow:"0 1px 4px rgba(0,0,0,0.4)",transition:"left .2s",
+        boxShadow:`0 1px 4px ${shade(0.4)}`,transition:"left .2s",
       }}/>
     </div>
   );
@@ -174,9 +176,7 @@ export default function SettingsView({ settings, setSettings }) {
   const isKava = settings?.theme === "light";
   const scrollThumb = isKava ? `rgba(92,42,26,0.2)` : `rgba(255,255,255,0.08)`;
   const css = `
-*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-::-webkit-scrollbar{width:4px}
-::-webkit-scrollbar-thumb{background:${scrollThumb};border-radius:2px}
+
 input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:4px;border-radius:2px;background:${BG_DEEP};outline:none;box-shadow:${SI}}
 input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:9px;background:linear-gradient(145deg,${ACC_HI},${ACCENT});cursor:pointer;box-shadow:0 2px 6px rgba(255,90,60,0.5)}
 select{color-scheme:${isKava?"light":"dark"}}
@@ -209,6 +209,7 @@ select{color-scheme:${isKava?"light":"dark"}}
 
   return (
     <>
+      <UICss/>
       <style>{css}</style>
       <div style={{display:"flex",flexDirection:"column",gap:8,fontFamily:"ui-sans-serif,-apple-system,system-ui,sans-serif",color:TEXT}}>
 
@@ -291,7 +292,7 @@ select{color-scheme:${isKava?"light":"dark"}}
               ))}
             </div>
           </div>
-          <div style={{paddingTop:12,borderTop:`1px solid rgba(255,255,255,0.06)`,marginTop:12}}>
+          <div style={{paddingTop:12,borderTop:`1px solid ${BORDER}`,marginTop:12}}>
             <div style={{display:"flex",justifyContent:"space-between",marginBottom:8}}>
               <span style={{fontSize:12,color:DIM}}>Крок слота (довгий тап)</span>
               <span style={{fontSize:13,fontWeight:800,color:TEAL}}>{settings.slotCreateStep ?? 30} хв</span>
