@@ -711,6 +711,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
 
   useLayoutEffect(() => { computeVRange(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const [bubbleData, setBubbleData] = useState(null);
+  const [addSlotPos, setAddSlotPos] = useState(null); // { dateStr, startMin, clientX, clientY }
   const [formData, setFormData] = useState(null);
   const [createSlotData, setCreateSlotData] = useState(null); // {day, startMin}
   const [localSelectedBooking, setLocalSelectedBooking] = useState(null);
@@ -1304,18 +1305,18 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
               <div
                 onClick={e=>{ if(xJustShownRef.current){ xJustShownRef.current=false; return; } if(quickCancelId){ xVisibleRef.current=false; setQuickCancelId(null); } }}
                 onPointerDown={e=>{
-                  if (scheduleLocked || isPastDay) return;
+                  if (scheduleLocked || isPastDay || isClosedDay) return;
                   if (e.button > 0) return;
                   if (dragRef.current || pendingDragRef.current) return;
                   const rect = e.currentTarget.getBoundingClientRect();
                   const rawMin = calcRef.current.workStart * 60 + (e.clientY - rect.top) / calcRef.current.PX_PER_MIN;
-                  // Шаг 30 хвилин
                   const minute = Math.round(rawMin / 30) * 30;
                   emptyHoldPosRef.current = { startY: e.clientY, day: absDay, startMin: minute, dateStr: dateStrCol };
                   emptyHoldTimerRef.current = setTimeout(() => {
                     if (!emptyHoldPosRef.current) return;
-                    // Утримання → bubble для нового букінгу
-                    setBubbleData({ day: absDay, startMin: minute, clientX: e.clientX, clientY: e.clientY, freeSnap: true, dateStr: dateStrCol });
+                    // Довгий тап → модалка додати вільний слот
+                    navigator.vibrate?.(30);
+                    setAddSlotPos({ dateStr: dateStrCol, startMin: minute, clientX: e.clientX, clientY: e.clientY });
                     emptyHoldPosRef.current = null;
                   }, 480);
                 }}
@@ -1327,26 +1328,9 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                   }
                 }}
                 onPointerUp={e=>{
-                  const pos = emptyHoldPosRef.current;
                   clearTimeout(emptyHoldTimerRef.current);
                   emptyHoldPosRef.current = null;
-                  // Короткий клік (hold не спрацював) → одразу створити вільний слот
-                  if (pos && !dragEndedRef.current) {
-                    const hasConflict = Object.keys(openSlots[pos.dateStr] || {}).some(t => {
-                      const [th, tm] = t.split(':').map(Number);
-                      const diff = Math.abs(th * 60 + tm - pos.startMin);
-                      return diff > 0 && diff < 60;
-                    });
-                    if (hasConflict) {
-                      navigator.vibrate?.(80);
-                    } else {
-                      const hh = String(Math.floor(pos.startMin/60)).padStart(2,'0');
-                      const mm = String(pos.startMin%60).padStart(2,'0');
-                      update(ref(db, `timeslots/${pos.dateStr}/slot${hh}${mm}`), {
-                        available: true, time: `${hh}:${mm}`
-                      }).catch(()=>{});
-                    }
-                  }
+                  // Короткий тап — нічого не робимо
                 }}
                 onPointerCancel={()=>{ clearTimeout(emptyHoldTimerRef.current); emptyHoldPosRef.current = null; }}
                 onPointerLeave={()=>{ clearTimeout(emptyHoldTimerRef.current); emptyHoldPosRef.current = null; }}
@@ -1355,8 +1339,9 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                   width:COL_W, height:gridHeight,
                   position:"relative", padding:"0 4px",
                   background:`linear-gradient(135deg,${BG_DEEP},rgba(0,0,0,0.55))`,
-                  borderRadius:14, boxShadow:SHADOW_IN, cursor:"cell",
+                  borderRadius:14, boxShadow:SHADOW_IN, cursor: isPastDay || isClosedDay ? "default" : "cell",
                   userSelect:"none", WebkitUserSelect:"none", WebkitTouchCallout:"none",
+                  opacity: isPastDay ? 0.38 : 1,
                 }}>
 
               {/* Open/blocked/surcharge/VIP slot indicators */}
@@ -1381,7 +1366,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                 return (
                   <div key={`os-${time}`}
                     onPointerDown={e=>{
-                      if (scheduleLocked || isPastDay) return;
+                      if (scheduleLocked || isPastDay || isClosedDay) return;
                       e.stopPropagation();
                       slotHoldFiredRef.current = false;
                       slotHoldTimerRef.current = setTimeout(()=>{
@@ -1394,7 +1379,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                     onPointerCancel={()=>clearTimeout(slotHoldTimerRef.current)}
                     onClick={e=>{
                       e.stopPropagation();
-                      if (isPastDay || slotHoldFiredRef.current) return;
+                      if (isPastDay || isClosedDay || slotHoldFiredRef.current) return;
                       toggleSlotFree(dateStrCol, time, slot);
                     }}
                     style={{
@@ -1836,6 +1821,38 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
               boxShadow:"0 4px 14px #b91c1c66",
             }}>Закрити</button>
           </div>
+        </div>
+      </div>
+    )}
+
+    {addSlotPos && (
+      <div onClick={()=>setAddSlotPos(null)} style={{position:"fixed",inset:0,zIndex:150}}>
+        <div onClick={e=>e.stopPropagation()} style={{
+          position:"absolute",
+          top: Math.max(60, Math.min(addSlotPos.clientY - 50, window.innerHeight - 110)),
+          left: Math.max(10, Math.min(addSlotPos.clientX - 10, window.innerWidth - 180)),
+          width:168,
+          background:`linear-gradient(135deg,${SURFACE},${BG_DEEP})`,
+          borderRadius:14, padding:"10px 12px",
+          boxShadow:"0 8px 32px rgba(0,0,0,0.65),inset 1px 1px 0 rgba(255,255,255,0.08)",
+          border:`1px solid ${BORDER}`
+        }}>
+          <div style={{fontSize:18,fontWeight:900,color:TEXT,marginBottom:8,letterSpacing:0.5}}>
+            {fmtTime(addSlotPos.startMin)}
+          </div>
+          <button onClick={()=>{
+            const hh = String(Math.floor(addSlotPos.startMin/60)).padStart(2,'0');
+            const mm = String(addSlotPos.startMin%60).padStart(2,'0');
+            update(ref(db, `timeslots/${addSlotPos.dateStr}/slot${hh}${mm}`), {
+              available: true, time: `${hh}:${mm}`
+            }).catch(()=>{});
+            setAddSlotPos(null);
+          }} style={{
+            width:"100%",padding:"9px 12px",borderRadius:10,border:"none",cursor:"pointer",
+            background:`linear-gradient(165deg,rgba(99,211,120,0.9),rgba(34,197,94,0.85))`,
+            color:"#fff",fontSize:12,fontWeight:800,
+            boxShadow:`0 4px 12px rgba(99,211,120,0.35)`,
+          }}>+ Вільний слот</button>
         </div>
       </div>
     )}
