@@ -1,5 +1,15 @@
 import { createContext } from "react";
 
+// ─────────────────────────────────────────────────────────────
+// Helper bases (used by glow/shade/ink in views):
+//   GLOW  → specular highlights on raised/colored elements (light on BOTH themes)
+//   SHADE → drop/contact shadows (dark on BOTH themes; warm-brown on coffee)
+//   INK   → subtle fills, dividers, hairlines on the FLAT neutral surface
+//           (must CONTRAST the surface → light-on-dark, dark-on-light)
+// On DARK these all equal the original literals (255,255,255 / 0,0,0),
+// so existing dark styling is byte-for-byte unchanged.
+// ─────────────────────────────────────────────────────────────
+
 export const DARK = {
   BG: "#1c1d21", BG_DEEP: "#161719",
   SURFACE: "#26282c", SURF_HI: "#2e3034", SURF_LO: "#1f2125",
@@ -10,6 +20,9 @@ export const DARK = {
   GOLD: "#f7c948", RED: "#ef4444", TEAL: "#2dd4bf",
   SO: "0 2px 10px rgba(0,0,0,0.4)",
   SI: "inset 2px 2px 6px rgba(0,0,0,0.45),inset -1px -1px 3px rgba(255,255,255,0.02)",
+  GLOW: "255,255,255", SHADE: "0,0,0", INK: "255,255,255",
+  // dark stripe pattern endpoints (blocked slots / sheet hero)
+  STRIPE_A: "#1a1b1f", STRIPE_B: "#222428",
 };
 
 // ─── COFFEE GRAPHIC BACKGROUND (кавові шари, темна еспресо → крем) ──
@@ -42,6 +55,10 @@ export const LIGHT = {
   GOLD: "#9a7010", RED: "#c02020", TEAL: "#1a8878",
   SO: "0 2px 12px rgba(92,42,26,0.18)",
   SI: "inset 2px 2px 6px rgba(92,42,26,0.12),inset -1px -1px 3px rgba(255,255,255,0.6)",
+  // coffee tuning: cream specular, espresso shadow, espresso ink for fills/lines
+  GLOW: "255,250,243", SHADE: "92,42,26", INK: "92,42,26",
+  // light coffee stripes (latte ↔ foam) for blocked slots / sheet hero
+  STRIPE_A: "#e3d0b4", STRIPE_B: "#d8bf9c",
   BG_IMAGE: COFFEE_BG,
 };
 
@@ -50,4 +67,5 @@ export const getTheme = (mode) => mode === "light" ? LIGHT : DARK;
 
 // backward-compat static exports (dark theme)
 export const { BG, BG_DEEP, SURFACE, SURF_HI, SURF_LO, BORDER, TEXT, DIM, FAINT,
-  ACCENT, ACC_HI, GREEN, BLUE, PURPLE, GOLD, RED, TEAL, SO, SI } = DARK;
+  ACCENT, ACC_HI, GREEN, BLUE, PURPLE, GOLD, RED, TEAL, SO, SI,
+  GLOW, SHADE, INK, STRIPE_A, STRIPE_B } = DARK;

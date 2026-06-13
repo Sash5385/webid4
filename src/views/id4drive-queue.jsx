@@ -2,9 +2,7 @@ import { useState, useEffect, useRef, useMemo, useContext } from "react";
 import { ref, onValue, update, push, remove } from "firebase/database";
 import { db } from "../firebase";
 import { ThemeContext } from "../theme.js";
-
-const PURPLE2 = "#c084fc";
-const TEAL    = "#2dd4bf";
+import { UICss, Card, Bar, Modal, Field, Chip, Btn, StatTile, Section } from "../ui";
 
 const SERVICES = {
   sv1:{ name:"Автошкола 1г", color:"#7ed957"  },
@@ -52,57 +50,30 @@ function useDragReorder(items, setItems) {
 
 // ─── ADD TO QUEUE MODAL ──────────────────────────────────────────
 function AddModal({ onSave, onClose }) {
-  const { SURFACE, BG, BG_DEEP, BORDER, TEXT, FAINT, SURF_HI, DIM, SO } = useContext(ThemeContext);
+  const { PURPLE, FAINT } = useContext(ThemeContext);
   const [form, setForm] = useState({ name:"", phone:"", svcId:"sv1", note:"" });
   const upd = (k,v) => setForm(f=>({...f,[k]:v}));
   const valid = form.name.trim() && form.phone.trim();
   return (
-    <div onClick={onClose} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.75)",zIndex:200,display:"flex",alignItems:"flex-end",backdropFilter:"blur(8px)"}}>
-      <div onClick={e=>e.stopPropagation()} className="modal-in" style={{
-        width:"100%",maxWidth:520,margin:"0 auto",
-        background:`linear-gradient(180deg,${SURFACE},${BG})`,
-        borderRadius:"24px 24px 0 0",padding:"20px 18px 36px",
-      }}>
-        <div style={{width:36,height:4,borderRadius:2,background:"rgba(255,255,255,0.12)",margin:"0 auto 16px"}}/>
-        <div style={{fontSize:16,fontWeight:800,color:TEXT,marginBottom:18}}>⏳ Додати до черги</div>
-        {[
-          {k:"name",  label:"Ім'я учня",  placeholder:"Ім'я Прізвище"},
-          {k:"phone", label:"Телефон",     placeholder:"+380..."},
-        ].map(f=>(
-          <div key={f.k} style={{marginBottom:12}}>
-            <div style={{fontSize:10,color:FAINT,letterSpacing:1,marginBottom:5}}>{f.label.toUpperCase()}</div>
-            <input value={form[f.k]} onChange={e=>upd(f.k,e.target.value)} placeholder={f.placeholder}
-              style={{width:"100%",background:BG_DEEP,border:`1px solid ${BORDER}`,borderRadius:10,padding:"10px 14px",color:TEXT,fontSize:14,outline:"none",boxSizing:"border-box",fontFamily:"inherit"}}/>
-          </div>
-        ))}
-        <div style={{marginBottom:12}}>
-          <div style={{fontSize:10,color:FAINT,letterSpacing:1,marginBottom:6}}>ПОСЛУГА</div>
-          <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-            {Object.entries(SERVICES).map(([id,s])=>(
-              <button key={id} onClick={()=>upd("svcId",id)} style={{
-                padding:"7px 12px",borderRadius:9,border:"none",cursor:"pointer",fontSize:12,fontWeight:700,
-                background:form.svcId===id?`linear-gradient(145deg,${s.color}55,${s.color}22)`:`linear-gradient(145deg,${SURF_HI},${SURFACE})`,
-                color:form.svcId===id?s.color:DIM,boxShadow:SO,
-              }}>{s.name}</button>
-            ))}
-          </div>
-        </div>
-        <div style={{marginBottom:18}}>
-          <div style={{fontSize:10,color:FAINT,letterSpacing:1,marginBottom:5}}>НОТАТКА</div>
-          <input value={form.note} onChange={e=>upd("note",e.target.value)} placeholder="Побажання, зручний час…"
-            style={{width:"100%",background:BG_DEEP,border:`1px solid ${BORDER}`,borderRadius:10,padding:"10px 14px",color:TEXT,fontSize:13,outline:"none",boxSizing:"border-box",fontFamily:"inherit"}}/>
-        </div>
+    <Modal open onClose={onClose} sheet size="lg" title="⏳ Додати до черги"
+      footer={
         <div style={{display:"flex",gap:10}}>
-          <button onClick={onClose} style={{flex:1,padding:"13px",borderRadius:14,border:"none",cursor:"pointer",background:`linear-gradient(145deg,${SURF_HI},${SURFACE})`,color:DIM,fontSize:13,fontWeight:700,boxShadow:SO}}>Скасувати</button>
-          <button onClick={()=>valid&&onSave(form)} style={{
-            flex:2,padding:"13px",borderRadius:14,border:"none",cursor:"pointer",fontSize:13,fontWeight:700,
-            background:valid?"linear-gradient(165deg,#c084fc,#7c3aed)":`linear-gradient(145deg,${SURF_HI},${SURFACE})`,
-            color:valid?"#fff":FAINT,
-            boxShadow:valid?"0 4px 14px rgba(192,132,252,0.4),inset 1px 1px 0 rgba(255,255,255,0.2)":SO,
-          }}>Додати до черги</button>
+          <Btn variant="ghost"  flex={1} onClick={onClose}>Скасувати</Btn>
+          <Btn variant="primary" accent={PURPLE} flex={2} disabled={!valid} onClick={()=>valid&&onSave(form)}>Додати до черги</Btn>
+        </div>
+      }>
+      <Field label="Ім'я учня" value={form.name}  onChange={v=>upd("name",v)}  placeholder="Ім'я Прізвище"/>
+      <Field label="Телефон"   value={form.phone} onChange={v=>upd("phone",v)} placeholder="+380..."/>
+      <div style={{marginBottom:12}}>
+        <div style={{fontSize:10,color:FAINT,letterSpacing:1,marginBottom:6}}>ПОСЛУГА</div>
+        <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+          {Object.entries(SERVICES).map(([id,s])=>(
+            <Chip key={id} active={form.svcId===id} color={s.color} onClick={()=>upd("svcId",id)}>{s.name}</Chip>
+          ))}
         </div>
       </div>
-    </div>
+      <Field label="Нотатка" value={form.note} onChange={v=>upd("note",v)} placeholder="Побажання, зручний час…"/>
+    </Modal>
   );
 }
 
@@ -114,13 +85,13 @@ function getHours(item, svc) {
 }
 
 function QueueRow({ item, pos, onInvite, onBooked, onArchive, onDelete, dragHandleProps, isDragging, svcMap }) {
-  const { SURF_HI, SURFACE, SO, BORDER, FAINT, TEXT, DIM, GOLD, GREEN, RED } = useContext(ThemeContext);
+  const { BORDER, FAINT, TEXT, DIM, GOLD, GREEN, RED, PURPLE, TEAL } = useContext(ThemeContext);
 
   const STATUS_CFG = {
-    waiting:  { label:"Очікує",       color:PURPLE2, bg:"rgba(192,132,252,0.15)" },
-    offered:  { label:"Запрошено",    color:GOLD,    bg:"rgba(247,201,72,0.15)"  },
-    booked:   { label:"Записаний",    color:GREEN,   bg:"rgba(126,217,87,0.15)"  },
-    archived: { label:"Архів",        color:FAINT,   bg:"rgba(255,255,255,0.06)" },
+    waiting:  { label:"Очікує",       color:PURPLE, bg:`${PURPLE}26` },
+    offered:  { label:"Запрошено",    color:GOLD,   bg:`${GOLD}26`   },
+    booked:   { label:"Записаний",    color:GREEN,  bg:`${GREEN}26`  },
+    archived: { label:"Архів",        color:FAINT,  bg:`${FAINT}26`  },
   };
 
   const svc = (svcMap || SERVICES)[item.svcId] || {};
@@ -129,14 +100,10 @@ function QueueRow({ item, pos, onInvite, onBooked, onArchive, onDelete, dragHand
   const hrs = getHours(item, svc);
 
   return (
-    <div className={`drag-item fade-in ${isDragging?"dragging":""}`} style={{
-      background:`linear-gradient(155deg,${SURF_HI},${SURFACE})`,
-      borderRadius:13,marginBottom:8,overflow:"hidden",
-      boxShadow:SO,border:`1px solid ${BORDER}`,
-    }}>
+    <Card className={`drag-item fade-in ${isDragging?"dragging":""}`} style={{ marginBottom:8 }}>
       {/* main row */}
       <div style={{display:"flex",alignItems:"center",gap:9,padding:"9px 12px"}}>
-        <div style={{width:4,alignSelf:"stretch",borderRadius:3,background:st.color,flexShrink:0}}/>
+        <Bar color={st.color}/>
         {/* drag handle */}
         <div {...dragHandleProps} style={{cursor:"grab",touchAction:"none",color:FAINT,fontSize:16,flexShrink:0,lineHeight:1}}>
           ⠿
@@ -150,8 +117,8 @@ function QueueRow({ item, pos, onInvite, onBooked, onArchive, onDelete, dragHand
         {/* avatar */}
         <div className="icon3d" style={{
           width:34,height:34,borderRadius:10,flexShrink:0,
-          background:`linear-gradient(145deg,${PURPLE2}44,${PURPLE2}18)`,
-          fontSize:12,fontWeight:900,color:PURPLE2,
+          background:`linear-gradient(145deg,${PURPLE}44,${PURPLE}18)`,
+          fontSize:12,fontWeight:900,color:PURPLE,
         }}>{ini}</div>
         {/* info */}
         <div style={{flex:1,minWidth:0}}>
@@ -172,7 +139,7 @@ function QueueRow({ item, pos, onInvite, onBooked, onArchive, onDelete, dragHand
         {hrs && (
           <div style={{
             padding:"4px 7px",borderRadius:7,flexShrink:0,
-            background:`rgba(247,201,72,0.15)`,border:`1px solid rgba(247,201,72,0.3)`,
+            background:`${GOLD}26`,border:`1px solid ${GOLD}4d`,
             fontSize:11,fontWeight:900,color:GOLD,whiteSpace:"nowrap",
           }}>{hrs} год</div>
         )}
@@ -186,7 +153,7 @@ function QueueRow({ item, pos, onInvite, onBooked, onArchive, onDelete, dragHand
       {item.status !== "archived" && (
         <div style={{display:"grid",gridTemplateColumns:`repeat(${item.status==="waiting"?4:item.status==="offered"?3:2},1fr)`,borderTop:`1px solid ${BORDER}`}}>
           {item.status === "waiting" && (
-            <button onClick={onInvite} style={{padding:"8px 0",border:"none",borderRight:`1px solid ${BORDER}`,cursor:"pointer",background:"transparent",color:PURPLE2,fontSize:11,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",gap:5}}>
+            <button onClick={onInvite} style={{padding:"8px 0",border:"none",borderRight:`1px solid ${BORDER}`,cursor:"pointer",background:"transparent",color:PURPLE,fontSize:11,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",gap:5}}>
               <div className="icon3d" style={{width:22,height:22,background:"linear-gradient(165deg,#c084fc,#7c3aed)",borderRadius:7}}>
                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" style={{position:"relative",zIndex:1}}><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
               </div>
@@ -207,7 +174,7 @@ function QueueRow({ item, pos, onInvite, onBooked, onArchive, onDelete, dragHand
             </div>
             Архів
           </button>
-          <button onClick={onDelete} style={{padding:"8px 0",border:"none",cursor:"pointer",background:"transparent",color:"rgba(248,113,113,0.8)",fontSize:11,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",gap:5}}>
+          <button onClick={onDelete} style={{padding:"8px 0",border:"none",cursor:"pointer",background:"transparent",color:`${RED}cc`,fontSize:11,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",gap:5}}>
             <div className="icon3d" style={{width:22,height:22,background:`linear-gradient(165deg,#f87171,#dc2626)`,borderRadius:7}}>
               <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" style={{position:"relative",zIndex:1}}><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
             </div>
@@ -220,30 +187,15 @@ function QueueRow({ item, pos, onInvite, onBooked, onArchive, onDelete, dragHand
           <button onClick={onDelete} style={{background:"none",border:"none",cursor:"pointer",color:RED,fontSize:11,fontWeight:700}}>🗑 Видалити</button>
         </div>
       )}
-    </div>
+    </Card>
   );
 }
 
 // ─── MAIN ────────────────────────────────────────────────────────
 export default function QueueView({ settings }) {
-  const { BG_DEEP, SURF_HI, SURFACE, BORDER, TEXT, DIM, FAINT, GOLD, GREEN, SO, SI } = useContext(ThemeContext);
+  const { DIM, FAINT, GOLD, GREEN, PURPLE } = useContext(ThemeContext);
   const [all,       setAll]       = useState([]);
   const [showAdd,   setShowAdd]   = useState(false);
-  const [showArch,  setShowArch]  = useState(false);
-
-  const css = `
-*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-::-webkit-scrollbar{width:5px}
-::-webkit-scrollbar-thumb{background:${BORDER};border-radius:3px}
-.icon3d{display:inline-flex;align-items:center;justify-content:center;border-radius:14px;position:relative;overflow:hidden;flex-shrink:0;box-shadow:-2px 4px 10px rgba(0,0,0,0.5),inset 1px 1px 0 rgba(255,255,255,0.25),inset -1px -1px 0 rgba(0,0,0,0.3)}
-.icon3d::before{content:'';position:absolute;top:0;right:0;width:60%;height:50%;background:radial-gradient(ellipse at top right,rgba(255,255,255,0.4) 0%,transparent 70%);pointer-events:none}
-.drag-item{transition:transform .12s,box-shadow .12s;touch-action:none}
-.drag-item.dragging{opacity:.85;box-shadow:0 16px 40px rgba(0,0,0,0.6),0 0 0 2px ${PURPLE2};z-index:50;transform:scale(1.01)}
-@keyframes fade-in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
-.fade-in{animation:fade-in .18s ease both}
-@keyframes modal-in{from{opacity:0;transform:translateY(40px)}to{opacity:1;transform:translateY(0)}}
-.modal-in{animation:modal-in .22s ease both}
-`;
 
   const svcMap = useMemo(() => {
     const m = { ...SERVICES };
@@ -298,28 +250,21 @@ export default function QueueView({ settings }) {
 
   return (
     <>
-      <style>{css}</style>
-      <div style={{display:"flex",flexDirection:"column",gap:10,fontFamily:"ui-sans-serif,-apple-system,system-ui,sans-serif",color:TEXT}}>
+      <UICss/>
+      <div style={{display:"flex",flexDirection:"column",gap:10,fontFamily:"ui-sans-serif,-apple-system,system-ui,sans-serif"}}>
 
         {/* ── STATS ── */}
         <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8}}>
-          {[
-            {label:"Очікують", val:waiting,  c:PURPLE2},
-            {label:"Запрошено",val:offered,  c:GOLD},
-            {label:"Записані", val:booked_c, c:GREEN},
-          ].map(s=>(
-            <div key={s.label} style={{background:BG_DEEP,borderRadius:10,boxShadow:SI,padding:"10px 8px",textAlign:"center"}}>
-              <div style={{fontSize:18,fontWeight:900,color:s.c}}>{s.val}</div>
-              <div style={{fontSize:9,color:FAINT,marginTop:2,letterSpacing:0.5}}>{s.label.toUpperCase()}</div>
-            </div>
-          ))}
+          <StatTile value={waiting}  label="Очікують"  color={PURPLE}/>
+          <StatTile value={offered}  label="Запрошено" color={GOLD}/>
+          <StatTile value={booked_c} label="Записані"  color={GREEN}/>
         </div>
 
         {/* ── MODE BADGE ── */}
-        <div style={{display:"flex",alignItems:"center",gap:8,padding:"8px 12px",background:`linear-gradient(145deg,rgba(192,132,252,0.1),rgba(124,58,237,0.05))`,borderRadius:10,border:`1px solid ${PURPLE2}30`}}>
+        <div style={{display:"flex",alignItems:"center",gap:8,padding:"8px 12px",background:`linear-gradient(145deg,${PURPLE}1a,${PURPLE}0d)`,borderRadius:10,border:`1px solid ${PURPLE}30`}}>
           <span style={{fontSize:13}}>⚙️</span>
           <span style={{fontSize:12,color:DIM}}>Режим черги:</span>
-          <span style={{fontSize:12,fontWeight:800,color:PURPLE2}}>
+          <span style={{fontSize:12,fontWeight:800,color:PURPLE}}>
             {queueMode==="fifo"?"FIFO — перший автоматично":queueMode==="broadcast"?"Broadcast — всім одразу":"Ручний — вибір вручну"}
           </span>
         </div>
@@ -353,44 +298,26 @@ export default function QueueView({ settings }) {
         </div>
 
         {/* ── ADD BUTTON ── */}
-        <button onClick={()=>setShowAdd(true)} style={{
-          width:"100%",padding:"13px",borderRadius:14,border:"none",cursor:"pointer",
-          background:"linear-gradient(165deg,#c084fc,#7c3aed)",color:"#fff",
-          fontSize:13,fontWeight:700,
-          display:"flex",alignItems:"center",justifyContent:"center",gap:10,
-          boxShadow:"0 4px 14px rgba(192,132,252,0.4),inset 1px 1px 0 rgba(255,255,255,0.2)",
-        }}>
-          <div className="icon3d" style={{width:26,height:26,background:"rgba(255,255,255,0.2)",borderRadius:8}}>
+        <Btn variant="primary" accent={PURPLE} onClick={()=>setShowAdd(true)} style={{width:"100%"}}>
+          <div className="icon3d" style={{width:26,height:26,background:`${PURPLE}33`,borderRadius:8}}>
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" style={{position:"relative",zIndex:1}}><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
           </div>
           Додати до черги
-        </button>
+        </Btn>
 
         {/* ── ARCHIVE ── */}
         {archived.length > 0 && (
-          <div style={{background:`linear-gradient(155deg,${SURF_HI},${SURFACE})`,borderRadius:13,overflow:"hidden",boxShadow:SO,border:`1px solid ${BORDER}`}}>
-            <div onClick={()=>setShowArch(v=>!v)} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",cursor:"pointer"}}>
-              <div style={{width:4,alignSelf:"stretch",borderRadius:3,background:FAINT,flexShrink:0}}/>
-              <span style={{flex:1,fontSize:13,fontWeight:700,color:DIM}}>📦 Архів ({archived.length})</span>
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={FAINT} strokeWidth="2.2" strokeLinecap="round"
-                style={{transform:showArch?"rotate(180deg)":"none",transition:"transform .2s",flexShrink:0}}>
-                <polyline points="6 9 12 15 18 9"/>
-              </svg>
-            </div>
-            {showArch && (
-              <div style={{borderTop:`1px solid ${BORDER}`,padding:"8px 12px"}}>
-                {archived.map(item=>(
-                  <QueueRow
-                    key={item.id} item={item} pos="—" isDragging={false}
-                    svcMap={svcMap}
-                    onInvite={()=>{}} onBooked={()=>{}} onArchive={()=>{}}
-                    onDelete={()=>del(item.id)}
-                    dragHandleProps={{}}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
+          <Section title={`📦 Архів (${archived.length})`}>
+            {archived.map(item=>(
+              <QueueRow
+                key={item.id} item={item} pos="—" isDragging={false}
+                svcMap={svcMap}
+                onInvite={()=>{}} onBooked={()=>{}} onArchive={()=>{}}
+                onDelete={()=>del(item.id)}
+                dragHandleProps={{}}
+              />
+            ))}
+          </Section>
         )}
 
       </div>
