@@ -2043,8 +2043,12 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
             createdAt: Date.now(), createdBy: "admin",
             ...(b.note && { note: b.note }),
           };
-          const uid = b.userId || "admin";
-          update(ref(db, `bookings/${uid}/${b.id}`), fbData).catch(()=>{});
+          if (b.userId) {
+            update(ref(db, `bookings/${b.userId}/${b.id}`), fbData).catch(()=>{});
+          } else {
+            const phone = (b.phone || '').replace(/\D/g, '');
+            if (phone) update(ref(db, `bookings_by_phone/${phone}/${b.id}`), fbData).catch(()=>{});
+          }
         }
         if (b.date && b.startMin !== undefined && b.durMin) {
           const slotUpd = {};
@@ -3536,8 +3540,12 @@ export default function App() {
         createdAt: Date.now(), createdBy: "admin",
         ...(b.note && { note: b.note }),
       };
-      const uid = b.userId || "admin";
-      update(ref(db, `bookings/${uid}/${b.id}`), fbData).catch(()=>{});
+      if (b.userId) {
+        update(ref(db, `bookings/${b.userId}/${b.id}`), fbData).catch(()=>{});
+      } else {
+        const phone = (b.phone || '').replace(/\D/g, '');
+        if (phone) update(ref(db, `bookings_by_phone/${phone}/${b.id}`), fbData).catch(()=>{});
+      }
     }
     if (b.date && b.startMin !== undefined && b.durMin) {
       const slotUpd = {};
