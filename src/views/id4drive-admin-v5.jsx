@@ -2,7 +2,8 @@ import { useState, useRef, useEffect, useLayoutEffect, useMemo, useContext } fro
 import { ref, update, get, onValue, off, remove } from "firebase/database";
 import { db } from "../firebase";
 
-import { ThemeContext, GREEN, BLUE, PURPLE, GOLD, RED, ACCENT, ACC_HI, SURFACE, SURF_HI, TEXT } from "../theme.js";
+import { ThemeContext, GREEN, BLUE, PURPLE, GOLD, RED, TEAL, ACCENT, ACC_HI, SURFACE, SURF_HI, TEXT } from "../theme.js";
+import { Modal as UIModal, useFX as useUIFX } from "../ui";
 // module-level aliases for vars used in ICONS (arrow fns, cannot use hooks)
 const ACCENT_HI  = ACC_HI;
 const SURFACE_HI = SURF_HI;
@@ -2152,7 +2153,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
 // CREATE SLOT SHEET — вільний слот з вибором часу і тривалості
 // ═══════════════════════════════════════════════════════════════
 function CreateSlotSheet({ data, settings, onClose }) {
-  const { BG, BG_DEEP, SURFACE, SURF_HI, SURF_LO, BORDER, TEXT, DIM, FAINT, ACCENT, ACC_HI, SO, SI , GLOW, SHADE, INK } = useContext(ThemeContext);
+  const { BG_DEEP, SURF_HI, SURF_LO, BORDER, TEXT, DIM, FAINT, ACCENT, ACC_HI, SO, SI, GLOW, SHADE, INK } = useContext(ThemeContext);
   const glow=a=>`rgba(${GLOW},${a})`,shade=a=>`rgba(${SHADE},${a})`,ink=a=>`rgba(${INK},${a})`;
   const SURFACE_HI = SURF_HI, SURFACE_LO = SURF_LO, TEXT_DIM = DIM, TEXT_FAINT = FAINT, ACCENT_HI = ACC_HI, SHADOW_OUT = SO, SHADOW_IN = SI;
   const slotStep = settings.slotCreateStep || 30;
@@ -2198,38 +2199,30 @@ function CreateSlotSheet({ data, settings, onClose }) {
   };
 
   return (
-    <div style={{position:"fixed",inset:0,background:`${shade(0.6)}`,backdropFilter:"blur(6px)",zIndex:200,display:"flex",alignItems:"flex-end"}}
-      onClick={onClose}>
-      <div onClick={e=>e.stopPropagation()} style={{
-        width:"100%",background:SURFACE,borderRadius:"22px 22px 0 0",
-        padding:"16px 20px 40px",
-        boxShadow:`0 -10px 40px ${shade(0.5)}`
-      }}>
-        <div style={{width:36,height:4,background:BORDER,borderRadius:2,margin:"0 auto 16px"}}/>
-        <div style={{fontSize:13,fontWeight:700,color:TEXT_DIM,marginBottom:16,textAlign:"center",letterSpacing:0.5,textTransform:"uppercase"}}>
-          Вільний слот · {day.fullLabel} {day.num}
-        </div>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:16}}>
-          <div>
-            <div style={{fontSize:10,fontWeight:700,color:TEXT_DIM,letterSpacing:1,marginBottom:6,textAlign:"center"}}>ПОЧАТОК</div>
-            <DrumRoll items={timeItems} currentIdx={timeIdx} onChange={setTimeIdx} itemH={40} visible={3}/>
-          </div>
-          <div>
-            <div style={{fontSize:10,fontWeight:700,color:TEXT_DIM,letterSpacing:1,marginBottom:6,textAlign:"center"}}>ТРИВАЛІСТЬ</div>
-            <DrumRoll items={durItems} currentIdx={durIdx} onChange={setDurIdx} itemH={40} visible={3}/>
-          </div>
-        </div>
-        <div style={{textAlign:"center",fontSize:12,color:TEXT_DIM,marginBottom:14}}>
-          {fmtTime(timeItems[timeIdx]?.value ?? 0)} — {fmtTime((timeItems[timeIdx]?.value ?? 0) + durItems[durIdx].value)}
-        </div>
+    <UIModal open={!!data} onClose={onClose} sheet size="md"
+      title={`Вільний слот · ${day.fullLabel} ${day.num}`}
+      footer={
         <button onClick={handleCreate} disabled={saving} style={{
-          width:"100%",padding:14,borderRadius:14,border:"none",cursor:"pointer",
-          background:`linear-gradient(165deg,${GREEN},#16a34a)`,
-          color:"#fff",fontSize:14,fontWeight:800,
-          boxShadow:`0 4px 16px rgba(99,211,120,0.4),inset 1px 1px 0 ${glow(0.25)}`
+          width:"100%",padding:14,borderRadius:14,border:"none",cursor:"pointer",fontFamily:"inherit",
+          background:saving?`${ink(0.07)}`:`linear-gradient(165deg,${GREEN},#16a34a)`,
+          color:saving?TEXT_FAINT:"#fff",fontSize:14,fontWeight:800,
+          boxShadow:saving?"none":`0 4px 16px rgba(99,211,120,0.4),inset 1px 1px 0 ${glow(0.25)}`
         }}>{saving ? "Створюємо..." : "✓ Створити слот"}</button>
+      }>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:14}}>
+        <div>
+          <div style={{fontSize:10,fontWeight:700,color:TEXT_DIM,letterSpacing:1,marginBottom:6,textAlign:"center"}}>ПОЧАТОК</div>
+          <DrumRoll items={timeItems} currentIdx={timeIdx} onChange={setTimeIdx} itemH={40} visible={3}/>
+        </div>
+        <div>
+          <div style={{fontSize:10,fontWeight:700,color:TEXT_DIM,letterSpacing:1,marginBottom:6,textAlign:"center"}}>ТРИВАЛІСТЬ</div>
+          <DrumRoll items={durItems} currentIdx={durIdx} onChange={setDurIdx} itemH={40} visible={3}/>
+        </div>
       </div>
-    </div>
+      <div style={{textAlign:"center",fontSize:12,color:TEXT_DIM}}>
+        {fmtTime(timeItems[timeIdx]?.value ?? 0)} — {fmtTime((timeItems[timeIdx]?.value ?? 0) + durItems[durIdx].value)}
+      </div>
+    </UIModal>
   );
 }
 
@@ -2283,25 +2276,15 @@ function BookingModal({ booking, onClose, onAction, settings }) {
   const IcoChat  = <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>;
 
   return (
-    <div onClick={onClose} style={{
-      position:"fixed", inset:0, zIndex:100,
-      background:`${shade(0.55)}`,
-      display:"flex", alignItems:"center", justifyContent:"center",
-    }}>
-      <div onClick={e => e.stopPropagation()} style={{
-        width:300,
-        background:BG_DEEP,
-        borderRadius:20,
-        boxShadow:`0 2px 0 ${c}55, 0 20px 60px ${shade(0.75)}, inset 0 1px 0 ${glow(0.06)}`,
-        overflow:"hidden",
-      }}>
-
+    <UIModal open={!!booking} onClose={onClose} sheet={false} size={340}>
+      <div style={{overflow:"hidden",borderRadius:14}}>
         {/* Student row */}
         <div style={{
           display:"flex", alignItems:"center", gap:11,
           padding:"14px 14px 12px",
           borderBottom:`1px solid ${ink(0.06)}`,
           background:`linear-gradient(135deg,${c}18,${c}08)`,
+          margin:"-20px -18px 0",
         }}>
           <div style={{
             width:40, height:40, borderRadius:12, flexShrink:0,
@@ -2396,7 +2379,7 @@ function BookingModal({ booking, onClose, onAction, settings }) {
         }}>Скасувати запис</button>
 
       </div>
-    </div>
+    </UIModal>
   );
 }
 
@@ -2533,106 +2516,36 @@ function PersonalEventModal({ data, onClose, onConfirm }) {
   };
 
   return (
-    <div onClick={onClose} style={{
-      position:"fixed",inset:0,background:`${shade(0.75)}`,zIndex:200,
-      display:"flex",alignItems:"flex-end",justifyContent:"center",
-      backdropFilter:"blur(8px)",
-    }}>
-      <div onClick={e=>e.stopPropagation()} style={{
-        width:"100%",maxWidth:480,background:BG_DEEP,
-        borderRadius:"24px 24px 0 0",
-        boxShadow:`0 -2px 0 rgba(45,212,191,0.3), 0 -16px 60px ${shade(0.8)}`,
-        maxHeight:"85vh",overflowY:"auto",
-        WebkitOverflowScrolling:"touch",scrollbarWidth:"none",
-      }}>
-        {/* Заголовок */}
-        <div style={{
-          padding:"18px 18px 14px",
-          background:"linear-gradient(145deg,rgba(45,212,191,0.12),rgba(20,184,166,0.05))",
-          borderBottom:"1px solid rgba(45,212,191,0.15)",
-        }}>
-          <div style={{fontSize:18,fontWeight:800,color:"#2dd4bf",marginBottom:2}}>
-            📌 Особиста подія
-          </div>
-          <div style={{fontSize:12,color:TEXT_DIM}}>
-            {data.dateStr} · {data.time}
-          </div>
+    <UIModal open={!!data} onClose={onClose} sheet size="md"
+      title="📌 Особиста подія"
+      footer={
+        <div style={{display:"flex",gap:10}}>
+          <button onClick={onClose} style={{flex:1,padding:13,borderRadius:14,border:"none",cursor:"pointer",background:`linear-gradient(145deg,${SURF_HI},${SURFACE})`,color:TEXT_DIM,fontSize:13,fontWeight:700,fontFamily:"inherit",boxShadow:SO}}>Скасувати</button>
+          <button onClick={handleSave} disabled={!canSave} style={{flex:2,padding:13,borderRadius:14,border:"none",cursor:canSave?"pointer":"default",background:canSave?`linear-gradient(135deg,${TEAL},#0d9488)`:`${ink(0.07)}`,color:canSave?"#fff":TEXT_FAINT,fontSize:13,fontWeight:800,fontFamily:"inherit",boxShadow:canSave?`0 4px 20px ${TEAL}55`:"none",transition:"all .2s"}}>Зберегти</button>
         </div>
+      }>
+      <div style={{fontSize:12,color:TEXT_DIM,marginTop:-14,marginBottom:18}}>{data.dateStr} · {data.time}</div>
 
-        <div style={{padding:"16px 18px 32px",display:"flex",flexDirection:"column",gap:18}}>
-          {/* Назва */}
-          <div>
-            <SL>Назва події</SL>
-            <input
-              value={title}
-              onChange={e=>setTitle(e.target.value)}
-              placeholder="Наприклад: Технічний огляд"
-              autoFocus
-              style={{
-                width:"100%",padding:"11px 13px",
-                background:SURF_LO,border:"1.5px solid rgba(45,212,191,0.25)",
-                borderRadius:12,color:TEXT,fontSize:14,
-                outline:"none",boxSizing:"border-box",
-              }}
-            />
-          </div>
+      <SL>Назва події</SL>
+      <input value={title} onChange={e=>setTitle(e.target.value)} placeholder="Наприклад: Технічний огляд" autoFocus
+        style={{width:"100%",padding:"11px 13px",background:SURF_LO,border:`1.5px solid ${ink(0.08)}`,borderRadius:12,color:TEXT,fontSize:14,outline:"none",boxSizing:"border-box",marginBottom:16,fontFamily:"inherit"}}/>
 
-          {/* Тривалість */}
-          <div>
-            <SL>Тривалість</SL>
-            <div style={{display:"flex",gap:7,flexWrap:"wrap"}}>
-              {DUR_OPTIONS.map(opt=>(
-                <button key={opt.value} onClick={()=>setDurMin(opt.value)} style={{
-                  padding:"7px 14px",borderRadius:10,border:"none",cursor:"pointer",
-                  fontWeight:700,fontSize:13,
-                  background: durMin===opt.value ? "rgba(45,212,191,0.25)" : SURF_HI,
-                  color: durMin===opt.value ? "#2dd4bf" : TEXT_DIM,
-                  boxShadow: durMin===opt.value ? "0 0 0 1.5px rgba(45,212,191,0.5)" : "none",
-                }}>
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Нотатка */}
-          <div>
-            <SL>Нотатка (необов'язково)</SL>
-            <textarea
-              value={note}
-              onChange={e=>setNote(e.target.value)}
-              placeholder="Деталі, адреса, коментар..."
-              rows={3}
-              style={{
-                width:"100%",padding:"11px 13px",resize:"none",
-                background:SURF_LO,border:`1.5px solid ${ink(0.08)}`,
-                borderRadius:12,color:TEXT,fontSize:13,
-                outline:"none",boxSizing:"border-box",
-                fontFamily:"inherit",lineHeight:1.5,
-              }}
-            />
-          </div>
-
-          {/* Зберегти */}
-          <button
-            onClick={handleSave}
-            disabled={!canSave}
-            style={{
-              width:"100%",padding:"14px",border:"none",cursor:canSave?"pointer":"default",
-              borderRadius:14,fontWeight:800,fontSize:15,
-              background: canSave
-                ? "linear-gradient(135deg,#2dd4bf,#0d9488)"
-                : `${ink(0.07)}`,
-              color: canSave ? "#fff" : TEXT_FAINT,
-              boxShadow: canSave ? "0 4px 20px rgba(45,212,191,0.35)" : "none",
-              transition:"all .2s",
-            }}
-          >
-            Зберегти
-          </button>
-        </div>
+      <SL>Тривалість</SL>
+      <div style={{display:"flex",gap:7,flexWrap:"wrap",marginBottom:16}}>
+        {DUR_OPTIONS.map(opt=>(
+          <button key={opt.value} onClick={()=>setDurMin(opt.value)} style={{
+            padding:"8px 14px",borderRadius:10,border:"none",cursor:"pointer",fontWeight:700,fontSize:13,fontFamily:"inherit",
+            background:durMin===opt.value?`linear-gradient(145deg,${TEAL}44,${TEAL}22)`:SURF_HI,
+            color:durMin===opt.value?TEAL:TEXT_DIM,
+            boxShadow:durMin===opt.value?`0 0 0 1.5px ${TEAL}66`:SO,
+          }}>{opt.label}</button>
+        ))}
       </div>
-    </div>
+
+      <SL>Нотатка (необов'язково)</SL>
+      <textarea value={note} onChange={e=>setNote(e.target.value)} placeholder="Деталі, адреса, коментар..." rows={3}
+        style={{width:"100%",padding:"11px 13px",resize:"none",background:SURF_LO,border:`1.5px solid ${ink(0.08)}`,borderRadius:12,color:TEXT,fontSize:13,outline:"none",boxSizing:"border-box",fontFamily:"inherit",lineHeight:1.5}}/>
+    </UIModal>
   );
 }
 
@@ -2727,39 +2640,8 @@ function NewBookingModal({ data, onClose, onConfirm, settings, bookings = [] }) 
   );
 
   return (
-    <div onClick={onClose} style={{
-      position:"fixed",inset:0,background:`${shade(0.75)}`,zIndex:200,
-      display:"flex",alignItems:"flex-end",justifyContent:"center",
-      backdropFilter:"blur(8px)",
-    }}>
-      <div onClick={e=>e.stopPropagation()} style={{
-        width:"100%",maxWidth:480,background:BG_DEEP,
-        borderRadius:"24px 24px 0 0",
-        boxShadow:`0 -2px 0 rgba(99,211,120,0.25), 0 -16px 60px ${shade(0.8)}`,
-        maxHeight:"90vh",overflowY:"auto",
-        display:"flex",flexDirection:"column",
-      }}>
-
-        {/* ── Заголовок ── */}
-        <div style={{
-          padding:"12px 14px 10px",
-          borderBottom:`1px solid ${BORDER}`,
-          flexShrink:0,position:"sticky",top:0,background:BG_DEEP,zIndex:1,
-        }}>
-          <div style={{width:36,height:4,borderRadius:2,background:`${ink(0.1)}`,margin:"0 auto 10px"}}/>
-          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-            <div style={{fontSize:16,fontWeight:900,color:TEXT,letterSpacing:-0.3}}>Новий запис</div>
-            <button onClick={onClose} style={{
-              background:`${ink(0.06)}`,border:"none",cursor:"pointer",
-              width:30,height:30,borderRadius:15,
-              display:"flex",alignItems:"center",justifyContent:"center",
-              color:TEXT_FAINT,fontSize:18,lineHeight:1,
-            }}>×</button>
-          </div>
-        </div>
-
-        {/* ── Тіло ── */}
-        <div style={{padding:"14px 14px 36px",display:"flex",flexDirection:"column",gap:16}}>
+    <UIModal open={!!data} onClose={onClose} sheet size="lg" title="Новий запис">
+        <div style={{display:"flex",flexDirection:"column",gap:16}}>
 
           {/* УЧЕНЬ */}
           <div>
@@ -2963,7 +2845,7 @@ function NewBookingModal({ data, onClose, onConfirm, settings, bookings = [] }) 
             });
             onClose();
           }} style={{
-            width:"100%",padding:"14px",borderRadius:16,border:"none",cursor:"pointer",
+            width:"100%",padding:"14px",borderRadius:14,border:"none",cursor:"pointer",fontFamily:"inherit",
             background:canConfirm?`linear-gradient(160deg,${GREEN},#4ade80)`:`${SURFACE_LO}`,
             color:canConfirm?"#fff":TEXT_FAINT,
             fontSize:15,fontWeight:800,letterSpacing:0.2,
@@ -2972,8 +2854,7 @@ function NewBookingModal({ data, onClose, onConfirm, settings, bookings = [] }) 
           }}>✓ Записати</button>
 
         </div>
-      </div>
-    </div>
+    </UIModal>
   );
 }
 
