@@ -137,7 +137,7 @@ function BottomNav({ active, onChange, settings, chatUnread }) {
   return (
     <div style={{
       flexShrink:0,
-      padding:"0 3px 10px",
+      padding:`0 3px calc(10px + env(safe-area-inset-bottom, 0px))`,
       background:"transparent",
       zIndex:50,
       pointerEvents:"none",
@@ -278,7 +278,7 @@ function TopBar({ tab, onChange, settings, setSettings }) {
   return (
     <div style={{position:"sticky",top:0,zIndex:20}}>
       <div style={{
-        padding:"4px 8px",
+        padding:`calc(4px + env(safe-area-inset-top, 0px)) 8px 4px`,
         display:"flex",alignItems:"center",
         background:`linear-gradient(180deg,${theme.BG} 60%,${topBgEnd})`,
         backdropFilter:"blur(20px)",

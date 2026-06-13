@@ -344,7 +344,7 @@ exports.unlockVipSlots = onSchedule("every 1 hours", async () => {
   }
 });
 
-// Слот у найближчі 10 днів звільнився (скасування/розблокування) → пуш всім хто записувався за місяць
+// Слот у найближчі 10 днів звільнився → ставимо в чергу, пуш через 5 хв
 exports.onSlotFreed = onValueWritten(
   { ref: "timeslots/{date}/{slotId}", region: "europe-west1" },
   async (event) => {
@@ -367,30 +367,61 @@ exports.onSlotFreed = onValueWritten(
     const time = after.time;
     if (!time) return;
 
-    // Клієнти що записувались за останній місяць
-    const oneMonthAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
-    const bookingsSnap = await db.ref("bookings").get();
-    const bookingsData = bookingsSnap.val() || {};
+    const slotKey = `${date}_${time}`;
+    // Записуємо в чергу — пуш відправиться через 5 хв якщо слот ще вільний
+    await db.ref(`slotFreedQueue/${slotKey}`).set({
+      date, time, sendAfter: Date.now() + 5 * 60 * 1000,
+    }).catch(() => {});
+  }
+);
 
-    const notifyUids = new Set();
-    for (const [uid, userBookings] of Object.entries(bookingsData)) {
-      if (!userBookings || typeof userBookings !== "object") continue;
-      for (const booking of Object.values(userBookings)) {
-        if ((booking.createdAt || 0) >= oneMonthAgo) {
-          notifyUids.add(uid);
-          break;
+// Кожну хвилину: відправляємо відкладені пуші про звільнені слоти
+exports.flushSlotFreedQueue = onSchedule(
+  { schedule: "every 1 minutes", region: "europe-west1" },
+  async () => {
+    const snap = await db.ref("slotFreedQueue").get();
+    if (!snap.exists()) return;
+    const now = Date.now();
+
+    const tasks = [];
+    snap.forEach(entry => {
+      const val = entry.val();
+      if (val && val.sendAfter <= now) tasks.push({ key: entry.key, ...val });
+    });
+
+    for (const { key, date, time } of tasks) {
+      // Видаляємо з черги одразу
+      await db.ref(`slotFreedQueue/${key}`).remove().catch(() => {});
+
+      // Перевіряємо що слот ще вільний (не встигли перезаписати)
+      const slotId = `slot${time.replace(":", "")}`;
+      const slotSnap = await db.ref(`timeslots/${date}/${slotId}`).get();
+      const slot = slotSnap.val();
+      if (!slot || slot.available !== true) continue;
+
+      // Клієнти що записувались за останній місяць
+      const oneMonthAgo = now - 30 * 24 * 60 * 60 * 1000;
+      const bookingsSnap = await db.ref("bookings").get();
+      const bookingsData = bookingsSnap.val() || {};
+
+      const notifyUids = new Set();
+      for (const [uid, userBookings] of Object.entries(bookingsData)) {
+        if (!userBookings || typeof userBookings !== "object") continue;
+        for (const booking of Object.values(userBookings)) {
+          if ((booking.createdAt || 0) >= oneMonthAgo) { notifyUids.add(uid); break; }
         }
       }
-    }
 
-    const dateFormatted = slotDate.toLocaleDateString("uk", { day: "numeric", month: "long", weekday: "short" });
-    const title = "🚗 Звільнився слот!";
-    const body  = `${dateFormatted} о ${time} — є вільне місце`;
-    const url   = `https://id4drive.pro/cabinet?date=${date}`;
+      const slotDate = new Date(date + "T00:00:00");
+      const dateFormatted = slotDate.toLocaleDateString("uk", { day: "numeric", month: "long", weekday: "short" });
+      const title = "🚗 Звільнився слот!";
+      const body  = `${dateFormatted} о ${time} — є вільне місце`;
+      const url   = `https://id4drive.pro/cabinet?date=${date}`;
 
-    for (const uid of notifyUids) {
-      await pushStudent(uid, title, body, { url, date, time }).catch(() => {});
-      await saveNotification(uid, title, body, "slot_freed").catch(() => {});
+      for (const uid of notifyUids) {
+        await pushStudent(uid, title, body, { url, date, time }).catch(() => {});
+        await saveNotification(uid, title, body, "slot_freed").catch(() => {});
+      }
     }
   }
 );
