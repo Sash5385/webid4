@@ -9,9 +9,9 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['icon-192.png', 'icon-512.png'],
       manifest: {
-        name: 'OlhaDrive Admin',
-        short_name: 'OlhaDrive',
-        description: 'Адмінпанель автошколи OlhaDrive',
+        name: 'ID4Drive Admin',
+        short_name: 'ID4Drive',
+        description: 'Адмінпанель автошколи ID4Drive',
         theme_color: '#0f0f14',
         background_color: '#0f0f14',
         display: 'standalone',
