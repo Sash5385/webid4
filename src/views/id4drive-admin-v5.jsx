@@ -1900,14 +1900,24 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
     )}
 
     {/* ── Меню опцій слота (довгий тап) — компактне вікно ── */}
-    {slotOptions && (
+    {slotOptions && (()=>{
+      const snap = settings.snapMin ?? 30;
+      const [sh, sm] = slotOptions.time.split(":").map(Number);
+      const curMin = sh * 60 + sm;
+      const nearbySlots = [];
+      for (let i = -2; i <= 2; i++) {
+        const m = curMin + i * snap;
+        if (m >= (settings.workStart ?? 7) * 60 && m < (settings.workEnd ?? 20) * 60)
+          nearbySlots.push({ min: m, label: fmtTime(m) });
+      }
+      return (
       <div onClick={()=>setSlotOptions(null)} style={{
         position:"fixed",inset:0,zIndex:200,
         background:"rgba(0,0,0,0.45)",
         display:"flex",alignItems:"center",justifyContent:"center",
       }}>
         <div onClick={e=>e.stopPropagation()} style={{
-          width:220,
+          width:260,
           background:BG_DEEP,
           borderRadius:18,
           boxShadow:"0 8px 40px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.07)",
@@ -1915,10 +1925,32 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
         }}>
           {/* Заголовок */}
           <div style={{
-            padding:"10px 14px 8px",
-            borderBottom:`1px solid rgba(255,255,255,0.06)`,
+            padding:"10px 14px 6px",
+            borderBottom:`1px solid ${BORDER}`,
             fontSize:11,fontWeight:700,color:TEXT_FAINT,textAlign:"center",
-          }}>{slotOptions.time}</div>
+          }}>Оберіть час</div>
+
+          {/* Сусідні слоти */}
+          <div style={{
+            display:"flex",gap:6,padding:"8px 10px",
+            overflowX:"auto",scrollbarWidth:"none",
+            borderBottom:`1px solid ${BORDER}`,
+          }}>
+            {nearbySlots.map(({min, label})=>{
+              const active = label === slotOptions.time;
+              return (
+                <button key={min} onClick={()=>setSlotOptions(prev=>({...prev, time: label}))} style={{
+                  flexShrink:0,padding:"5px 10px",borderRadius:20,border:"none",cursor:"pointer",
+                  fontSize:13,fontWeight:700,
+                  background: active ? "rgba(245,158,11,0.22)" : isLight ? "rgba(0,0,0,0.07)" : "rgba(255,255,255,0.07)",
+                  color: active ? "#f59e0b" : TEXT_FAINT,
+                  outline: active ? "1.5px solid rgba(245,158,11,0.5)" : "none",
+                }}>
+                  {label}
+                </button>
+              );
+            })}
+          </div>
 
           {/* Додати букінг */}
           <button onClick={()=>{
@@ -1988,7 +2020,8 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
           )}
         </div>
       </div>
-    )}
+      );
+    })()}
 
     {/* ── VIP слот модалка ── */}
     {vipSlotModal && (
