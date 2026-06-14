@@ -1271,7 +1271,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                 onPointerUp={()=>clearTimeout(dayLongPressRef.current)}
                 onPointerLeave={()=>clearTimeout(dayLongPressRef.current)}
                 style={{
-                  position:"sticky", top:0, zIndex:4,
+                  position:"sticky", top:0, zIndex:12,
                   height:HEADER_H, flexShrink:0, marginBottom:4,
                   display:"flex", flexDirection:"column",
                   alignItems:"center", justifyContent:"space-between",
@@ -1612,12 +1612,17 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                           ...(priceText      ? [{ text: priceText, w: 900, c: priceColor }] : []),
                         ];
                         const availH = height - 6;
-                        const maxLinesByH = Math.max(1, Math.floor(availH / 11));
+                        const availW = COL_W - 8;
+                        const maxLinesByH = Math.max(1, Math.floor(availH / 10));
                         const maxLinesByW = COL_W < 44 ? 2 : COL_W < 58 ? 3 : 4;
                         const maxLines = Math.min(maxLinesByH, maxLinesByW);
                         const lines = allLines.slice(0, maxLines);
-                        const maxFs = Math.min(11, Math.max(6, Math.floor(COL_W / 6)));
-                        const fs = Math.max(6, Math.min(maxFs, Math.floor(availH / (lines.length * 1.4))));
+                        // font size small enough that all lines fit width without truncation
+                        const fsByW = Math.max(6, Math.min(...lines.map(ln =>
+                          Math.floor(availW / (ln.text.length * 0.58))
+                        )));
+                        const fsByH = Math.max(6, Math.floor(availH / (lines.length * 1.4)));
+                        const fs = Math.min(11, fsByW, fsByH);
                         return (
                           <div style={{
                             position:"absolute", top:2, left:2, right:2, bottom:2,
