@@ -1619,7 +1619,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                         const lines = allLines.slice(0, maxLines);
                         // font size small enough that all lines fit width without truncation
                         const fsByW = Math.max(6, Math.min(...lines.map(ln =>
-                          Math.floor(availW / (ln.text.length * 0.58))
+                          Math.floor(availW / (ln.text.length * 0.65))
                         )));
                         const fsByH = Math.max(6, Math.floor(availH / (lines.length * 1.4)));
                         const fs = Math.min(11, fsByW, fsByH);
