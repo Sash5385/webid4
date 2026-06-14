@@ -1343,7 +1343,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                 style={{
                   width:COL_W, height:gridHeight,
                   position:"relative", padding:"0 4px",
-                  background:`linear-gradient(135deg,${BG_DEEP},rgba(0,0,0,0.55))`,
+                  background:`linear-gradient(135deg,${BG_DEEP},rgba(${SHADE},0.12))`,
                   borderRadius:14, boxShadow:SHADOW_IN, cursor: isPastDay || isClosedDay ? "default" : "cell",
                   userSelect:"none", WebkitUserSelect:"none", WebkitTouchCallout:"none",
                   opacity: isPastDay ? 0.38 : 1,
