@@ -1628,7 +1628,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                               <div key={i} style={{
                                 fontSize: fs, fontWeight: ln.w, color: ln.c,
                                 lineHeight: 1.2, textAlign:"center",
-                                whiteSpace:"normal", wordBreak:"break-word", overflowWrap:"anywhere",
+                                whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis",
                                 width:"100%",
                                 textShadow:`0 1px 0 ${glow(0.35)}`,
                               }}>{ln.text}</div>
