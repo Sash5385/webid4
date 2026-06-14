@@ -1597,7 +1597,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                           { text: fName, w: 800, c: "#fff" },
                           ...(lName ? [{ text: lName, w: 700, c: "rgba(255,255,255,0.85)" }] : []),
                           { text: b.type==="school" ? "Автошкола" : "Приватний", w: 600, c: "rgba(255,255,255,0.6)" },
-                          ...(b.type==="school" && b.tsc ? [{ text: b.tsc, w: 600, c: "rgba(91,155,255,0.75)" }] : []),
+                          ...(b.type==="school" && (b.tsc || b.tscCenter) ? [{ text: b.tsc || `ТСЦ ${b.tscCenter}`, w: 600, c: "rgba(91,155,255,0.75)" }] : []),
                           ...(price > 0 ? [{ text: `${price}₴`, w: 900, c: priceColor }] : []),
                         ];
                         const maxFs = Math.min(11, Math.floor(COL_W / 5.5));

@@ -177,9 +177,12 @@ function SwipeStudentCard({ s, expanded, onToggle, onBlock, onUpdate }) {
                   color={s.type==="school"?GREEN:GOLD}
                   bg={s.type==="school"?"rgba(126,217,87,0.15)":"rgba(247,201,72,0.15)"}
                 />
+                {s.type==="school" && s.tsc && (
+                  <Pill label={s.tsc} color={BLUE} bg="rgba(91,155,255,0.15)"/>
+                )}
               </div>
               <div style={{fontSize:12,color:DIM,marginBottom:6}}>
-                {s.phone}{s.tsc?` · ${s.tsc}`:""}
+                {s.phone}
               </div>
 
               {/* stats row */}

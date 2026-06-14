@@ -221,7 +221,9 @@ function Card({ s, expanded, onToggle, onBlock, onUpdate, onDelete }) {
           <div style={{fontSize:13,fontWeight:800,color:s.blocked?DIM:TEXT,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
             {s.name}{s.blocked && <span style={{fontSize:9,color:RED,fontWeight:700,marginLeft:6}}>🚫</span>}
           </div>
-          <div style={{fontSize:10,color:typeColor,fontWeight:700,marginTop:2}}>{typeLabel}</div>
+          <div style={{fontSize:10,color:typeColor,fontWeight:700,marginTop:2}}>
+            {typeLabel}{s.type==="school" && s.tscCenter ? <span style={{color:BLUE,marginLeft:5}}>· ТСЦ {s.tscCenter}</span> : ""}
+          </div>
         </div>
         {/* chat icon3d */}
         <button onClick={e=>{ e.stopPropagation(); navTo("chats"); }} style={{background:"none",border:"none",cursor:"pointer",padding:0}}>
@@ -260,6 +262,9 @@ function Card({ s, expanded, onToggle, onBlock, onUpdate, onDelete }) {
               <div style={{background:BG_DEEP,borderRadius:9,padding:"9px 11px",boxShadow:SI}}>
                 <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:s.type==="school"?9:0}}>
                   <span style={{fontSize:11,fontWeight:800,color:typeColor}}>{typeLabel}</span>
+                  {s.type==="school" && s.tscCenter && (
+                    <span style={{fontSize:10,fontWeight:700,color:BLUE}}>ТСЦ {s.tscCenter}</span>
+                  )}
                   {s.type==="school" && <span style={{fontSize:10,color:FAINT}}>· {s.hours+(s.hoursOffset||0)}/40 год</span>}
                 </div>
                 {s.type==="school" && <Progress hours={s.hours} offset={s.hoursOffset||0}/>}
@@ -417,6 +422,7 @@ export default function StudentsView() {
           name:     p.name      || u.name      || "Учень",
           phone:    p.phone     || u.phone     || "",
           type:     p.type      || u.type      || "private",
+          tscCenter: p.tscCenter || null,
           hours:       u.hours       || 0,
           hoursOffset: u.hoursOffset || 0,
           discount:    u.discount    || 0,
