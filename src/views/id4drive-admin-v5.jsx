@@ -1391,7 +1391,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                       position:"absolute", left:0, right:0,
                       top: minToPx(startMin) + 1,
                       height: slotHeightMin * PX_PER_MIN - 2,
-                      opacity: isSticky ? 0.5 : 0.22,
+                      opacity: isSticky ? 0.85 : 0.65,
                       background: bg,
                       border: `1.5px solid ${borderColor}`,
                       borderRadius:8, cursor:"pointer", zIndex:1,
@@ -1422,7 +1422,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                   position:"absolute",left:0,right:0,
                   top:(i+1)*30*PX_PER_MIN,
                   height:1,
-                  background:isHour?`${ink(0.07)}`:`${ink(0.025)}`
+                  background:isHour?`${ink(0.13)}`:`${ink(0.06)}`
                 }}/>;
               })}
 
@@ -1599,11 +1599,11 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                       {!isBlock && !isVipSlot && !isPersonal && height >= 12 && (() => {
                         const [fName, ...lParts] = b.name.split(' ');
                         const lName = lParts.join(' ');
-                        const priceColor = b.surcharge ? GOLD : `${glow(0.9)}`;
+                        const priceColor = b.surcharge ? GOLD : `${ink(0.9)}`;
                         const lines = [
-                          { text: fName, w: 800, c: "#fff" },
-                          ...(lName ? [{ text: lName, w: 700, c: `${glow(0.85)}` }] : []),
-                          { text: b.type==="school" ? "Автошкола" : "Приватний", w: 600, c: `${glow(0.6)}` },
+                          { text: fName, w: 800, c: ink(0.95) },
+                          ...(lName ? [{ text: lName, w: 700, c: ink(0.80) }] : []),
+                          { text: b.type==="school" ? "Автошкола" : "Приватний", w: 500, c: ink(0.55) },
                           ...(price > 0 ? [{ text: `${price}₴`, w: 900, c: priceColor }] : []),
                         ];
                         const maxFs = Math.min(11, Math.floor(COL_W / 5.5));
@@ -1621,7 +1621,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                                 lineHeight: 1.2, textAlign:"center",
                                 whiteSpace:"normal", wordBreak:"break-word", overflowWrap:"anywhere",
                                 width:"100%",
-                                textShadow:`0 1px 2px ${shade(0.55)}`,
+                                textShadow:`0 1px 0 ${glow(0.35)}`,
                               }}>{ln.text}</div>
                             ))}
                           </div>
