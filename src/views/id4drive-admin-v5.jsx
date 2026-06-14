@@ -1611,12 +1611,13 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                           { text: typeLabel, w: 600, c: ink(0.58) },
                           ...(priceText      ? [{ text: priceText, w: 900, c: priceColor }] : []),
                         ];
-                        // Fit as many lines as height allows (min 11px per line)
                         const availH = height - 6;
-                        const maxLines = Math.max(1, Math.floor(availH / 11));
+                        const maxLinesByH = Math.max(1, Math.floor(availH / 11));
+                        const maxLinesByW = COL_W < 44 ? 2 : COL_W < 58 ? 3 : 4;
+                        const maxLines = Math.min(maxLinesByH, maxLinesByW);
                         const lines = allLines.slice(0, maxLines);
-                        const maxFs = Math.min(13, Math.max(8, Math.floor(COL_W / 5)));
-                        const fs = Math.max(7, Math.min(maxFs, Math.floor(availH / (lines.length * 1.3))));
+                        const maxFs = Math.min(11, Math.max(6, Math.floor(COL_W / 6)));
+                        const fs = Math.max(6, Math.min(maxFs, Math.floor(availH / (lines.length * 1.4))));
                         return (
                           <div style={{
                             position:"absolute", top:2, left:2, right:2, bottom:2,
