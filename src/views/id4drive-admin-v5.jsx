@@ -1601,13 +1601,15 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                         const lName = lParts.join(' ');
                         const priceColor = b.surcharge ? GOLD : `${ink(0.9)}`;
                         const priceText = price > 0 ? `${price}₴` : null;
-                        // All possible lines in priority order
+                        // TSC замінює "Автошкола" коли є — завжди 4 рядки
+                        const typeLabel = b.type==="school"
+                          ? (b.tsc || "Автошкола")
+                          : "Приватний";
                         const allLines = [
-                          { text: fName,   w: 800, c: ink(0.95) },
-                          ...(lName        ? [{ text: lName,   w: 700, c: ink(0.80) }] : []),
-                          ...(priceText    ? [{ text: priceText, w: 900, c: priceColor }] : []),
-                          { text: b.type==="school" ? "Автошкола" : "Приватний", w: 500, c: ink(0.55) },
-                          ...(b.type==="school" && b.tsc ? [{ text: b.tsc, w: 500, c: ink(0.48) }] : []),
+                          { text: fName,     w: 800, c: ink(0.95) },
+                          ...(lName          ? [{ text: lName,     w: 700, c: ink(0.80) }] : []),
+                          { text: typeLabel, w: 600, c: ink(0.58) },
+                          ...(priceText      ? [{ text: priceText, w: 900, c: priceColor }] : []),
                         ];
                         // Fit as many lines as height allows (min 11px per line)
                         const availH = height - 6;
