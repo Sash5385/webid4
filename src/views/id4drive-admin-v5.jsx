@@ -838,7 +838,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
           const dy = e.clientY - swipeRef.current.startY;
           if (Math.abs(dx) > Math.abs(dy) * 0.7 && Math.abs(dx) > 6) {
             gridWrapRef.current.style.transform = `translateX(${dx}px)`;
-            if(sumInnerRef.current) sumInnerRef.current.style.transform = `translateX(${-(gridRef.current?.scrollLeft ?? 0) + dx}px)`;
+            if(sumInnerRef.current) sumInnerRef.current.style.transform = `translateX(${dx}px)`;
           }
         }
       }
@@ -985,7 +985,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
       if (gridWrapRef.current) {
         gridWrapRef.current.style.transition = "none";
         gridWrapRef.current.style.transform = "";
-        if(sumInnerRef.current) sumInnerRef.current.style.transform = `translateX(-${gridRef.current?.scrollLeft ?? 0}px)`;
+        if(sumInnerRef.current) sumInnerRef.current.style.transform = "";
       }
     };
     const onResize = () => { setWindowW(window.innerWidth); setWindowH(window.innerHeight); };
@@ -1227,8 +1227,6 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
           onScroll={e=>{
             if (timeColRef.current)
               timeColRef.current.style.transform = `translateY(-${e.currentTarget.scrollTop}px)`;
-            if (sumInnerRef.current)
-              sumInnerRef.current.style.transform = `translateX(-${e.currentTarget.scrollLeft}px)`;
             computeVRange();
           }}
           onContextMenu={e=>e.preventDefault()}
@@ -1599,6 +1597,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                           { text: fName, w: 800, c: "#fff" },
                           ...(lName ? [{ text: lName, w: 700, c: "rgba(255,255,255,0.85)" }] : []),
                           { text: b.type==="school" ? "Автошкола" : "Приватний", w: 600, c: "rgba(255,255,255,0.6)" },
+                          ...(b.type==="school" && b.tsc ? [{ text: b.tsc, w: 600, c: "rgba(91,155,255,0.75)" }] : []),
                           ...(price > 0 ? [{ text: `${price}₴`, w: 900, c: priceColor }] : []),
                         ];
                         const maxFs = Math.min(11, Math.floor(COL_W / 5.5));
@@ -1711,15 +1710,9 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
           })}
           {(N_DAYS-1-vRange.e)>0 && <div style={{width:(N_DAYS-1-vRange.e)*(COL_W+4)-4, flexShrink:0}}/>}
           </div>
-        </div>
 
-      </div>{/* /outer flex */}
-
-      {/* ── Daily income sums — fixed row below grid, synced with horizontal scroll ── */}
-      <div style={{display:"flex", flexShrink:0, padding:"3px 3px 5px"}}>
-        <div style={{width:TIME_COL_W, flexShrink:0}}/>
-        <div ref={sumRowRef} style={{flex:1, overflowX:"hidden"}}>
-          <div ref={sumInnerRef} style={{display:"flex"}}>
+          {/* ── Daily income sums — sticky bottom, scrolls naturally with gridRef ── */}
+          <div ref={sumInnerRef} style={{display:"flex", position:"sticky", bottom:0, zIndex:5, padding:"3px 0 5px"}}>
             {vRange.s > 0 && <div style={{width:vRange.s*(COL_W+4), flexShrink:0}}/>}
             {days.slice(vRange.s, vRange.e+1).map((day,_i)=>{
               const colIdx = vRange.s + _i;
@@ -1756,7 +1749,8 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
             {(N_DAYS-1-vRange.e)>0 && <div style={{width:(N_DAYS-1-vRange.e)*(COL_W+4)-4, flexShrink:0}}/>}
           </div>
         </div>
-      </div>
+
+      </div>{/* /outer flex */}
 
     </Card>
 
@@ -2088,8 +2082,23 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
     <PersonalEventModal
       data={personalEventData}
       onClose={()=>setPersonalEventData(null)}
-      onConfirm={b=>{
-        update(ref(db, `bookings/admin/${b.id}`), b).catch(()=>{});
+      onConfirm={async b=>{
+        // Зберігаємо стан слотів ДО події щоб відновити при видаленні
+        const slotsBefore = {};
+        const reads = [];
+        for (let i = 0; i < b.durMin; i += 30) {
+          const sm = b.startMin + i;
+          const sh = String(Math.floor(sm / 60)).padStart(2, '0');
+          const sn = String(sm % 60).padStart(2, '0');
+          const slotId = `slot${sh}${sn}`;
+          reads.push(
+            get(ref(db, `timeslots/${b.date}/${slotId}`))
+              .then(snap => { slotsBefore[slotId] = snap.val(); })
+              .catch(() => { slotsBefore[slotId] = null; })
+          );
+        }
+        await Promise.all(reads);
+        update(ref(db, `bookings/admin/${b.id}`), { ...b, slotsBefore }).catch(()=>{});
         const slotUpd = {};
         for (let i = 0; i < b.durMin; i += 30) {
           const sm = b.startMin + i;
@@ -2140,11 +2149,27 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                 const sm = personalEventView.startMin + i;
                 const sh = String(Math.floor(sm / 60)).padStart(2, '0');
                 const sn = String(sm % 60).padStart(2, '0');
-                if (personalEventView.wasAdminBlocked) {
-                  slotUpd[`timeslots/${personalEventView.date}/slot${sh}${sn}/available`] = false;
-                  slotUpd[`timeslots/${personalEventView.date}/slot${sh}${sn}/adminBlocked`] = true;
+                const slotId = `slot${sh}${sn}`;
+                const before = personalEventView.slotsBefore?.[slotId];
+                if (personalEventView.slotsBefore) {
+                  // Новий шлях: відновлюємо точний стан
+                  if (before === null || before === undefined) {
+                    // Слот не існував до події — видаляємо
+                    slotUpd[`timeslots/${personalEventView.date}/${slotId}`] = null;
+                  } else {
+                    slotUpd[`timeslots/${personalEventView.date}/${slotId}/available`] = before.available !== false;
+                    if (before.adminBlocked) slotUpd[`timeslots/${personalEventView.date}/${slotId}/adminBlocked`] = true;
+                    if (before.vipOnly) slotUpd[`timeslots/${personalEventView.date}/${slotId}/vipOnly`] = true;
+                    if (before.surcharge) slotUpd[`timeslots/${personalEventView.date}/${slotId}/surcharge`] = before.surcharge;
+                  }
                 } else {
-                  slotUpd[`timeslots/${personalEventView.date}/slot${sh}${sn}/available`] = true;
+                  // Старі події без slotsBefore — попередня логіка
+                  if (personalEventView.wasAdminBlocked) {
+                    slotUpd[`timeslots/${personalEventView.date}/${slotId}/available`] = false;
+                    slotUpd[`timeslots/${personalEventView.date}/${slotId}/adminBlocked`] = true;
+                  } else {
+                    slotUpd[`timeslots/${personalEventView.date}/${slotId}/available`] = true;
+                  }
                 }
               }
               update(ref(db, '/'), slotUpd).catch(()=>{});
