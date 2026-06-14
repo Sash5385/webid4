@@ -19,17 +19,27 @@ async function saveNotification(uid, title, body, type = "system") {
 async function pushStudent(uid, title, body, data = {}) {
   const snap = await db.ref(`users/${uid}/fcmTokens/web/token`).get();
   const token = snap.val();
-  if (!token) return;
+  if (!token) { console.warn(`pushStudent: no FCM token for uid=${uid}`); return; }
   const link = data.url || "https://id4drive.pro/cabinet";
-  await admin.messaging().send({
-    token,
-    notification: { title, body },
-    data: Object.fromEntries(Object.entries({ url: link, ...data }).map(([k,v]) => [k, String(v)])),
-    webpush: {
-      notification: { icon: "/favicon.svg" },
-      fcmOptions: { link },
-    },
-  }).catch(() => {});
+  try {
+    const result = await admin.messaging().send({
+      token,
+      notification: { title, body },
+      data: Object.fromEntries(Object.entries({ url: link, ...data }).map(([k,v]) => [k, String(v)])),
+      webpush: {
+        notification: { icon: "/favicon.svg" },
+        fcmOptions: { link },
+      },
+    });
+    console.log(`pushStudent OK: uid=${uid} title="${title}" messageId=${result}`);
+  } catch (e) {
+    console.error(`pushStudent error: uid=${uid} code=${e.code} msg=${e.message}`);
+    if (e.code === "messaging/registration-token-not-registered" ||
+        e.code === "messaging/invalid-registration-token") {
+      await db.ref(`users/${uid}/fcmTokens/web/token`).remove().catch(() => {});
+      console.warn(`pushStudent: stale token removed for uid=${uid}`);
+    }
+  }
 }
 
 // Хелпер: запросити наступного в черзі для слота
@@ -457,6 +467,7 @@ exports.onStudentMessage = onValueCreated(
   { ref: "chats/{uid}/{msgId}", region: "europe-west1" },
   async (event) => {
     const msg = event.data.val();
+    console.log(`onStudentMessage: uid=${event.params.uid} from=${msg?.from}`);
     if (!msg || msg.from !== "student") return;
 
     const { uid } = event.params;

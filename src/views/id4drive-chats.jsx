@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback, useContext } from "react";
-import { ref, onValue, off, push, update, set, increment } from "firebase/database";
+import { ref, onValue, off, push, update, set, increment, remove } from "firebase/database";
 import { db } from "../firebase";
 import { LangContext } from "../App";
 
@@ -198,7 +198,10 @@ export default function ChatsView() {
           lastTime: "",
         };
       });
-      setContacts(list);
+      // Deduplicate by phone (same person registered multiple times)
+      const byPhone = new Map();
+      list.forEach(c => byPhone.set(c.phone || c.id, c));
+      setContacts([...byPhone.values()]);
       setLoading(false);
     });
     return () => off(r, "value", handler);
@@ -323,6 +326,10 @@ export default function ChatsView() {
       msgUnsubs.current[id]?.();
       delete msgUnsubs.current[id];
       setMessages(prev => { const n={...prev}; delete n[id]; return n; });
+      // Permanently remove from Firebase
+      remove(ref(db, `users/${id}`)).catch(() => {});
+      remove(ref(db, `chatMeta/${id}`)).catch(() => {});
+      remove(ref(db, `chats/${id}`)).catch(() => {});
     } else {
       setDeletingId(id);
       setTimeout(() => setDeletingId(di => di===id ? null : di), 3000);
