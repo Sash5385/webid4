@@ -2641,6 +2641,7 @@ function NewBookingModal({ data, onClose, onConfirm, settings, bookings = [] }) 
   const [timeVal,    setTimeVal]    = useState(null);
   const [svcId,      setSvcId]      = useState(null);
   const [note,       setNote]       = useState("");
+  const [tsc,        setTsc]        = useState("");
   const [students,   setStudents]   = useState([]);
 
   useEffect(()=>{
@@ -2661,7 +2662,7 @@ function NewBookingModal({ data, onClose, onConfirm, settings, bookings = [] }) 
       setTimeVal(snapped?.value ?? timeItems[0]?.value ?? null);
       setDateOffset(Math.max(0, data.day??0));
       setSearch(""); setSelStudent(null); setPhone("");
-      setNewName(""); setNewPhone(""); setNote("");
+      setNewName(""); setNewPhone(""); setNote(""); setTsc("");
       setSvcId(null);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -2860,6 +2861,25 @@ function NewBookingModal({ data, onClose, onConfirm, settings, bookings = [] }) 
             </div>
           </div>
 
+          {/* ТСЦ — тільки для послуг автошколи */}
+          {selSvc?.type === "school" && (
+            <div>
+              <SL>ТСЦ (центр)</SL>
+              <input
+                type="text"
+                placeholder="Наприклад: ТСЦ Оболонь"
+                value={tsc}
+                onChange={e=>setTsc(e.target.value)}
+                style={{
+                  width:"100%", padding:"10px 13px", borderRadius:12,
+                  border:`1.5px solid ${BORDER}`,
+                  background:SURFACE_LO, color:TEXT, fontSize:13,
+                  outline:"none", boxSizing:"border-box", fontFamily:"inherit",
+                }}
+              />
+            </div>
+          )}
+
           {/* ЦІНА PREVIEW */}
           {selSvc && (
             <div style={{
@@ -2902,7 +2922,7 @@ function NewBookingModal({ data, onClose, onConfirm, settings, bookings = [] }) 
               day:dateOffset, date:dateStr, startMin:timeVal, durMin:selSvc.duration,
               name:finalName, phone:finalPhone, serviceId:selSvc.id,
               type:selSvc.type||"private", status:"confirmed",
-              tsc:"", hoursDone:0, categoryId:null, isVipOnly:false,
+              tsc: selSvc?.type==="school" ? tsc.trim() : "", hoursDone:0, categoryId:null, isVipOnly:false,
               userId: (!isNewStudent && selStudent?.id) ? selStudent.id : null,
               ...(note.trim() && { note:note.trim() }),
             });
