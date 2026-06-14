@@ -458,6 +458,11 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   const STICKY_BG   = isLight ? "rgba(58,140,30,0.16)"   : "rgba(99,211,120,0.15)";
   const STICKY_BD   = isLight ? "rgba(58,140,30,0.65)"   : "rgba(99,211,120,0.45)";
   const STICKY_CLR  = isLight ? "rgba(58,140,30,0.92)"   : "rgba(99,211,120,0.9)";
+  const OVERLAY     = isLight ? "rgba(92,42,26,0.32)"    : "rgba(0,0,0,0.45)";
+  const OVERLAY_HVY = isLight ? "rgba(92,42,26,0.55)"    : "rgba(0,0,0,0.78)";
+  const MODAL_SHADOW= isLight ? `0 8px 40px rgba(92,42,26,0.22), inset 0 1px 0 rgba(255,255,255,0.6)` : `0 8px 40px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.07)`;
+  const DIVIDER     = isLight ? BORDER                   : "rgba(255,255,255,0.06)";
+  const DIVIDER_SM  = isLight ? BORDER                   : "rgba(255,255,255,0.05)";
   const [dragId, setDragId] = useState(null);
   const [holdId, setHoldId] = useState(null);
   const [quickCancelId, setQuickCancelId] = useState(null);
@@ -1769,7 +1774,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
     {/* ── Модалка блокування ── */}
     {blockModal && (
       <div onClick={()=>setBlockModal(null)} style={{
-        position:"fixed",inset:0,zIndex:200,background:"rgba(0,0,0,0.78)",
+        position:"fixed",inset:0,zIndex:200,background:OVERLAY_HVY,
         display:"flex",alignItems:"flex-end",justifyContent:"center",
         backdropFilter:"blur(12px)"
       }}>
@@ -1913,14 +1918,14 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
       return (
       <div onClick={()=>setSlotOptions(null)} style={{
         position:"fixed",inset:0,zIndex:200,
-        background:"rgba(0,0,0,0.45)",
+        background:OVERLAY,
         display:"flex",alignItems:"center",justifyContent:"center",
       }}>
         <div onClick={e=>e.stopPropagation()} style={{
           width:260,
           background:BG_DEEP,
           borderRadius:18,
-          boxShadow:"0 8px 40px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.07)",
+          boxShadow:MODAL_SHADOW,
           overflow:"hidden",
         }}>
           {/* Заголовок */}
@@ -1963,7 +1968,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
             setSlotOptions(null);
           }} style={{
             width:"100%",padding:"11px 14px",border:"none",cursor:"pointer",
-            background:"none",borderBottom:`1px solid rgba(255,255,255,0.05)`,
+            background:"none",borderBottom:`1px solid ${DIVIDER_SM}`,
             color:"#f59e0b",fontSize:13,fontWeight:700,
             display:"flex",alignItems:"center",gap:9,
           }}>
@@ -1976,7 +1981,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
             setSlotOptions(null);
           }} style={{
             width:"100%",padding:"11px 14px",border:"none",cursor:"pointer",
-            background:"none",borderBottom:`1px solid rgba(255,255,255,0.05)`,
+            background:"none",borderBottom:`1px solid ${DIVIDER_SM}`,
             color:"#2dd4bf",fontSize:13,fontWeight:700,
             display:"flex",alignItems:"center",gap:9,
           }}>
@@ -1991,7 +1996,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
           )}
           <button onClick={()=>applySlotOption(slotOptions.dateStr, slotOptions.time, "vip")} style={{
             width:"100%",padding:"11px 14px",border:"none",cursor:"pointer",
-            background:"none",borderBottom:`1px solid rgba(255,255,255,0.05)`,
+            background:"none",borderBottom:`1px solid ${DIVIDER_SM}`,
             color:"#c084fc",fontSize:13,fontWeight:700,
             display:"flex",alignItems:"center",gap:9,
           }}>
@@ -2001,7 +2006,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
             <button key={amt} onClick={()=>applySlotOption(slotOptions.dateStr, slotOptions.time, amt)} style={{
               width:"100%",padding:"11px 14px",border:"none",cursor:"pointer",
               background:"none",
-              borderBottom: i<arr.length-1 ? `1px solid rgba(255,255,255,0.05)` : "none",
+              borderBottom: i<arr.length-1 ? `1px solid ${DIVIDER_SM}` : "none",
               color:GOLD,fontSize:13,fontWeight:700,
               display:"flex",alignItems:"center",justifyContent:"space-between",
             }}>
@@ -2014,7 +2019,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
           {(slotOptions.slot?.vipOnly || slotOptions.slot?.surcharge) && (
             <button onClick={()=>applySlotOption(slotOptions.dateStr, slotOptions.time, "reset")} style={{
               width:"100%",padding:"10px 14px",border:"none",cursor:"pointer",
-              background:"none",borderTop:`1px solid rgba(255,255,255,0.06)`,
+              background:"none",borderTop:`1px solid ${DIVIDER}`,
               color:TEXT_FAINT,fontSize:12,fontWeight:600,
             }}>Скинути</button>
           )}
@@ -2026,7 +2031,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
     {/* ── VIP слот модалка ── */}
     {vipSlotModal && (
       <div onClick={()=>setVipSlotModal(null)} style={{
-        position:"fixed",inset:0,zIndex:200,background:"rgba(0,0,0,0.78)",
+        position:"fixed",inset:0,zIndex:200,background:OVERLAY_HVY,
         display:"flex",alignItems:"flex-end",justifyContent:"center",
         backdropFilter:"blur(12px)"
       }}>
