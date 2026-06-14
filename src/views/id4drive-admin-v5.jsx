@@ -54,12 +54,12 @@ body, html, #root { margin:0; padding:0; }
 }
 .slot-base:active { cursor: grabbing; }
 .slot-colored {
-  background: linear-gradient(155deg, color-mix(in srgb, var(--c) 50%, transparent) 0%, color-mix(in srgb, var(--c) 18%, transparent) 100%);
-  border: 1px solid color-mix(in srgb, var(--c) 60%, transparent);
+  background: linear-gradient(155deg, color-mix(in srgb, var(--c) 65%, transparent) 0%, color-mix(in srgb, var(--c) 35%, transparent) 100%);
+  border: 1.5px solid color-mix(in srgb, var(--c) 78%, transparent);
   box-shadow:
     -2px 5px 14px rgba(${SHADE},0.5),
-    inset 1px 1px 0 rgba(${GLOW},0.18),
-    inset -1px -1px 0 rgba(${SHADE},0.25);
+    inset 1px 1px 0 rgba(${GLOW},0.22),
+    inset -1px -1px 0 rgba(${SHADE},0.20);
 }
 .slot-pending-ring {
   animation: pulse-ring 2s infinite;
