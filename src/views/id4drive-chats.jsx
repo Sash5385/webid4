@@ -180,10 +180,12 @@ export default function ChatsView() {
     const r = ref(db, "users");
     const handler = onValue(r, snap => {
       const data = snap.val() || {};
-      const list = Object.entries(data).map(([uid, u]) => {
-        const p = u.profile || {};
-        return { id:uid, name:p.name||"Учень", phone:p.phone||"", hue:hueForUid(uid), online:false, unread:0, lastMsg:"", lastTime:"" };
-      });
+      const list = Object.entries(data)
+        .filter(([,u]) => !!(u.profile?.name))
+        .map(([uid, u]) => {
+          const p = u.profile || {};
+          return { id:uid, name:p.name, phone:p.phone||"", hue:hueForUid(uid), online:false, unread:0, lastMsg:"", lastTime:"" };
+        });
       setContacts(list);
       setLoading(false);
     });
