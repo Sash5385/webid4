@@ -508,7 +508,12 @@ function PushDiag() {
         setStatus({ ok: false, msg: `Дозвіл: "${perm}" — дозволь нотифікації в налаштуваннях браузера` });
         return;
       }
-      new Notification("🔔 ID4Drive тест", { body: "Push-нотифікації працюють!", icon: "/favicon.svg" });
+      if ('serviceWorker' in navigator) {
+        const reg = await navigator.serviceWorker.ready;
+        await reg.showNotification("🔔 ID4Drive тест", { body: "Push-нотифікації працюють!", icon: "/favicon.svg" });
+      } else {
+        new Notification("🔔 ID4Drive тест", { body: "Push-нотифікації працюють!", icon: "/favicon.svg" });
+      }
       setStatus({ ok: true, msg: "Нотифікація відправлена — перевір системний трей" });
     } catch (e) {
       setStatus({ ok: false, msg: `Помилка: ${e.message}` });
