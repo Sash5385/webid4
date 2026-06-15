@@ -467,3 +467,18 @@ exports.onStudentMessage = onValueCreated(
     await pushAdmin(`💬 ${name}`, text.length > 100 ? text.slice(0, 100) + "…" : text);
   }
 );
+
+// Адмін надіслав повідомлення → пуш студенту
+exports.onAdminMessage = onValueCreated(
+  { ref: "chats/{uid}/{msgId}", region: "europe-west1" },
+  async (event) => {
+    const msg = event.data.val();
+    if (!msg || msg.from === "student") return;
+    const { uid } = event.params;
+    if (uid === "general") return; // broadcast — пушимо окремо якщо треба
+    const text = msg.text || "";
+    await pushStudent(uid, "💬 Інструктор", text.length > 100 ? text.slice(0, 100) + "…" : text, {
+      url: "https://id4drive.pro/cabinet/chat",
+    });
+  }
+);
