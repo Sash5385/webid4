@@ -2446,6 +2446,16 @@ function BookingModal({ booking, onClose, onAction, settings }) {
           }}>{IcoChat} Чат</button>
         </div>
 
+        {/* Confirm button (only for pending bookings) */}
+        {booking.status === "pending" && (
+          <button onClick={() => { onAction("confirm", booking); onClose(); }} style={{
+            width:"100%", padding:"11px", border:"none", cursor:"pointer",
+            background:"linear-gradient(145deg,#9ee07a,#5fb83d)",
+            borderTop:`1px solid ${ink(0.05)}`,
+            color:"#fff", fontSize:13, fontWeight:800,
+          }}>✓ Підтвердити</button>
+        )}
+
         {/* Cancel link */}
         <button onClick={() => { onAction("cancel", booking); onClose(); }} style={{
           width:"100%", padding:"9px", border:"none", cursor:"pointer",
