@@ -42,6 +42,18 @@ GOOGLE_APPLICATION_CREDENTIALS=/home/user/id4drive-sa.json firebase deploy --onl
 - Не виконувати без підтвердження: `rm -rf`, `git reset --hard`, `git push --force`
 - Перед змінами Firebase структури — показати що зміниться
 
+## Відомі пастки
+
+- `Card` в `id4drive-admin-v5.jsx` використовує статичний `SURFACE` з темної теми. Щоб перевизначити — передавати `background: SURFACE` через style prop (де SURFACE береться з `useContext(ThemeContext)` всередині `ScheduleView`)
+- iOS: `touch-action: manipulation` на всіх інтерактивних `div` елементах, `font-size ≥ 16px` на всіх `input` (інакше автозум)
+
+## Скрипти деплою
+
+```bash
+/home/user/deploy-olhadrive.sh   # admin + client
+/home/user/deploy-id4drive.sh    # admin + client
+```
+
 ## Стиль відповідей
 
 - Мінімум тексту: що зроблено + файл/рядок, без пояснень якщо не питали
