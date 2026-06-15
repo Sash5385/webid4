@@ -397,9 +397,11 @@ export default function ChatsView() {
             const cMsgs      = messages[c.id] || [];
             return (
               <div key={c.id} style={{
-                background:`linear-gradient(155deg,${SURF_HI},${SURFACE})`,
+                background:"rgba(255,255,255,0.85)",
+                backdropFilter:"blur(8px)",
+                WebkitBackdropFilter:"blur(8px)",
                 borderRadius:13,overflow:"hidden",boxShadow:SO,
-                border:`1px solid ${isDeleting?"rgba(239,68,68,0.5)":isOpen?"rgba(91,155,255,0.25)":BORDER}`,
+                border:`1px solid ${isDeleting?"rgba(239,68,68,0.5)":isOpen?"rgba(91,155,255,0.25)":"rgba(0,0,0,0.08)"}`,
                 transition:"border-color .2s",
               }}>
                 <div className={`chat-row${isOpen?" open":""}`} onClick={()=>toggle(c.id)}
