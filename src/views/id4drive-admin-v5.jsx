@@ -1051,7 +1051,13 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   };
 
   const handleAction = (action, b) => {
-    if (action === "confirm") setBookings(bs=>bs.map(x=>x.id===b.id?{...x,status:"confirmed"}:x));
+    if (action === "confirm") {
+      setBookings(bs=>bs.map(x=>x.id===b.id?{...x,status:"confirmed"}:x));
+      if (b.userId) {
+        const ks = [...new Set([b._fbKey, b.id].filter(Boolean))];
+        ks.forEach(k => update(ref(db, `bookings/${b.userId}/${k}`), { status:"confirmed" }).catch(()=>{}));
+      }
+    }
     if (action === "cancel") {
       // Відновити timeslots
       const cancelOne = (mb) => {
@@ -3491,7 +3497,13 @@ export default function App() {
   };
 
   const handleAction = (action, b) => {
-    if (action === "confirm")  setBookings(bs=>bs.map(x=>x.id===b.id?{...x,status:"confirmed"}:x));
+    if (action === "confirm") {
+      setBookings(bs=>bs.map(x=>x.id===b.id?{...x,status:"confirmed"}:x));
+      if (b.userId) {
+        const ks = [...new Set([b._fbKey, b.id].filter(Boolean))];
+        ks.forEach(k => update(ref(db, `bookings/${b.userId}/${k}`), { status:"confirmed" }).catch(()=>{}));
+      }
+    }
     if (action === "cancel") {
       if (b.userId && b.id) {
         // Скасовуємо обидва можливі вузли (дубль міг з'явитись від старого коду)
