@@ -1,5 +1,5 @@
 import { useState, useRef, useContext, useEffect } from "react";
-import { ref, get, set } from "firebase/database";
+import { ref, get, set, push, update, increment } from "firebase/database";
 import { db } from "../firebase";
 import { LangContext } from "../App";
 import { createT } from "../lang";
@@ -74,7 +74,7 @@ const INIT_TEMPLATES = [
     body:"Привіт! Для тебе діє спеціальна пропозиція: {послуга} за {ціна} ₴. Діє тільки цього тижня!" },
 ];
 
-const STUDENTS = ["Марія Коваль","Іван Петренко","Олена Мороз","Дмитро Сало","Юлія Денисюк"];
+// Hardcoded list removed — students are loaded from Firebase in SendModal
 
 // ─── HELPERS ────────────────────────────────────────────────────
 function Inset({ children, style={} }) {
@@ -101,27 +101,56 @@ function BodyPreview({ body, style={} }) {
 
 // ─── SEND MODAL ──────────────────────────────────────────────────
 function SendModal({ tpl, onClose }) {
-  const { DIM, FAINT, SURF_HI, SURFACE, ACC_HI, ACCENT, SO, TEXT } = useContext(ThemeContext);
-  const [selected, setSelected] = useState([]);
-  const [channel, setChannel] = useState(tpl.channel);
-  const [preview, setPreview] = useState(tpl.body);
+  const { DIM, FAINT, SURF_HI, SURFACE, ACC_HI, ACCENT, SO, TEXT, GREEN } = useContext(ThemeContext);
+  const [students,  setStudents]  = useState([]);
+  const [selected,  setSelected]  = useState([]);
+  const [channel,   setChannel]   = useState(tpl.channel);
+  const [preview,   setPreview]   = useState(tpl.body);
+  const [sending,   setSending]   = useState(false);
+  const [sent,      setSent]      = useState(false);
   const ch = chOf(channel);
 
-  const toggleSel = s => setSelected(sel => sel.includes(s) ? sel.filter(x=>x!==s) : [...sel,s]);
+  useEffect(() => {
+    get(ref(db, "users")).then(snap => {
+      const d = snap.val() || {};
+      const list = Object.entries(d).map(([uid, u]) => ({
+        uid,
+        name: u.profile?.name || "Учень",
+      }));
+      setStudents(list);
+    }).catch(() => {});
+  }, []);
+
+  const allIds   = students.map(s => s.uid);
+  const toggleSel = uid => setSelected(sel => sel.includes(uid) ? sel.filter(x=>x!==uid) : [...sel,uid]);
   const selBtn = (active, color) => ({
     padding:"7px 12px",borderRadius:12,border:"none",cursor:"pointer",fontSize:11,fontWeight:700,fontFamily:"inherit",
     background:active?`linear-gradient(165deg,${color}99,${color}44)`:`linear-gradient(135deg,${SURF_HI},${SURFACE})`,
     color:active?color:DIM,boxShadow:SO,
   });
 
+  const handleSend = async () => {
+    if (!selected.length || sending) return;
+    setSending(true);
+    const time = new Date().toLocaleTimeString("uk",{hour:"2-digit",minute:"2-digit"});
+    const ts   = Date.now();
+    await Promise.all(selected.map(uid =>
+      push(ref(db,`chats/${uid}`),{from:"admin",text:preview,time,ts}).catch(()=>{})
+        .then(() => update(ref(db,`chatMeta/${uid}`),{unreadForStudent:increment(1),lastMsg:preview,lastTs:ts}).catch(()=>{}))
+    ));
+    setSending(false);
+    setSent(true);
+    setTimeout(onClose, 1200);
+  };
+
   return (
     <Modal open onClose={onClose} sheet size="lg" title="Надіслати шаблон"
       footer={
         <div style={{display:"flex",gap:10}}>
           <Btn variant="ghost" flex={1} onClick={onClose}>Скасувати</Btn>
-          <Btn variant="primary" flex={2} disabled={selected.length===0}
-            onClick={()=>{ if(selected.length>0){ alert(`✅ Надіслано ${selected.length} учням через ${ch.label}`); onClose(); } }}>
-            {ch.emoji} Надіслати {selected.length>0?`(${selected.length})`:""}
+          <Btn variant="primary" flex={2} disabled={selected.length===0||sending||sent}
+            onClick={handleSend}>
+            {sent ? "✅ Надіслано!" : sending ? "Надсилаємо…" : `${ch.emoji} Надіслати${selected.length>0?` (${selected.length})`:""}`}
           </Btn>
         </div>
       }>
@@ -142,10 +171,15 @@ function SendModal({ tpl, onClose }) {
       {/* students */}
       <div style={{fontSize:10,color:FAINT,letterSpacing:1,marginBottom:8}}>КОМУ НАДІСЛАТИ</div>
       <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:16}}>
-        <button onClick={()=>setSelected(STUDENTS)} style={selBtn(selected.length===STUDENTS.length, ACCENT)}>Всі учні</button>
-        {STUDENTS.map(s=>(
-          <button key={s} onClick={()=>toggleSel(s)} style={selBtn(selected.includes(s), BLUE)}>{s}</button>
-        ))}
+        {students.length === 0
+          ? <span style={{fontSize:11,color:FAINT}}>Завантаження учнів…</span>
+          : <>
+            <button onClick={()=>setSelected(allIds)} style={selBtn(selected.length===students.length&&students.length>0, ACCENT)}>Всі учні</button>
+            {students.map(s=>(
+              <button key={s.uid} onClick={()=>toggleSel(s.uid)} style={selBtn(selected.includes(s.uid), BLUE)}>{s.name}</button>
+            ))}
+          </>
+        }
       </div>
 
       {/* preview bubble */}

@@ -20,9 +20,12 @@ function fmtWait(ts) {
 }
 
 // ─── DRAG REORDER ────────────────────────────────────────────────
-function useDragReorder(items, setItems) {
-  const dragIdx = useRef(null);
-  const overIdx = useRef(null);
+function useDragReorder(items, onReorder) {
+  const dragIdx  = useRef(null);
+  const overIdx  = useRef(null);
+  const itemsRef = useRef(items);
+  useEffect(() => { itemsRef.current = items; }, [items]);
+
   const getHandlers = (idx) => ({
     onPointerDown: (e) => { e.stopPropagation(); dragIdx.current = idx; overIdx.current = idx; },
     onPointerMove: (e) => {
@@ -32,14 +35,13 @@ function useDragReorder(items, setItems) {
       if (card) {
         const newIdx = parseInt(card.dataset.dragIdx);
         if (newIdx !== overIdx.current) {
-          overIdx.current = newIdx;
-          setItems(prev => {
-            const arr = [...prev];
-            const [moved] = arr.splice(dragIdx.current, 1);
-            arr.splice(newIdx, 0, moved);
-            dragIdx.current = newIdx;
-            return arr;
-          });
+          const arr = [...itemsRef.current];
+          const [moved] = arr.splice(dragIdx.current, 1);
+          arr.splice(newIdx, 0, moved);
+          dragIdx.current  = newIdx;
+          overIdx.current  = newIdx;
+          itemsRef.current = arr;
+          onReorder(arr);
         }
       }
     },

@@ -166,10 +166,11 @@ export default function ChatsView() {
 .del-confirm{animation:del-shake .25s ease}
 `;
 
-  const [contacts,    setContacts]    = useState([]);
-  const [messages,    setMessages]    = useState({});
-  const [generalMsgs, setGeneralMsgs] = useState([]);
-  const [openId,      setOpenId]      = useState(null);
+  const [contacts,      setContacts]      = useState([]);
+  const [messages,      setMessages]      = useState({});
+  const [generalMsgs,   setGeneralMsgs]   = useState([]);
+  const [broadcastMsgs, setBroadcastMsgs] = useState([]);
+  const [openId,        setOpenId]        = useState(null);
   const [search,      setSearch]      = useState("");
   const [deletingId,  setDeletingId]  = useState(null);
   const [loading,     setLoading]     = useState(true);
@@ -227,6 +228,16 @@ export default function ChatsView() {
     return () => off(r, "value", handler);
   }, []);
 
+  // ── Broadcast history ─────────────────────────────────────────
+  useEffect(() => {
+    const r = ref(db, "chats/__broadcast__");
+    const handler = onValue(r, snap => {
+      const msgs = Object.entries(snap.val()||{}).map(([id,m])=>({...m,id})).sort((a,b)=>(a.ts||0)-(b.ts||0));
+      setBroadcastMsgs(msgs);
+    });
+    return () => off(r, "value", handler);
+  }, []);
+
   // ── Broadcast free-slot ───────────────────────────────────────
   const applyFreeSlotBroadcast = useCallback((msg, time) => {
     contacts.forEach(c => {
@@ -257,6 +268,7 @@ export default function ChatsView() {
     const time = nowTime(); const ts = Date.now();
     const msg = {from:"admin",text,time,ts};
     if (contactId === BROADCAST_ID) {
+      push(ref(db,"chats/__broadcast__"),{...msg,broadcast:true}).catch(()=>{});
       contacts.forEach(c => {
         push(ref(db,`chats/${c.id}`),{...msg,broadcast:true}).catch(()=>{});
         update(ref(db,`chatMeta/${c.id}`),{unreadForStudent:increment(1),lastMsg:text,lastTs:ts}).catch(()=>{});
@@ -289,7 +301,6 @@ export default function ChatsView() {
   const totalUnread   = contacts.reduce((s,c)=>s+c.unread, 0);
   const broadcastOpen = openId === BROADCAST_ID;
   const generalOpen   = openId === GENERAL_ID;
-  const broadcastMsgs = [];
 
   return (
     <>
