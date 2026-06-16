@@ -2,6 +2,7 @@ import React, { useState, useEffect, lazy, Suspense, createContext, useContext }
 import { ref, onValue, update, push, remove, get } from "firebase/database";
 import { db, registerAdminFCM, onAdminForegroundMessage } from "./firebase";
 import { useAdminAuth, LoginScreen } from "./AdminAuth";
+import { useAppUpdate } from "./hooks/useAppUpdate";
 import { setGlobalLang, createT } from "./lang";
 import { ThemeContext, getTheme } from "./theme.js";
 
@@ -413,6 +414,7 @@ function dayIdxToDate(dayIdx) {
 // ─── MAIN APP ────────────────────────────────────────────────────
 export default function App() {
   const adminUser = useAdminAuth();
+  const { needRefresh, updateServiceWorker, isUpdating } = useAppUpdate();
   const [tab,        setTab]      = useState("schedule");
   const [tabVisits,  setTabVisits]= useState({});
   const [openInfos,  setOpenInfos]= useState({});
@@ -802,6 +804,14 @@ const pendingDeletesRef = React.useRef(new Set());
         </div>
         <BottomNav active={tab} onChange={switchTab} settings={settings} chatUnread={chatUnread}/>
       </div>
+      {needRefresh && (
+        <div className={`update-banner${isUpdating ? ' update-banner--loading' : ''}`} onClick={updateServiceWorker}>
+          {isUpdating
+            ? <><span className="update-spinner" /> Оновлення...</>
+            : 'Доступне оновлення — натисніть щоб оновити'
+          }
+        </div>
+      )}
     </>
     </LangContext.Provider>
     </ThemeContext.Provider>
