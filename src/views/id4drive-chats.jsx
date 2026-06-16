@@ -277,7 +277,6 @@ export default function ChatsView() {
       setDeletingId(null);
       msgUnsubs.current[id]?.(); delete msgUnsubs.current[id];
       setMessages(prev => { const n={...prev}; delete n[id]; return n; });
-      remove(ref(db, `users/${id}`)).catch(()=>{});
       remove(ref(db, `chats/${id}`)).catch(()=>{});
       remove(ref(db, `chatMeta/${id}`)).catch(()=>{});
     } else {
