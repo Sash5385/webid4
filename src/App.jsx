@@ -2,7 +2,7 @@ import React, { useState, useEffect, lazy, Suspense, createContext, useContext }
 import { ref, onValue, update, push, remove, get } from "firebase/database";
 import { db, registerAdminFCM, onAdminForegroundMessage } from "./firebase";
 import { useAdminAuth, LoginScreen } from "./AdminAuth";
-import { useRegisterSW } from 'virtual:pwa-register/react'
+import { useAppUpdate } from "./hooks/useAppUpdate"
 import { setGlobalLang, createT } from "./lang";
 import { ThemeContext, getTheme } from "./theme.js";
 
@@ -414,13 +414,7 @@ function dayIdxToDate(dayIdx) {
 // ─── MAIN APP ────────────────────────────────────────────────────
 export default function App() {
   const adminUser = useAdminAuth();
-  const { needRefresh: [needRefresh], updateServiceWorker: _doUpdate } = useRegisterSW()
-  const [isUpdating, setIsUpdating] = useState(false)
-  const updateServiceWorker = async () => {
-    if (isUpdating) return
-    setIsUpdating(true)
-    await _doUpdate(true)
-  }
+  const { needRefresh, updateServiceWorker, isUpdating } = useAppUpdate()
   const [tab,        setTab]      = useState("schedule");
   const [tabVisits,  setTabVisits]= useState({});
   const [openInfos,  setOpenInfos]= useState({});
