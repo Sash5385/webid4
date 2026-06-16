@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback, useContext } from "react";
-import { ref, onValue, off, push, update, set, increment, remove } from "firebase/database";
+import { ref, onValue, push, update, set, increment, remove } from "firebase/database";
 import { db } from "../firebase";
 import { LangContext } from "../App";
 
@@ -178,8 +178,7 @@ export default function ChatsView() {
 
   // ── Load students ─────────────────────────────────────────────
   useEffect(() => {
-    const r = ref(db, "users");
-    const handler = onValue(r, snap => {
+    const unsub = onValue(ref(db, "users"), snap => {
       const data = snap.val() || {};
       const list = Object.entries(data).map(([uid, u]) => {
         const p = u.profile || {};
@@ -188,7 +187,7 @@ export default function ChatsView() {
       setContacts(list);
       setLoading(false);
     });
-    return () => off(r, "value", handler);
+    return unsub;
   }, []);
 
   // ── Subscribe messages ────────────────────────────────────────
@@ -200,7 +199,7 @@ export default function ChatsView() {
     contacts.forEach(c => {
       if (msgUnsubs.current[c.id]) return;
       const r = ref(db, `chats/${c.id}`);
-      const handler = onValue(r, snap => {
+      const unsub = onValue(r, snap => {
         const msgs = Object.entries(snap.val()||{}).map(([id,m])=>({...m,id})).sort((a,b)=>(a.ts||0)-(b.ts||0));
         setMessages(prev => ({...prev, [c.id]: msgs}));
         if (msgs.length > 0) {
@@ -210,7 +209,7 @@ export default function ChatsView() {
             : ct));
         }
       });
-      msgUnsubs.current[c.id] = () => off(r, "value", handler);
+      msgUnsubs.current[c.id] = unsub;
     });
     return () => {};
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -220,22 +219,20 @@ export default function ChatsView() {
 
   // ── General chat ──────────────────────────────────────────────
   useEffect(() => {
-    const r = ref(db, "chats/general");
-    const handler = onValue(r, snap => {
+    const unsub = onValue(ref(db, "chats/general"), snap => {
       const msgs = Object.entries(snap.val()||{}).map(([id,m])=>({...m,id})).sort((a,b)=>(a.ts||0)-(b.ts||0));
       setGeneralMsgs(msgs);
     });
-    return () => off(r, "value", handler);
+    return unsub;
   }, []);
 
   // ── Broadcast history ─────────────────────────────────────────
   useEffect(() => {
-    const r = ref(db, "chats/__broadcast__");
-    const handler = onValue(r, snap => {
+    const unsub = onValue(ref(db, "chats/__broadcast__"), snap => {
       const msgs = Object.entries(snap.val()||{}).map(([id,m])=>({...m,id})).sort((a,b)=>(a.ts||0)-(b.ts||0));
       setBroadcastMsgs(msgs);
     });
-    return () => off(r, "value", handler);
+    return unsub;
   }, []);
 
   // ── Broadcast free-slot ───────────────────────────────────────

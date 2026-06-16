@@ -640,6 +640,7 @@ const pendingDeletesRef = React.useRef(new Set());
       const next = typeof fn === "function" ? fn(prev) : fn;
       const prevMap = new Map(prev.map(b => [b.id, b]));
       const nextIds  = new Set(next.map(b => b.id));
+      const bookingPatches = new Map(); // id → partial fields to merge after forEach
 
       // Під час drag пропускаємо всю Firebase-логіку крім debounce-таймера позиції.
       // Це запобігає випадковим delete/create операціям під час кожного pointermove.
@@ -713,8 +714,7 @@ const pendingDeletesRef = React.useRef(new Set());
               durationHours: b.durMin / 60,
             }).catch(() => {});
             blockSlots(date, b.startMin, b.durMin);
-            b.userId = adminUser.uid;
-            b.date   = date;
+            bookingPatches.set(b.id, { userId: adminUser.uid, date });
             return;
           }
         }
@@ -767,7 +767,9 @@ const pendingDeletesRef = React.useRef(new Set());
         }
       });
 
-      return next;
+      return bookingPatches.size > 0
+        ? next.map(b => { const p = bookingPatches.get(b.id); return p ? { ...b, ...p } : b; })
+        : next;
     });
   };
 
