@@ -494,6 +494,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   const [isGeneratingAll, setIsGeneratingAll] = useState(false);
   const [genToast, setGenToast] = useState(null); // { absDay, free, blocked }
   const genToastTimer = useRef(null);
+  useEffect(() => () => clearTimeout(genToastTimer.current), []);
   const [queueMap, setQueueMap] = useState({}); // { "YYYY-MM-DD_HH:MM": count }
 
   useEffect(() => {

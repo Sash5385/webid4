@@ -581,7 +581,11 @@ export default function App() {
 
   // Load bookings from Firebase
   useEffect(() => {
-    if (!adminUser) return;
+    if (!adminUser) {
+      Object.values(moveSaveTimers.current).forEach(clearTimeout);
+      moveSaveTimers.current = {};
+      return;
+    }
     return onValue(ref(db, "bookings"), snap => {
       const data = snap.val();
       if (!data) return;

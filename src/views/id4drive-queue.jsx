@@ -195,15 +195,22 @@ function QueueRow({ item, pos, onInvite, onBooked, onArchive, onDelete, dragHand
 
 // ─── MAIN ────────────────────────────────────────────────────────
 export default function QueueView({ settings }) {
-  const { DIM, FAINT, GOLD, GREEN, PURPLE } = useContext(ThemeContext);
+  const { DIM, FAINT, GOLD, GREEN, PURPLE, BLUE, ACCENT, TEAL } = useContext(ThemeContext);
   const [all,       setAll]       = useState([]);
   const [showAdd,   setShowAdd]   = useState(false);
 
+  const colorIdMap = useMemo(() => ({
+    green: GREEN, yellow: GOLD, blue: BLUE, purple: PURPLE,
+    teal: TEAL, red: "#ff5a3c", pink: "#f472b6", orange: "#fb923c",
+  }), [GREEN, GOLD, BLUE, PURPLE, TEAL]);
+
   const svcMap = useMemo(() => {
     const m = { ...SERVICES };
-    (settings?.services || []).forEach(s => { if (s?.id) m[s.id] = { name: s.name, color: s.colorId }; });
+    (settings?.services || []).forEach(s => {
+      if (s?.id) m[s.id] = { name: s.name, color: colorIdMap[s.colorId] || s.colorId };
+    });
     return m;
-  }, [settings?.services]);
+  }, [settings?.services, colorIdMap]);
 
   // Firebase sync — підтримує і клієнтську структуру queue/${slotKey}/entries/${uid}
   useEffect(() => {
