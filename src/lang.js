@@ -2,7 +2,7 @@
 const S = {
   // NAV
   'nav.schedule':   { uk:'Записи',      en:'Schedule'   },
-  'nav.bookings':   { uk:'Букінги',     en:'Bookings'   },
+  'nav.bookings':   { uk:'Черга',        en:'Queue'      },
   'nav.queue':      { uk:'Черга',       en:'Queue'      },
   'nav.students':   { uk:'Учні',        en:'Students'   },
   'nav.services':   { uk:'Послуги',     en:'Services'   },
