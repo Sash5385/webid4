@@ -796,6 +796,8 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   const onPointerDown = (e, b, mode) => {
     if (scheduleLocked) return;
     e.preventDefault(); e.stopPropagation();
+    clearTimeout(holdTimerRef.current);
+    holdTimerRef.current = null;
     const isBlock = b.type === "block";
     // Зберігаємо початкові позиції всіх сегментів — потрібно для відновлення слотів в onUp
     const dragIds = b._mergedIds ? [b.id, ...b._mergedIds] : [b.id];
@@ -918,7 +920,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
           newDay = Math.max(0, Math.min(dayOffset + N_DAYS - 1, newDay));
 
           // Уся об'єднана картка рухається як єдина жорстка група (зберігаючи зсуви сегментів)
-          const segIds = drag.mergedIds && drag.mergedIds.length ? drag.mergedIds : [drag.id];
+          const segIds = drag.mergedIds && drag.mergedIds.length ? [drag.id, ...drag.mergedIds] : [drag.id];
           const segs = bs.filter(b => segIds.includes(b.id));
           if (!segs.length) return bs;
           const baseStart = snap(drag.startMinutes + deltaMin);
@@ -975,7 +977,8 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
       pendingDragRef.current = null;
       setHoldId(null);
       quickCancelRef.current = null;
-      if (!xVisibleRef.current) setQuickCancelId(null);
+      xVisibleRef.current = false;
+      setQuickCancelId(null);
       if (wasDragging) {
         dragEndedRef.current = true;
         setTimeout(() => { dragEndedRef.current = false; }, 400);

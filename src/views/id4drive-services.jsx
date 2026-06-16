@@ -348,8 +348,10 @@ function useDragReorder(items, setItems) {
       if (card) {
         const newIdx=parseInt(card.dataset.dragIdx);
         if (newIdx!==overIdx.current) {
-          overIdx.current=newIdx;
-          setItems(prev=>{const arr=[...prev];const[moved]=arr.splice(dragIdx.current,1);arr.splice(newIdx,0,moved);dragIdx.current=newIdx;return arr;});
+          const fromIdx = dragIdx.current;
+          overIdx.current = newIdx;
+          dragIdx.current = newIdx;
+          setItems(prev=>{const arr=[...prev];const[moved]=arr.splice(fromIdx,1);arr.splice(newIdx,0,moved);return arr;});
         }
       }
     },
