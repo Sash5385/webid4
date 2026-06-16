@@ -200,7 +200,7 @@ export default function ChatsView() {
       if (msgUnsubs.current[c.id]) return;
       const r = ref(db, `chats/${c.id}`);
       const unsub = onValue(r, snap => {
-        const msgs = Object.entries(snap.val()||{}).map(([id,m])=>({...m,id})).sort((a,b)=>(a.ts||0)-(b.ts||0));
+        const msgs = Object.entries(snap.val()||{}).map(([id,m])=>({...m,id})).sort((a,b)=>(a.ts||0)-(b.ts||0)||(a.id>b.id?1:-1));
         setMessages(prev => ({...prev, [c.id]: msgs}));
         if (msgs.length > 0) {
           const last = msgs[msgs.length-1];
@@ -220,7 +220,7 @@ export default function ChatsView() {
   // ── General chat ──────────────────────────────────────────────
   useEffect(() => {
     const unsub = onValue(ref(db, "chats/general"), snap => {
-      const msgs = Object.entries(snap.val()||{}).map(([id,m])=>({...m,id})).sort((a,b)=>(a.ts||0)-(b.ts||0));
+      const msgs = Object.entries(snap.val()||{}).map(([id,m])=>({...m,id})).sort((a,b)=>(a.ts||0)-(b.ts||0)||(a.id>b.id?1:-1));
       setGeneralMsgs(msgs);
     });
     return unsub;
@@ -229,7 +229,7 @@ export default function ChatsView() {
   // ── Broadcast history ─────────────────────────────────────────
   useEffect(() => {
     const unsub = onValue(ref(db, "chats/__broadcast__"), snap => {
-      const msgs = Object.entries(snap.val()||{}).map(([id,m])=>({...m,id})).sort((a,b)=>(a.ts||0)-(b.ts||0));
+      const msgs = Object.entries(snap.val()||{}).map(([id,m])=>({...m,id})).sort((a,b)=>(a.ts||0)-(b.ts||0)||(a.id>b.id?1:-1));
       setBroadcastMsgs(msgs);
     });
     return unsub;

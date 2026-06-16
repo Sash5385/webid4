@@ -218,15 +218,17 @@ select{color-scheme:${isKava?"light":"dark"}}
           <Info color={BLUE} title={t('set.schedule.info_t')} text={t('set.schedule.info')}/>
           <Row label={t('set.schedule.start')} hint={t('set.schedule.hint_s')}>
             <NumInput value={settings.workStart} onChange={v=>{
-              const updated = weekSchedule.map(d => ({...d, start: d.start === settings.workStart ? v : d.start}));
-              upd("workStart", v);
+              const clamped = Math.min(v, settings.workEnd - 1);
+              const updated = weekSchedule.map(d => ({...d, start: d.start === settings.workStart ? clamped : d.start}));
+              upd("workStart", clamped);
               upd("weekSchedule", updated);
             }} min={0} max={23} suffix=":00"/>
           </Row>
           <Row label={t('set.schedule.end')} hint={t('set.schedule.hint_e')}>
             <NumInput value={settings.workEnd} onChange={v=>{
-              const updated = weekSchedule.map(d => ({...d, end: d.end === settings.workEnd ? v : d.end}));
-              upd("workEnd", v);
+              const clamped = Math.max(v, settings.workStart + 1);
+              const updated = weekSchedule.map(d => ({...d, end: d.end === settings.workEnd ? clamped : d.end}));
+              upd("workEnd", clamped);
               upd("weekSchedule", updated);
             }} min={1} max={24} suffix=":00"/>
           </Row>
@@ -249,9 +251,9 @@ select{color-scheme:${isKava?"light":"dark"}}
                       <Toggle on={day.enabled} onChange={v=>updDay(i,{enabled:v})}/>
                       {day.enabled ? (<>
                         <span style={{flex:1}}/>
-                        <TimeInput value={day.start} onChange={v=>updDay(i,{start:v})} min={0} max={23}/>
+                        <TimeInput value={day.start} onChange={v=>updDay(i,{start:Math.min(v,day.end-0.5)})} min={0} max={23}/>
                         <span style={{fontSize:11,color:FAINT}}>—</span>
-                        <TimeInput value={day.end} onChange={v=>updDay(i,{end:v})} min={0.5} max={24}/>
+                        <TimeInput value={day.end} onChange={v=>updDay(i,{end:Math.max(v,day.start+0.5)})} min={0.5} max={24}/>
                       </>) : (
                         <span style={{fontSize:11,color:FAINT,marginLeft:4}}>Вихідний</span>
                       )}
@@ -262,9 +264,9 @@ select{color-scheme:${isKava?"light":"dark"}}
                         <Toggle on={!!day.lunchEnabled} onChange={v=>updDay(i,{lunchEnabled:v})}/>
                         {day.lunchEnabled ? (<>
                           <span style={{flex:1}}/>
-                          <TimeInput value={day.lunchStart??12} onChange={v=>updDay(i,{lunchStart:v})} min={0} max={23}/>
+                          <TimeInput value={day.lunchStart??12} onChange={v=>updDay(i,{lunchStart:Math.min(v,(day.lunchEnd??13)-0.5)})} min={0} max={23}/>
                           <span style={{fontSize:11,color:FAINT}}>—</span>
-                          <TimeInput value={day.lunchEnd??13} onChange={v=>updDay(i,{lunchEnd:v})} min={0.5} max={24}/>
+                          <TimeInput value={day.lunchEnd??13} onChange={v=>updDay(i,{lunchEnd:Math.max(v,(day.lunchStart??12)+0.5)})} min={0.5} max={24}/>
                         </>) : (
                           <span style={{fontSize:11,color:FAINT}}>без перерви</span>
                         )}
