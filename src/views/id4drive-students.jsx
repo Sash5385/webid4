@@ -1,5 +1,5 @@
 import { useState, useEffect, useContext } from "react";
-import { ref, onValue, off, update, push, remove } from "firebase/database";
+import { ref, onValue, off, update, push, remove, get } from "firebase/database";
 import { db } from "../firebase";
 
 import { ThemeContext } from "../theme.js";
@@ -324,6 +324,35 @@ export default function StudentsView() {
     setExpanded(e=>new Set([...e,newRef.key]));
   };
 
+  const [restoring, setRestoring] = useState(false);
+  const restoreFromBookings = async () => {
+    setRestoring(true);
+    try {
+      const snap = await get(ref(db, "bookings"));
+      const data = snap.val() || {};
+      const existingIds = new Set(students.map(s => s.id));
+      const updates = {};
+      Object.entries(data).forEach(([uid, userBkgs]) => {
+        if (existingIds.has(uid)) return;
+        const bkgs = Object.values(userBkgs || {});
+        if (!bkgs.length) return;
+        const bk = bkgs[0];
+        const name = bk.studentName || bk.name || "";
+        const phone = bk.phone || "";
+        if (!name && !phone) return;
+        updates[`users/${uid}`] = { name, phone, hours: 0, blocked: false, isVip: false };
+      });
+      const count = Object.keys(updates).length;
+      if (count === 0) { alert("Всі студенти вже є в списку або букінги порожні"); return; }
+      await update(ref(db, "/"), updates);
+      alert(`Відновлено ${count} студентів`);
+    } catch(e) {
+      alert("Помилка: " + e.message);
+    } finally {
+      setRestoring(false);
+    }
+  };
+
   const q    = search.toLowerCase();
   const list = students
     .filter(s=>(!q||(s.name||"").toLowerCase().includes(q)||(s.phone||"").includes(q))&&(filterType==="all"||s.type===filterType))
@@ -338,14 +367,23 @@ export default function StudentsView() {
         {/* header */}
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:2}}>
           <div style={{fontSize:15,fontWeight:800,color:TEXT}}>Учні</div>
-          <button onClick={()=>setShowNew(v=>!v)} style={{
-            display:"flex",alignItems:"center",gap:5,
-            background:showNew?`linear-gradient(145deg,${SURF_HI},${SURFACE})`:`linear-gradient(145deg,${ACC_HI},${ACCENT})`,
-            border:"none",borderRadius:10,padding:"7px 13px",cursor:"pointer",fontSize:13,fontWeight:700,color:showNew?DIM:"#fff",boxShadow:SO,fontFamily:"inherit",
-          }}>
-            <span style={{fontSize:16,lineHeight:1}}>{showNew?"×":"+"}</span>
-            {showNew?"Закрити":"Учень"}
-          </button>
+          <div style={{display:"flex",gap:6}}>
+            <button onClick={restoreFromBookings} disabled={restoring} style={{
+              display:"flex",alignItems:"center",gap:5,
+              background:`linear-gradient(145deg,#5b9bff,#2563eb)`,
+              border:"none",borderRadius:10,padding:"7px 13px",cursor:"pointer",fontSize:12,fontWeight:700,color:"#fff",boxShadow:SO,fontFamily:"inherit",opacity:restoring?0.6:1,
+            }}>
+              {restoring ? "…" : "↩ Букінги"}
+            </button>
+            <button onClick={()=>setShowNew(v=>!v)} style={{
+              display:"flex",alignItems:"center",gap:5,
+              background:showNew?`linear-gradient(145deg,${SURF_HI},${SURFACE})`:`linear-gradient(145deg,${ACC_HI},${ACCENT})`,
+              border:"none",borderRadius:10,padding:"7px 13px",cursor:"pointer",fontSize:13,fontWeight:700,color:showNew?DIM:"#fff",boxShadow:SO,fontFamily:"inherit",
+            }}>
+              <span style={{fontSize:16,lineHeight:1}}>{showNew?"×":"+"}</span>
+              {showNew?"Закрити":"Учень"}
+            </button>
+          </div>
         </div>
 
         {/* new student form */}

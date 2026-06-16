@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback, useContext } from "react";
-import { ref, onValue, off, push, update, set, increment } from "firebase/database";
+import { ref, onValue, off, push, update, set, increment, remove } from "firebase/database";
 import { db } from "../firebase";
 import { LangContext } from "../App";
 
@@ -277,6 +277,8 @@ export default function ChatsView() {
       setDeletingId(null);
       msgUnsubs.current[id]?.(); delete msgUnsubs.current[id];
       setMessages(prev => { const n={...prev}; delete n[id]; return n; });
+      remove(ref(db, `chats/${id}`)).catch(()=>{});
+      remove(ref(db, `chatMeta/${id}`)).catch(()=>{});
     } else {
       setDeletingId(id);
       setTimeout(() => setDeletingId(di => di===id ? null : di), 3000);
@@ -397,11 +399,11 @@ export default function ChatsView() {
             const cMsgs      = messages[c.id] || [];
             return (
               <div key={c.id} style={{
-                background:"rgba(255,255,255,0.85)",
+                background:SURFACE,
                 backdropFilter:"blur(8px)",
                 WebkitBackdropFilter:"blur(8px)",
                 borderRadius:13,overflow:"hidden",boxShadow:SO,
-                border:`1px solid ${isDeleting?"rgba(239,68,68,0.5)":isOpen?"rgba(91,155,255,0.25)":"rgba(0,0,0,0.08)"}`,
+                border:`1px solid ${isDeleting?"rgba(239,68,68,0.5)":isOpen?"rgba(91,155,255,0.25)":BORDER}`,
                 transition:"border-color .2s",
               }}>
                 <div className={`chat-row${isOpen?" open":""}`} onClick={()=>toggle(c.id)}
