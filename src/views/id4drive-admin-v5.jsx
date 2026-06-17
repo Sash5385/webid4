@@ -2645,7 +2645,7 @@ function NewBookingModal({ data, onClose, onConfirm, settings, bookings = [] }) 
       const d = snap.val() || {};
       setStudents(Object.entries(d).map(([uid, u]) => {
         const p = u.profile || {};
-        return { id:uid, name:p.name||u.name||"Учень", phone:p.phone||u.phone||"" };
+        return { id:uid, name:p.name||u.name||"Учень", phone:p.phone||u.phone||"", tsc:p.tsc||u.tsc||"" };
       }).filter(s=>s.name!=="Учень"||s.phone));
     });
     return () => off(r, "value", handler);
@@ -2912,14 +2912,21 @@ function NewBookingModal({ data, onClose, onConfirm, settings, bookings = [] }) 
             const today = new Date(); today.setHours(0,0,0,0);
             const d = new Date(today); d.setDate(d.getDate() + dateOffset);
             const dateStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+            const finalTsc = selSvc?.type==="school" ? (tsc.trim() || selStudent?.tsc || "") : "";
             onConfirm({
               id:`b-${Date.now()}`,
               day:dateOffset, date:dateStr, startMin:timeVal, durMin:selSvc.duration,
               name:finalName, phone:finalPhone, serviceId:selSvc.id,
               type:selSvc.type||"private", status:"confirmed",
-              tsc: selSvc?.type==="school" ? tsc.trim() : "", hoursDone:0, categoryId:null, isVipOnly:false,
+              tsc: finalTsc, hoursDone:0, categoryId:null, isVipOnly:false,
               userId: (!isNewStudent && selStudent?.id) ? selStudent.id : null,
               ...(note.trim() && { note:note.trim() }),
+              serviceType: selSvc.type||"private",
+              serviceName: selSvc.name||selSvc.id||"",
+              studentName: finalName,
+              durationHours: selSvc.duration / 60,
+              tscCenter: finalTsc,
+              price: selSvc.price||0,
             });
             onClose();
           }} style={{

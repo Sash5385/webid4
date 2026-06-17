@@ -723,6 +723,21 @@ const pendingDeletesRef = React.useRef(new Set());
             bookingPatches.set(b.id, { userId: adminUser.uid, date });
             return;
           }
+          // 2b. New admin-created bookings for students → save under student UID
+          if (!p && b.userId && b.id) {
+            const hh = String(Math.floor(b.startMin / 60)).padStart(2, "0");
+            const mm = String(b.startMin % 60).padStart(2, "0");
+            const date = dayIdxToDate(b.day);
+            update(ref(db, `bookings/${b.userId}/${b.id}`), {
+              ...b,
+              date,
+              time: `${hh}:${mm}`,
+              durationHours: b.durMin / 60,
+            }).catch(() => {});
+            blockSlots(date, b.startMin, b.durMin);
+            bookingPatches.set(b.id, { date });
+            return;
+          }
         }
 
         if (!b.userId || !b.id || !p) return;
