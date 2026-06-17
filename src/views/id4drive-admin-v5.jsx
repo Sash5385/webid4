@@ -1919,7 +1919,9 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
             {fmtTime(longTapMenu.startMin)}
           </div>
           <button onClick={()=>{
-            setAddSlotPos({ dateStr: longTapMenu.dateStr, startMin: longTapMenu.startMin, clientX: longTapMenu.clientX, clientY: longTapMenu.clientY });
+            const _hh = String(Math.floor(longTapMenu.startMin/60)).padStart(2,'0');
+            const _mm = String(longTapMenu.startMin%60).padStart(2,'0');
+            update(ref(db, `timeslots/${longTapMenu.dateStr}/slot${_hh}${_mm}`), { available: true, time: `${_hh}:${_mm}` }).catch(()=>{});
             setLongTapMenu(null);
           }} style={{
             width:"100%",padding:"9px 12px",borderRadius:10,border:"none",cursor:"pointer",
@@ -2166,16 +2168,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
       data={personalEventData}
       onClose={()=>setPersonalEventData(null)}
       onConfirm={b=>{
-        update(ref(db, `bookings/admin/${b.id}`), b).catch(()=>{});
-        const slotUpd = {};
-        for (let i = 0; i < b.durMin; i += 30) {
-          const sm = b.startMin + i;
-          const sh = String(Math.floor(sm / 60)).padStart(2, '0');
-          const sn = String(sm % 60).padStart(2, '0');
-          slotUpd[`timeslots/${b.date}/slot${sh}${sn}/available`] = false;
-          slotUpd[`timeslots/${b.date}/slot${sh}${sn}/time`] = `${sh}:${sn}`;
-        }
-        update(ref(db, '/'), slotUpd).catch(()=>{});
+        setBookings(bs => [...bs, b]);
         setPersonalEventData(null);
       }}
     />
