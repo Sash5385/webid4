@@ -383,8 +383,8 @@ const DEFAULT_SETTINGS = {
 };
 
 // ─── VIEW RENDERER ───────────────────────────────────────────────
-function ViewRenderer({ tab, settings, setSettings, bookings, setBookings, onSlotClick, onEmptySlotClick, openInfos, toggleInfo, activeDragIds, navTo, slotExistsRef }) {
-  if (tab === "schedule")  return <ScheduleView settings={settings} setSettings={setSettings} bookings={bookings} setBookings={setBookings} onSlotClick={onSlotClick} onEmptySlotClick={onEmptySlotClick} activeDragIds={activeDragIds} navTo={navTo} slotExistsRef={slotExistsRef}/>;
+function ViewRenderer({ tab, settings, setSettings, bookings, setBookings, onSlotClick, onEmptySlotClick, openInfos, toggleInfo, activeDragIds, navTo, slotExistsRef, openSlotsRef }) {
+  if (tab === "schedule")  return <ScheduleView settings={settings} setSettings={setSettings} bookings={bookings} setBookings={setBookings} onSlotClick={onSlotClick} onEmptySlotClick={onEmptySlotClick} activeDragIds={activeDragIds} navTo={navTo} slotExistsRef={slotExistsRef} openSlotsRef={openSlotsRef}/>;
   if (tab === "settings")  return <SettingsView settings={settings} setSettings={setSettings}/>;
   if (tab === "bookings")  return <BookingsView settings={settings}/>;
   if (tab === "queue")     return <QueueView settings={settings}/>;
@@ -637,6 +637,8 @@ export default function App() {
   const activeDragIds = React.useRef(new Set());
   // Map of existing Firebase timeslot nodes: { dateStr: Set<"HH:MM"> }
   const slotExistsRef = React.useRef({});
+  // Map of open slot data (including surcharge): { dateStr: { "HH:MM": { surcharge, ... } } }
+  const openSlotsRef = React.useRef({});
 const pendingDeletesRef = React.useRef(new Set());
 
   const handleSetBookings = fn => {
@@ -753,6 +755,20 @@ const pendingDeletesRef = React.useRef(new Set());
             const mm = String(b.startMin % 60).padStart(2, "0");
             const newDate = dayIdxToDate(b.day);
             const oldDate = orig.date || dayIdxToDate(orig.day);
+            // Recalculate surcharge for the new slot position
+            const newSlotsForDate = openSlotsRef.current[newDate] || {};
+            let newSurcharge = 0;
+            for (let i = 0; i < b.durMin / 60; i++) {
+              const slotMin = b.startMin + i * 60;
+              const sh = String(Math.floor(slotMin / 60)).padStart(2, "0");
+              const sm = String(slotMin % 60).padStart(2, "0");
+              newSurcharge += newSlotsForDate[`${sh}:${sm}`]?.surcharge || 0;
+            }
+            const oldSurcharge = b.surcharge || 0;
+            const discountFactor = 1 - (b.discountPct || 0) / 100;
+            const priceUpdate = b.price != null
+              ? { price: b.price + Math.round((newSurcharge - oldSurcharge) * discountFactor), surcharge: newSurcharge || undefined }
+              : {};
             // Only block new position — freeing old is done via generate, not on drag.
             blockSlots(newDate, b.startMin, b.durMin);
             update(ref(db, `bookings/${b.userId}/${b._fbKey || b.id}`), {
@@ -763,6 +779,7 @@ const pendingDeletesRef = React.useRef(new Set());
               date:     newDate,
               time:     `${hh}:${mm}`,
               rescheduledAt: Date.now(),
+              ...priceUpdate,
             }).catch(() => {}).finally(() => {
               delete moveSaveTimers.current[b.id];
               delete moveOriginals.current[b.id];
@@ -805,7 +822,7 @@ const pendingDeletesRef = React.useRef(new Set());
           flexDirection:"column"
         }}>
           <Suspense fallback={<Loader/>}>
-            <ViewRenderer tab={tab} settings={settings} setSettings={setSettings} bookings={bookings} setBookings={handleSetBookings} onSlotClick={setSelectedBooking} onEmptySlotClick={setNewBookingData} openInfos={openInfos} toggleInfo={toggleInfo} activeDragIds={activeDragIds} navTo={switchTab} slotExistsRef={slotExistsRef}/>
+            <ViewRenderer tab={tab} settings={settings} setSettings={setSettings} bookings={bookings} setBookings={handleSetBookings} onSlotClick={setSelectedBooking} onEmptySlotClick={setNewBookingData} openInfos={openInfos} toggleInfo={toggleInfo} activeDragIds={activeDragIds} navTo={switchTab} slotExistsRef={slotExistsRef} openSlotsRef={openSlotsRef}/>
           </Suspense>
         </div>
         <BottomNav active={tab} onChange={switchTab} settings={settings} chatUnread={chatUnread}/>

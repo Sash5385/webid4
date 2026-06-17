@@ -48,7 +48,16 @@ export function useAppUpdate() {
     if (isUpdating) return
     setIsUpdating(true)
 
-    const doReload = () => window.location.reload()
+    let reloaded = false
+    const doReload = () => {
+      if (reloaded) return
+      reloaded = true
+      window.location.reload()
+    }
+    // Safety net: if controllerchange never fires (iOS standalone quirks),
+    // force a reload so the banner can't get stuck.
+    setTimeout(doReload, 3000)
+
     const worker = waitingWorkerRef.current
 
     if (worker) {
