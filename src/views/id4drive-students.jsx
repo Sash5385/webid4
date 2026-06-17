@@ -1,4 +1,5 @@
 import { useState, useEffect, useContext } from "react";
+import { createPortal } from "react-dom";
 import { ref, onValue, off, update, push, remove } from "firebase/database";
 import { db } from "../firebase";
 
@@ -384,16 +385,21 @@ export default function StudentsView() {
         )}
       </div>
 
-      {/* ── FAB +Учень ── */}
-      <button onClick={()=>setShowNew(true)} aria-label="Додати учня" style={{
-        position:"fixed",right:18,bottom:104,zIndex:45,
-        width:56,height:56,borderRadius:"50%",
-        display:"flex",alignItems:"center",justifyContent:"center",
-        background:`linear-gradient(145deg,#5b9bff,#2563eb)`,
-        border:"none",cursor:"pointer",
-        fontSize:28,fontWeight:400,color:"#fff",lineHeight:1,
-        boxShadow:`0 6px 20px rgba(37,99,235,0.55), 0 2px 8px rgba(0,0,0,0.4)`,
-      }}>+</button>
+      {/* ── FAB +Учень (через портал у body, щоб не скролився) ── */}
+      {createPortal(
+        <button onClick={()=>setShowNew(true)} aria-label="Додати учня" style={{
+          position:"fixed",right:18,bottom:104,zIndex:45,
+          display:"flex",alignItems:"center",gap:6,
+          background:`linear-gradient(145deg,#5b9bff,#2563eb)`,
+          border:"none",borderRadius:999,padding:"13px 18px",cursor:"pointer",
+          fontSize:14,fontWeight:800,color:"#fff",fontFamily:"inherit",
+          boxShadow:`0 6px 20px rgba(37,99,235,0.55), 0 2px 8px rgba(0,0,0,0.4)`,
+        }}>
+          <span style={{fontSize:20,lineHeight:1,marginTop:-2}}>+</span>
+          Учень
+        </button>,
+        document.body
+      )}
 
       {/* ── Bottom sheet: новий учень ── */}
       {showNew && (
