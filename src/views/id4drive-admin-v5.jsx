@@ -1585,7 +1585,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                                 fontSize:fs, fontWeight:700, color:"#2dd4bf",
                                 lineHeight:1.2, whiteSpace:"normal",
                                 wordBreak:"break-word", overflowWrap:"anywhere",
-                                textShadow:`0 1px 2px ${shade(0.6)}`,
+                                textShadow:"none",
                               }}>{word}</div>
                             ))}
                           </div>
@@ -1641,7 +1641,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                                 lineHeight: 1.2, textAlign:"center",
                                 whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis",
                                 width:"100%",
-                                textShadow:`0 1px 0 ${glow(0.35)}`,
+                                textShadow:"none",
                               }}>{ln.text}</div>
                             ))}
                           </div>
