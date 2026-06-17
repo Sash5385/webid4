@@ -1318,9 +1318,8 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                   emptyHoldPosRef.current = { startY: e.clientY, day: absDay, startMin: minute, dateStr: dateStrCol };
                   emptyHoldTimerRef.current = setTimeout(() => {
                     if (!emptyHoldPosRef.current) return;
-                    // Довгий тап → модалка додати вільний слот
                     navigator.vibrate?.(30);
-                    setAddSlotPos({ dateStr: dateStrCol, startMin: minute, clientX: e.clientX, clientY: e.clientY });
+                    setPersonalEventData({ dateStr: dateStrCol, time: fmtTime(minute) });
                     emptyHoldPosRef.current = null;
                   }, 480);
                 }}
