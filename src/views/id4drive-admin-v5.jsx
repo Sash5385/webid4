@@ -1674,37 +1674,8 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                           e.stopPropagation();
                           xVisibleRef.current = false;
                           setQuickCancelId(null);
-                          // Відновити слоти одразу
-                          if (b.startMin !== undefined && b.durMin) {
-                            const dateStr = b.date || absDayToDateStr(b.day);
-                            const slotUpd = {};
-                            for (let i = 0; i < b.durMin; i += 30) {
-                              const slotMin = b.startMin + i;
-                              const hh = String(Math.floor(slotMin/60)).padStart(2,'0');
-                              const mm = String(slotMin%60).padStart(2,'0');
-                              const path = `timeslots/${dateStr}/slot${hh}${mm}`;
-                              if (i % 60 === 0) { slotUpd[`${path}/available`]=true; slotUpd[`${path}/time`]=`${hh}:${mm}`; }
-                              else { slotUpd[path] = null; }
-                            }
-                            update(ref(db,'/'), slotUpd).catch(()=>{});
-                          }
-                          // Прямий запис cancelled у Firebase одразу (не покладаємось на 2с-таймер)
-                          const idsCancel = b._mergedIds || [b.id];
-                          idsCancel.forEach(id => {
-                            const mb = bookingsRef.current?.find(x => x.id === id) || (id === b.id ? b : null);
-                            if (!mb?.userId) return;
-                            const ks = [...new Set([mb._fbKey, mb.id].filter(Boolean))];
-                            ks.forEach(k => update(ref(db, `bookings/${mb.userId}/${k}`),
-                              { status:"cancelled", cancelledAt:Date.now(), cancelledBy:"admin" }).catch(()=>{}));
-                          });
-                          // Починаємо 2с відлік — затемнення → видалення
-                          setCancellingSet(s=>new Set([...s, b.id]));
-                          cancelTimers.current[b.id] = setTimeout(()=>{
-                            setCancellingSet(s=>{ const ns=new Set(s); ns.delete(b.id); return ns; });
-                            const idsX = b._mergedIds || [b.id];
-                            setBookings(bs=>bs.filter(x=>!idsX.includes(x.id)));
-                            delete cancelTimers.current[b.id];
-                          }, 2000);
+                          const idsX = b._mergedIds || [b.id];
+                          setBookings(bs=>bs.filter(x=>!idsX.includes(x.id)));
                         }}
                         style={{
                           position:"absolute", top:-11, right:-11, zIndex:30,
@@ -2024,6 +1995,20 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
             display:"flex",alignItems:"center",gap:9,
           }}>
             <span>📌</span> Особиста подія
+          </button>
+
+          {/* Видалити слот */}
+          <button onClick={()=>{
+            const slotId = `slot${slotOptions.time.replace(":", "")}`;
+            remove(ref(db, `timeslots/${slotOptions.dateStr}/${slotId}`)).catch(()=>{});
+            setSlotOptions(null);
+          }} style={{
+            width:"100%",padding:"11px 14px",border:"none",cursor:"pointer",
+            background:"none",borderBottom:`1px solid ${ink(0.05)}`,
+            color:"#f87171",fontSize:13,fontWeight:700,
+            display:"flex",alignItems:"center",gap:9,
+          }}>
+            <span>🗑</span> Видалити слот
           </button>
 
           {/* VIP + надбавки — для відкритих і закритих слотів */}
