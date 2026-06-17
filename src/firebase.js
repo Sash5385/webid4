@@ -28,9 +28,21 @@ export async function registerAdminFCM() {
 
     let swReg
     try {
+      // Firebase push SW must live on its OWN scope so it never replaces the
+      // PWA app SW at "/" (that conflict broke the "update available" flow).
+      // "/firebase-cloud-messaging-push-scope" is FCM's default scope.
+      const FCM_SCOPE = '/firebase-cloud-messaging-push-scope'
       const regs = await navigator.serviceWorker.getRegistrations()
-      swReg = regs.find(r => (r.active?.scriptURL || r.installing?.scriptURL || '').includes('firebase-messaging-sw'))
-        || await navigator.serviceWorker.register('/firebase-messaging-sw.js')
+      const isFbSw = r => (r.active?.scriptURL || r.installing?.scriptURL || r.waiting?.scriptURL || '').includes('firebase-messaging-sw')
+      // Migration: remove any legacy firebase SW registered at the root scope.
+      for (const r of regs) {
+        if (isFbSw(r) && new URL(r.scope).pathname === '/') {
+          await r.unregister().catch(() => {})
+        }
+      }
+      const fresh = await navigator.serviceWorker.getRegistrations()
+      swReg = fresh.find(isFbSw)
+        || await navigator.serviceWorker.register('/firebase-messaging-sw.js', { scope: FCM_SCOPE })
     } catch (_) {
       swReg = undefined
     }
