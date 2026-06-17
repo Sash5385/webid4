@@ -1600,14 +1600,12 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                         const lName = lParts.join(' ');
                         const priceColor = b.surcharge ? GOLD : `${ink(0.9)}`;
                         const priceText = price > 0 ? `${price}₴` : null;
-                        // TSC замінює "Автошкола" коли є — завжди 4 рядки
-                        const typeLabel = b.type==="school"
-                          ? (b.tsc || "Автошкола")
-                          : "Приватний";
+                        const typeLabel = b.type==="school" ? "Автошкола" : "Приватний";
                         const allLines = [
                           { text: fName,     w: 800, c: ink(0.95) },
                           ...(lName          ? [{ text: lName,     w: 700, c: ink(0.80) }] : []),
                           { text: typeLabel, w: 600, c: ink(0.58) },
+                          ...(b.tsc          ? [{ text: b.tsc,     w: 600, c: ink(0.45) }] : []),
                           ...(priceText      ? [{ text: priceText, w: 900, c: priceColor }] : []),
                         ];
                         const availH = height - 6;
