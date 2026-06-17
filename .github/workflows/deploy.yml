@@ -4,10 +4,9 @@ on:
   push:
     branches:
       - master
-      - main
 
 jobs:
-  deploy:
+  build-and-deploy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -23,18 +22,11 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Deploy to Firebase
+      - name: Deploy to Firebase Hosting
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          projectId: id4drive-booking-44182
+          target: admin
           channelId: live
-          projectId: ${{ secrets.FIREBASE_PROJECT_ID }}
-
-      - name: Deploy database rules
-        env:
-          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/firebase-sa.json
-        run: |
-          printf '%s' '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > "$GOOGLE_APPLICATION_CREDENTIALS"
-          npx firebase-tools deploy --only database --project ${{ secrets.FIREBASE_PROJECT_ID }} --non-interactive
-          rm -f "$GOOGLE_APPLICATION_CREDENTIALS"
