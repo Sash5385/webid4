@@ -1606,8 +1606,8 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                           : "Приватний";
                         const allLines = [
                           { text: fName,     w: 800, c: ink(0.95) },
-                          ...(lName          ? [{ text: lName,     w: 700, c: ink(0.80) }] : []),
                           { text: typeLabel, w: 600, c: ink(0.58) },
+                          ...(lName          ? [{ text: lName,     w: 700, c: ink(0.80) }] : []),
                           ...(priceText      ? [{ text: priceText, w: 900, c: priceColor }] : []),
                         ];
                         const availH = height - 6;
