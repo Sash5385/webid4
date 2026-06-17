@@ -1320,7 +1320,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                   emptyHoldTimerRef.current = setTimeout(() => {
                     if (!emptyHoldPosRef.current) return;
                     navigator.vibrate?.(30);
-                    setLongTapMenu({ dateStr: dateStrCol, startMin: minute, clientX: e.clientX, clientY: e.clientY });
+                    setLongTapMenu({ dateStr: dateStrCol, startMin: minute, clientX: e.clientX, clientY: e.clientY, isClosedDay });
                     emptyHoldPosRef.current = null;
                   }, 480);
                 }}
@@ -1918,7 +1918,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
           <div style={{fontSize:18,fontWeight:900,color:TEXT,marginBottom:8,letterSpacing:0.5}}>
             {fmtTime(longTapMenu.startMin)}
           </div>
-          <button onClick={()=>{
+          {!longTapMenu.isClosedDay && <button onClick={()=>{
             const _hh = String(Math.floor(longTapMenu.startMin/60)).padStart(2,'0');
             const _mm = String(longTapMenu.startMin%60).padStart(2,'0');
             update(ref(db, `timeslots/${longTapMenu.dateStr}/slot${_hh}${_mm}`), { available: true, time: `${_hh}:${_mm}` }).catch(()=>{});
@@ -1928,7 +1928,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
             background:`linear-gradient(165deg,rgba(99,211,120,0.9),rgba(34,197,94,0.85))`,
             color:"#fff",fontSize:12,fontWeight:800,
             boxShadow:`0 4px 12px rgba(99,211,120,0.35)`,
-          }}>🕐 Вільний слот</button>
+          }}>🕐 Вільний слот</button>}
           <button onClick={()=>{
             setPersonalEventData({ dateStr: longTapMenu.dateStr, time: fmtTime(longTapMenu.startMin) });
             setLongTapMenu(null);
@@ -2550,7 +2550,7 @@ function DrumRoll({ items, currentIdx, onChange, label, itemH=42, visible=4 }) {
 // PERSONAL EVENT MODAL — bottom sheet для особистих подій
 // ═══════════════════════════════════════════════════════════════
 function PersonalEventModal({ data, onClose, onConfirm }) {
-  const { BG_DEEP, SURF_HI, SURF_LO, TEXT, DIM, FAINT , GLOW, SHADE, INK } = useContext(ThemeContext);
+  const { BG_DEEP, SURF_HI, SURF_LO, TEXT, DIM, FAINT, SO, GLOW, SHADE, INK } = useContext(ThemeContext);
   const glow=a=>`rgba(${GLOW},${a})`,shade=a=>`rgba(${SHADE},${a})`,ink=a=>`rgba(${INK},${a})`;
   const TEXT_DIM = DIM, TEXT_FAINT = FAINT;
 
