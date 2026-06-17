@@ -3450,6 +3450,12 @@ export default function App() {
     }).catch(() => {});
   }, []);
 
+  // Users map for TSC cross-reference
+  const usersMapRef = useRef({});
+  useEffect(() => {
+    return onValue(ref(db, "users"), snap => { usersMapRef.current = snap.val() || {}; });
+  }, []);
+
   // Load bookings from Firebase (realtime)
   useEffect(() => {
     const r = ref(db, "bookings");
@@ -3483,7 +3489,7 @@ export default function App() {
             phone:    raw.phone || "",
             type:     raw.serviceType || raw.type || "private",
             status:   raw.status || "confirmed",
-            tsc:      raw.tsc || "",
+            tsc:      raw.tsc || usersMapRef.current[uid]?.profile?.tsc || usersMapRef.current[uid]?.tsc || "",
             hoursDone: raw.hours || raw.hoursDone || 0,
             categoryId: raw.categoryId || null,
             isVipOnly:  raw.isVipOnly || false,

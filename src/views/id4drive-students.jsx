@@ -156,7 +156,7 @@ function StudentCard({ s, expanded, onToggle, onBlock, onUpdate, onDelete }) {
           <div style={{fontSize:13,fontWeight:800,color:s.blocked?DIM:TEXT,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
             {s.name}{s.blocked && <span style={{fontSize:9,color:RED,fontWeight:700,marginLeft:6}}>🚫</span>}
           </div>
-          <div style={{fontSize:10,color:typeColor,fontWeight:700,marginTop:2}}>{typeLabel}</div>
+          <div style={{fontSize:10,color:typeColor,fontWeight:700,marginTop:2}}>{typeLabel}{s.tsc ? ` · ${s.tsc}` : ""}</div>
         </div>
         <button onClick={e=>{e.stopPropagation();navTo("chats");}} style={{background:"none",border:"none",cursor:"pointer",padding:0}}>
           <div className="icon3d" style={{width:26,height:26,background:"linear-gradient(145deg,rgba(91,155,255,.35),rgba(37,99,235,.2))",borderRadius:8,display:"flex",alignItems:"center",justifyContent:"center"}}>
@@ -174,7 +174,7 @@ function StudentCard({ s, expanded, onToggle, onBlock, onUpdate, onDelete }) {
         <div className="ex" style={{borderTop:`1px solid ${BORDER}`,padding:"12px 12px 14px",display:"flex",flexDirection:"column",gap:11}}>
           {editMode ? (
             <StudentForm
-              initial={{name:s.name,phone:s.phone,discount:s.discount??0,notes:s.notes||"",type:s.type}}
+              initial={{name:s.name,phone:s.phone,discount:s.discount??0,notes:s.notes||"",type:s.type,tsc:s.tsc||""}}
               onSave={patch=>{onUpdate(s.id,patch);setEditMode(false);}}
               onCancel={()=>setEditMode(false)}
             />
@@ -320,7 +320,8 @@ export default function StudentsView() {
         const p = u.profile || {};
         return {
           id:uid, name:p.name||u.name||"Учень", phone:p.phone||u.phone||"",
-          type:p.type||u.type||"private", hours:u.hours||0, hoursOffset:u.hoursOffset||0,
+          type:p.type||u.type||"private", tsc:p.tsc||u.tsc||"",
+          hours:u.hours||0, hoursOffset:u.hoursOffset||0,
           discount:u.discount||0, notes:u.notes||"", blocked:u.blocked||false, isVip:u.isVip||false,
         };
       }));
