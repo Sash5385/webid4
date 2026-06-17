@@ -2520,16 +2520,15 @@ function DrumRoll({ items, currentIdx, onChange, label, itemH=42, visible=4 }) {
 // PERSONAL EVENT MODAL — bottom sheet для особистих подій
 // ═══════════════════════════════════════════════════════════════
 function PersonalEventModal({ data, onClose, onConfirm }) {
-  const { BG_DEEP, SURF_HI, SURF_LO, TEXT, DIM, FAINT, SO, GLOW, SHADE, INK } = useContext(ThemeContext);
-  const glow=a=>`rgba(${GLOW},${a})`,shade=a=>`rgba(${SHADE},${a})`,ink=a=>`rgba(${INK},${a})`;
+  const { BG_DEEP, SURF_HI, TEXT, DIM, FAINT, GLOW, SHADE, INK } = useContext(ThemeContext);
+  const shade=a=>`rgba(${SHADE},${a})`,ink=a=>`rgba(${INK},${a})`;
   const TEXT_DIM = DIM, TEXT_FAINT = FAINT;
 
   const [title,   setTitle]   = useState("");
   const [durMin,  setDurMin]  = useState(60);
-  const [note,    setNote]    = useState("");
 
   useEffect(() => {
-    if (data) { setTitle(""); setDurMin(60); setNote(""); }
+    if (data) { setTitle(""); setDurMin(60); }
   }, [!!data]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!data) return null;
@@ -2561,7 +2560,6 @@ function PersonalEventModal({ data, onClose, onConfirm }) {
       id, day, date: data.dateStr,
       startMin, durMin,
       name: title.trim(),
-      note: note.trim(),
       type: "personal",
       status: "personal",
       tsc: "",
@@ -2571,37 +2569,66 @@ function PersonalEventModal({ data, onClose, onConfirm }) {
     });
   };
 
+  const TEAL = "#14b8a6";
   return (
-    <UIModal open={!!data} onClose={onClose} sheet size="md"
-      title="📌 Особиста подія"
-      footer={
-        <div style={{display:"flex",gap:10}}>
-          <button onClick={onClose} style={{flex:1,padding:13,borderRadius:14,border:"none",cursor:"pointer",background:`linear-gradient(145deg,${SURF_HI},${SURFACE})`,color:TEXT_DIM,fontSize:13,fontWeight:700,fontFamily:"inherit",boxShadow:SO}}>Скасувати</button>
-          <button onClick={handleSave} disabled={!canSave} style={{flex:2,padding:13,borderRadius:14,border:"none",cursor:canSave?"pointer":"default",background:canSave?`linear-gradient(135deg,${TEAL},#0d9488)`:`${ink(0.07)}`,color:canSave?"#fff":TEXT_FAINT,fontSize:13,fontWeight:800,fontFamily:"inherit",boxShadow:canSave?`0 4px 20px ${TEAL}55`:"none",transition:"all .2s"}}>Зберегти</button>
+    <div onClick={onClose} style={{
+      position:"fixed",inset:0,zIndex:200,
+      background:shade(0.55),backdropFilter:"blur(4px)",
+      display:"flex",alignItems:"flex-start",justifyContent:"center",
+      paddingTop: 8,
+    }}>
+      <div onClick={e=>e.stopPropagation()} style={{
+        width:"100%",maxWidth:440,margin:"0 12px",
+        background:`linear-gradient(180deg,${SURF_HI},${BG_DEEP})`,
+        borderRadius:"0 0 22px 22px",
+        padding:"14px 16px 18px",
+        boxShadow:`0 10px 40px ${shade(0.55)}`,
+      }}>
+        {/* header */}
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
+          <div style={{fontSize:13,fontWeight:800,color:TEXT}}>📌 Особиста подія</div>
+          <div style={{fontSize:11,color:TEXT_DIM}}>{data.dateStr} · {data.time}</div>
         </div>
-      }>
-      <div style={{fontSize:12,color:TEXT_DIM,marginTop:-14,marginBottom:18}}>{data.dateStr} · {data.time}</div>
 
-      <SL>Назва події</SL>
-      <input value={title} onChange={e=>setTitle(e.target.value)} placeholder="Наприклад: Технічний огляд" autoFocus
-        style={{width:"100%",padding:"11px 13px",background:SURF_LO,border:`1.5px solid ${ink(0.08)}`,borderRadius:12,color:TEXT,fontSize:14,outline:"none",boxSizing:"border-box",marginBottom:16,fontFamily:"inherit"}}/>
+        {/* title input */}
+        <input value={title} onChange={e=>setTitle(e.target.value)}
+          placeholder="Назва події…" autoFocus
+          style={{
+            width:"100%",padding:"11px 13px",background:ink(0.06),
+            border:`1.5px solid ${ink(0.10)}`,borderRadius:12,
+            color:TEXT,fontSize:15,outline:"none",
+            boxSizing:"border-box",marginBottom:12,fontFamily:"inherit",
+          }}/>
 
-      <SL>Тривалість</SL>
-      <div style={{display:"flex",gap:7,flexWrap:"wrap",marginBottom:16}}>
-        {DUR_OPTIONS.map(opt=>(
-          <button key={opt.value} onClick={()=>setDurMin(opt.value)} style={{
-            padding:"8px 14px",borderRadius:10,border:"none",cursor:"pointer",fontWeight:700,fontSize:13,fontFamily:"inherit",
-            background:durMin===opt.value?`linear-gradient(145deg,${TEAL}44,${TEAL}22)`:SURF_HI,
-            color:durMin===opt.value?TEAL:TEXT_DIM,
-            boxShadow:durMin===opt.value?`0 0 0 1.5px ${TEAL}66`:SO,
-          }}>{opt.label}</button>
-        ))}
+        {/* duration chips */}
+        <div style={{display:"flex",gap:6,marginBottom:14}}>
+          {DUR_OPTIONS.map(opt=>(
+            <button key={opt.value} onClick={()=>setDurMin(opt.value)} style={{
+              flex:1,padding:"8px 0",borderRadius:10,border:"none",cursor:"pointer",
+              fontWeight:700,fontSize:12,fontFamily:"inherit",
+              background:durMin===opt.value?`linear-gradient(145deg,${TEAL}44,${TEAL}22)`:ink(0.07),
+              color:durMin===opt.value?TEAL:TEXT_DIM,
+              boxShadow:durMin===opt.value?`0 0 0 1.5px ${TEAL}66`:"none",
+            }}>{opt.label}</button>
+          ))}
+        </div>
+
+        {/* actions */}
+        <div style={{display:"flex",gap:8}}>
+          <button onClick={onClose} style={{
+            flex:1,padding:"11px",borderRadius:12,border:"none",cursor:"pointer",
+            background:ink(0.07),color:TEXT_DIM,fontSize:13,fontWeight:700,fontFamily:"inherit",
+          }}>Скасувати</button>
+          <button onClick={handleSave} disabled={!canSave} style={{
+            flex:2,padding:"11px",borderRadius:12,border:"none",
+            cursor:canSave?"pointer":"default",fontFamily:"inherit",
+            background:canSave?`linear-gradient(135deg,${TEAL},#0d9488)`:ink(0.07),
+            color:canSave?"#fff":TEXT_FAINT,fontSize:13,fontWeight:800,
+            boxShadow:canSave?`0 4px 16px ${TEAL}55`:"none",transition:"all .2s",
+          }}>✓ Зберегти</button>
+        </div>
       </div>
-
-      <SL>Нотатка (необов'язково)</SL>
-      <textarea value={note} onChange={e=>setNote(e.target.value)} placeholder="Деталі, адреса, коментар..." rows={3}
-        style={{width:"100%",padding:"11px 13px",resize:"none",background:SURF_LO,border:`1.5px solid ${ink(0.08)}`,borderRadius:12,color:TEXT,fontSize:13,outline:"none",boxSizing:"border-box",fontFamily:"inherit",lineHeight:1.5}}/>
-    </UIModal>
+    </div>
   );
 }
 
