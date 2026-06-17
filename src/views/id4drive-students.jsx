@@ -1,5 +1,5 @@
 import { useState, useEffect, useContext } from "react";
-import { ref, onValue, update, push, remove, get } from "firebase/database";
+import { ref, onValue, off, update, push, remove } from "firebase/database";
 import { db } from "../firebase";
 
 import { ThemeContext } from "../theme.js";
@@ -263,7 +263,7 @@ function StudentCard({ s, expanded, onToggle, onBlock, onUpdate, onDelete }) {
 
 // ─── MAIN ────────────────────────────────────────────────────────
 export default function StudentsView() {
-  const { BG_DEEP, SURFACE, SURF_HI, BORDER, TEXT, DIM, FAINT, ACCENT, ACC_HI, GREEN, SO, SI } = useContext(ThemeContext);
+  const { BG_DEEP, SURFACE, SURF_HI, BORDER, TEXT, DIM, FAINT, ACCENT, ACC_HI, GREEN, BLUE, SO, SI } = useContext(ThemeContext);
   const { ink } = useFX();
 
   const css = `
@@ -273,6 +273,8 @@ export default function StudentsView() {
 .act-btn:active{transform:scale(.92);filter:brightness(.8)}
 .act-btn span{font-size:9px;font-weight:700;letter-spacing:.2px}
 @keyframes spin{to{transform:rotate(360deg)}}
+@keyframes sheetUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.sheet{animation:sheetUp .24s cubic-bezier(.32,.72,0,1) both}
 `;
 
   const [students,   setStudents]   = useState([]);
@@ -323,35 +325,6 @@ export default function StudentsView() {
     setExpanded(e=>new Set([...e,newRef.key]));
   };
 
-  const [restoring, setRestoring] = useState(false);
-  const restoreFromBookings = async () => {
-    setRestoring(true);
-    try {
-      const snap = await get(ref(db, "bookings"));
-      const data = snap.val() || {};
-      const existingIds = new Set(students.map(s => s.id));
-      const updates = {};
-      Object.entries(data).forEach(([uid, userBkgs]) => {
-        if (existingIds.has(uid)) return;
-        const bkgs = Object.values(userBkgs || {});
-        if (!bkgs.length) return;
-        const bk = bkgs[0];
-        const name = bk.studentName || bk.name || "";
-        const phone = bk.phone || "";
-        if (!name && !phone) return;
-        updates[`users/${uid}`] = { name, phone, hours: 0, blocked: false, isVip: false };
-      });
-      const count = Object.keys(updates).length;
-      if (count === 0) { alert("Всі студенти вже є в списку або букінги порожні"); return; }
-      await update(ref(db, "/"), updates);
-      alert(`Відновлено ${count} студентів`);
-    } catch(e) {
-      alert("Помилка: " + e.message);
-    } finally {
-      setRestoring(false);
-    }
-  };
-
   const q    = search.toLowerCase();
   const list = students
     .filter(s=>(!q||(s.name||"").toLowerCase().includes(q)||(s.phone||"").includes(q))&&(filterType==="all"||s.type===filterType))
@@ -364,37 +337,9 @@ export default function StudentsView() {
       <div style={{display:"flex",flexDirection:"column",gap:7,fontFamily:"ui-sans-serif,-apple-system,system-ui,sans-serif",color:TEXT}}>
 
         {/* header */}
-        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:2}}>
+        <div style={{display:"flex",alignItems:"center",marginBottom:2}}>
           <div style={{fontSize:15,fontWeight:800,color:TEXT}}>Учні</div>
-          <div style={{display:"flex",gap:6}}>
-            <button onClick={restoreFromBookings} disabled={restoring} style={{
-              display:"flex",alignItems:"center",gap:5,
-              background:`linear-gradient(145deg,#5b9bff,#2563eb)`,
-              border:"none",borderRadius:10,padding:"7px 13px",cursor:"pointer",fontSize:12,fontWeight:700,color:"#fff",boxShadow:SO,fontFamily:"inherit",opacity:restoring?0.6:1,
-            }}>
-              {restoring ? "…" : "↩ Букінги"}
-            </button>
-            <button onClick={()=>setShowNew(v=>!v)} style={{
-              display:"flex",alignItems:"center",gap:5,
-              background:showNew?`linear-gradient(145deg,${SURF_HI},${SURFACE})`:`linear-gradient(145deg,${ACC_HI},${ACCENT})`,
-              border:"none",borderRadius:10,padding:"7px 13px",cursor:"pointer",fontSize:13,fontWeight:700,color:showNew?DIM:"#fff",boxShadow:SO,fontFamily:"inherit",
-            }}>
-              <span style={{fontSize:16,lineHeight:1}}>{showNew?"×":"+"}</span>
-              {showNew?"Закрити":"Учень"}
-            </button>
-          </div>
         </div>
-
-        {/* new student form */}
-        {showNew && (
-          <div className="ex" style={{background:`linear-gradient(155deg,${SURF_HI},${SURFACE})`,borderRadius:13,border:`1px solid ${BORDER}`,boxShadow:SO,padding:"14px 14px 16px"}}>
-            <div style={{fontSize:13,fontWeight:800,color:TEXT,marginBottom:10}}>Новий учень</div>
-            <StudentForm
-              initial={{name:"",phone:"",discount:0,notes:"",type:"private"}}
-              onSave={createStudent} onCancel={()=>setShowNew(false)} saveLabel="Додати"
-            />
-          </div>
-        )}
 
         {/* search */}
         <div style={{background:BG_DEEP,borderRadius:11,boxShadow:SI,padding:"3px 11px",display:"flex",alignItems:"center",gap:7}}>
@@ -437,6 +382,43 @@ export default function StudentsView() {
           </div>
         )}
       </div>
+
+      {/* ── FAB +Учень ── */}
+      <button onClick={()=>setShowNew(true)} aria-label="Додати учня" style={{
+        position:"fixed",right:18,bottom:104,zIndex:45,
+        display:"flex",alignItems:"center",gap:6,
+        background:`linear-gradient(145deg,#5b9bff,#2563eb)`,
+        border:"none",borderRadius:999,padding:"13px 18px",cursor:"pointer",
+        fontSize:14,fontWeight:800,color:"#fff",fontFamily:"inherit",
+        boxShadow:`0 6px 18px rgba(37,99,235,0.45)`,
+      }}>
+        <span style={{fontSize:20,lineHeight:1,marginTop:-2}}>+</span>
+        Учень
+      </button>
+
+      {/* ── Bottom sheet: новий учень ── */}
+      {showNew && (
+        <div onClick={()=>setShowNew(false)} style={{
+          position:"fixed",inset:0,zIndex:200,background:ink(0.6),
+          display:"flex",alignItems:"flex-end",justifyContent:"center",
+          backdropFilter:"blur(8px)",
+        }}>
+          <div className="sheet" onClick={e=>e.stopPropagation()} style={{
+            width:"100%",maxWidth:480,background:BG_DEEP,
+            borderRadius:"24px 24px 0 0",
+            boxShadow:`0 -2px 0 ${BORDER}, 0 -16px 50px rgba(0,0,0,0.6)`,
+            padding:"12px 16px calc(20px + env(safe-area-inset-bottom))",
+            maxHeight:"88vh",overflowY:"auto",
+          }}>
+            <div style={{width:38,height:4,borderRadius:2,background:ink(0.12),margin:"0 auto 14px"}}/>
+            <div style={{fontSize:14,fontWeight:800,color:TEXT,marginBottom:12}}>Новий учень</div>
+            <StudentForm
+              initial={{name:"",phone:"",discount:0,notes:"",type:"private"}}
+              onSave={createStudent} onCancel={()=>setShowNew(false)} saveLabel="Додати"
+            />
+          </div>
+        </div>
+      )}
     </>
   );
 }
