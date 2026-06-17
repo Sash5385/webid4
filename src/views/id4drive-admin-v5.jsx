@@ -1310,7 +1310,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
               <div
                 onClick={e=>{ if(xJustShownRef.current){ xJustShownRef.current=false; return; } if(quickCancelId){ xVisibleRef.current=false; setQuickCancelId(null); } }}
                 onPointerDown={e=>{
-                  if (scheduleLocked || isPastDay || isClosedDay) return;
+                  if (scheduleLocked || isPastDay) return;
                   if (e.button > 0) return;
                   if (dragRef.current || pendingDragRef.current) return;
                   const rect = e.currentTarget.getBoundingClientRect();
