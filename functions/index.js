@@ -351,9 +351,9 @@ exports.onSlotFreed = onValueWritten(
     const before = event.data.before?.val();
     const after  = event.data.after?.val();
 
-    // Тільки перехід available: false → true
-    if (!before || before.available !== false) return;
-    if (!after  || after.available  !== true)  return;
+    // Перехід до available: true (звільнився або з'явився новий слот)
+    if (before?.available === true) return; // вже був вільний — не дублюємо
+    if (!after || after.available !== true) return;
 
     const { date } = event.params;
 
