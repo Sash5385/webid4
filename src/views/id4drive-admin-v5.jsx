@@ -2204,20 +2204,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
           )}
           <button
             onClick={()=>{
-              remove(ref(db, `bookings/admin/${personalEventView.id}`)).catch(()=>{});
-              const slotUpd = {};
-              for (let i = 0; i < personalEventView.durMin; i += 30) {
-                const sm = personalEventView.startMin + i;
-                const sh = String(Math.floor(sm / 60)).padStart(2, '0');
-                const sn = String(sm % 60).padStart(2, '0');
-                if (personalEventView.wasAdminBlocked) {
-                  slotUpd[`timeslots/${personalEventView.date}/slot${sh}${sn}/available`] = false;
-                  slotUpd[`timeslots/${personalEventView.date}/slot${sh}${sn}/adminBlocked`] = true;
-                } else {
-                  slotUpd[`timeslots/${personalEventView.date}/slot${sh}${sn}/available`] = true;
-                }
-              }
-              update(ref(db, '/'), slotUpd).catch(()=>{});
+              setBookings(bs => bs.filter(b => b.id !== personalEventView.id));
               setPersonalEventView(null);
             }}
             style={{
