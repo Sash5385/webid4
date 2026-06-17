@@ -180,10 +180,12 @@ export default function ChatsView() {
   useEffect(() => {
     const unsub = onValue(ref(db, "users"), snap => {
       const data = snap.val() || {};
-      const list = Object.entries(data).map(([uid, u]) => {
-        const p = u.profile || {};
-        return { id:uid, name:p.name||"Учень", phone:p.phone||"", hue:hueForUid(uid), online:false, unread:0, lastMsg:"", lastTime:"" };
-      });
+      const list = Object.entries(data)
+        .map(([uid, u]) => {
+          const p = u.profile || {};
+          return { id:uid, name:p.name||"", phone:p.phone||"", hue:hueForUid(uid), online:false, unread:0, lastMsg:"", lastTime:"" };
+        })
+        .filter(c => c.name || c.phone);
       setContacts(list);
       setLoading(false);
     });
@@ -420,7 +422,7 @@ export default function ChatsView() {
                   <Ava name={c.name} hue={c.hue} size={36} online={c.online}/>
                   <div style={{flex:1,minWidth:0}}>
                     <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:2}}>
-                      <span style={{fontSize:13,fontWeight:800,color:TEXT,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.name}</span>
+                      <span style={{fontSize:13,fontWeight:800,color:TEXT,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.name || c.phone}</span>
                     </div>
                     <div style={{fontSize:11,color:DIM,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
                       {c.lastMsg || c.phone || "Немає повідомлень"}
