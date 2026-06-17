@@ -36,7 +36,7 @@ body,html{margin:0;padding:0;background:${BG}}
 ::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.1);border-radius:3px}
 @keyframes spin{to{transform:rotate(360deg)}}
 .spinner{width:32px;height:32px;border:3px solid rgba(255,255,255,0.06);border-top-color:${ACCENT};border-radius:50%;animation:spin .8s linear infinite}
-@keyframes fade-tab{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+@keyframes fade-tab{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
 .tab-anim{animation:fade-tab .22s ease both}
 `;
 

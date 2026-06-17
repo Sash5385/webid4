@@ -387,15 +387,13 @@ export default function StudentsView() {
       {/* ── FAB +Учень ── */}
       <button onClick={()=>setShowNew(true)} aria-label="Додати учня" style={{
         position:"fixed",right:18,bottom:104,zIndex:45,
-        display:"flex",alignItems:"center",gap:6,
+        width:56,height:56,borderRadius:"50%",
+        display:"flex",alignItems:"center",justifyContent:"center",
         background:`linear-gradient(145deg,#5b9bff,#2563eb)`,
-        border:"none",borderRadius:999,padding:"13px 18px",cursor:"pointer",
-        fontSize:14,fontWeight:800,color:"#fff",fontFamily:"inherit",
-        boxShadow:`0 6px 18px rgba(37,99,235,0.45)`,
-      }}>
-        <span style={{fontSize:20,lineHeight:1,marginTop:-2}}>+</span>
-        Учень
-      </button>
+        border:"none",cursor:"pointer",
+        fontSize:28,fontWeight:400,color:"#fff",lineHeight:1,
+        boxShadow:`0 6px 20px rgba(37,99,235,0.55), 0 2px 8px rgba(0,0,0,0.4)`,
+      }}>+</button>
 
       {/* ── Bottom sheet: новий учень ── */}
       {showNew && (
