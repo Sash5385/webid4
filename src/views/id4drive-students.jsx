@@ -74,7 +74,7 @@ function Progress({ hours, offset }) {
 
 // ─── INLINE FORM (shared by New + Edit) ─────────────────────────
 function StudentForm({ initial, onSave, onCancel, saveLabel="Зберегти" }) {
-  const { SURF_HI, SURFACE, DIM, SO } = useContext(ThemeContext);
+  const { SURF_HI, SURFACE, BG_DEEP, TEXT, DIM, FAINT, BORDER, SO } = useContext(ThemeContext);
   const [d, setD] = useState(initial);
   const upd = (k,v) => setD(x=>({...x,[k]:v}));
   const valid = (d.name||"").trim();
@@ -93,6 +93,34 @@ function StudentForm({ initial, onSave, onCancel, saveLabel="Зберегти" }
                 onClick={()=>upd("type",k)}>{l}</UIBtn>
             ))}
           </div>
+        </div>
+      </div>
+      {/* ТСЦ — тільки для автошколи */}
+      {d.type==="school" && (
+        <div>
+          <div style={{fontSize:10,color:"#5a5c62",letterSpacing:1,marginBottom:5}}>ТСЦ</div>
+          <div style={{display:"flex",gap:6}}>
+            {[["ТСЦ 8041","8041"],["ТСЦ 8042","8042"]].map(([val,lbl])=>(
+              <UIBtn key={val} variant={d.tsc===val?"primary":"ghost"} flex={1}
+                style={{padding:"7px 4px",borderRadius:8,fontSize:11}}
+                onClick={()=>upd("tsc",val)}>{lbl}</UIBtn>
+            ))}
+          </div>
+        </div>
+      )}
+      {/* VIP-мітка */}
+      <div onClick={()=>upd("isVip",!d.isVip)} style={{
+        display:"flex",alignItems:"center",justifyContent:"space-between",
+        padding:"10px 12px",borderRadius:10,cursor:"pointer",
+        background:d.isVip?"rgba(168,85,247,0.12)":BG_DEEP,
+        border:d.isVip?"1px solid rgba(168,85,247,0.35)":`1px solid ${BORDER}`,
+      }}>
+        <div>
+          <div style={{fontSize:12,fontWeight:700,color:d.isVip?"#c084fc":TEXT}}>VIP учень</div>
+          <div style={{fontSize:10,color:FAINT,marginTop:2}}>{d.isVip?"Має доступ до VIP слотів":"Без доступу до VIP слотів"}</div>
+        </div>
+        <div style={{width:36,height:20,borderRadius:10,position:"relative",background:d.isVip?"linear-gradient(145deg,#a855f7,#7c3aed)":"rgba(255,255,255,0.08)",transition:"background .2s",flexShrink:0}}>
+          <div style={{position:"absolute",top:2,left:d.isVip?18:2,width:16,height:16,borderRadius:8,background:"#fff",transition:"left .2s"}}/>
         </div>
       </div>
       <Field label="Нотатки" value={d.notes||""} onChange={v=>upd("notes",v)} placeholder="Нотатки…" textarea rows={2} style={{marginBottom:0}}/>
@@ -320,7 +348,9 @@ export default function StudentsView() {
   const createStudent = async (data) => {
     const newRef = await push(ref(db,"users"),{
       name:data.name.trim(), phone:data.phone.trim(), type:data.type,
-      discount:Number(data.discount)||0, notes:data.notes.trim(), blocked:false, isVip:false, hours:0,
+      discount:Number(data.discount)||0, notes:data.notes.trim(), blocked:false,
+      isVip:data.isVip||false, hours:0,
+      tsc:data.type==="school"?(data.tsc||""):"",
     });
     setShowNew(false);
     setExpanded(e=>new Set([...e,newRef.key]));
@@ -417,7 +447,7 @@ export default function StudentsView() {
             <div style={{width:38,height:4,borderRadius:2,background:ink(0.12),margin:"0 auto 14px"}}/>
             <div style={{fontSize:14,fontWeight:800,color:TEXT,marginBottom:12}}>Новий учень</div>
             <StudentForm
-              initial={{name:"",phone:"",discount:0,notes:"",type:"private"}}
+              initial={{name:"",phone:"+380",discount:0,notes:"",type:"private",isVip:false,tsc:""}}
               onSave={createStudent} onCancel={()=>setShowNew(false)} saveLabel="Додати"
             />
           </div>
