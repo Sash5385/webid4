@@ -320,8 +320,11 @@ select{color-scheme:${isKava?"light":"dark"}}
           <Row label={t('set.restr.cutoff')} hint={t('set.restr.cutoff_h')}>
             <NumInput value={settings.bookCutoffHours} onChange={v=>upd("bookCutoffHours",v)} min={0} max={48} suffix={` ${t('hr')}`}/>
           </Row>
-          <Row label={t('set.restr.calendar')} hint={t('set.restr.calendar_h')} last>
+          <Row label={t('set.restr.calendar')} hint={t('set.restr.calendar_h')}>
             <NumInput value={settings.calendarOpenDays} onChange={v=>upd("calendarOpenDays",v)} min={1} max={365} suffix={` ${t('days')}`}/>
+          </Row>
+          <Row label={lang==="en"?"Min interval between bookings":"Мінімальний інтервал між записами"} hint={lang==="en"?"Minimum days between any two bookings for one student. 0 — disabled.":"Мінімум днів між будь-якими двома записами учня. 0 — без обмеження."} last>
+            <NumInput value={settings.minBookingIntervalDays ?? 0} onChange={v=>upd("minBookingIntervalDays",v)} min={0} max={30} suffix={` ${t('days')}`}/>
           </Row>
         </Section>
 

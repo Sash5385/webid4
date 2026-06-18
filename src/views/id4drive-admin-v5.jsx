@@ -362,6 +362,7 @@ const DEFAULT_SETTINGS = {
   studentCanCancel: true,
   bookCutoffHours: 2,       // min hours before slot for booking
   calendarOpenDays: 30,     // how many days ahead visible to students
+  minBookingIntervalDays: 0, // min days between any two bookings (0 = disabled)
   // sticky time
   stickyTime: "both",       // before | after | both
   // notifications display
