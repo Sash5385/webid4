@@ -1,6 +1,7 @@
 import { useState, useContext } from "react";
 import { ref, get } from "firebase/database";
 import { LangContext } from "../App";
+import { APP_VERSION } from "../version.js";
 import { ThemeContext } from "../theme.js";
 import { UICss, useFX } from "../ui";
 import { createT } from "../lang";
@@ -470,7 +471,11 @@ select{color-scheme:${isKava?"light":"dark"}}
           <PushDiag />
         </Section>
 
-        <div style={{height:20}}/>
+        <div style={{height:8}}/>
+        <div style={{textAlign:"center",padding:"10px 0 4px",color:"#5a5c62",fontSize:13,fontWeight:600,letterSpacing:0.5}}>
+          {APP_VERSION}
+        </div>
+        <div style={{height:12}}/>
       </div>
     </>
   );
