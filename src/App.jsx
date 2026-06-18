@@ -184,6 +184,7 @@ function BottomNav({ active, onChange, settings, chatUnread }) {
             )}
           </button>
         ))}
+        <div style={{position:"absolute",bottom:2,right:8,fontSize:7,opacity:0.3,color:"#fff",pointerEvents:"none",letterSpacing:0.5}}>v18.06</div>
       </div>
     </div>
   );
