@@ -2080,6 +2080,20 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
               color:TEXT_FAINT,fontSize:12,fontWeight:600,
             }}>Скинути</button>
           )}
+
+          {/* Видалити слот */}
+          <button onClick={()=>{
+            const slotId = `slot${slotOptions.time.replace(":", "")}`;
+            remove(ref(db, `timeslots/${slotOptions.dateStr}/${slotId}`)).catch(()=>{});
+            setSlotOptions(null);
+          }} style={{
+            width:"100%",padding:"10px 14px",border:"none",cursor:"pointer",
+            background:"none",borderTop:`1px solid ${ink(0.06)}`,
+            color:"rgba(239,68,68,0.85)",fontSize:12,fontWeight:700,
+            display:"flex",alignItems:"center",gap:8,fontFamily:"inherit",
+          }}>
+            <span style={{fontSize:14}}>✕</span> Видалити слот
+          </button>
         </div>
       </div>
       );
