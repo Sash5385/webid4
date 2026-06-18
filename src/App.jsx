@@ -446,6 +446,20 @@ export default function App() {
     return () => window.removeEventListener("id4drive-nav", nav);
   }, []);
 
+  // Network version check — bypasses SW cache so stuck browsers auto-reload
+  useEffect(() => {
+    const check = async () => {
+      try {
+        const res = await fetch('/version.json?t=' + Date.now(), { cache: 'no-store' });
+        const { version } = await res.json();
+        if (version && version !== APP_VERSION) window.location.reload();
+      } catch {}
+    };
+    check();
+    const id = setInterval(check, 3 * 60 * 1000);
+    return () => clearInterval(id);
+  }, []);
+
   // Subscribe to unread chat count from chatMeta
   useEffect(() => {
     if (!adminUser) return;
