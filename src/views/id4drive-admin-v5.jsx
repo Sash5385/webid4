@@ -488,6 +488,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   const [shineId, setShineId] = useState(null);
   const slotHoldTimerRef = useRef(null);
   const slotHoldFiredRef = useRef(false);
+  const slotOptionsOpenedRef = useRef(0);
   const [openSlots, setOpenSlots] = useState({}); // { "2025-06-01": ["07:00","08:00",...] }
   const [viewingSlots, setViewingSlots] = useState({});
   const [genLoadingDays, setGenLoadingDays] = useState(new Set());
@@ -1393,6 +1394,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                       slotHoldTimerRef.current = setTimeout(()=>{
                         slotHoldFiredRef.current = true;
                         navigator.vibrate?.(40);
+                        slotOptionsOpenedRef.current = Date.now();
                         setSlotOptions({ dateStr: dateStrCol, time, slot });
                       }, 600);
                     }}
@@ -1971,7 +1973,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
           nearbySlots.push({ min: m, label: fmtTime(m) });
       }
       return (
-      <div onClick={()=>setSlotOptions(null)} style={{
+      <div onClick={()=>{ if(Date.now()-slotOptionsOpenedRef.current>350) setSlotOptions(null); }} style={{
         position:"fixed",inset:0,zIndex:200,
         background:`${shade(0.45)}`,
         display:"flex",alignItems:"center",justifyContent:"center",
@@ -2160,7 +2162,8 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
             update(ref(db, `bookings/${b.userId}/${b.id}`), fbData).catch(()=>{});
           } else {
             const phone = (b.phone || '').replace(/\D/g, '');
-            if (phone) update(ref(db, `bookings_by_phone/${phone}/${b.id}`), fbData).catch(()=>{});
+            const phoneKey = phone || 'unnamed';
+            update(ref(db, `bookings_by_phone/${phoneKey}/${b.id}`), fbData).catch(()=>{});
           }
         }
         if (b.date && b.startMin !== undefined && b.durMin) {
@@ -3431,11 +3434,15 @@ export default function App() {
   // Users map for TSC cross-reference
   const usersMapRef = useRef({});
   const rawBookingsDataRef = useRef(null);
+  const rawBookingsByPhoneRef = useRef(null);
 
   // processBookingsRef holds the latest version so async effect callbacks always use current setBookings/usersMapRef
   const processBookingsRef = useRef(null);
-  processBookingsRef.current = (d) => {
-    if (!d) { setBookings([]); return; }
+  processBookingsRef.current = () => {
+    const d1 = rawBookingsDataRef.current;
+    const d2 = rawBookingsByPhoneRef.current;
+    if (d1 === null && d2 === null) { setBookings([]); return; }
+    const d = { ...(d1 || {}), ...(d2 || {}) };
     const today = new Date(); today.setHours(0,0,0,0);
     const all = [];
     Object.entries(d).forEach(([uid, userBkgs]) => {
@@ -3477,8 +3484,8 @@ export default function App() {
     return onValue(ref(db, "users"), snap => {
       usersMapRef.current = snap.val() || {};
       // Re-process already-loaded bookings so TSC cross-reference applies after users arrive
-      if (rawBookingsDataRef.current !== null) {
-        processBookingsRef.current(rawBookingsDataRef.current);
+      if (rawBookingsDataRef.current !== null || rawBookingsByPhoneRef.current !== null) {
+        processBookingsRef.current();
       }
     });
   }, []);
@@ -3488,7 +3495,16 @@ export default function App() {
     const r = ref(db, "bookings");
     const handler = onValue(r, snap => {
       rawBookingsDataRef.current = snap.val();
-      processBookingsRef.current(snap.val());
+      processBookingsRef.current();
+    });
+    return () => off(r, "value", handler);
+  }, []);
+
+  useEffect(() => {
+    const r = ref(db, "bookings_by_phone");
+    const handler = onValue(r, snap => {
+      rawBookingsByPhoneRef.current = snap.val();
+      processBookingsRef.current();
     });
     return () => off(r, "value", handler);
   }, []);
@@ -3538,7 +3554,8 @@ export default function App() {
         update(ref(db, `bookings/${b.userId}/${b.id}`), fbData).catch(()=>{});
       } else {
         const phone = (b.phone || '').replace(/\D/g, '');
-        if (phone) update(ref(db, `bookings_by_phone/${phone}/${b.id}`), fbData).catch(()=>{});
+        const phoneKey = phone || 'unnamed';
+        update(ref(db, `bookings_by_phone/${phoneKey}/${b.id}`), fbData).catch(()=>{});
       }
     }
     if (b.date && b.startMin !== undefined && b.durMin) {
