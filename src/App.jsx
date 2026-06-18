@@ -8,7 +8,7 @@ import { ThemeContext, getTheme } from "./theme.js";
 
 export const LangContext = createContext('uk');
 
-const APP_VERSION = "v18.06.2";
+const APP_VERSION = "v18.06.3";
 
 // ─── LAZY VIEWS
 const ScheduleView  = lazy(()=>import("./views/id4drive-admin-v5").then(m=>({default:m.ScheduleView})))
@@ -427,6 +427,8 @@ export default function App() {
   const [selectedBooking,  setSelectedBooking]  = useState(null);
   const [newBookingData,   setNewBookingData]    = useState(null);
   const [chatUnread, setChatUnread] = useState(0);
+  const usersMapRef = React.useRef({});
+  const rawBookingsSnapRef = React.useRef(null);
 
   const switchTab = t => {
     setTab(t);
@@ -583,6 +585,59 @@ export default function App() {
   }, [settings, adminUser, settingsLoaded]);
 
   // Load bookings from Firebase
+  const processBookingsSnap = React.useCallback((data) => {
+    if (!data) return;
+    const all = [];
+    Object.entries(data).forEach(([uid, userBkgs]) => {
+      Object.entries(userBkgs).forEach(([key, b]) => {
+        if (b.status === 'cancelled') return;
+        const umap = usersMapRef.current[uid] || {};
+        const tsc = b.tsc || umap.profile?.tsc || umap.tsc || "";
+        all.push({
+          ...b,
+          id:        b.id || key,
+          _fbKey:    key,
+          userId:    uid,
+          day:       dateToDayIdx(b.date),
+          startMin:  b.startMin ?? (parseInt((b.time||"0:0").split(":")[0])*60 + parseInt((b.time||"0:0").split(":")[1])),
+          durMin:    b.durMin   ?? (b.durationHours ? b.durationHours*60 : 60),
+          name:      b.studentName || b.name || "Без імені",
+          type:      b.serviceType || b.type || "private",
+          tsc,
+        });
+      });
+    });
+    const allIds = new Set(all.map(fb => fb.id));
+    setBookings(prev => {
+      const prevMap = new Map(prev.map(b => [b.id, b]));
+      return all
+        .filter(fb => !pendingDeletesRef.current.has(fb.id))
+        .map(fb =>
+          (moveSaveTimers.current[fb.id] || activeDragIds.current.has(fb.id))
+            ? (prevMap.get(fb.id) || fb)
+            : fb
+        )
+        .concat(
+          prev.filter(b =>
+            !allIds.has(b.id) &&
+            !pendingDeletesRef.current.has(b.id) &&
+            b.status !== 'cancelled' &&
+            (moveSaveTimers.current[b.id] || activeDragIds.current.has(b.id))
+          )
+        );
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Keep users map fresh — reprocess bookings when it updates so TSC is always current
+  useEffect(() => {
+    if (!adminUser) return;
+    return onValue(ref(db, "users"), snap => {
+      usersMapRef.current = snap.val() || {};
+      if (rawBookingsSnapRef.current) processBookingsSnap(rawBookingsSnapRef.current);
+    });
+  }, [adminUser, processBookingsSnap]);
+
   useEffect(() => {
     if (!adminUser) {
       Object.values(moveSaveTimers.current).forEach(clearTimeout);
@@ -591,46 +646,10 @@ export default function App() {
     }
     return onValue(ref(db, "bookings"), snap => {
       const data = snap.val();
-      if (!data) return;
-      const all = [];
-      Object.entries(data).forEach(([uid, userBkgs]) => {
-        Object.entries(userBkgs).forEach(([key, b]) => {
-          if (b.status === 'cancelled') return;
-          all.push({
-            ...b,
-            id:        b.id || key,   // стабільний fallback — ключ вузла Firebase
-            _fbKey:    key,           // реальний ключ вузла для запису в Firebase
-            userId:    uid,
-            day:       dateToDayIdx(b.date),
-            startMin:  b.startMin ?? (parseInt((b.time||"0:0").split(":")[0])*60 + parseInt((b.time||"0:0").split(":")[1])),
-            durMin:    b.durMin   ?? (b.durationHours ? b.durationHours*60 : 60),
-            name:      b.studentName || b.name || "Без імені",
-            type:      b.serviceType || b.type || "private",
-          });
-        });
-      });
-
-      const allIds = new Set(all.map(fb => fb.id));
-      setBookings(prev => {
-        const prevMap = new Map(prev.map(b => [b.id, b]));
-        return all
-          .filter(fb => !pendingDeletesRef.current.has(fb.id))
-          .map(fb =>
-            (moveSaveTimers.current[fb.id] || activeDragIds.current.has(fb.id))
-              ? (prevMap.get(fb.id) || fb)
-              : fb
-          )
-          .concat(
-            prev.filter(b =>
-              !allIds.has(b.id) &&
-              !pendingDeletesRef.current.has(b.id) &&
-              b.status !== 'cancelled' &&
-              (moveSaveTimers.current[b.id] || activeDragIds.current.has(b.id))
-            )
-          );
-      });
+      rawBookingsSnapRef.current = data;
+      processBookingsSnap(data);
     });
-  }, [adminUser]);
+  }, [adminUser, processBookingsSnap]);
 
   // Debounce map for move/resize saves (avoids Firebase write on every pointermove)
   const moveSaveTimers = React.useRef({});
