@@ -416,7 +416,7 @@ function dayIdxToDate(dayIdx) {
 export default function App() {
   const adminUser = useAdminAuth();
   const { needRefresh, updateServiceWorker, isUpdating } = useAppUpdate()
-  const [tab,        setTab]      = useState("schedule");
+  const [tab,        setTab]      = useState(() => localStorage.getItem('adminTab') || "schedule");
   const [tabVisits,  setTabVisits]= useState({});
   const [openInfos,  setOpenInfos]= useState({});
   const [settings,   setSettings] = useState(DEFAULT_SETTINGS);
@@ -430,6 +430,7 @@ export default function App() {
 
   const switchTab = t => {
     setTab(t);
+    localStorage.setItem('adminTab', t);
     setTabVisits(v => ({...v, [t]: (v[t]||0) + 1}));
     setOpenInfos({});
     if (t === 'chats') {
