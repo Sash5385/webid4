@@ -2365,15 +2365,17 @@ function BookingModal({ booking, onClose, onAction, settings }) {
   const IcoChat  = <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>;
 
   return (
-    <UIModal open={!!booking} onClose={onClose} sheet={false} size={340}>
-      <div style={{overflow:"hidden",borderRadius:14}}>
+    <UIModal open={!!booking} onClose={onClose} sheet={false} size={340} title="Деталі запису" pad={false}
+      footer={<>
+        <button onClick={() => onAction("call", booking)} style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",gap:7,padding:"11px",borderRadius:14,border:"none",cursor:"pointer",background:"linear-gradient(145deg,#34d399,#059669)",boxShadow:"0 4px 14px rgba(52,211,153,0.35)",color:"#fff",fontSize:13,fontWeight:800,fontFamily:"inherit"}}>{IcoPhone} Дзвонити</button>
+        <button onClick={() => onAction("chat", booking)} style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",gap:7,padding:"11px",borderRadius:14,border:"none",cursor:"pointer",background:`linear-gradient(145deg,${SURFACE_HI},${SURFACE})`,boxShadow:SHADOW_OUT,color:BLUE,fontSize:13,fontWeight:800,fontFamily:"inherit"}}>{IcoChat} Чат</button>
+      </>}>
         {/* Student row */}
         <div style={{
           display:"flex", alignItems:"center", gap:11,
           padding:"14px 14px 12px",
           borderBottom:`1px solid ${ink(0.06)}`,
           background:`linear-gradient(135deg,${c}18,${c}08)`,
-          margin:"-20px -18px 0",
         }}>
           <div style={{
             width:40, height:40, borderRadius:12, flexShrink:0,
@@ -2442,24 +2444,6 @@ function BookingModal({ booking, onClose, onAction, settings }) {
           </div>
         )}
 
-        {/* Action buttons */}
-        <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, padding:"12px 12px 14px"}}>
-          <button onClick={() => onAction("call", booking)} style={{
-            display:"flex", alignItems:"center", justifyContent:"center", gap:7,
-            padding:"11px", borderRadius:14, border:"none", cursor:"pointer",
-            background:"linear-gradient(145deg,#34d399,#059669)",
-            boxShadow:"0 4px 14px rgba(52,211,153,0.35)",
-            color:"#fff", fontSize:13, fontWeight:800,
-          }}>{IcoPhone} Дзвонити</button>
-          <button onClick={() => onAction("chat", booking)} style={{
-            display:"flex", alignItems:"center", justifyContent:"center", gap:7,
-            padding:"11px", borderRadius:14, border:"none", cursor:"pointer",
-            background:`linear-gradient(145deg,${SURFACE_HI},${SURFACE})`,
-            boxShadow:SHADOW_OUT,
-            color:BLUE, fontSize:13, fontWeight:800,
-          }}>{IcoChat} Чат</button>
-        </div>
-
         {/* Cancel link */}
         <button onClick={() => { onAction("cancel", booking); onClose(); }} style={{
           width:"100%", padding:"9px", border:"none", cursor:"pointer",
@@ -2467,7 +2451,6 @@ function BookingModal({ booking, onClose, onAction, settings }) {
           color:"rgba(248,113,113,0.7)", fontSize:11, fontWeight:600,
         }}>Скасувати запис</button>
 
-      </div>
     </UIModal>
   );
 }
@@ -2727,8 +2710,26 @@ function NewBookingModal({ data, onClose, onConfirm, settings, bookings = [] }) 
       textTransform:"uppercase",marginBottom:7}}>{children}</div>
   );
 
+  const handleConfirm = () => {
+    if(!canConfirm) return;
+    const today = new Date(); today.setHours(0,0,0,0);
+    const d = new Date(today); d.setDate(d.getDate() + dateOffset);
+    const dateStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    onConfirm({
+      id:`b-${Date.now()}`,
+      day:dateOffset, date:dateStr, startMin:timeVal, durMin:selSvc.duration,
+      name:finalName, phone:finalPhone, serviceId:selSvc.id,
+      type:selSvc.type||"private", status:"confirmed",
+      tsc: selSvc?.type==="school" ? tsc.trim() : "", hoursDone:0, categoryId:null, isVipOnly:false,
+      userId: (!isNewStudent && selStudent?.id) ? selStudent.id : null,
+      ...(note.trim() && { note:note.trim() }),
+    });
+    onClose();
+  };
+
   return (
-    <UIModal open={!!data} onClose={onClose} sheet={false} size="70vw" maxH="70vh" title="Новий запис">
+    <UIModal open={!!data} onClose={onClose} sheet={false} size="70vw" maxH="70vh" title="Новий запис"
+      footer={<button disabled={!canConfirm} onClick={handleConfirm} style={{flex:1,width:"100%",padding:"14px",borderRadius:14,border:"none",cursor:"pointer",fontFamily:"inherit",background:canConfirm?`linear-gradient(160deg,${GREEN},#4ade80)`:`${SURFACE_LO}`,color:canConfirm?"#fff":TEXT_FAINT,fontSize:15,fontWeight:800,letterSpacing:0.2,boxShadow:canConfirm?`0 6px 20px ${GREEN}55`:SHADOW_OUT,transition:"all .2s"}}>✓ Записати</button>}>
         <div style={{display:"flex",flexDirection:"column",gap:16}}>
 
           {/* УЧЕНЬ */}
@@ -2934,31 +2935,6 @@ function NewBookingModal({ data, onClose, onConfirm, settings, bookings = [] }) 
               background:SURFACE_LO,color:TEXT,fontSize:13,outline:"none",
             }}
           />
-
-          {/* CONFIRM */}
-          <button disabled={!canConfirm} onClick={()=>{
-            if(!canConfirm) return;
-            const today = new Date(); today.setHours(0,0,0,0);
-            const d = new Date(today); d.setDate(d.getDate() + dateOffset);
-            const dateStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-            onConfirm({
-              id:`b-${Date.now()}`,
-              day:dateOffset, date:dateStr, startMin:timeVal, durMin:selSvc.duration,
-              name:finalName, phone:finalPhone, serviceId:selSvc.id,
-              type:selSvc.type||"private", status:"confirmed",
-              tsc: selSvc?.type==="school" ? tsc.trim() : "", hoursDone:0, categoryId:null, isVipOnly:false,
-              userId: (!isNewStudent && selStudent?.id) ? selStudent.id : null,
-              ...(note.trim() && { note:note.trim() }),
-            });
-            onClose();
-          }} style={{
-            width:"100%",padding:"14px",borderRadius:14,border:"none",cursor:"pointer",fontFamily:"inherit",
-            background:canConfirm?`linear-gradient(160deg,${GREEN},#4ade80)`:`${SURFACE_LO}`,
-            color:canConfirm?"#fff":TEXT_FAINT,
-            fontSize:15,fontWeight:800,letterSpacing:0.2,
-            boxShadow:canConfirm?`0 6px 20px ${GREEN}55`:SHADOW_OUT,
-            transition:"all .2s",
-          }}>✓ Записати</button>
 
         </div>
     </UIModal>
