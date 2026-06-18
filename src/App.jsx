@@ -446,17 +446,36 @@ export default function App() {
     return () => window.removeEventListener("id4drive-nav", nav);
   }, []);
 
-  // Network version check — bypasses SW cache so stuck browsers auto-reload
+  // Network version check — bypasses SW cache. On mismatch, fully reset the
+  // service worker + caches so a stuck client can never get wedged on old code.
   useEffect(() => {
+    const hardReset = async () => {
+      try {
+        if ('serviceWorker' in navigator) {
+          const regs = await navigator.serviceWorker.getRegistrations();
+          await Promise.all(regs.map(r => r.unregister()));
+        }
+        if (window.caches) {
+          const keys = await caches.keys();
+          await Promise.all(keys.map(k => caches.delete(k)));
+        }
+      } catch {}
+      window.location.reload();
+    };
     const check = async () => {
       try {
         const res = await fetch('/version.json?t=' + Date.now(), { cache: 'no-store' });
         const { version } = await res.json();
-        if (version && version !== APP_VERSION) window.location.reload();
+        if (version && version !== APP_VERSION) {
+          const flag = 'vreset_' + version;
+          if (sessionStorage.getItem(flag)) return; // guard against reload loops
+          sessionStorage.setItem(flag, '1');
+          hardReset();
+        }
       } catch {}
     };
     check();
-    const id = setInterval(check, 3 * 60 * 1000);
+    const id = setInterval(check, 60 * 1000);
     return () => clearInterval(id);
   }, []);
 
