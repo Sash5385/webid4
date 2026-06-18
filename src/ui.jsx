@@ -47,6 +47,7 @@ export function UICss() {
 @keyframes modal-pop-in{from{opacity:0;transform:scale(.96)}to{opacity:1;transform:scale(1)}}
 .modal-sheet-in{animation:modal-sheet-in .22s ease both}
 .modal-pop-in{animation:modal-pop-in .18s ease both}
+.modal-footer>*{flex:1}
 `}</style>;
 }
 
@@ -173,22 +174,48 @@ export function StatTile({ value, label, color }) {
 
 // ── Modal: adaptive width, sheet or centered ───────────────────
 // size: "sm"|"md"|"lg" or a number (px). sheet=true → bottom sheet.
-export function Modal({ open, onClose, children, size = "md", sheet = true, title, grabber = true, pad = true, footer, maxH }) {
-  const { SURF_HI, SURFACE, BG, TEXT } = useContext(ThemeContext);
+// icon: optional emoji shown in header icon box.
+export function Modal({ open, onClose, children, size = "md", sheet = true, title, icon, grabber = true, pad = true, footer, maxH }) {
+  const { SURF_HI, SURFACE, BG, TEXT, FAINT, BORDER } = useContext(ThemeContext);
   const { shade, ink } = useFX();
   if (!open) return null;
   const W = typeof size === "number" ? size : ({ sm: 380, md: 460, lg: 560 }[size] ?? size);
-  const content = sheet
-    ? { maxWidth: W, width: "100%", margin: "0 auto", background: `linear-gradient(180deg,${SURFACE},${BG})`, borderRadius: `${RADIUS.modal}px ${RADIUS.modal}px 0 0`, padding: pad ? PAD.sheet : 0, ...(maxH ? { maxHeight: maxH, overflowY: "auto" } : {}) }
-    : { maxWidth: W, width: "100%", margin: "0 16px", background: panel(SURF_HI, SURFACE), borderRadius: RADIUS.modal, padding: pad ? PAD.popup : 0, boxShadow: `0 20px 60px ${shade(0.6)}`, maxHeight: maxH || "88vh", overflowY: "auto" };
+  const bodyPad = !pad ? 0 : footer ? "14px 20px" : sheet ? "14px 20px 28px" : "14px 20px 16px";
+  const containerStyle = sheet
+    ? { maxWidth: W, width: "100%", margin: "0 auto", background: `linear-gradient(180deg,${SURFACE},${BG})`, borderRadius: `${RADIUS.modal}px ${RADIUS.modal}px 0 0`, overflow: "hidden", display: "flex", flexDirection: "column", maxHeight: maxH || "92vh" }
+    : { maxWidth: W, width: "100%", margin: "0 16px", background: panel(SURF_HI, SURFACE), borderRadius: RADIUS.modal, overflow: "hidden", boxShadow: `0 20px 60px ${shade(0.6)}`, display: "flex", flexDirection: "column", maxHeight: maxH || "88vh" };
   return (
     <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 200, background: shade(SCRIM), backdropFilter: "blur(8px)", display: "flex", alignItems: sheet ? "flex-end" : "center", justifyContent: "center" }}>
-      <div onClick={e => e.stopPropagation()} className={sheet ? "modal-sheet-in" : "modal-pop-in"} style={content}>
-        {sheet && grabber && <div style={{ width: 36, height: 4, borderRadius: 2, background: ink(0.18), margin: "0 auto 16px" }} />}
-        {title && <div style={{ fontSize: 16, fontWeight: 800, color: TEXT, marginBottom: 18 }}>{title}</div>}
-        {children}
-        {footer && <div style={{ marginTop: 18 }}>{footer}</div>}
+      <div onClick={e => e.stopPropagation()} className={sheet ? "modal-sheet-in" : "modal-pop-in"} style={containerStyle}>
+        {sheet && grabber && <div style={{ width: 36, height: 4, borderRadius: 2, background: ink(0.18), margin: "10px auto 0", flexShrink: 0 }} />}
+        {title && (
+          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "14px 20px 12px", borderBottom: `1px solid ${BORDER}`, flexShrink: 0 }}>
+            {icon && <div style={{ width: 34, height: 34, borderRadius: 9, background: ink(0.07), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0 }}>{icon}</div>}
+            <div style={{ fontSize: 15, fontWeight: 700, color: TEXT, flex: 1 }}>{title}</div>
+            <div onClick={onClose} style={{ width: 28, height: 28, borderRadius: 8, background: ink(0.07), display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: FAINT, fontSize: 14, flexShrink: 0, userSelect: "none" }}>✕</div>
+          </div>
+        )}
+        <div style={{ flex: 1, overflowY: "auto", padding: bodyPad }}>
+          {children}
+        </div>
+        {footer && (
+          <div className="modal-footer" style={{ padding: "10px 20px 16px", borderTop: `1px solid ${BORDER}`, display: "flex", gap: 8, flexShrink: 0 }}>
+            {footer}
+          </div>
+        )}
       </div>
+    </div>
+  );
+}
+
+// ── ModalSection: labelled block inside a Modal ─────────────────
+export function ModalSection({ label, children, first = false }) {
+  const { BORDER, FAINT } = useContext(ThemeContext);
+  return (
+    <div>
+      {!first && <div style={{ height: 1, background: BORDER, margin: "12px 0" }} />}
+      {label && <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", color: FAINT, marginBottom: 8, textTransform: "uppercase" }}>{label}</div>}
+      {children}
     </div>
   );
 }
