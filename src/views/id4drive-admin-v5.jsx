@@ -2660,7 +2660,7 @@ function NewBookingModal({ data, onClose, onConfirm, settings, bookings = [] }) 
       const d = snap.val() || {};
       setStudents(Object.entries(d).map(([uid, u]) => {
         const p = u.profile || {};
-        return { id:uid, name:p.name||u.name||"Учень", phone:p.phone||u.phone||"" };
+        return { id:uid, name:p.name||u.name||"Учень", phone:p.phone||u.phone||"", tsc:p.tsc||u.tsc||"" };
       }).filter(s=>s.name!=="Учень"||s.phone));
     });
     return () => off(r, "value", handler);
@@ -2774,7 +2774,7 @@ function NewBookingModal({ data, onClose, onConfirm, settings, bookings = [] }) 
                     </div>
                   )}
                   {filtered.slice(0,6).map(s=>(
-                    <div key={s.id} onClick={()=>{setSelStudent(s);setPhone(s.phone);setSearch("");}}
+                    <div key={s.id} onClick={()=>{setSelStudent(s);setPhone(s.phone);setSearch("");if(s.tsc)setTsc(s.tsc);}}
                       style={{display:"flex",alignItems:"center",justifyContent:"space-between",
                         padding:"9px 13px",cursor:"pointer",borderBottom:`1px solid ${BORDER}`,background:BG_DEEP}}>
                       <div style={{fontSize:13,fontWeight:700,color:TEXT}}>{s.name}</div>
