@@ -1,6 +1,6 @@
 import { useState, useEffect, useContext } from "react";
 import { createPortal } from "react-dom";
-import { ref, onValue, off, update, push, remove } from "firebase/database";
+import { ref, onValue, off, update, push, remove, get } from "firebase/database";
 import { db } from "../firebase";
 
 import { ThemeContext } from "../theme.js";
@@ -340,6 +340,18 @@ export default function StudentsView() {
   const updateStudent = (id,patch) => {
     setStudents(ss=>ss.map(x=>x.id===id?{...x,...patch}:x));
     update(ref(db,`users/${id}`),patch).catch(()=>{});
+    // When TSC changes, propagate it to all existing bookings for this student
+    if (patch.tsc !== undefined) {
+      get(ref(db,`bookings/${id}`)).then(snap => {
+        const bkgs = snap.val();
+        if (!bkgs) return;
+        const updates = {};
+        Object.keys(bkgs).forEach(bkId => {
+          updates[`bookings/${id}/${bkId}/tsc`] = patch.tsc;
+        });
+        update(ref(db), updates).catch(()=>{});
+      }).catch(()=>{});
+    }
   };
   const deleteStudent = id => {
     setStudents(ss=>ss.filter(x=>x.id!==id));
