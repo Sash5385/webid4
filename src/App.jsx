@@ -8,6 +8,8 @@ import { ThemeContext, getTheme } from "./theme.js";
 
 export const LangContext = createContext('uk');
 
+const APP_VERSION = "v18.06.1";
+
 // ─── LAZY VIEWS
 const ScheduleView  = lazy(()=>import("./views/id4drive-admin-v5").then(m=>({default:m.ScheduleView})))
 const SettingsView  = lazy(()=>import("./views/id4drive-settings"))
@@ -184,7 +186,7 @@ function BottomNav({ active, onChange, settings, chatUnread }) {
             )}
           </button>
         ))}
-        <div style={{position:"absolute",bottom:2,right:8,fontSize:7,opacity:0.3,color:"#fff",pointerEvents:"none",letterSpacing:0.5}}>v18.06</div>
+        <div style={{position:"absolute",bottom:2,right:8,fontSize:7,opacity:0.3,color:"#fff",pointerEvents:"none",letterSpacing:0.5}}>{APP_VERSION}</div>
       </div>
     </div>
   );
