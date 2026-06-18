@@ -25,47 +25,7 @@ export const DARK = {
   STRIPE_A: "#1a1b1f", STRIPE_B: "#222428",
 };
 
-// ─── COFFEE GRAPHIC BACKGROUND (еспресо знизу → тепло-золотий зверху + боке) ──
-const buildCoffeeWaves = () => {
-  const W = 1440, H = 1024;
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid slice">
-    <defs>
-      <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%"   stop-color="#d4a040"/>
-        <stop offset="20%"  stop-color="#b87828"/>
-        <stop offset="50%"  stop-color="#7a3e10"/>
-        <stop offset="78%"  stop-color="#3a1605"/>
-        <stop offset="100%" stop-color="#0e0300"/>
-      </linearGradient>
-      <linearGradient id="diag" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0%"   stop-color="#f8d060" stop-opacity="0.28"/>
-        <stop offset="45%"  stop-color="#c47820" stop-opacity="0.10"/>
-        <stop offset="100%" stop-color="#3a1200" stop-opacity="0"/>
-      </linearGradient>
-      <radialGradient id="sun" cx="22%" cy="18%" r="38%">
-        <stop offset="0%"   stop-color="#ffe070" stop-opacity="0.55"/>
-        <stop offset="35%"  stop-color="#e09820" stop-opacity="0.28"/>
-        <stop offset="70%"  stop-color="#b06010" stop-opacity="0.08"/>
-        <stop offset="100%" stop-color="#7a3800" stop-opacity="0"/>
-      </radialGradient>
-      <radialGradient id="b2" cx="68%" cy="8%" r="25%">
-        <stop offset="0%"   stop-color="#f0c040" stop-opacity="0.22"/>
-        <stop offset="100%" stop-color="#8b4010" stop-opacity="0"/>
-      </radialGradient>
-      <radialGradient id="dark" cx="50%" cy="100%" r="55%">
-        <stop offset="0%"   stop-color="#060100" stop-opacity="0.7"/>
-        <stop offset="100%" stop-color="#0e0300" stop-opacity="0"/>
-      </radialGradient>
-    </defs>
-    <rect width="${W}" height="${H}" fill="url(#bg)"/>
-    <rect width="${W}" height="${H}" fill="url(#diag)"/>
-    <rect width="${W}" height="${H}" fill="url(#sun)"/>
-    <rect width="${W}" height="${H}" fill="url(#b2)"/>
-    <rect width="${W}" height="${H}" fill="url(#dark)"/>
-  </svg>`;
-  return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
-};
-export const COFFEE_BG = buildCoffeeWaves();
+export const COFFEE_BG = "url('/coffee-bg.png')";
 
 export const LIGHT = {
   BG: "#efe2cf", BG_DEEP: "#e3d0b4",
