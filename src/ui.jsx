@@ -173,14 +173,14 @@ export function StatTile({ value, label, color }) {
 
 // ── Modal: adaptive width, sheet or centered ───────────────────
 // size: "sm"|"md"|"lg" or a number (px). sheet=true → bottom sheet.
-export function Modal({ open, onClose, children, size = "md", sheet = true, title, grabber = true, pad = true, footer }) {
+export function Modal({ open, onClose, children, size = "md", sheet = true, title, grabber = true, pad = true, footer, maxH }) {
   const { SURF_HI, SURFACE, BG, TEXT } = useContext(ThemeContext);
   const { shade, ink } = useFX();
   if (!open) return null;
-  const W = typeof size === "number" ? size : ({ sm: 380, md: 460, lg: 560 }[size] || 460);
+  const W = typeof size === "number" ? size : ({ sm: 380, md: 460, lg: 560 }[size] ?? size);
   const content = sheet
-    ? { maxWidth: W, width: "100%", margin: "0 auto", background: `linear-gradient(180deg,${SURFACE},${BG})`, borderRadius: `${RADIUS.modal}px ${RADIUS.modal}px 0 0`, padding: pad ? PAD.sheet : 0 }
-    : { maxWidth: W, width: "100%", margin: "0 16px", background: panel(SURF_HI, SURFACE), borderRadius: RADIUS.modal, padding: pad ? PAD.popup : 0, boxShadow: `0 20px 60px ${shade(0.6)}`, maxHeight: "88vh", overflowY: "auto" };
+    ? { maxWidth: W, width: "100%", margin: "0 auto", background: `linear-gradient(180deg,${SURFACE},${BG})`, borderRadius: `${RADIUS.modal}px ${RADIUS.modal}px 0 0`, padding: pad ? PAD.sheet : 0, ...(maxH ? { maxHeight: maxH, overflowY: "auto" } : {}) }
+    : { maxWidth: W, width: "100%", margin: "0 16px", background: panel(SURF_HI, SURFACE), borderRadius: RADIUS.modal, padding: pad ? PAD.popup : 0, boxShadow: `0 20px 60px ${shade(0.6)}`, maxHeight: maxH || "88vh", overflowY: "auto" };
   return (
     <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 200, background: shade(SCRIM), backdropFilter: "blur(8px)", display: "flex", alignItems: sheet ? "flex-end" : "center", justifyContent: "center" }}>
       <div onClick={e => e.stopPropagation()} className={sheet ? "modal-sheet-in" : "modal-pop-in"} style={content}>

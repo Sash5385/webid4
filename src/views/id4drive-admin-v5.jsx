@@ -2714,7 +2714,7 @@ function NewBookingModal({ data, onClose, onConfirm, settings, bookings = [] }) 
   );
 
   return (
-    <UIModal open={!!data} onClose={onClose} sheet size="lg" title="Новий запис">
+    <UIModal open={!!data} onClose={onClose} sheet={false} size="70vw" maxH="70vh" title="Новий запис">
         <div style={{display:"flex",flexDirection:"column",gap:16}}>
 
           {/* УЧЕНЬ */}
