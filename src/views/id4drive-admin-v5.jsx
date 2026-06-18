@@ -153,8 +153,8 @@ body, html, #root { margin:0; padding:0; }
 }
 .toggle.on .toggle-thumb { left: 23px; }
 
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-thumb { background: rgba(${INK},0.1); border-radius: 3px; }
+::-webkit-scrollbar { width: 6px; height: 30px; }
+::-webkit-scrollbar-thumb { background: rgba(${INK},0.18); border-radius: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 input[type="range"] { accent-color: ${ACCENT}; }
 .tabular { font-variant-numeric: tabular-nums; }
