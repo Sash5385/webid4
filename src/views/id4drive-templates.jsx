@@ -145,15 +145,13 @@ function SendModal({ tpl, onClose }) {
 
   return (
     <Modal open onClose={onClose} sheet size="lg" title="Надіслати шаблон"
-      footer={
-        <div style={{display:"flex",gap:10}}>
-          <Btn variant="ghost" flex={1} onClick={onClose}>Скасувати</Btn>
-          <Btn variant="primary" flex={2} disabled={selected.length===0||sending||sent}
-            onClick={handleSend}>
-            {sent ? "✅ Надіслано!" : sending ? "Надсилаємо…" : `${ch.emoji} Надіслати${selected.length>0?` (${selected.length})`:""}`}
-          </Btn>
-        </div>
-      }>
+      footer={<>
+        <Btn variant="ghost" flex={1} onClick={onClose}>Скасувати</Btn>
+        <Btn variant="primary" flex={1} disabled={selected.length===0||sending||sent}
+          onClick={handleSend}>
+          {sent ? "✅ Надіслано!" : sending ? "Надсилаємо…" : `${ch.emoji} Надіслати${selected.length>0?` (${selected.length})`:""}`}
+        </Btn>
+      </>}>
       <div style={{fontSize:12,color:DIM,marginTop:-12,marginBottom:18}}>«{tpl.title}»</div>
 
       {/* channel select */}
@@ -215,12 +213,10 @@ function EditModal({ tpl, onSave, onClose }) {
 
   return (
     <Modal open onClose={onClose} sheet size="lg" title={isNew?"Новий шаблон":"Редагування шаблону"}
-      footer={
-        <div style={{display:"flex",gap:10}}>
-          <Btn variant="ghost" flex={1} onClick={onClose}>Скасувати</Btn>
-          <Btn variant="primary" flex={2} disabled={!valid} onClick={()=>{ if(valid) onSave(form); }}>{isNew?"Створити":"Зберегти"}</Btn>
-        </div>
-      }>
+      footer={<>
+        <Btn variant="ghost" flex={1} onClick={onClose}>Скасувати</Btn>
+        <Btn variant="primary" flex={1} disabled={!valid} onClick={()=>{ if(valid) onSave(form); }}>{isNew?"Створити":"Зберегти"}</Btn>
+      </>}>
       {/* title */}
       <Field label="Назва шаблону" value={form.title} onChange={v=>upd("title",v)} placeholder="Наприклад: Нагадування за 24 год"/>
 

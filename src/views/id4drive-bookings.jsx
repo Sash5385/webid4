@@ -29,12 +29,10 @@ function AddToQueueModal({ onSave, onClose, svcs }) {
   const valid = form.name.trim() && form.phone.trim();
   return (
     <Modal open onClose={onClose} sheet size="md" title="⏳ Додати до черги"
-      footer={
-        <div style={{display:"flex",gap:10}}>
-          <Btn variant="ghost" flex={1} onClick={onClose}>Скасувати</Btn>
-          <Btn variant="primary" accent={PURPLE} flex={2} disabled={!valid} onClick={()=>valid&&onSave(form)}>Додати до черги</Btn>
-        </div>
-      }>
+      footer={<>
+        <Btn variant="ghost" flex={1} onClick={onClose}>Скасувати</Btn>
+        <Btn variant="primary" accent={PURPLE} flex={1} disabled={!valid} onClick={()=>valid&&onSave(form)}>Додати до черги</Btn>
+      </>}>
       {[{k:"name",label:"Ім'я учня",placeholder:"Ім'я Прізвище",type:"text"},{k:"phone",label:"Телефон",placeholder:"+380...",type:"tel"}].map(f=>(
         <div key={f.k} style={{marginBottom:12}}>
           <div style={{fontSize:10,color:"#5a5c62",letterSpacing:1,marginBottom:5}}>{f.label.toUpperCase()}</div>
@@ -67,15 +65,13 @@ function QueueOfferModal({ cancelledBk, waiting, queueMode, onInvite, onClose, s
   const toggle = id => setSelected(s=>s.includes(id)?s.filter(x=>x!==id):[...s,id]);
   return (
     <Modal open onClose={onClose} sheet size="md" title="⏳ Слот вільний!"
-      footer={
-        <div style={{display:"flex",gap:10}}>
-          <Btn variant="ghost" flex={1} onClick={onClose}>Пізніше</Btn>
-          <Btn variant="primary" accent={PURPLE} flex={2} disabled={selected.length===0}
-            onClick={()=>selected.length>0&&onInvite(waiting.filter(q=>selected.includes(q.id)))}>
-            👑 Запросити ({selected.length})
-          </Btn>
-        </div>
-      }>
+      footer={<>
+        <Btn variant="ghost" flex={1} onClick={onClose}>Пізніше</Btn>
+        <Btn variant="primary" accent={PURPLE} flex={1} disabled={selected.length===0}
+          onClick={()=>selected.length>0&&onInvite(waiting.filter(q=>selected.includes(q.id)))}>
+          👑 Запросити ({selected.length})
+        </Btn>
+      </>}>
       <div style={{fontSize:12,color:DIM,marginTop:-12,marginBottom:16}}>
         Є <b style={{color:PURPLE}}>{waiting.length}</b> {waiting.length===1?"учень":"учнів"} в черзі.
         Режим: <b style={{color:GOLD}}>{queueMode==="fifo"?"FIFO":queueMode==="broadcast"?"Broadcast":"Ручний"}</b>

@@ -93,14 +93,12 @@ function ServiceFormModal({ svc, onSave, onClose }) {
 
   return (
     <Modal open onClose={onClose} sheet size="lg" title={isNew?"Нова послуга":"Редагування послуги"}
-      footer={
-        <div style={{display:"flex",gap:10}}>
-          <Btn variant="ghost" flex={1} onClick={onClose}>Скасувати</Btn>
-          <Btn variant="primary" flex={2} disabled={!valid} onClick={()=>valid&&onSave(form)}>
-            {isNew?"Створити послугу":"Зберегти зміни"}
-          </Btn>
-        </div>
-      }>
+      footer={<>
+        <Btn variant="ghost" flex={1} onClick={onClose}>Скасувати</Btn>
+        <Btn variant="primary" flex={1} disabled={!valid} onClick={()=>valid&&onSave(form)}>
+          {isNew?"Створити послугу":"Зберегти зміни"}
+        </Btn>
+      </>}>
       {/* slot preview */}
       <div style={{marginBottom:16}}>
         <div style={{fontSize:10,color:FAINT,letterSpacing:1.5,textTransform:"uppercase",marginBottom:8}}>ПОПЕРЕДНІЙ ПЕРЕГЛЯД СЛОТУ</div>
