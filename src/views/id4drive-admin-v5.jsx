@@ -3439,51 +3439,65 @@ export default function App() {
 
   // Users map for TSC cross-reference
   const usersMapRef = useRef({});
+  const rawBookingsDataRef = useRef(null);
+
+  // processBookingsRef holds the latest version so async effect callbacks always use current setBookings/usersMapRef
+  const processBookingsRef = useRef(null);
+  processBookingsRef.current = (d) => {
+    if (!d) { setBookings([]); return; }
+    const today = new Date(); today.setHours(0,0,0,0);
+    const all = [];
+    Object.entries(d).forEach(([uid, userBkgs]) => {
+      if (!userBkgs) return;
+      Object.entries(userBkgs).forEach(([bkId, raw]) => {
+        if (!raw) return;
+        const timeStr = raw.time || (raw.startMin != null ? fmtTime(raw.startMin) : "00:00");
+        const [hh, mm] = timeStr.split(":").map(Number);
+        const dateStr = raw.date || "";
+        let day = 0;
+        if (dateStr) {
+          const bkDate = new Date(dateStr + "T00:00:00");
+          day = Math.round((bkDate - today) / 86400000);
+        }
+        all.push({
+          ...raw,
+          id:       raw.id || bkId,
+          _fbKey:   bkId,
+          userId:   uid,
+          day,
+          date:     dateStr,
+          startMin: raw.startMin ?? (hh * 60 + mm),
+          durMin:   raw.durMin ?? (raw.durationHours ? raw.durationHours * 60 : 60),
+          name:     raw.studentName || raw.name || "Учень",
+          phone:    raw.phone || "",
+          type:     raw.serviceType || raw.type || "private",
+          status:   raw.status || "confirmed",
+          tsc:      raw.tsc || usersMapRef.current[uid]?.profile?.tsc || usersMapRef.current[uid]?.tsc || "",
+          hoursDone: raw.hours || raw.hoursDone || 0,
+          categoryId: raw.categoryId || null,
+          isVipOnly:  raw.isVipOnly || false,
+        });
+      });
+    });
+    setBookings(all);
+  };
+
   useEffect(() => {
-    return onValue(ref(db, "users"), snap => { usersMapRef.current = snap.val() || {}; });
+    return onValue(ref(db, "users"), snap => {
+      usersMapRef.current = snap.val() || {};
+      // Re-process already-loaded bookings so TSC cross-reference applies after users arrive
+      if (rawBookingsDataRef.current !== null) {
+        processBookingsRef.current(rawBookingsDataRef.current);
+      }
+    });
   }, []);
 
   // Load bookings from Firebase (realtime)
   useEffect(() => {
     const r = ref(db, "bookings");
     const handler = onValue(r, snap => {
-      const d = snap.val();
-      if (!d) { setBookings([]); return; }
-      const today = new Date(); today.setHours(0,0,0,0);
-      const all = [];
-      Object.entries(d).forEach(([uid, userBkgs]) => {
-        if (!userBkgs) return;
-        Object.entries(userBkgs).forEach(([bkId, raw]) => {
-          if (!raw) return;
-          const timeStr = raw.time || (raw.startMin != null ? fmtTime(raw.startMin) : "00:00");
-          const [hh, mm] = timeStr.split(":").map(Number);
-          const dateStr = raw.date || "";
-          let day = 0;
-          if (dateStr) {
-            const bkDate = new Date(dateStr + "T00:00:00");
-            day = Math.round((bkDate - today) / 86400000);
-          }
-          all.push({
-            ...raw,
-            id:       raw.id || bkId,
-            _fbKey:   bkId,
-            userId:   uid,
-            day,
-            date:     dateStr,
-            startMin: raw.startMin ?? (hh * 60 + mm),
-            durMin:   raw.durMin ?? (raw.durationHours ? raw.durationHours * 60 : 60),
-            name:     raw.studentName || raw.name || "Учень",
-            phone:    raw.phone || "",
-            type:     raw.serviceType || raw.type || "private",
-            status:   raw.status || "confirmed",
-            tsc:      raw.tsc || usersMapRef.current[uid]?.profile?.tsc || usersMapRef.current[uid]?.tsc || "",
-            hoursDone: raw.hours || raw.hoursDone || 0,
-            categoryId: raw.categoryId || null,
-            isVipOnly:  raw.isVipOnly || false,
-          });
-        });
-      });
-      setBookings(all);
+      rawBookingsDataRef.current = snap.val();
+      processBookingsRef.current(snap.val());
     });
     return () => off(r, "value", handler);
   }, []);
