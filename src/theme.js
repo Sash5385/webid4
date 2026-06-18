@@ -31,29 +31,37 @@ const buildCoffeeWaves = () => {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid slice">
     <defs>
       <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%"   stop-color="#c8903a"/>
-        <stop offset="30%"  stop-color="#a06825"/>
-        <stop offset="60%"  stop-color="#5c2e0c"/>
-        <stop offset="100%" stop-color="#1a0800"/>
+        <stop offset="0%"   stop-color="#d4a040"/>
+        <stop offset="20%"  stop-color="#b87828"/>
+        <stop offset="50%"  stop-color="#7a3e10"/>
+        <stop offset="78%"  stop-color="#3a1605"/>
+        <stop offset="100%" stop-color="#0e0300"/>
       </linearGradient>
-      <radialGradient id="g1" cx="28%" cy="22%" r="50%">
-        <stop offset="0%"   stop-color="#f0c060" stop-opacity="0.42"/>
-        <stop offset="50%"  stop-color="#d48a18" stop-opacity="0.18"/>
+      <linearGradient id="diag" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%"   stop-color="#f8d060" stop-opacity="0.28"/>
+        <stop offset="45%"  stop-color="#c47820" stop-opacity="0.10"/>
+        <stop offset="100%" stop-color="#3a1200" stop-opacity="0"/>
+      </linearGradient>
+      <radialGradient id="sun" cx="22%" cy="18%" r="38%">
+        <stop offset="0%"   stop-color="#ffe070" stop-opacity="0.55"/>
+        <stop offset="35%"  stop-color="#e09820" stop-opacity="0.28"/>
+        <stop offset="70%"  stop-color="#b06010" stop-opacity="0.08"/>
+        <stop offset="100%" stop-color="#7a3800" stop-opacity="0"/>
+      </radialGradient>
+      <radialGradient id="b2" cx="68%" cy="8%" r="25%">
+        <stop offset="0%"   stop-color="#f0c040" stop-opacity="0.22"/>
         <stop offset="100%" stop-color="#8b4010" stop-opacity="0"/>
       </radialGradient>
-      <radialGradient id="g2" cx="72%" cy="12%" r="32%">
-        <stop offset="0%"   stop-color="#e8a820" stop-opacity="0.18"/>
-        <stop offset="100%" stop-color="#8b4010" stop-opacity="0"/>
-      </radialGradient>
-      <radialGradient id="g3" cx="50%" cy="85%" r="40%">
-        <stop offset="0%"   stop-color="#0e0400" stop-opacity="0.55"/>
-        <stop offset="100%" stop-color="#1a0800" stop-opacity="0"/>
+      <radialGradient id="dark" cx="50%" cy="100%" r="55%">
+        <stop offset="0%"   stop-color="#060100" stop-opacity="0.7"/>
+        <stop offset="100%" stop-color="#0e0300" stop-opacity="0"/>
       </radialGradient>
     </defs>
     <rect width="${W}" height="${H}" fill="url(#bg)"/>
-    <rect width="${W}" height="${H}" fill="url(#g1)"/>
-    <rect width="${W}" height="${H}" fill="url(#g2)"/>
-    <rect width="${W}" height="${H}" fill="url(#g3)"/>
+    <rect width="${W}" height="${H}" fill="url(#diag)"/>
+    <rect width="${W}" height="${H}" fill="url(#sun)"/>
+    <rect width="${W}" height="${H}" fill="url(#b2)"/>
+    <rect width="${W}" height="${H}" fill="url(#dark)"/>
   </svg>`;
   return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
 };
