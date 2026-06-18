@@ -474,6 +474,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   const holdTimerRef = useRef(null);
   const pendingDragRef = useRef(null);
   const dragEndedRef = useRef(false);
+  const resizeReadyRef = useRef(null);
   const swipeRef = useRef(null);
   const gridWrapRef = useRef(null);
   const vRangeRef   = useRef({ s: Math.max(0, PAST_DAYS - VBUF), e: PAST_DAYS + 30 });
@@ -811,6 +812,11 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
     if (mode === "top" || mode === "bottom") {
       navigator.vibrate?.(6);
       pendingDragRef.current = dragData;
+      holdTimerRef.current = setTimeout(() => {
+        if (!pendingDragRef.current || pendingDragRef.current.id !== b.id) return;
+        resizeReadyRef.current = b.id;
+        navigator.vibrate?.([15, 20, 35]);
+      }, 500);
       return;
     }
 
@@ -852,11 +858,20 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
         const pd = pendingDragRef.current;
         const moved = Math.hypot(e.clientY - pd.startClientY, e.clientX - pd.startClientX);
         if (pd.mode === "top" || pd.mode === "bottom" || pd.isBlock) {
-          // Resize або блок: активуємо drag відразу при русі >4px
+          if ((pd.mode === "top" || pd.mode === "bottom") && resizeReadyRef.current !== pd.id) {
+            // Hold не спрацював — скасовуємо resize якщо палець рухається (scroll wins)
+            if (moved > 8) {
+              clearTimeout(holdTimerRef.current);
+              pendingDragRef.current = null;
+            }
+            return;
+          }
+          // Блок або resize після hold: активуємо drag при русі >4px
           if (moved > 4) {
             clearTimeout(holdTimerRef.current);
             dragRef.current = {...pd};
             pendingDragRef.current = null;
+            resizeReadyRef.current = null;
             setDragId(pd.id);
             navigator.vibrate?.(18);
           }
@@ -976,6 +991,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
       pendingDragRef.current = null;
       setHoldId(null);
       quickCancelRef.current = null;
+      resizeReadyRef.current = null;
       xVisibleRef.current = false;
       setQuickCancelId(null);
       if (wasDragging) {
