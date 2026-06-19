@@ -100,9 +100,9 @@ export default function JournalView() {
 
   // event type colors come from theme — correct on both dark & kava
   const EVENT_TYPES = {
-    new:        { label: "Новий запис", color: theme.GREEN, icon: "+" },
-    cancel:     { label: "Скасовано",   color: theme.RED,   icon: "✕" },
-    reschedule: { label: "Перенос",     color: theme.GOLD,  icon: "↩" },
+    new:        { label: "Новий запис", color: theme.GREEN, icon: "📅" },
+    cancel:     { label: "Скасовано",   color: theme.RED,   icon: "✗" },
+    reschedule: { label: "Перенос",     color: theme.GOLD,  icon: "↔" },
   };
 
   const [events,     setEvents]    = useState([]);
