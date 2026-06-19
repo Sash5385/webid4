@@ -109,7 +109,6 @@ export default function JournalView() {
         <span style={{ fontSize: 10, color: theme.DIM }}>{events.length} подій</span>
       </div>
 
-      {/* List */}
       {filtered.length === 0 && (
         <div style={{ textAlign: "center", color: theme.DIM, fontSize: 13, paddingTop: 40 }}>
           {filter === "unread" ? "Немає нових подій" : "Журнал порожній"}
@@ -117,22 +116,19 @@ export default function JournalView() {
       )}
 
       {filtered.map((ev, i) => {
-        const meta  = EVENT_TYPES[ev.type] || { label: ev.type, color: theme.ACCENT, icon: "•" };
-        const isNew = ev.ts > prevReadAt;
+        const meta    = EVENT_TYPES[ev.type] || { label: ev.type, color: theme.ACCENT, icon: "•" };
+        const isNew   = ev.ts > prevReadAt;
         const byLabel = BY_LABEL[ev.by] || ev.by;
-        const sub = [meta.label, ev.slot, byLabel ? `від: ${byLabel}` : ""].filter(Boolean).join("  ·  ");
 
         return (
           <div key={ev.id}>
-            {/* Telegram-style row — fixed height */}
             <div style={{
               height: ROW_H,
               display: "flex",
               alignItems: "center",
               gap: 12,
-              paddingRight: 4,
             }}>
-              {/* Colored icon */}
+              {/* Icon */}
               <div style={{
                 width: 46, height: 46, borderRadius: 14, flexShrink: 0,
                 background: `${meta.color}22`,
@@ -141,38 +137,49 @@ export default function JournalView() {
                 fontSize: 20, fontWeight: 800, color: meta.color,
               }}>{meta.icon}</div>
 
-              {/* Content */}
+              {/* Text — type on top, name below */}
               <div style={{ flex: 1, minWidth: 0 }}>
-                {/* Top row: name + time */}
+                {/* Row 1: event type (left) + time (right) */}
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
+                  <span style={{
+                    fontSize: 12, fontWeight: 700,
+                    color: meta.color,
+                  }}>{meta.label}</span>
+                  <span style={{
+                    fontSize: 11, flexShrink: 0,
+                    color: isNew ? meta.color : theme.DIM,
+                    fontWeight: isNew ? 700 : 400,
+                  }}>{formatDT(ev.ts)}</span>
+                </div>
+
+                {/* Row 2: name · slot · by */}
+                <div style={{
+                  display: "flex", alignItems: "center", gap: 5,
+                  marginTop: 3, overflow: "hidden",
+                }}>
                   <span style={{
                     fontSize: 14, fontWeight: isNew ? 800 : 600,
                     color: theme.TEXT,
-                    overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1,
+                    overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flexShrink: 1,
                   }}>{ev.name}</span>
-                  <span style={{ fontSize: 11, color: isNew ? meta.color : theme.DIM, flexShrink: 0, fontWeight: isNew ? 700 : 400 }}>
-                    {formatDT(ev.ts)}
-                  </span>
-                </div>
-                {/* Bottom row: type · slot · by */}
-                <div style={{
-                  fontSize: 12, color: theme.DIM,
-                  marginTop: 3,
-                  overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-                }}>
-                  <span style={{ color: meta.color, fontWeight: 600 }}>{meta.label}</span>
-                  {ev.slot && <span>{"  ·  "}{ev.slot}</span>}
-                  {byLabel  && <span>{"  ·  "}від: {byLabel}</span>}
+                  {ev.slot && (
+                    <span style={{ fontSize: 11, color: theme.DIM, flexShrink: 0, whiteSpace: "nowrap" }}>· {ev.slot}</span>
+                  )}
+                  {byLabel && (
+                    <span style={{ fontSize: 11, color: theme.DIM, flexShrink: 0, whiteSpace: "nowrap" }}>· від: {byLabel}</span>
+                  )}
                 </div>
               </div>
 
               {/* Unread dot */}
               {isNew && (
-                <div style={{ width: 9, height: 9, borderRadius: "50%", background: meta.color, flexShrink: 0 }} />
+                <div style={{
+                  width: 9, height: 9, borderRadius: "50%",
+                  background: meta.color, flexShrink: 0,
+                }} />
               )}
             </div>
 
-            {/* Divider (skip after last) */}
             {i < filtered.length - 1 && (
               <div style={{ height: 1, background: theme.BORDER, marginLeft: 58 }} />
             )}
