@@ -2,46 +2,47 @@
 
 ---
 
-# Обязательный рабочий процесс (выполнять ВСЕГДА)
+# ⚡ ОБЯЗАТЕЛЬНЫЙ ПОРЯДОК РАБОТЫ (читать перед каждой задачей)
 
-## Шаг 1 — Git Pull всех репозиториев
+## Шаг 0 — Уточнение (ВСЕГДА, до любых действий)
 
-Перед любой работой:
+Перед тем как что-либо исправлять, создавать или менять — **обязательно уточнить и спросить**.
+Не начинать реализацию без подтверждения от пользователя.
+
+## Шаг 1 — Git pull всех репозиториев
 
 ```bash
-git pull
+cd /home/user/webid4          && git pull origin master
+cd /home/user/webOlhaDrive    && git pull origin main
+cd /home/user/webID4client    && git pull origin master
+cd /home/user/webOlhaDriveClient && git pull origin main
 ```
-
-Повторить для каждого репозитория проекта.
 
 ## Шаг 2 — Проверить текущую версию
 
-Открыть `src/version.js` и запомнить текущую версию.
-
-## Шаг 3 — Уточнить задачу
-
-**ОБЯЗАТЕЛЬНО** перед любыми изменениями:
-- задать уточняющие вопросы;
-- убедиться, что задача понята правильно;
-- НЕ приступать к работе без подтверждения.
-
-## Шаг 4 — Выполнить задачу
-
-Только после подтверждения — делать фикс, новую функцию или изменение.
-
-## Шаг 5 — Обновить версию
-
-После завершения задачи обновить `APP_VERSION` в `src/version.js` по формату `vДД.ММ.N`.
-
-## Шаг 6 — Push и деплой
-
 ```bash
-git add .
-git commit -m "описание изменений"
-git push origin master
+cat /home/user/webid4/src/version.js
+cat /home/user/webOlhaDrive/src/version.js
 ```
 
-Деплой запускается автоматически через GitHub Actions.
+## Шаг 3 — Сделать фикс или новую функцию
+
+Только после шагов 0–2.
+
+## Шаг 4 — Обновить версию
+
+Формат: `vДД.ММ.N` (N — порядковый номер за день).
+Обновить в обоих файлах: `src/version.js`.
+
+## Шаг 5 — Запушить и задеплоить
+
+```bash
+# webid4
+git add . && git commit -m "..." && git checkout master && git pull --rebase origin master && git merge <branch> --no-edit && git push origin master && git checkout <branch>
+
+# webOlhaDrive
+git add . && git commit -m "..." && git checkout main && git pull --rebase origin main && git merge <branch> --no-edit && git push origin main && git checkout <branch>
+```
 
 ---
 
