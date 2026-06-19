@@ -397,3 +397,17 @@ npm run type-check
 - Триггер: push в ветку `master`
 - Workflow: `.github/workflows/deploy.yml`
 - Команда: `firebase deploy --only hosting`
+
+## Правило автодеплоя
+
+**После каждого фикса** — обязательно:
+
+```bash
+git checkout master
+git pull --rebase origin master
+git merge <feature-branch> --no-edit
+git push origin master
+git checkout <feature-branch>
+```
+
+Деплой запускается автоматически через GitHub Actions при каждом push в `master`.
