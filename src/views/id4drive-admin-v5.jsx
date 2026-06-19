@@ -156,6 +156,8 @@ body, html, #root { margin:0; padding:0; }
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-thumb { background: rgba(${INK},0.1); border-radius: 3px; }
 ::-webkit-scrollbar-track { background: transparent; }
+.schedule-scroll::-webkit-scrollbar { height: 24px; }
+.schedule-scroll::-webkit-scrollbar-thumb { background: rgba(${INK},0.2); border-radius: 8px; min-width: 60px; }
 input[type="range"] { accent-color: ${ACCENT}; }
 .tabular { font-variant-numeric: tabular-nums; }
 .drum-scroll::-webkit-scrollbar { display: none; }
@@ -362,6 +364,7 @@ const DEFAULT_SETTINGS = {
   studentCanCancel: true,
   bookCutoffHours: 2,       // min hours before slot for booking
   calendarOpenDays: 30,     // how many days ahead visible to students
+  minBookingIntervalDays: 0, // min days between any two bookings (0 = disabled)
   // sticky time
   stickyTime: "both",       // before | after | both
   // notifications display
@@ -474,6 +477,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   const holdTimerRef = useRef(null);
   const pendingDragRef = useRef(null);
   const dragEndedRef = useRef(false);
+  const resizeReadyRef = useRef(null);
   const swipeRef = useRef(null);
   const gridWrapRef = useRef(null);
   const vRangeRef   = useRef({ s: Math.max(0, PAST_DAYS - VBUF), e: PAST_DAYS + 30 });
@@ -811,6 +815,11 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
     if (mode === "top" || mode === "bottom") {
       navigator.vibrate?.(6);
       pendingDragRef.current = dragData;
+      holdTimerRef.current = setTimeout(() => {
+        if (!pendingDragRef.current || pendingDragRef.current.id !== b.id) return;
+        resizeReadyRef.current = b.id;
+        navigator.vibrate?.([15, 20, 35]);
+      }, 500);
       return;
     }
 
@@ -852,11 +861,20 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
         const pd = pendingDragRef.current;
         const moved = Math.hypot(e.clientY - pd.startClientY, e.clientX - pd.startClientX);
         if (pd.mode === "top" || pd.mode === "bottom" || pd.isBlock) {
-          // Resize або блок: активуємо drag відразу при русі >4px
+          if ((pd.mode === "top" || pd.mode === "bottom") && resizeReadyRef.current !== pd.id) {
+            // Hold не спрацював — скасовуємо resize якщо палець рухається (scroll wins)
+            if (moved > 8) {
+              clearTimeout(holdTimerRef.current);
+              pendingDragRef.current = null;
+            }
+            return;
+          }
+          // Блок або resize після hold: активуємо drag при русі >4px
           if (moved > 4) {
             clearTimeout(holdTimerRef.current);
             dragRef.current = {...pd};
             pendingDragRef.current = null;
+            resizeReadyRef.current = null;
             setDragId(pd.id);
             navigator.vibrate?.(18);
           }
@@ -976,6 +994,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
       pendingDragRef.current = null;
       setHoldId(null);
       quickCancelRef.current = null;
+      resizeReadyRef.current = null;
       xVisibleRef.current = false;
       setQuickCancelId(null);
       if (wasDragging) {
@@ -1237,6 +1256,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
             computeVRange();
           }}
           onContextMenu={e=>e.preventDefault()}
+          className="schedule-scroll"
           style={{flex:1, overflowX:"auto", overflowY:"auto", touchAction:"pan-x pan-y", WebkitOverflowScrolling:"touch", userSelect:"none", WebkitUserSelect:"none"}}
         >
           <div ref={gridWrapRef} style={{display:"flex", paddingTop:2}}>
@@ -1606,8 +1626,8 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                           : "Приватний";
                         const allLines = [
                           { text: fName,     w: 800, c: ink(0.95) },
-                          { text: typeLabel, w: 600, c: ink(0.58) },
                           ...(lName          ? [{ text: lName,     w: 700, c: ink(0.80) }] : []),
+                          { text: typeLabel, w: 600, c: ink(0.58) },
                           ...(priceText      ? [{ text: priceText, w: 900, c: priceColor }] : []),
                         ];
                         const availH = height - 6;
@@ -2349,15 +2369,17 @@ function BookingModal({ booking, onClose, onAction, settings }) {
   const IcoChat  = <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>;
 
   return (
-    <UIModal open={!!booking} onClose={onClose} sheet={false} size={340}>
-      <div style={{overflow:"hidden",borderRadius:14}}>
+    <UIModal open={!!booking} onClose={onClose} sheet={false} size={340} title="Деталі запису" pad={false}
+      footer={<>
+        <button onClick={() => onAction("call", booking)} style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",gap:7,padding:"11px",borderRadius:14,border:"none",cursor:"pointer",background:"linear-gradient(145deg,#34d399,#059669)",boxShadow:"0 4px 14px rgba(52,211,153,0.35)",color:"#fff",fontSize:13,fontWeight:800,fontFamily:"inherit"}}>{IcoPhone} Дзвонити</button>
+        <button onClick={() => onAction("chat", booking)} style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",gap:7,padding:"11px",borderRadius:14,border:"none",cursor:"pointer",background:`linear-gradient(145deg,${SURFACE_HI},${SURFACE})`,boxShadow:SHADOW_OUT,color:BLUE,fontSize:13,fontWeight:800,fontFamily:"inherit"}}>{IcoChat} Чат</button>
+      </>}>
         {/* Student row */}
         <div style={{
           display:"flex", alignItems:"center", gap:11,
           padding:"14px 14px 12px",
           borderBottom:`1px solid ${ink(0.06)}`,
           background:`linear-gradient(135deg,${c}18,${c}08)`,
-          margin:"-20px -18px 0",
         }}>
           <div style={{
             width:40, height:40, borderRadius:12, flexShrink:0,
@@ -2426,24 +2448,6 @@ function BookingModal({ booking, onClose, onAction, settings }) {
           </div>
         )}
 
-        {/* Action buttons */}
-        <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, padding:"12px 12px 14px"}}>
-          <button onClick={() => onAction("call", booking)} style={{
-            display:"flex", alignItems:"center", justifyContent:"center", gap:7,
-            padding:"11px", borderRadius:14, border:"none", cursor:"pointer",
-            background:"linear-gradient(145deg,#34d399,#059669)",
-            boxShadow:"0 4px 14px rgba(52,211,153,0.35)",
-            color:"#fff", fontSize:13, fontWeight:800,
-          }}>{IcoPhone} Дзвонити</button>
-          <button onClick={() => onAction("chat", booking)} style={{
-            display:"flex", alignItems:"center", justifyContent:"center", gap:7,
-            padding:"11px", borderRadius:14, border:"none", cursor:"pointer",
-            background:`linear-gradient(145deg,${SURFACE_HI},${SURFACE})`,
-            boxShadow:SHADOW_OUT,
-            color:BLUE, fontSize:13, fontWeight:800,
-          }}>{IcoChat} Чат</button>
-        </div>
-
         {/* Cancel link */}
         <button onClick={() => { onAction("cancel", booking); onClose(); }} style={{
           width:"100%", padding:"9px", border:"none", cursor:"pointer",
@@ -2451,7 +2455,6 @@ function BookingModal({ booking, onClose, onAction, settings }) {
           color:"rgba(248,113,113,0.7)", fontSize:11, fontWeight:600,
         }}>Скасувати запис</button>
 
-      </div>
     </UIModal>
   );
 }
@@ -2591,12 +2594,10 @@ function PersonalEventModal({ data, onClose, onConfirm }) {
   return (
     <UIModal open={!!data} onClose={onClose} sheet size="md"
       title="📌 Особиста подія"
-      footer={
-        <div style={{display:"flex",gap:10}}>
-          <button onClick={onClose} style={{flex:1,padding:13,borderRadius:14,border:"none",cursor:"pointer",background:`linear-gradient(145deg,${SURF_HI},${SURFACE})`,color:TEXT_DIM,fontSize:13,fontWeight:700,fontFamily:"inherit",boxShadow:SO}}>Скасувати</button>
-          <button onClick={handleSave} disabled={!canSave} style={{flex:2,padding:13,borderRadius:14,border:"none",cursor:canSave?"pointer":"default",background:canSave?`linear-gradient(135deg,${TEAL},#0d9488)`:`${ink(0.07)}`,color:canSave?"#fff":TEXT_FAINT,fontSize:13,fontWeight:800,fontFamily:"inherit",boxShadow:canSave?`0 4px 20px ${TEAL}55`:"none",transition:"all .2s"}}>Зберегти</button>
-        </div>
-      }>
+      footer={<>
+        <button onClick={onClose} style={{flex:1,padding:13,borderRadius:14,border:"none",cursor:"pointer",background:`linear-gradient(145deg,${SURF_HI},${SURFACE})`,color:TEXT_DIM,fontSize:13,fontWeight:700,fontFamily:"inherit",boxShadow:SO}}>Скасувати</button>
+        <button onClick={handleSave} disabled={!canSave} style={{flex:1,padding:13,borderRadius:14,border:"none",cursor:canSave?"pointer":"default",background:canSave?`linear-gradient(135deg,${TEAL},#0d9488)`:`${ink(0.07)}`,color:canSave?"#fff":TEXT_FAINT,fontSize:13,fontWeight:800,fontFamily:"inherit",boxShadow:canSave?`0 4px 20px ${TEAL}55`:"none",transition:"all .2s"}}>Зберегти</button>
+      </>}>
       <div style={{fontSize:12,color:TEXT_DIM,marginTop:-14,marginBottom:18}}>{data.dateStr} · {data.time}</div>
 
       <SL>Назва події</SL>
@@ -2660,7 +2661,7 @@ function NewBookingModal({ data, onClose, onConfirm, settings, bookings = [] }) 
       const d = snap.val() || {};
       setStudents(Object.entries(d).map(([uid, u]) => {
         const p = u.profile || {};
-        return { id:uid, name:p.name||u.name||"Учень", phone:p.phone||u.phone||"" };
+        return { id:uid, name:p.name||u.name||"Учень", phone:p.phone||u.phone||"", tsc:p.tsc||u.tsc||"" };
       }).filter(s=>s.name!=="Учень"||s.phone));
     });
     return () => off(r, "value", handler);
@@ -2713,8 +2714,26 @@ function NewBookingModal({ data, onClose, onConfirm, settings, bookings = [] }) 
       textTransform:"uppercase",marginBottom:7}}>{children}</div>
   );
 
+  const handleConfirm = () => {
+    if(!canConfirm) return;
+    const today = new Date(); today.setHours(0,0,0,0);
+    const d = new Date(today); d.setDate(d.getDate() + dateOffset);
+    const dateStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    onConfirm({
+      id:`b-${Date.now()}`,
+      day:dateOffset, date:dateStr, startMin:timeVal, durMin:selSvc.duration,
+      name:finalName, phone:finalPhone, serviceId:selSvc.id,
+      type:selSvc.type||"private", status:"confirmed",
+      tsc: selSvc?.type==="school" ? tsc.trim() : "", hoursDone:0, categoryId:null, isVipOnly:false,
+      userId: (!isNewStudent && selStudent?.id) ? selStudent.id : null,
+      ...(note.trim() && { note:note.trim() }),
+    });
+    onClose();
+  };
+
   return (
-    <UIModal open={!!data} onClose={onClose} sheet size="lg" title="Новий запис">
+    <UIModal open={!!data} onClose={onClose} sheet={false} size="70vw" maxH="70vh" title="Новий запис"
+      footer={<button disabled={!canConfirm} onClick={handleConfirm} style={{flex:1,width:"100%",padding:"14px",borderRadius:14,border:"none",cursor:"pointer",fontFamily:"inherit",background:canConfirm?`linear-gradient(160deg,${GREEN},#4ade80)`:`${SURFACE_LO}`,color:canConfirm?"#fff":TEXT_FAINT,fontSize:15,fontWeight:800,letterSpacing:0.2,boxShadow:canConfirm?`0 6px 20px ${GREEN}55`:SHADOW_OUT,transition:"all .2s"}}>✓ Записати</button>}>
         <div style={{display:"flex",flexDirection:"column",gap:16}}>
 
           {/* УЧЕНЬ */}
@@ -2774,7 +2793,7 @@ function NewBookingModal({ data, onClose, onConfirm, settings, bookings = [] }) 
                     </div>
                   )}
                   {filtered.slice(0,6).map(s=>(
-                    <div key={s.id} onClick={()=>{setSelStudent(s);setPhone(s.phone);setSearch("");}}
+                    <div key={s.id} onClick={()=>{setSelStudent(s);setPhone(s.phone);setSearch("");if(s.tsc)setTsc(s.tsc);}}
                       style={{display:"flex",alignItems:"center",justifyContent:"space-between",
                         padding:"9px 13px",cursor:"pointer",borderBottom:`1px solid ${BORDER}`,background:BG_DEEP}}>
                       <div style={{fontSize:13,fontWeight:700,color:TEXT}}>{s.name}</div>
@@ -2920,31 +2939,6 @@ function NewBookingModal({ data, onClose, onConfirm, settings, bookings = [] }) 
               background:SURFACE_LO,color:TEXT,fontSize:13,outline:"none",
             }}
           />
-
-          {/* CONFIRM */}
-          <button disabled={!canConfirm} onClick={()=>{
-            if(!canConfirm) return;
-            const today = new Date(); today.setHours(0,0,0,0);
-            const d = new Date(today); d.setDate(d.getDate() + dateOffset);
-            const dateStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-            onConfirm({
-              id:`b-${Date.now()}`,
-              day:dateOffset, date:dateStr, startMin:timeVal, durMin:selSvc.duration,
-              name:finalName, phone:finalPhone, serviceId:selSvc.id,
-              type:selSvc.type||"private", status:"confirmed",
-              tsc: selSvc?.type==="school" ? tsc.trim() : "", hoursDone:0, categoryId:null, isVipOnly:false,
-              userId: (!isNewStudent && selStudent?.id) ? selStudent.id : null,
-              ...(note.trim() && { note:note.trim() }),
-            });
-            onClose();
-          }} style={{
-            width:"100%",padding:"14px",borderRadius:14,border:"none",cursor:"pointer",fontFamily:"inherit",
-            background:canConfirm?`linear-gradient(160deg,${GREEN},#4ade80)`:`${SURFACE_LO}`,
-            color:canConfirm?"#fff":TEXT_FAINT,
-            fontSize:15,fontWeight:800,letterSpacing:0.2,
-            boxShadow:canConfirm?`0 6px 20px ${GREEN}55`:SHADOW_OUT,
-            transition:"all .2s",
-          }}>✓ Записати</button>
 
         </div>
     </UIModal>
@@ -3439,51 +3433,65 @@ export default function App() {
 
   // Users map for TSC cross-reference
   const usersMapRef = useRef({});
+  const rawBookingsDataRef = useRef(null);
+
+  // processBookingsRef holds the latest version so async effect callbacks always use current setBookings/usersMapRef
+  const processBookingsRef = useRef(null);
+  processBookingsRef.current = (d) => {
+    if (!d) { setBookings([]); return; }
+    const today = new Date(); today.setHours(0,0,0,0);
+    const all = [];
+    Object.entries(d).forEach(([uid, userBkgs]) => {
+      if (!userBkgs) return;
+      Object.entries(userBkgs).forEach(([bkId, raw]) => {
+        if (!raw) return;
+        const timeStr = raw.time || (raw.startMin != null ? fmtTime(raw.startMin) : "00:00");
+        const [hh, mm] = timeStr.split(":").map(Number);
+        const dateStr = raw.date || "";
+        let day = 0;
+        if (dateStr) {
+          const bkDate = new Date(dateStr + "T00:00:00");
+          day = Math.round((bkDate - today) / 86400000);
+        }
+        all.push({
+          ...raw,
+          id:       raw.id || bkId,
+          _fbKey:   bkId,
+          userId:   uid,
+          day,
+          date:     dateStr,
+          startMin: raw.startMin ?? (hh * 60 + mm),
+          durMin:   raw.durMin ?? (raw.durationHours ? raw.durationHours * 60 : 60),
+          name:     raw.studentName || raw.name || "Учень",
+          phone:    raw.phone || "",
+          type:     raw.serviceType || raw.type || "private",
+          status:   raw.status || "confirmed",
+          tsc:      raw.tsc || usersMapRef.current[uid]?.profile?.tsc || usersMapRef.current[uid]?.tsc || "",
+          hoursDone: raw.hours || raw.hoursDone || 0,
+          categoryId: raw.categoryId || null,
+          isVipOnly:  raw.isVipOnly || false,
+        });
+      });
+    });
+    setBookings(all);
+  };
+
   useEffect(() => {
-    return onValue(ref(db, "users"), snap => { usersMapRef.current = snap.val() || {}; });
+    return onValue(ref(db, "users"), snap => {
+      usersMapRef.current = snap.val() || {};
+      // Re-process already-loaded bookings so TSC cross-reference applies after users arrive
+      if (rawBookingsDataRef.current !== null) {
+        processBookingsRef.current(rawBookingsDataRef.current);
+      }
+    });
   }, []);
 
   // Load bookings from Firebase (realtime)
   useEffect(() => {
     const r = ref(db, "bookings");
     const handler = onValue(r, snap => {
-      const d = snap.val();
-      if (!d) { setBookings([]); return; }
-      const today = new Date(); today.setHours(0,0,0,0);
-      const all = [];
-      Object.entries(d).forEach(([uid, userBkgs]) => {
-        if (!userBkgs) return;
-        Object.entries(userBkgs).forEach(([bkId, raw]) => {
-          if (!raw) return;
-          const timeStr = raw.time || (raw.startMin != null ? fmtTime(raw.startMin) : "00:00");
-          const [hh, mm] = timeStr.split(":").map(Number);
-          const dateStr = raw.date || "";
-          let day = 0;
-          if (dateStr) {
-            const bkDate = new Date(dateStr + "T00:00:00");
-            day = Math.round((bkDate - today) / 86400000);
-          }
-          all.push({
-            ...raw,
-            id:       raw.id || bkId,
-            _fbKey:   bkId,
-            userId:   uid,
-            day,
-            date:     dateStr,
-            startMin: raw.startMin ?? (hh * 60 + mm),
-            durMin:   raw.durMin ?? (raw.durationHours ? raw.durationHours * 60 : 60),
-            name:     raw.studentName || raw.name || "Учень",
-            phone:    raw.phone || "",
-            type:     raw.serviceType || raw.type || "private",
-            status:   raw.status || "confirmed",
-            tsc:      raw.tsc || usersMapRef.current[uid]?.profile?.tsc || usersMapRef.current[uid]?.tsc || "",
-            hoursDone: raw.hours || raw.hoursDone || 0,
-            categoryId: raw.categoryId || null,
-            isVipOnly:  raw.isVipOnly || false,
-          });
-        });
-      });
-      setBookings(all);
+      rawBookingsDataRef.current = snap.val();
+      processBookingsRef.current(snap.val());
     });
     return () => off(r, "value", handler);
   }, []);

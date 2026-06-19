@@ -43,6 +43,16 @@ export async function registerAdminFCM() {
       const fresh = await navigator.serviceWorker.getRegistrations()
       swReg = fresh.find(isFbSw)
         || await navigator.serviceWorker.register('/firebase-messaging-sw.js', { scope: FCM_SCOPE })
+      // Wait for the SW to become active before FCM tries to subscribe
+      if (swReg && !swReg.active) {
+        await new Promise(resolve => {
+          const sw = swReg.installing || swReg.waiting
+          if (!sw) { resolve(); return; }
+          sw.addEventListener('statechange', function handler() {
+            if (this.state === 'activated') { sw.removeEventListener('statechange', handler); resolve(); }
+          })
+        })
+      }
     } catch (_) {
       swReg = undefined
     }

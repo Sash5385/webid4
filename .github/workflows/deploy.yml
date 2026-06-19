@@ -23,10 +23,4 @@ jobs:
         run: npm run build
 
       - name: Deploy to Firebase Hosting
-        uses: FirebaseExtended/action-hosting-deploy@v0
-        with:
-          repoToken: ${{ secrets.GITHUB_TOKEN }}
-          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-          projectId: id4drive-booking-44182
-          target: admin
-          channelId: live
+        run: npx firebase-tools deploy --only hosting:admin --token "${{ secrets.FIREBASE_TOKEN }}"

@@ -375,3 +375,39 @@ npm run type-check
 - Что сделано (1-2 строки)
 - Файл и строка если нужно
 - Никаких объяснений что такое и почему, если не спросили
+
+---
+
+# Версионирование деплоя
+
+После каждого пуша в master обязательно:
+
+1. Написать в чате номер обновления в формате: `Оновлення #N`
+2. Обновить константу `APP_VERSION` в `src/App.jsx` — она отображается внизу справа в навбаре
+3. Формат версии: `vДД.ММ.N` где N — порядковый номер обновления за день
+
+Пример: `v18.06.1`, `v18.06.2`, `v19.06.1`
+
+Цель: пользователь видит версию в UI и понимает, прошёл деплой или нет.
+
+## Текущий деплой
+
+- Платформа: Firebase Hosting (дефолтный сайт проекта `id4drive-booking-44182`)
+- Адрес: `admin.id4drive.pro`
+- Триггер: push в ветку `master`
+- Workflow: `.github/workflows/deploy.yml`
+- Команда: `firebase deploy --only hosting`
+
+## Правило автодеплоя
+
+**После каждого фикса** — обязательно:
+
+```bash
+git checkout master
+git pull --rebase origin master
+git merge <feature-branch> --no-edit
+git push origin master
+git checkout <feature-branch>
+```
+
+Деплой запускается автоматически через GitHub Actions при каждом push в `master`.

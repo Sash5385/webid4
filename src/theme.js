@@ -25,25 +25,7 @@ export const DARK = {
   STRIPE_A: "#1a1b1f", STRIPE_B: "#222428",
 };
 
-// ─── COFFEE GRAPHIC BACKGROUND (кавові шари, темна еспресо → крем) ──
-const COFFEE_LAYERS = ["#5C2A1A","#7A4A2E","#95603A","#B07C4E","#C49A6C","#D8B68C","#E9D2AE","#F5E8D0"];
-const buildCoffeeWaves = () => {
-  const W = 1440, H = 1024;
-  const lines = [150, 290, 430, 570, 710, 840, 950]; // верхня лінія шарів 2..8
-  let paths = `<rect width="${W}" height="${H}" fill="${COFFEE_LAYERS[0]}"/>`;
-  lines.forEach((y, i) => {
-    const A = 60 - i * 4;
-    const s = i % 2 === 0 ? 1 : -1;
-    const d = `M0,${y} `
-      + `C${W*0.18},${y - A*s} ${W*0.34},${y + A*s} ${W*0.5},${y} `
-      + `C${W*0.66},${y - A*s} ${W*0.82},${y + A*s} ${W},${y - A*0.4*s} `
-      + `L${W},${H} L0,${H} Z`;
-    paths += `<path d="${d}" fill="${COFFEE_LAYERS[i + 1]}"/>`;
-  });
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid slice">${paths}</svg>`;
-  return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
-};
-export const COFFEE_BG = buildCoffeeWaves();
+export const COFFEE_BG = "url('/coffee-bg.png')";
 
 export const LIGHT = {
   BG: "#efe2cf", BG_DEEP: "#e3d0b4",

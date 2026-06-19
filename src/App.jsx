@@ -5,6 +5,7 @@ import { useAdminAuth, LoginScreen } from "./AdminAuth";
 import { useAppUpdate } from "./hooks/useAppUpdate"
 import { setGlobalLang, createT } from "./lang";
 import { ThemeContext, getTheme } from "./theme.js";
+import { APP_VERSION } from "./version.js";
 
 export const LangContext = createContext('uk');
 
@@ -18,6 +19,7 @@ const ChatsView     = lazy(()=>import("./views/id4drive-chats"))
 const TemplatesView = lazy(()=>import("./views/id4drive-templates"))
 const StatsView     = lazy(()=>import("./views/id4drive-stats"))
 const QueueView     = lazy(()=>import("./views/id4drive-queue"))
+const JournalView   = lazy(()=>import("./views/id4drive-journal"))
 
 const Loader = () => (
   <ThemeContext.Consumer>
@@ -91,6 +93,9 @@ const makeTabIcons = (inactiveGr) => ({
   queue: (s,active) => <I3 s={s} r={s*0.3} gr={active?"linear-gradient(165deg,#c084fc,#7c3aed)":inactiveGr}>
     <svg width={s*.55} height={s*.55} viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
   </I3>,
+  journal: (s,active) => <I3 s={s} r={s*0.3} gr={active?"linear-gradient(165deg,#22d3ee,#0891b2)":inactiveGr}>
+    <svg width={s*.55} height={s*.55} viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="3" width="13" height="18" rx="2"/><line x1="8" y1="8" x2="13" y2="8"/><line x1="8" y1="12" x2="13" y2="12"/><line x1="8" y1="16" x2="11" y2="16"/><circle cx="18" cy="17" r="3.5"/><path d="M18 15.5V17l1 1"/></svg>
+  </I3>,
 });
 
 const TabIcons = makeTabIcons(INACTIVE_DARK);
@@ -98,6 +103,7 @@ const TabIcons = makeTabIcons(INACTIVE_DARK);
 // ─── TABS CONFIG ─────────────────────────────────────────────────
 const TAB_IDS = [
   { id:"schedule",  lk:"nav.schedule",  badge:null },
+  { id:"journal",   lk:"nav.journal",   badge:null },
   { id:"queue",     lk:"nav.queue",     badge:null },
   { id:"bookings",  lk:"nav.bookings",  badge:null },
   { id:"students",  lk:"nav.students",  badge:null },
@@ -111,12 +117,12 @@ const TAB_IDS = [
 const TAB_TITLES = {
   schedule:"Розклад", bookings:"Букінги", queue:"Черга", students:"Учні",
   services:"Послуги", chats:"Чати", templates:"Шаблони",
-  stats:"Статистика", settings:"Налаштування"
+  stats:"Статистика", journal:"Журнал", settings:"Налаштування"
 };
 
 
 // ─── BOTTOM NAV ──────────────────────────────────────────────────
-function BottomNav({ active, onChange, settings, chatUnread }) {
+function BottomNav({ active, onChange, settings, chatUnread, journalUnread }) {
   const lang = useContext(LangContext);
   const tl = createT(lang);
   const theme = useContext(ThemeContext);
@@ -165,13 +171,13 @@ function BottomNav({ active, onChange, settings, chatUnread }) {
               position:"relative"
             }}>
               {tabIcons[t.id]?.(34,active===t.id)}
-              {(t.id === 'chats' ? chatUnread : t.badge) > 0 && (
+              {(t.id === 'chats' ? chatUnread : t.id === 'journal' ? journalUnread : t.badge) > 0 && (
                 <div style={{
                   position:"absolute",top:-4,right:-4,
                   background:theme.ACCENT,color:"#fff",borderRadius:10,
                   padding:"1px 5px",fontSize:9,fontWeight:800,
                   boxShadow:`0 0 8px ${theme.ACCENT}88`,lineHeight:1.4
-                }}>{t.id === 'chats' ? chatUnread : t.badge}</div>
+                }}>{t.id === 'chats' ? chatUnread : t.id === 'journal' ? journalUnread : t.badge}</div>
               )}
             </div>
             <span style={{fontSize:9,fontWeight:700,color:active===t.id?theme.ACCENT:labelInactive,whiteSpace:"nowrap"}}>{tl(t.lk)}</span>
@@ -246,6 +252,7 @@ const INSTRUCTIONS = {
   chats:    "Листування з учнями. Клік на контакт — розгортає чат. ⚡ — швидкі відповіді.",
   templates:"Шаблони повідомлень. ➤ надіслати · ✏️ редагувати · 🗑 видалити.",
   stats:    "Статистика уроків, доходу і учнів за обраний період.",
+  journal:  "Журнал змін графіку. Нові записи, скасування, перенесення — з датою та часом події.",
   settings: "Налаштування розкладу, послуг, черги та автоматичних повідомлень.",
 };
 
@@ -362,7 +369,7 @@ const DEFAULT_SETTINGS = {
   theme:"dark", language:"uk", queueAutoFifo:true, queueBroadcast:false, queueManual:false,
   studentCanReschedule:true, studentCanCancel:true, bookCutoffHours:2, calendarOpenDays:30,
   stickyTime:"both", notifLocation:"topbar", showCompleteBtn:true,
-  navTabs:["schedule","bookings","students","services","chats","templates","stats","settings"],
+  navTabs:["schedule","journal","bookings","students","services","chats","templates","stats","settings"],
   autoReminders:[
     {enabled:true,  hoursBefore:24},
     {enabled:false, hoursBefore:2},
@@ -393,6 +400,7 @@ function ViewRenderer({ tab, settings, setSettings, bookings, setBookings, onSlo
   if (tab === "chats")     return <ChatsView/>;
   if (tab === "templates") return <TemplatesView/>;
   if (tab === "stats")     return <StatsView/>;
+  if (tab === "journal")   return <JournalView/>;
   return null;
 }
 
@@ -423,7 +431,10 @@ export default function App() {
   const [bookings,   setBookings] = useState(INITIAL_BOOKINGS);
   const [selectedBooking,  setSelectedBooking]  = useState(null);
   const [newBookingData,   setNewBookingData]    = useState(null);
-  const [chatUnread, setChatUnread] = useState(0);
+  const [chatUnread,    setChatUnread]    = useState(0);
+  const [journalUnread, setJournalUnread] = useState(0);
+  const usersMapRef = React.useRef({});
+  const rawBookingsSnapRef = React.useRef(null);
 
   const switchTab = t => {
     setTab(t);
@@ -433,14 +444,55 @@ export default function App() {
       setChatUnread(0);
       if ('clearAppBadge' in navigator) navigator.clearAppBadge();
     }
+    if (t === 'journal') setJournalUnread(0);
   };
   const toggleInfo = key => setOpenInfos(s => ({...s, [key]: !s[key]}));
+
+  // Initialize journal read timestamp on first ever app load
+  useEffect(() => {
+    if (!localStorage.getItem("journal_read_at")) {
+      localStorage.setItem("journal_read_at", Date.now().toString());
+    }
+  }, []);
 
   // Tab navigation via custom event (from child components)
   useEffect(() => {
     const nav = e => switchTab(e.detail);
     window.addEventListener("id4drive-nav", nav);
     return () => window.removeEventListener("id4drive-nav", nav);
+  }, []);
+
+  // Network version check — bypasses SW cache. On mismatch, fully reset the
+  // service worker + caches so a stuck client can never get wedged on old code.
+  useEffect(() => {
+    const hardReset = async () => {
+      try {
+        if ('serviceWorker' in navigator) {
+          const regs = await navigator.serviceWorker.getRegistrations();
+          await Promise.all(regs.map(r => r.unregister()));
+        }
+        if (window.caches) {
+          const keys = await caches.keys();
+          await Promise.all(keys.map(k => caches.delete(k)));
+        }
+      } catch {}
+      window.location.reload();
+    };
+    const check = async () => {
+      try {
+        const res = await fetch('/version.json?t=' + Date.now(), { cache: 'no-store' });
+        const { version } = await res.json();
+        if (version && version !== APP_VERSION) {
+          const flag = 'vreset_' + version;
+          if (sessionStorage.getItem(flag)) return; // guard against reload loops
+          sessionStorage.setItem(flag, '1');
+          hardReset();
+        }
+      } catch {}
+    };
+    check();
+    const id = setInterval(check, 60 * 1000);
+    return () => clearInterval(id);
   }, []);
 
   // Subscribe to unread chat count from chatMeta
@@ -522,7 +574,14 @@ export default function App() {
           // services come exclusively from admin_data/services listener — do not overwrite here
           categories:  Array.isArray(d.categories)  ? d.categories  : s.categories,
           weekends:    Array.isArray(d.weekends)     ? d.weekends    : s.weekends,
-          navTabs:      Array.isArray(d.navTabs)       ? d.navTabs      : s.navTabs,
+          navTabs: Array.isArray(d.navTabs)
+          ? (d.navTabs.includes('journal') ? d.navTabs : (() => {
+              const arr = [...d.navTabs];
+              const idx = arr.indexOf('schedule');
+              arr.splice(idx >= 0 ? idx + 1 : 0, 0, 'journal');
+              return arr;
+            })())
+          : s.navTabs,
           autoReminders: Array.isArray(d.autoReminders) ? d.autoReminders : s.autoReminders,
           weekSchedule:  Array.isArray(d.weekSchedule)  ? d.weekSchedule  : s.weekSchedule,
           dateOverrides: Array.isArray(d.dateOverrides)  ? d.dateOverrides : s.dateOverrides,
@@ -580,6 +639,59 @@ export default function App() {
   }, [settings, adminUser, settingsLoaded]);
 
   // Load bookings from Firebase
+  const processBookingsSnap = React.useCallback((data) => {
+    if (!data) return;
+    const all = [];
+    Object.entries(data).forEach(([uid, userBkgs]) => {
+      Object.entries(userBkgs).forEach(([key, b]) => {
+        if (b.status === 'cancelled') return;
+        const umap = usersMapRef.current[uid] || {};
+        const tsc = b.tsc || umap.profile?.tsc || umap.tsc || "";
+        all.push({
+          ...b,
+          id:        b.id || key,
+          _fbKey:    key,
+          userId:    uid,
+          day:       dateToDayIdx(b.date),
+          startMin:  b.startMin ?? (parseInt((b.time||"0:0").split(":")[0])*60 + parseInt((b.time||"0:0").split(":")[1])),
+          durMin:    b.durMin   ?? (b.durationHours ? b.durationHours*60 : 60),
+          name:      b.studentName || b.name || "Без імені",
+          type:      b.serviceType || b.type || "private",
+          tsc,
+        });
+      });
+    });
+    const allIds = new Set(all.map(fb => fb.id));
+    setBookings(prev => {
+      const prevMap = new Map(prev.map(b => [b.id, b]));
+      return all
+        .filter(fb => !pendingDeletesRef.current.has(fb.id))
+        .map(fb =>
+          (moveSaveTimers.current[fb.id] || activeDragIds.current.has(fb.id))
+            ? (prevMap.get(fb.id) || fb)
+            : fb
+        )
+        .concat(
+          prev.filter(b =>
+            !allIds.has(b.id) &&
+            !pendingDeletesRef.current.has(b.id) &&
+            b.status !== 'cancelled' &&
+            (moveSaveTimers.current[b.id] || activeDragIds.current.has(b.id))
+          )
+        );
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Keep users map fresh — reprocess bookings when it updates so TSC is always current
+  useEffect(() => {
+    if (!adminUser) return;
+    return onValue(ref(db, "users"), snap => {
+      usersMapRef.current = snap.val() || {};
+      if (rawBookingsSnapRef.current) processBookingsSnap(rawBookingsSnapRef.current);
+    });
+  }, [adminUser, processBookingsSnap]);
+
   useEffect(() => {
     if (!adminUser) {
       Object.values(moveSaveTimers.current).forEach(clearTimeout);
@@ -588,46 +700,21 @@ export default function App() {
     }
     return onValue(ref(db, "bookings"), snap => {
       const data = snap.val();
-      if (!data) return;
-      const all = [];
-      Object.entries(data).forEach(([uid, userBkgs]) => {
-        Object.entries(userBkgs).forEach(([key, b]) => {
-          if (b.status === 'cancelled') return;
-          all.push({
-            ...b,
-            id:        b.id || key,   // стабільний fallback — ключ вузла Firebase
-            _fbKey:    key,           // реальний ключ вузла для запису в Firebase
-            userId:    uid,
-            day:       dateToDayIdx(b.date),
-            startMin:  b.startMin ?? (parseInt((b.time||"0:0").split(":")[0])*60 + parseInt((b.time||"0:0").split(":")[1])),
-            durMin:    b.durMin   ?? (b.durationHours ? b.durationHours*60 : 60),
-            name:      b.studentName || b.name || "Без імені",
-            type:      b.serviceType || b.type || "private",
-          });
-        });
-      });
-
-      const allIds = new Set(all.map(fb => fb.id));
-      setBookings(prev => {
-        const prevMap = new Map(prev.map(b => [b.id, b]));
-        return all
-          .filter(fb => !pendingDeletesRef.current.has(fb.id))
-          .map(fb =>
-            (moveSaveTimers.current[fb.id] || activeDragIds.current.has(fb.id))
-              ? (prevMap.get(fb.id) || fb)
-              : fb
-          )
-          .concat(
-            prev.filter(b =>
-              !allIds.has(b.id) &&
-              !pendingDeletesRef.current.has(b.id) &&
-              b.status !== 'cancelled' &&
-              (moveSaveTimers.current[b.id] || activeDragIds.current.has(b.id))
-            )
-          );
-      });
+      rawBookingsSnapRef.current = data;
+      processBookingsSnap(data);
+      const readAt = parseInt(localStorage.getItem("journal_read_at") || "0", 10);
+      if (readAt && data) {
+        let cnt = 0;
+        Object.values(data).forEach(u => { if (u) Object.values(u).forEach(b => {
+          if (!b) return;
+          if (b.createdAt     && b.createdAt     > readAt) cnt++;
+          if (b.cancelledAt   && b.cancelledAt   > readAt) cnt++;
+          if (b.rescheduledAt && b.rescheduledAt > readAt) cnt++;
+        }); });
+        setJournalUnread(cnt);
+      }
     });
-  }, [adminUser]);
+  }, [adminUser, processBookingsSnap]);
 
   // Debounce map for move/resize saves (avoids Firebase write on every pointermove)
   const moveSaveTimers = React.useRef({});
@@ -825,7 +912,7 @@ const pendingDeletesRef = React.useRef(new Set());
             <ViewRenderer tab={tab} settings={settings} setSettings={setSettings} bookings={bookings} setBookings={handleSetBookings} onSlotClick={setSelectedBooking} onEmptySlotClick={setNewBookingData} openInfos={openInfos} toggleInfo={toggleInfo} activeDragIds={activeDragIds} navTo={switchTab} slotExistsRef={slotExistsRef} openSlotsRef={openSlotsRef}/>
           </Suspense>
         </div>
-        <BottomNav active={tab} onChange={switchTab} settings={settings} chatUnread={chatUnread}/>
+        <BottomNav active={tab} onChange={switchTab} settings={settings} chatUnread={chatUnread} journalUnread={journalUnread}/>
       </div>
       {needRefresh && (
         <div className={`update-banner${isUpdating ? ' update-banner--loading' : ''}`} onClick={updateServiceWorker}>

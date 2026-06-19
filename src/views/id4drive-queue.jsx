@@ -58,12 +58,10 @@ function AddModal({ onSave, onClose }) {
   const valid = form.name.trim() && form.phone.trim();
   return (
     <Modal open onClose={onClose} sheet size="lg" title="⏳ Додати до черги"
-      footer={
-        <div style={{display:"flex",gap:10}}>
-          <Btn variant="ghost"  flex={1} onClick={onClose}>Скасувати</Btn>
-          <Btn variant="primary" accent={PURPLE} flex={2} disabled={!valid} onClick={()=>valid&&onSave(form)}>Додати до черги</Btn>
-        </div>
-      }>
+      footer={<>
+        <Btn variant="ghost" flex={1} onClick={onClose}>Скасувати</Btn>
+        <Btn variant="primary" accent={PURPLE} flex={1} disabled={!valid} onClick={()=>valid&&onSave(form)}>Додати до черги</Btn>
+      </>}>
       <Field label="Ім'я учня" value={form.name}  onChange={v=>upd("name",v)}  placeholder="Ім'я Прізвище"/>
       <Field label="Телефон"   value={form.phone} onChange={v=>upd("phone",v)} placeholder="+380..."/>
       <div style={{marginBottom:12}}>
