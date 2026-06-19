@@ -94,12 +94,15 @@ function Radio({ on, onChange }) {
 }
 
 function Row({ label, hint, children, last }) {
-  const { TEXT, FAINT, BORDER } = useContext(ThemeContext);
+  const { BG_DEEP, SURF_LO, TEXT, FAINT, SI } = useContext(ThemeContext);
   return (
     <div style={{
       display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,
-      padding:"7px 0",
-      borderBottom:last?`none`:`1px solid ${BORDER}`,
+      padding:"7px 10px",
+      borderRadius:10,
+      background:`linear-gradient(145deg,${BG_DEEP},${SURF_LO})`,
+      boxShadow:SI,
+      marginBottom: last ? 0 : 5,
     }}>
       <div style={{flex:1,minWidth:0}}>
         <div style={{fontSize:13,fontWeight:600,color:TEXT}}>{label}</div>
@@ -280,7 +283,7 @@ select{color-scheme:${isKava?"light":"dark"}}
       case "snap": return (
         <div>
           {showHint && <Info color={TEAL} title={t('set.snap.info_t')} text={t('set.snap.info')}/>}
-          <div style={{paddingTop:12}}>
+          <div style={{borderRadius:10,padding:"10px",marginBottom:5,background:`linear-gradient(145deg,${BG_DEEP},${SURF_LO})`,boxShadow:SI}}>
             <div style={{display:"flex",justifyContent:"space-between",marginBottom:8}}>
               <span style={{fontSize:12,color:DIM}}>{t('set.snap.label')}</span>
               <span style={{fontSize:13,fontWeight:800,color:ACCENT}}>{settings.snapMin} {t('min')}</span>
@@ -292,7 +295,7 @@ select{color-scheme:${isKava?"light":"dark"}}
               ))}
             </div>
           </div>
-          <div style={{paddingTop:12,borderTop:`1px solid ${BORDER}`,marginTop:12}}>
+          <div style={{borderRadius:10,padding:"10px",background:`linear-gradient(145deg,${BG_DEEP},${SURF_LO})`,boxShadow:SI}}>
             <div style={{display:"flex",justifyContent:"space-between",marginBottom:8}}>
               <span style={{fontSize:12,color:DIM}}>Крок слота (довгий тап)</span>
               <span style={{fontSize:13,fontWeight:800,color:TEAL}}>{settings.slotCreateStep ?? 30} хв</span>
@@ -472,9 +475,9 @@ select{color-scheme:${isKava?"light":"dark"}}
           </div>
           {(settings.surcharges || []).map((amt, i) => (
             <div key={i} style={{
-              display:"flex",alignItems:"center",gap:10,marginBottom:8,
-              padding:"10px 12px",borderRadius:12,
-              background:`linear-gradient(135deg,${SURF_HI},${SURFACE})`,boxShadow:SO,
+              display:"flex",alignItems:"center",gap:10,marginBottom:5,
+              padding:"10px 12px",borderRadius:10,
+              background:`linear-gradient(145deg,${BG_DEEP},${SURF_LO})`,boxShadow:SI,
             }}>
               <span style={{fontSize:13,color:GOLD,fontWeight:700,flex:1}}>Надбавка {i+1}</span>
               <NumInput
