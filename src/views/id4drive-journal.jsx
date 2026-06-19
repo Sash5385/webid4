@@ -105,8 +105,9 @@ export default function JournalView() {
     reschedule: { label: "Перенос",     color: theme.GOLD,  icon: "↩" },
   };
 
-  const [events,   setEvents]  = useState([]);
-  const [filter,   setFilter]  = useState("all");
+  const [events,     setEvents]    = useState([]);
+  const [filter,     setFilter]    = useState("all");
+  const [typeFilter, setTypeFilter] = useState("all");
   const [prevReadAt] = useState(getJournalReadAt);
 
   useEffect(() => {
@@ -118,7 +119,8 @@ export default function JournalView() {
   }, []);
 
   const unreadCount = events.filter(e => e.ts > prevReadAt).length;
-  const filtered    = filter === "unread" ? events.filter(e => e.ts > prevReadAt) : events;
+  const byRead      = filter === "unread" ? events.filter(e => e.ts > prevReadAt) : events;
+  const filtered    = typeFilter === "all" ? byRead : byRead.filter(e => e.type === typeFilter);
 
   return (
     <div style={{ display: "flex", flexDirection: "column" }}>
@@ -139,7 +141,28 @@ export default function JournalView() {
           }}>{lbl}</button>
         ))}
         <div style={{ flex: 1 }} />
-        <span style={{ fontSize: 10, color: theme.DIM }}>{events.length} подій</span>
+        <span style={{ fontSize: 10, color: theme.DIM }}>{filtered.length} подій</span>
+      </div>
+
+      {/* Type filter bar */}
+      <div style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 10, flexWrap: "wrap" }}>
+        {[
+          ["all",        "Всі типи",    theme.DIM],
+          ["cancel",     "Скасовано",   theme.RED],
+          ["new",        "Новий запис", theme.GREEN],
+          ["reschedule", "Перенос",     theme.GOLD],
+        ].map(([id, lbl, color]) => {
+          const active = typeFilter === id;
+          return (
+            <button key={id} onClick={() => setTypeFilter(id)} style={{
+              padding: "5px 12px", borderRadius: 12, border: `1.5px solid ${active ? color : "transparent"}`,
+              cursor: "pointer", fontSize: 11, fontWeight: 700,
+              background: active ? `${color}22` : theme.SURF_LO,
+              color: active ? color : theme.DIM,
+              transition: "all .15s",
+            }}>{lbl}</button>
+          );
+        })}
       </div>
 
       {filtered.length === 0 && (
