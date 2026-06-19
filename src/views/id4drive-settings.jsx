@@ -171,6 +171,8 @@ select{color-scheme:${isKava?"light":"dark"}}
   const updReminder = (idx, patch) => upd("autoReminders", reminders.map((r,i)=>i===idx?{...r,...patch}:r));
 
   const [active, setActive] = useState("schedule");
+  const [showHint, setShowHint] = useState(false);
+  const switchSection = (id) => { setActive(id); setShowHint(false); };
 
   const SECTIONS = [
     { id:"schedule",   icon:"🕐", color:BLUE,   title:t('set.schedule.title') },
@@ -190,7 +192,7 @@ select{color-scheme:${isKava?"light":"dark"}}
 
       case "schedule": return (
         <div>
-          <Info color={BLUE} title={t('set.schedule.info_t')} text={t('set.schedule.info')}/>
+          {showHint && <Info color={BLUE} title={t('set.schedule.info_t')} text={t('set.schedule.info')}/>}
           <Row label={t('set.schedule.start')} hint={t('set.schedule.hint_s')}>
             <NumInput value={settings.workStart} onChange={v=>{
               const clamped = Math.min(v, settings.workEnd - 1);
@@ -257,7 +259,7 @@ select{color-scheme:${isKava?"light":"dark"}}
 
       case "snap": return (
         <div>
-          <Info color={TEAL} title={t('set.snap.info_t')} text={t('set.snap.info')}/>
+          {showHint && <Info color={TEAL} title={t('set.snap.info_t')} text={t('set.snap.info')}/>}
           <div style={{paddingTop:12}}>
             <div style={{display:"flex",justifyContent:"space-between",marginBottom:8}}>
               <span style={{fontSize:12,color:DIM}}>{t('set.snap.label')}</span>
@@ -286,7 +288,7 @@ select{color-scheme:${isKava?"light":"dark"}}
 
       case "restr": return (
         <div>
-          <Info color={RED} title={t('set.restr.info_t')} text={t('set.restr.info')}/>
+          {showHint && <Info color={RED} title={t('set.restr.info_t')} text={t('set.restr.info')}/>}
           <Row label={t('set.restr.reschedule')}>
             <Toggle on={settings.studentCanReschedule} onChange={v=>upd("studentCanReschedule",v)}/>
           </Row>
@@ -307,7 +309,7 @@ select{color-scheme:${isKava?"light":"dark"}}
 
       case "queue": return (
         <div>
-          <Info color={GREEN} title={t('set.queue.info_t')} text={t('set.queue.info')}/>
+          {showHint && <Info color={GREEN} title={t('set.queue.info_t')} text={t('set.queue.info')}/>}
           <Row label={t('set.queue.require')} hint={t('set.queue.require_h')}>
             <Toggle on={settings.pendingEnabled} onChange={v=>upd("pendingEnabled",v)}/>
           </Row>
@@ -331,7 +333,7 @@ select{color-scheme:${isKava?"light":"dark"}}
 
       case "sticky": return (
         <div>
-          <Info color={BLUE} title={t('set.sticky.info_t')} text={t('set.sticky.info')}/>
+          {showHint && <Info color={BLUE} title={t('set.sticky.info_t')} text={t('set.sticky.info')}/>}
           <Row label={lang==="en"?"Enable feature":"Увімкнути"} hint={lang==="en"?"When off — all adjacent free slots are shown":"Вимкнено — всі вільні слоти видно завжди"}>
             <Toggle on={settings.stickyTimeEnabled !== false} onChange={v=>upd("stickyTimeEnabled",v)}/>
           </Row>
@@ -353,7 +355,7 @@ select{color-scheme:${isKava?"light":"dark"}}
 
       case "auto": return (
         <div>
-          <Info color={GOLD} title={t('set.auto.info_t')} text={t('set.auto.info')}/>
+          {showHint && <Info color={GOLD} title={t('set.auto.info_t')} text={t('set.auto.info')}/>}
           <div style={{paddingTop:10,display:"flex",flexDirection:"column",gap:7}}>
             <div style={{fontSize:9,color:FAINT,letterSpacing:1,textTransform:"uppercase",marginBottom:2}}>{t('set.auto.reminder')}</div>
             {reminders.map((r,i)=>(
@@ -386,7 +388,7 @@ select{color-scheme:${isKava?"light":"dark"}}
 
       case "nav": return (
         <div>
-          <Info color={BLUE} title={t('set.nav.info_t')} text={t('set.nav.info')}/>
+          {showHint && <Info color={BLUE} title={t('set.nav.info_t')} text={t('set.nav.info')}/>}
           {ALL_TABS.map((tab,i)=>(
             <Row key={tab.id} label={t(tab.lk)} last={i===ALL_TABS.length-1}>
               <Toggle
@@ -404,7 +406,7 @@ select{color-scheme:${isKava?"light":"dark"}}
 
       case "look": return (
         <div>
-          <Info color={PURPLE} title={t('set.look.info_t')} text={t('set.look.info')}/>
+          {showHint && <Info color={PURPLE} title={t('set.look.info_t')} text={t('set.look.info')}/>}
           <Row label={t('set.look.theme')}>
             <div style={{display:"flex",gap:6}}>
               {[["dark","🌙 Темна"],["light","☕ Кава"]].map(([k,l])=>(
@@ -479,7 +481,7 @@ select{color-scheme:${isKava?"light":"dark"}}
           {SECTIONS.map(sec => {
             const isActive = active === sec.id;
             return (
-              <button key={sec.id} onClick={()=>setActive(sec.id)} style={{
+              <button key={sec.id} onClick={()=>switchSection(sec.id)} style={{
                 width:44, height:44, borderRadius:12, border:"none", cursor:"pointer",
                 background: isActive
                   ? `linear-gradient(145deg,${sec.color}cc,${sec.color}77)`
@@ -495,18 +497,29 @@ select{color-scheme:${isKava?"light":"dark"}}
         </div>
 
         {/* RIGHT PANEL — section content */}
-        <div style={{flex:1, padding:"4px 8px 100px 8px", minWidth:0}}>
-          {activeSec && (
-            <div style={{
-              fontSize:14, fontWeight:800, color:activeSec.color,
-              marginBottom:14, paddingTop:4,
-              display:"flex", alignItems:"center", gap:8,
-            }}>
-              <span>{activeSec.icon}</span>
-              <span>{activeSec.title}</span>
+        <div style={{flex:1, padding:"4px 4px 100px 4px", minWidth:0}}>
+          <div style={{
+            borderRadius:16,
+            boxShadow:`0 0 0 1.5px ${isKava?"rgba(0,0,0,0.14)":"rgba(255,255,255,0.18)"}, 0 8px 28px rgba(0,0,0,0.28)`,
+            background:`linear-gradient(145deg,${SURF_HI},${SURFACE})`,
+            padding:"12px 14px 16px",
+          }}>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
+              {activeSec && (
+                <div style={{fontSize:14,fontWeight:800,color:activeSec.color,display:"flex",alignItems:"center",gap:8}}>
+                  <span>{activeSec.icon}</span>
+                  <span>{activeSec.title}</span>
+                </div>
+              )}
+              <button onClick={()=>setShowHint(v=>!v)} style={{
+                width:28,height:28,borderRadius:8,border:"none",cursor:"pointer",flexShrink:0,
+                background:showHint?`${GOLD}33`:`linear-gradient(145deg,${SURF_HI},${SURFACE})`,
+                fontSize:15,display:"flex",alignItems:"center",justifyContent:"center",
+                boxShadow:SO,transition:"all .15s",
+              }}>💡</button>
             </div>
-          )}
-          {renderSection(active)}
+            {renderSection(active)}
+          </div>
         </div>
       </div>
 
