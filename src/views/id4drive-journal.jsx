@@ -61,18 +61,50 @@ function buildEvents(data) {
   return evs.sort((a, b) => b.ts - a.ts);
 }
 
-const EVENT_TYPES = {
-  new:        { label: "Новий запис", color: "#34d399", icon: "+" },
-  cancel:     { label: "Скасовано",   color: "#f87171", icon: "✕" },
-  reschedule: { label: "Перенос",     color: "#fbbf24", icon: "↩" },
-};
-
 const BY_LABEL = { admin: "адмін", client: "учень" };
-
 const ROW_H = 72;
 
+function EventIcon({ color, icon, isKava, theme }) {
+  return (
+    <div style={{
+      width: 46, height: 46, borderRadius: 14, flexShrink: 0,
+      background: isKava
+        ? `linear-gradient(145deg,${theme.SURF_HI},${theme.SURF_LO})`
+        : `${color}18`,
+      border: `1.5px solid ${color}${isKava ? "99" : "44"}`,
+      boxShadow: isKava
+        ? theme.SI
+        : `0 2px 8px ${color}28`,
+      display: "flex", alignItems: "center", justifyContent: "center",
+      position: "relative", overflow: "hidden",
+    }}>
+      {/* specular highlight on kava */}
+      {isKava && (
+        <div style={{
+          position: "absolute", top: 0, right: 0, width: "60%", height: "50%",
+          background: `radial-gradient(ellipse at top right,rgba(255,250,243,0.45) 0%,transparent 70%)`,
+          pointerEvents: "none",
+        }} />
+      )}
+      <span style={{
+        position: "relative", zIndex: 1,
+        fontSize: 20, fontWeight: 800, color,
+      }}>{icon}</span>
+    </div>
+  );
+}
+
 export default function JournalView() {
-  const theme = useContext(ThemeContext);
+  const theme   = useContext(ThemeContext);
+  const isKava  = !!theme.BG_IMAGE;
+
+  // event type colors come from theme — correct on both dark & kava
+  const EVENT_TYPES = {
+    new:        { label: "Новий запис", color: theme.GREEN, icon: "+" },
+    cancel:     { label: "Скасовано",   color: theme.RED,   icon: "✕" },
+    reschedule: { label: "Перенос",     color: theme.GOLD,  icon: "↩" },
+  };
+
   const [events,   setEvents]  = useState([]);
   const [filter,   setFilter]  = useState("all");
   const [prevReadAt] = useState(getJournalReadAt);
@@ -101,7 +133,8 @@ export default function JournalView() {
             padding: "5px 14px", borderRadius: 12, border: "none",
             cursor: "pointer", fontSize: 12, fontWeight: 700,
             background: filter === id ? theme.ACCENT : theme.SURF_LO,
-            color: filter === id ? "#fff" : theme.DIM,
+            color: filter === id ? (isKava ? "#fff8ef" : "#fff") : theme.DIM,
+            boxShadow: filter === id ? theme.SO : "none",
             transition: "all .15s",
           }}>{lbl}</button>
         ))}
@@ -128,18 +161,11 @@ export default function JournalView() {
               alignItems: "center",
               gap: 12,
             }}>
-              {/* Icon */}
-              <div style={{
-                width: 46, height: 46, borderRadius: 14, flexShrink: 0,
-                background: `${meta.color}22`,
-                border: `1.5px solid ${meta.color}44`,
-                display: "flex", alignItems: "center", justifyContent: "center",
-                fontSize: 20, fontWeight: 800, color: meta.color,
-              }}>{meta.icon}</div>
+              <EventIcon color={meta.color} icon={meta.icon} isKava={isKava} theme={theme} />
 
-              {/* Text — type on top, name below */}
+              {/* Text */}
               <div style={{ flex: 1, minWidth: 0 }}>
-                {/* Row 1: event type (left) + time (right) */}
+                {/* Row 1: event type + time */}
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
                   <span style={{
                     fontSize: 12, fontWeight: 700,
@@ -176,6 +202,7 @@ export default function JournalView() {
                 <div style={{
                   width: 9, height: 9, borderRadius: "50%",
                   background: meta.color, flexShrink: 0,
+                  boxShadow: `0 0 6px ${meta.color}88`,
                 }} />
               )}
             </div>
