@@ -41,6 +41,24 @@ function Toggle({ on, onChange }) {
   );
 }
 
+function SmallToggle({ on, onChange }) {
+  const { ACC_HI, ACCENT, SURF_LO, BG_DEEP, SI } = useContext(ThemeContext);
+  const { shade } = useFX();
+  return (
+    <div onClick={()=>onChange(!on)} style={{
+      width:32,height:18,borderRadius:9,cursor:"pointer",position:"relative",
+      background:on?`linear-gradient(145deg,${ACC_HI},${ACCENT})`:`linear-gradient(145deg,${SURF_LO},${BG_DEEP})`,
+      boxShadow:on?`0 0 6px ${ACCENT}44`:SI,transition:"background .2s",flexShrink:0,
+    }}>
+      <div style={{
+        position:"absolute",top:2,left:on?16:2,width:14,height:14,borderRadius:7,
+        background:"linear-gradient(135deg,#fff,#ddd)",
+        boxShadow:`0 1px 3px ${shade(0.4)}`,transition:"left .2s",
+      }}/>
+    </div>
+  );
+}
+
 function NumInput({ value, onChange, min=0, max=999, suffix="", step=1 }) {
   const { BG_DEEP, SURF_HI, SURFACE, TEXT, SO, SI } = useContext(ThemeContext);
   return (
@@ -80,7 +98,7 @@ function Row({ label, hint, children, last }) {
   return (
     <div style={{
       display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,
-      padding:"11px 0",
+      padding:"7px 0",
       borderBottom:last?`none`:`1px solid ${BORDER}`,
     }}>
       <div style={{flex:1,minWidth:0}}>
@@ -118,7 +136,7 @@ function Info({ title, text, color }) {
   );
 }
 
-function TimeInput({ value, onChange, min=0, max=24 }) {
+function TimeInput({ value, onChange, min=0, max=24, compact=false }) {
   const { BG_DEEP, TEXT, FAINT, SI } = useContext(ThemeContext);
   const v = Number(value) || 0;
   const h = Math.floor(v);
@@ -126,11 +144,16 @@ function TimeInput({ value, onChange, min=0, max=24 }) {
   const disp = `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`;
   const dec = () => { const n = Math.round((v - 0.5) * 2) / 2; onChange(Math.max(min, n)); };
   const inc = () => { const n = Math.round((v + 0.5) * 2) / 2; onChange(Math.min(max, n)); };
+  const bW = compact ? 14 : 20;
+  const bH = compact ? 20 : 26;
+  const fS = compact ? 11 : 14;
+  const dW = compact ? 28 : 36;
+  const dS = compact ? 9 : 11;
   return (
     <div style={{display:"flex",alignItems:"center",background:BG_DEEP,borderRadius:7,boxShadow:SI,overflow:"hidden"}}>
-      <button onClick={dec} style={{width:20,height:26,border:"none",cursor:"pointer",background:"transparent",color:FAINT,fontSize:14,padding:0,lineHeight:1}}>‹</button>
-      <span style={{fontSize:11,fontWeight:700,color:TEXT,minWidth:36,textAlign:"center"}}>{disp}</span>
-      <button onClick={inc} style={{width:20,height:26,border:"none",cursor:"pointer",background:"transparent",color:FAINT,fontSize:14,padding:0,lineHeight:1}}>›</button>
+      <button onClick={dec} style={{width:bW,height:bH,border:"none",cursor:"pointer",background:"transparent",color:FAINT,fontSize:fS,padding:0,lineHeight:1}}>‹</button>
+      <span style={{fontSize:dS,fontWeight:700,color:TEXT,minWidth:dW,textAlign:"center"}}>{disp}</span>
+      <button onClick={inc} style={{width:bW,height:bH,border:"none",cursor:"pointer",background:"transparent",color:FAINT,fontSize:fS,padding:0,lineHeight:1}}>›</button>
     </div>
   );
 }
@@ -174,17 +197,18 @@ select{color-scheme:${isKava?"light":"dark"}}
   const [showHint, setShowHint] = useState(false);
   const switchSection = (id) => { setActive(id); setShowHint(false); };
 
+  const uk = lang !== "en";
   const SECTIONS = [
-    { id:"schedule",   icon:"🕐", color:BLUE,   title:t('set.schedule.title') },
-    { id:"snap",       icon:"⏱",  color:TEAL,   title:t('set.snap.title')     },
-    { id:"restr",      icon:"🔒", color:RED,    title:t('set.restr.title')    },
-    { id:"queue",      icon:"✅", color:GREEN,  title:t('set.queue.title')    },
-    { id:"sticky",     icon:"📌", color:PURPLE, title:t('set.sticky.title')   },
-    { id:"auto",       icon:"📨", color:GOLD,   title:t('set.auto.title')     },
-    { id:"nav",        icon:"📱", color:ACCENT, title:t('set.nav.title')      },
-    { id:"look",       icon:"🎨", color:PURPLE, title:t('set.look.title')     },
-    { id:"surcharges", icon:"💰", color:GOLD,   title:"Надбавки"              },
-    { id:"push",       icon:"🔔", color:GREEN,  title:"Push-сповіщення"       },
+    { id:"schedule",   icon:"🕐", color:BLUE,   title:t('set.schedule.title'), label:uk?"Графік":"Sched." },
+    { id:"snap",       icon:"⏱",  color:TEAL,   title:t('set.snap.title'),     label:uk?"Сітка":"Grid"   },
+    { id:"restr",      icon:"🔒", color:RED,    title:t('set.restr.title'),    label:uk?"Ліміти":"Limits" },
+    { id:"queue",      icon:"✅", color:GREEN,  title:t('set.queue.title'),    label:uk?"Черга":"Queue"  },
+    { id:"sticky",     icon:"📌", color:PURPLE, title:t('set.sticky.title'),   label:uk?"Слоти":"Slots"  },
+    { id:"auto",       icon:"📨", color:GOLD,   title:t('set.auto.title'),     label:uk?"Авто":"Auto"    },
+    { id:"nav",        icon:"📱", color:ACCENT, title:t('set.nav.title'),      label:uk?"Навіг.":"Nav"   },
+    { id:"look",       icon:"🎨", color:PURPLE, title:t('set.look.title'),     label:uk?"Тема":"Theme"   },
+    { id:"surcharges", icon:"💰", color:GOLD,   title:"Надбавки",              label:uk?"Збори":"Fees"   },
+    { id:"push",       icon:"🔔", color:GREEN,  title:"Push-сповіщення",       label:"Push"              },
   ];
 
   function renderSection(id) {
@@ -209,44 +233,40 @@ select{color-scheme:${isKava?"light":"dark"}}
               upd("weekSchedule", updated);
             }} min={1} max={24} suffix=":00"/>
           </Row>
-          <Row label={t('set.schedule.days')}>
+          <Row label={t('set.schedule.days')} last>
             <NumInput value={settings.daysShown} onChange={v=>upd("daysShown",v)} min={1} max={30} suffix={` ${t('days')}`}/>
           </Row>
-          <div style={{paddingTop:12}}>
-            <div style={{fontSize:9,color:FAINT,letterSpacing:1,textTransform:"uppercase",marginBottom:8}}>Тижневий шаблон</div>
-            <div style={{display:"flex",flexDirection:"column",gap:4}}>
+          <div style={{paddingTop:8}}>
+            <div style={{fontSize:9,color:FAINT,letterSpacing:1,textTransform:"uppercase",marginBottom:6}}>Тижневий шаблон</div>
+            <div style={{display:"flex",flexDirection:"column",gap:3}}>
               {DAY_NAMES.map((dayName, i) => {
                 const day = weekSchedule[i];
                 return (
                   <div key={i} style={{
-                    borderRadius:9,padding:"8px 10px",
+                    borderRadius:8,padding:"5px 8px",
                     background:day.enabled?`linear-gradient(145deg,${SURF_HI},${SURFACE})`:`linear-gradient(145deg,${BG_DEEP},${SURF_LO})`,
                     boxShadow:day.enabled?SO:SI,
                   }}>
-                    <div style={{display:"flex",alignItems:"center",gap:8}}>
-                      <span style={{width:24,fontSize:12,fontWeight:800,color:day.enabled?TEXT:FAINT,flexShrink:0}}>{dayName}</span>
-                      <Toggle on={day.enabled} onChange={v=>updDay(i,{enabled:v})}/>
+                    <div style={{display:"flex",alignItems:"center",gap:6}}>
+                      <span style={{width:20,fontSize:11,fontWeight:800,color:day.enabled?TEXT:FAINT,flexShrink:0}}>{dayName}</span>
+                      <SmallToggle on={day.enabled} onChange={v=>updDay(i,{enabled:v})}/>
                       {day.enabled ? (<>
                         <span style={{flex:1}}/>
-                        <TimeInput value={day.start} onChange={v=>updDay(i,{start:Math.min(v,day.end-0.5)})} min={0} max={23}/>
-                        <span style={{fontSize:11,color:FAINT}}>—</span>
-                        <TimeInput value={day.end} onChange={v=>updDay(i,{end:Math.max(v,day.start+0.5)})} min={0.5} max={24}/>
+                        <TimeInput compact value={day.start} onChange={v=>updDay(i,{start:Math.min(v,day.end-0.5)})} min={0} max={23}/>
+                        <span style={{fontSize:9,color:FAINT,margin:"0 2px"}}>—</span>
+                        <TimeInput compact value={day.end} onChange={v=>updDay(i,{end:Math.max(v,day.start+0.5)})} min={0.5} max={24}/>
+                        <span style={{fontSize:12,flexShrink:0,marginLeft:4}}>🍽</span>
+                        <SmallToggle on={!!day.lunchEnabled} onChange={v=>updDay(i,{lunchEnabled:v})}/>
                       </>) : (
-                        <span style={{fontSize:11,color:FAINT,marginLeft:4}}>Вихідний</span>
+                        <span style={{fontSize:10,color:FAINT,marginLeft:4}}>Вихідний</span>
                       )}
                     </div>
-                    {day.enabled && (
-                      <div style={{display:"flex",alignItems:"center",gap:8,marginTop:6,paddingLeft:32}}>
-                        <span style={{fontSize:13}}>🍽</span>
-                        <Toggle on={!!day.lunchEnabled} onChange={v=>updDay(i,{lunchEnabled:v})}/>
-                        {day.lunchEnabled ? (<>
-                          <span style={{flex:1}}/>
-                          <TimeInput value={day.lunchStart??12} onChange={v=>updDay(i,{lunchStart:Math.min(v,(day.lunchEnd??13)-0.5)})} min={0} max={23}/>
-                          <span style={{fontSize:11,color:FAINT}}>—</span>
-                          <TimeInput value={day.lunchEnd??13} onChange={v=>updDay(i,{lunchEnd:Math.max(v,(day.lunchStart??12)+0.5)})} min={0.5} max={24}/>
-                        </>) : (
-                          <span style={{fontSize:11,color:FAINT}}>без перерви</span>
-                        )}
+                    {day.enabled && day.lunchEnabled && (
+                      <div style={{display:"flex",alignItems:"center",gap:6,marginTop:4,paddingLeft:26}}>
+                        <span style={{fontSize:10,color:FAINT,flex:1}}>перерва</span>
+                        <TimeInput compact value={day.lunchStart??12} onChange={v=>updDay(i,{lunchStart:Math.min(v,(day.lunchEnd??13)-0.5)})} min={0} max={23}/>
+                        <span style={{fontSize:9,color:FAINT,margin:"0 2px"}}>—</span>
+                        <TimeInput compact value={day.lunchEnd??13} onChange={v=>updDay(i,{lunchEnd:Math.max(v,(day.lunchStart??12)+0.5)})} min={0.5} max={24}/>
                       </div>
                     )}
                   </div>
@@ -356,16 +376,16 @@ select{color-scheme:${isKava?"light":"dark"}}
       case "auto": return (
         <div>
           {showHint && <Info color={GOLD} title={t('set.auto.info_t')} text={t('set.auto.info')}/>}
-          <div style={{paddingTop:10,display:"flex",flexDirection:"column",gap:7}}>
+          <div style={{paddingTop:10,display:"flex",flexDirection:"column",gap:5}}>
             <div style={{fontSize:9,color:FAINT,letterSpacing:1,textTransform:"uppercase",marginBottom:2}}>{t('set.auto.reminder')}</div>
             {reminders.map((r,i)=>(
               <div key={i} style={{
-                display:"flex",alignItems:"center",gap:10,
+                display:"flex",alignItems:"center",gap:8,
                 background:`linear-gradient(145deg,${BG_DEEP},${SURF_LO})`,
-                borderRadius:10,padding:"9px 12px",boxShadow:SI,
+                borderRadius:10,padding:"7px 10px",boxShadow:SI,
                 opacity:r.enabled?1:0.55,
               }}>
-                <Toggle on={r.enabled} onChange={v=>updReminder(i,{enabled:v})}/>
+                <SmallToggle on={r.enabled} onChange={v=>updReminder(i,{enabled:v})}/>
                 <span style={{fontSize:12,color:DIM,flex:1}}>
                   {lang==="en"?"Reminder":"Нагадування"} #{i+1}
                 </span>
@@ -389,18 +409,39 @@ select{color-scheme:${isKava?"light":"dark"}}
       case "nav": return (
         <div>
           {showHint && <Info color={BLUE} title={t('set.nav.info_t')} text={t('set.nav.info')}/>}
-          {ALL_TABS.map((tab,i)=>(
-            <Row key={tab.id} label={t(tab.lk)} last={i===ALL_TABS.length-1}>
-              <Toggle
-                on={settings.navTabs?.includes(tab.id) ?? true}
-                onChange={v=>{
-                  if(tab.id==="settings") return;
-                  upd("navTabs", v
-                    ? [...(settings.navTabs||[]),tab.id]
-                    : (settings.navTabs||[]).filter(x=>x!==tab.id));
-                }}/>
-            </Row>
-          ))}
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6,paddingTop:4}}>
+            {ALL_TABS.map((tab)=>{
+              const isOn = settings.navTabs?.includes(tab.id) ?? true;
+              const isFixed = tab.id === "settings";
+              const toggle = () => {
+                if(isFixed) return;
+                upd("navTabs", isOn
+                  ? (settings.navTabs||ALL_TABS.map(x=>x.id)).filter(x=>x!==tab.id)
+                  : [...(settings.navTabs||ALL_TABS.map(x=>x.id)),tab.id]);
+              };
+              return (
+                <div key={tab.id} onClick={toggle} style={{
+                  borderRadius:9,padding:"8px 6px",textAlign:"center",
+                  cursor:isFixed?"default":"pointer",userSelect:"none",
+                  background:isOn?`linear-gradient(145deg,${SURF_HI},${SURFACE})`:`linear-gradient(145deg,${BG_DEEP},${SURF_LO})`,
+                  boxShadow:isOn?SO:SI,opacity:isFixed?0.65:1,
+                }}>
+                  <div style={{fontSize:10,fontWeight:700,color:isOn?TEXT:FAINT,marginBottom:5,lineHeight:1.2}}>{t(tab.lk)}</div>
+                  <div style={{
+                    width:28,height:16,borderRadius:8,margin:"0 auto",position:"relative",
+                    background:isOn?`linear-gradient(145deg,${ACC_HI},${ACCENT})`:`linear-gradient(145deg,${SURF_LO},${BG_DEEP})`,
+                    boxShadow:isOn?`0 0 5px ${ACCENT}44`:SI,
+                  }}>
+                    <div style={{
+                      position:"absolute",top:2,left:isOn?12:2,width:12,height:12,borderRadius:6,
+                      background:"linear-gradient(135deg,#fff,#ddd)",transition:"left .2s",
+                      boxShadow:"0 1px 3px rgba(0,0,0,0.3)",
+                    }}/>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       );
 
@@ -471,40 +512,42 @@ select{color-scheme:${isKava?"light":"dark"}}
         fontFamily:"ui-sans-serif,-apple-system,system-ui,sans-serif", color:TEXT,
       }}>
 
-        {/* LEFT SIDEBAR — icon buttons */}
+        {/* LEFT SIDEBAR — icon + label buttons */}
         <div style={{
           position:"sticky", top:0,
-          display:"flex", flexDirection:"column", gap:6,
-          padding:"6px 4px 80px",
+          display:"flex", flexDirection:"column", gap:4,
+          padding:"4px 4px 40px",
           width:52, flexShrink:0,
         }}>
           {SECTIONS.map(sec => {
             const isActive = active === sec.id;
             return (
               <button key={sec.id} onClick={()=>switchSection(sec.id)} style={{
-                width:44, height:44, borderRadius:12, border:"none", cursor:"pointer",
+                width:44, borderRadius:12, border:"none", cursor:"pointer",
                 background: isActive
                   ? `linear-gradient(145deg,${sec.color}cc,${sec.color}77)`
                   : `linear-gradient(145deg,${SURF_HI},${SURFACE})`,
                 boxShadow: isActive ? `0 0 0 2px ${sec.color}55, ${SO}` : SO,
-                fontSize:20, display:"flex", alignItems:"center", justifyContent:"center",
-                transition:"all .15s", flexShrink:0,
+                display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
+                gap:1, transition:"all .15s", flexShrink:0, padding:"5px 2px",
               }}>
-                {sec.icon}
+                <span style={{fontSize:18,lineHeight:1}}>{sec.icon}</span>
+                <span style={{fontSize:8,fontWeight:700,lineHeight:1,letterSpacing:0.2,
+                  color:isActive?"rgba(255,255,255,0.9)":FAINT}}>{sec.label}</span>
               </button>
             );
           })}
         </div>
 
         {/* RIGHT PANEL — section content */}
-        <div style={{flex:1, padding:"4px 4px 100px 4px", minWidth:0}}>
+        <div style={{flex:1, padding:"4px 4px 40px 4px", minWidth:0}}>
           <div style={{
             borderRadius:16,
             boxShadow:`0 0 0 1.5px ${isKava?"rgba(0,0,0,0.14)":"rgba(255,255,255,0.18)"}, 0 8px 28px rgba(0,0,0,0.28)`,
             background:`linear-gradient(145deg,${SURF_HI},${SURFACE})`,
-            padding:"12px 14px 16px",
+            padding:"12px 14px 14px",
           }}>
-            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
               {activeSec && (
                 <div style={{fontSize:14,fontWeight:800,color:activeSec.color,display:"flex",alignItems:"center",gap:8}}>
                   <span>{activeSec.icon}</span>
@@ -523,10 +566,10 @@ select{color-scheme:${isKava?"light":"dark"}}
         </div>
       </div>
 
-      <div style={{textAlign:"center",padding:"10px 0 4px",color:FAINT,fontSize:13,fontWeight:600,letterSpacing:0.5}}>
+      <div style={{textAlign:"center",padding:"8px 0 2px",color:FAINT,fontSize:13,fontWeight:600,letterSpacing:0.5}}>
         {APP_VERSION}
       </div>
-      <div style={{height:80}}/>
+      <div style={{height:40}}/>
     </>
   );
 }
