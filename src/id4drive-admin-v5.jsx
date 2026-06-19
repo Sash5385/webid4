@@ -126,6 +126,8 @@ body, html, #root { margin:0; padding:0; }
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
 ::-webkit-scrollbar-track { background: transparent; }
+.schedule-scroll::-webkit-scrollbar { height: 24px; }
+.schedule-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 8px; min-width: 60px; }
 input[type="range"] { accent-color: ${ACCENT}; }
 .tabular { font-variant-numeric: tabular-nums; }
 `;
@@ -529,6 +531,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, bookings, setBooking
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
         onWheel={onWheel}
+        className="schedule-scroll"
         style={{display:"flex", overflowX:"auto", overflowY:"auto", flex:1, minHeight:0, touchAction:"pan-x pan-y"}}
       >
         <div style={{width:TIME_COL_W, flexShrink:0, position:"relative", height:gridHeight}}>

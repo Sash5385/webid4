@@ -10,6 +10,7 @@ const S = {
   'nav.templates':  { uk:'Шаблони',     en:'Templates'  },
   'nav.stats':      { uk:'Статист.',    en:'Stats'      },
   'nav.settings':   { uk:'Налашт.',     en:'Settings'   },
+  'nav.journal':    { uk:'Журнал',      en:'Journal'    },
 
   // COMMON
   'all':            { uk:'Всі',         en:'All'        },
