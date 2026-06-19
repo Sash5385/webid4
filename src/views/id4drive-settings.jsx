@@ -15,6 +15,7 @@ const ALL_TABS = [
   { id:"chats",     lk:"nav.chats"     },
   { id:"templates", lk:"nav.templates" },
   { id:"stats",     lk:"nav.stats"     },
+  { id:"journal",   lk:"nav.journal"   },
   { id:"settings",  lk:"nav.settings"  },
 ];
 
