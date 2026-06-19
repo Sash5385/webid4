@@ -94,12 +94,15 @@ function Radio({ on, onChange }) {
 }
 
 function Row({ label, hint, children, last }) {
-  const { TEXT, FAINT, BORDER } = useContext(ThemeContext);
+  const { BG_DEEP, SURF_LO, TEXT, FAINT, SI } = useContext(ThemeContext);
   return (
     <div style={{
       display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,
-      padding:"7px 0",
-      borderBottom:last?`none`:`1px solid ${BORDER}`,
+      padding:"7px 10px",
+      borderRadius:10,
+      background:`linear-gradient(145deg,${BG_DEEP},${SURF_LO})`,
+      boxShadow:SI,
+      marginBottom: last ? 0 : 5,
     }}>
       <div style={{flex:1,minWidth:0}}>
         <div style={{fontSize:13,fontWeight:600,color:TEXT}}>{label}</div>
