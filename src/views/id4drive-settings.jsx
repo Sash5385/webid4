@@ -515,24 +515,24 @@ select{color-scheme:${isKava?"light":"dark"}}
         {/* LEFT SIDEBAR — icon + label buttons */}
         <div style={{
           position:"sticky", top:0,
-          display:"flex", flexDirection:"column", gap:4,
+          display:"flex", flexDirection:"column", gap:6,
           padding:"4px 4px 40px",
-          width:52, flexShrink:0,
+          width:66, flexShrink:0,
         }}>
           {SECTIONS.map(sec => {
             const isActive = active === sec.id;
             return (
               <button key={sec.id} onClick={()=>switchSection(sec.id)} style={{
-                width:44, borderRadius:12, border:"none", cursor:"pointer",
+                width:58, borderRadius:14, border:"none", cursor:"pointer",
                 background: isActive
                   ? `linear-gradient(145deg,${sec.color}cc,${sec.color}77)`
                   : `linear-gradient(145deg,${SURF_HI},${SURFACE})`,
                 boxShadow: isActive ? `0 0 0 2px ${sec.color}55, ${SO}` : SO,
                 display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
-                gap:1, transition:"all .15s", flexShrink:0, padding:"5px 2px",
+                gap:2, transition:"all .15s", flexShrink:0, padding:"7px 4px",
               }}>
-                <span style={{fontSize:18,lineHeight:1}}>{sec.icon}</span>
-                <span style={{fontSize:8,fontWeight:700,lineHeight:1,letterSpacing:0.2,
+                <span style={{fontSize:22,lineHeight:1}}>{sec.icon}</span>
+                <span style={{fontSize:10,fontWeight:700,lineHeight:1,letterSpacing:0.2,
                   color:isActive?"rgba(255,255,255,0.9)":FAINT}}>{sec.label}</span>
               </button>
             );
