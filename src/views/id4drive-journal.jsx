@@ -177,7 +177,14 @@ export default function JournalView() {
         const byLabel = BY_LABEL[ev.by] || ev.by;
 
         return (
-          <div key={ev.id}>
+          <div key={ev.id} style={{
+            background: `linear-gradient(145deg,${theme.SURF_HI},${theme.SURFACE})`,
+            borderRadius: 13,
+            boxShadow: theme.SO,
+            border: `1px solid ${theme.BORDER}`,
+            padding: "0 12px",
+            marginBottom: i < filtered.length - 1 ? 8 : 0,
+          }}>
             <div style={{
               height: ROW_H,
               display: "flex",
@@ -229,10 +236,6 @@ export default function JournalView() {
                 }} />
               )}
             </div>
-
-            {i < filtered.length - 1 && (
-              <div style={{ height: 1, background: theme.BORDER, marginLeft: 58 }} />
-            )}
           </div>
         );
       })}
