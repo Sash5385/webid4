@@ -156,8 +156,8 @@ body, html, #root { margin:0; padding:0; }
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-thumb { background: rgba(${INK},0.1); border-radius: 3px; }
 ::-webkit-scrollbar-track { background: transparent; }
-.schedule-scroll::-webkit-scrollbar { height: 30px; }
-.schedule-scroll::-webkit-scrollbar-thumb { background: rgba(${INK},0.2); border-radius: 8px; }
+.schedule-scroll::-webkit-scrollbar { height: 24px; }
+.schedule-scroll::-webkit-scrollbar-thumb { background: rgba(${INK},0.2); border-radius: 8px; min-width: 60px; }
 input[type="range"] { accent-color: ${ACCENT}; }
 .tabular { font-variant-numeric: tabular-nums; }
 .drum-scroll::-webkit-scrollbar { display: none; }
