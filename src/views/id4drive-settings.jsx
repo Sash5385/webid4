@@ -74,16 +74,17 @@ function Radio({ on, onChange }) {
 }
 
 function Row({ label, hint, children, last }) {
-  const { TEXT, FAINT, BORDER } = useContext(ThemeContext);
+  const { TEXT, FAINT, BG_DEEP, SURF_LO, SI } = useContext(ThemeContext);
   return (
     <div style={{
       display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,
-      padding:"11px 0",
-      borderBottom:last?`none`:`1px solid ${BORDER}`,
+      background:`linear-gradient(145deg,${BG_DEEP},${SURF_LO})`,
+      borderRadius:10,padding:"9px 12px",boxShadow:SI,
+      marginBottom:last?0:6,
     }}>
       <div style={{flex:1,minWidth:0}}>
-        <div style={{fontSize:13,fontWeight:600,color:TEXT}}>{label}</div>
-        {hint && <div style={{fontSize:10,color:FAINT,marginTop:2}}>{hint}</div>}
+        <div style={{fontSize:13,fontWeight:600,color:TEXT,textAlign:"left"}}>{label}</div>
+        {hint && <div style={{fontSize:11,color:FAINT,marginTop:2,textAlign:"left"}}>{hint}</div>}
       </div>
       <div style={{flexShrink:0}}>{children}</div>
     </div>
@@ -470,6 +471,7 @@ select{color-scheme:${isKava?"light":"dark"}}
           <PushDiag />
         </Section>
 
+        <div style={{textAlign:"center",fontSize:11,color:FAINT,padding:"8px 0 4px"}}>v19.06.19</div>
         <div style={{height:20}}/>
       </div>
     </>
