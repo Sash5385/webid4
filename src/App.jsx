@@ -103,6 +103,7 @@ const TabIcons = makeTabIcons(INACTIVE_DARK);
 // ─── TABS CONFIG ─────────────────────────────────────────────────
 const TAB_IDS = [
   { id:"schedule",  lk:"nav.schedule",  badge:null },
+  { id:"journal",   lk:"nav.journal",   badge:null },
   { id:"queue",     lk:"nav.queue",     badge:null },
   { id:"bookings",  lk:"nav.bookings",  badge:null },
   { id:"students",  lk:"nav.students",  badge:null },
@@ -110,7 +111,6 @@ const TAB_IDS = [
   { id:"chats",     lk:"nav.chats",     badge:null },
   { id:"templates", lk:"nav.templates", badge:null },
   { id:"stats",     lk:"nav.stats",     badge:null },
-  { id:"journal",   lk:"nav.journal",   badge:null },
   { id:"settings",  lk:"nav.settings",  badge:null },
 ];
 
@@ -369,7 +369,7 @@ const DEFAULT_SETTINGS = {
   theme:"dark", language:"uk", queueAutoFifo:true, queueBroadcast:false, queueManual:false,
   studentCanReschedule:true, studentCanCancel:true, bookCutoffHours:2, calendarOpenDays:30,
   stickyTime:"both", notifLocation:"topbar", showCompleteBtn:true,
-  navTabs:["schedule","bookings","students","services","chats","templates","stats","journal","settings"],
+  navTabs:["schedule","journal","bookings","students","services","chats","templates","stats","settings"],
   autoReminders:[
     {enabled:true,  hoursBefore:24},
     {enabled:false, hoursBefore:2},
@@ -575,7 +575,12 @@ export default function App() {
           categories:  Array.isArray(d.categories)  ? d.categories  : s.categories,
           weekends:    Array.isArray(d.weekends)     ? d.weekends    : s.weekends,
           navTabs: Array.isArray(d.navTabs)
-          ? (d.navTabs.includes('journal') ? d.navTabs : [...d.navTabs, 'journal'])
+          ? (d.navTabs.includes('journal') ? d.navTabs : (() => {
+              const arr = [...d.navTabs];
+              const idx = arr.indexOf('schedule');
+              arr.splice(idx >= 0 ? idx + 1 : 0, 0, 'journal');
+              return arr;
+            })())
           : s.navTabs,
           autoReminders: Array.isArray(d.autoReminders) ? d.autoReminders : s.autoReminders,
           weekSchedule:  Array.isArray(d.weekSchedule)  ? d.weekSchedule  : s.weekSchedule,
