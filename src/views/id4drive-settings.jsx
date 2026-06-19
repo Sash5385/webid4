@@ -495,18 +495,25 @@ select{color-scheme:${isKava?"light":"dark"}}
         </div>
 
         {/* RIGHT PANEL — section content */}
-        <div style={{flex:1, padding:"4px 8px 100px 8px", minWidth:0}}>
-          {activeSec && (
-            <div style={{
-              fontSize:14, fontWeight:800, color:activeSec.color,
-              marginBottom:14, paddingTop:4,
-              display:"flex", alignItems:"center", gap:8,
-            }}>
-              <span>{activeSec.icon}</span>
-              <span>{activeSec.title}</span>
-            </div>
-          )}
-          {renderSection(active)}
+        <div style={{flex:1, padding:"4px 8px 100px 4px", minWidth:0}}>
+          <div style={{
+            borderRadius:16,
+            boxShadow:`0 0 0 1.5px ${isKava?"rgba(0,0,0,0.14)":"rgba(255,255,255,0.18)"}, 0 8px 28px rgba(0,0,0,0.28)`,
+            background:`linear-gradient(145deg,${SURF_HI},${SURFACE})`,
+            padding:"14px 14px 18px",
+          }}>
+            {activeSec && (
+              <div style={{
+                fontSize:14, fontWeight:800, color:activeSec.color,
+                marginBottom:14,
+                display:"flex", alignItems:"center", gap:8,
+              }}>
+                <span>{activeSec.icon}</span>
+                <span>{activeSec.title}</span>
+              </div>
+            )}
+            {renderSection(active)}
+          </div>
         </div>
       </div>
 
