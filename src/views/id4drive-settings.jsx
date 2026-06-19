@@ -103,41 +103,6 @@ function Chip({ label, active, onClick }) {
   );
 }
 
-function Section({ title, icon, children, defaultOpen=false }) {
-  const { SURF_HI, SURFACE, SURF_LO, SO, BORDER, TEXT, FAINT } = useContext(ThemeContext);
-  const [open, setOpen] = useState(defaultOpen);
-  return (
-    <div style={{
-      background:`linear-gradient(155deg,${SURF_HI},${SURFACE})`,
-      borderRadius:13,overflow:"hidden",
-      boxShadow:SO, border:`1px solid ${BORDER}`,
-    }}>
-      <div onClick={()=>setOpen(v=>!v)} style={{
-        display:"flex",alignItems:"center",gap:10,padding:"10px 14px",cursor:"pointer",userSelect:"none",
-      }}>
-        <div style={{
-          width:32,height:32,borderRadius:9,flexShrink:0,
-          background:`linear-gradient(145deg,${SURF_HI},${SURF_LO})`,
-          boxShadow:SO,
-          display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,
-        }}>{icon}</div>
-        <span style={{flex:1,fontSize:13,fontWeight:800,color:TEXT}}>{title}</span>
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={FAINT} strokeWidth="2.2" strokeLinecap="round"
-          style={{transform:open?"rotate(180deg)":"none",transition:"transform .22s",flexShrink:0}}>
-          <polyline points="6 9 12 15 18 9"/>
-        </svg>
-      </div>
-      <div className="sec-body" style={{gridTemplateRows:open?"1fr":"0fr"}}>
-        <div>
-          <div style={{padding:"0 14px 14px",borderTop:open?`1px solid ${BORDER}`:"none"}}>
-            {children}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function Info({ title, text, color }) {
   const { BLUE, DIM } = useContext(ThemeContext);
   const c = color || BLUE;
@@ -145,7 +110,7 @@ function Info({ title, text, color }) {
     <div style={{
       background:`linear-gradient(145deg,${c}0d,${c}05)`,
       border:`1px solid ${c}30`,
-      borderRadius:10,padding:"10px 12px",marginTop:10,
+      borderRadius:10,padding:"10px 12px",marginTop:2,marginBottom:10,
     }}>
       <div style={{fontSize:11,fontWeight:700,color:c,marginBottom:4}}>💡 {title}</div>
       <div style={{fontSize:11,color:DIM,lineHeight:1.6}}>{text}</div>
@@ -176,14 +141,10 @@ export default function SettingsView({ settings, setSettings }) {
   const lang = useContext(LangContext);
   const t = createT(lang);
   const isKava = settings?.theme === "light";
-  const scrollThumb = isKava ? `rgba(92,42,26,0.2)` : `rgba(255,255,255,0.08)`;
   const css = `
-
 input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:4px;border-radius:2px;background:${BG_DEEP};outline:none;box-shadow:${SI}}
 input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:9px;background:linear-gradient(145deg,${ACC_HI},${ACCENT});cursor:pointer;box-shadow:0 2px 6px rgba(255,90,60,0.5)}
 select{color-scheme:${isKava?"light":"dark"}}
-.sec-body{display:grid;transition:grid-template-rows .22s ease}
-.sec-body>div{overflow:hidden}
 `;
   const upd = (k, v) => setSettings(s=>({...s,[k]:v}));
 
@@ -209,14 +170,26 @@ select{color-scheme:${isKava?"light":"dark"}}
   ];
   const updReminder = (idx, patch) => upd("autoReminders", reminders.map((r,i)=>i===idx?{...r,...patch}:r));
 
-  return (
-    <>
-      <UICss/>
-      <style>{css}</style>
-      <div style={{display:"flex",flexDirection:"column",gap:8,fontFamily:"ui-sans-serif,-apple-system,system-ui,sans-serif",color:TEXT}}>
+  const [active, setActive] = useState("schedule");
 
-        {/* ── ГРАФІК ── */}
-        <Section title={t('set.schedule.title')} icon="🕐">
+  const SECTIONS = [
+    { id:"schedule",   icon:"🕐", color:BLUE,   title:t('set.schedule.title') },
+    { id:"snap",       icon:"⏱",  color:TEAL,   title:t('set.snap.title')     },
+    { id:"restr",      icon:"🔒", color:RED,    title:t('set.restr.title')    },
+    { id:"queue",      icon:"✅", color:GREEN,  title:t('set.queue.title')    },
+    { id:"sticky",     icon:"📌", color:PURPLE, title:t('set.sticky.title')   },
+    { id:"auto",       icon:"📨", color:GOLD,   title:t('set.auto.title')     },
+    { id:"nav",        icon:"📱", color:ACCENT, title:t('set.nav.title')      },
+    { id:"look",       icon:"🎨", color:PURPLE, title:t('set.look.title')     },
+    { id:"surcharges", icon:"💰", color:GOLD,   title:"Надбавки"              },
+    { id:"push",       icon:"🔔", color:GREEN,  title:"Push-сповіщення"       },
+  ];
+
+  function renderSection(id) {
+    switch(id) {
+
+      case "schedule": return (
+        <div>
           <Info color={BLUE} title={t('set.schedule.info_t')} text={t('set.schedule.info')}/>
           <Row label={t('set.schedule.start')} hint={t('set.schedule.hint_s')}>
             <NumInput value={settings.workStart} onChange={v=>{
@@ -279,10 +252,11 @@ select{color-scheme:${isKava?"light":"dark"}}
               })}
             </div>
           </div>
-        </Section>
+        </div>
+      );
 
-        {/* ── СІТКА ── */}
-        <Section title={t('set.snap.title')} icon="⏱">
+      case "snap": return (
+        <div>
           <Info color={TEAL} title={t('set.snap.info_t')} text={t('set.snap.info')}/>
           <div style={{paddingTop:12}}>
             <div style={{display:"flex",justifyContent:"space-between",marginBottom:8}}>
@@ -307,10 +281,11 @@ select{color-scheme:${isKava?"light":"dark"}}
               ))}
             </div>
           </div>
-        </Section>
+        </div>
+      );
 
-        {/* ── ОБМЕЖЕННЯ ── */}
-        <Section title={t('set.restr.title')} icon="🔒">
+      case "restr": return (
+        <div>
           <Info color={RED} title={t('set.restr.info_t')} text={t('set.restr.info')}/>
           <Row label={t('set.restr.reschedule')}>
             <Toggle on={settings.studentCanReschedule} onChange={v=>upd("studentCanReschedule",v)}/>
@@ -327,10 +302,11 @@ select{color-scheme:${isKava?"light":"dark"}}
           <Row label={lang==="en"?"Min interval between bookings":"Мінімальний інтервал між записами"} hint={lang==="en"?"Minimum days between any two bookings for one student. 0 — disabled.":"Мінімум днів між будь-якими двома записами учня. 0 — без обмеження."} last>
             <NumInput value={settings.minBookingIntervalDays ?? 0} onChange={v=>upd("minBookingIntervalDays",v)} min={0} max={30} suffix={` ${t('days')}`}/>
           </Row>
-        </Section>
+        </div>
+      );
 
-        {/* ── ПІДТВЕРДЖЕННЯ & ЧЕРГА ── */}
-        <Section title={t('set.queue.title')} icon="✅">
+      case "queue": return (
+        <div>
           <Info color={GREEN} title={t('set.queue.info_t')} text={t('set.queue.info')}/>
           <Row label={t('set.queue.require')} hint={t('set.queue.require_h')}>
             <Toggle on={settings.pendingEnabled} onChange={v=>upd("pendingEnabled",v)}/>
@@ -350,10 +326,11 @@ select{color-scheme:${isKava?"light":"dark"}}
               </Row>
             ))}
           </div>
-        </Section>
+        </div>
+      );
 
-        {/* ── ВІЛЬНІ СЛОТИ ПОРЯД ── */}
-        <Section title={t('set.sticky.title')} icon="📌">
+      case "sticky": return (
+        <div>
           <Info color={BLUE} title={t('set.sticky.info_t')} text={t('set.sticky.info')}/>
           <Row label={lang==="en"?"Enable feature":"Увімкнути"} hint={lang==="en"?"When off — all adjacent free slots are shown":"Вимкнено — всі вільні слоти видно завжди"}>
             <Toggle on={settings.stickyTimeEnabled !== false} onChange={v=>upd("stickyTimeEnabled",v)}/>
@@ -371,10 +348,11 @@ select{color-scheme:${isKava?"light":"dark"}}
               ))}
             </div>
           )}
-        </Section>
+        </div>
+      );
 
-        {/* ── АВТО-ПОВІДОМЛЕННЯ ── */}
-        <Section title={t('set.auto.title')} icon="📨">
+      case "auto": return (
+        <div>
           <Info color={GOLD} title={t('set.auto.info_t')} text={t('set.auto.info')}/>
           <div style={{paddingTop:10,display:"flex",flexDirection:"column",gap:7}}>
             <div style={{fontSize:9,color:FAINT,letterSpacing:1,textTransform:"uppercase",marginBottom:2}}>{t('set.auto.reminder')}</div>
@@ -403,10 +381,11 @@ select{color-scheme:${isKava?"light":"dark"}}
           <Row label={t('set.auto.queue')} last>
             <Toggle on={!!settings.autoQueueOffer?.enabled} onChange={v=>setSettings(s=>({...s,autoQueueOffer:{...(s.autoQueueOffer||{}),enabled:v}}))}/>
           </Row>
-        </Section>
+        </div>
+      );
 
-        {/* ── НАВІГАЦІЯ ── */}
-        <Section title={t('set.nav.title')} icon="📱">
+      case "nav": return (
+        <div>
           <Info color={BLUE} title={t('set.nav.info_t')} text={t('set.nav.info')}/>
           {ALL_TABS.map((tab,i)=>(
             <Row key={tab.id} label={t(tab.lk)} last={i===ALL_TABS.length-1}>
@@ -420,12 +399,13 @@ select{color-scheme:${isKava?"light":"dark"}}
                 }}/>
             </Row>
           ))}
-        </Section>
+        </div>
+      );
 
-        {/* ── ВИГЛЯД ── */}
-        <Section title={t('set.look.title')} icon="🎨">
+      case "look": return (
+        <div>
           <Info color={PURPLE} title={t('set.look.info_t')} text={t('set.look.info')}/>
-          <Row label={t('set.look.theme')} last>
+          <Row label={t('set.look.theme')}>
             <div style={{display:"flex",gap:6}}>
               {[["dark","🌙 Темна"],["light","☕ Кава"]].map(([k,l])=>(
                 <Chip key={k} label={l} active={settings.theme===k} onClick={()=>upd("theme",k)}/>
@@ -439,12 +419,12 @@ select{color-scheme:${isKava?"light":"dark"}}
               ))}
             </div>
           </Row>
-        </Section>
+        </div>
+      );
 
-        {/* ── PUSH ДІАГНОСТИКА ── */}
-        {/* ── НАДБАВКИ ── */}
-        <Section title="Надбавки до уроків" icon="💰">
-          <div style={{fontSize:12,color:FAINT,marginBottom:12,marginTop:8}}>
+      case "surcharges": return (
+        <div>
+          <div style={{fontSize:12,color:FAINT,marginBottom:12,marginTop:4}}>
             Суми відображаються в меню слота при виборі надбавки.
           </div>
           {(settings.surcharges || []).map((amt, i) => (
@@ -469,18 +449,71 @@ select{color-scheme:${isKava?"light":"dark"}}
             width:"100%",padding:"11px",borderRadius:12,border:`1px dashed rgba(255,255,255,0.15)`,cursor:"pointer",
             background:"transparent",color:FAINT,fontSize:13,fontWeight:700,marginTop:2,
           }}>+ Додати надбавку</button>
-        </Section>
-
-        <Section title="Push-сповіщення" icon="🔔" defaultOpen={true}>
-          <PushDiag />
-        </Section>
-
-        <div style={{height:8}}/>
-        <div style={{textAlign:"center",padding:"10px 0 4px",color:"#5a5c62",fontSize:13,fontWeight:600,letterSpacing:0.5}}>
-          {APP_VERSION}
         </div>
-        <div style={{height:12}}/>
+      );
+
+      case "push": return <PushDiag />;
+
+      default: return null;
+    }
+  }
+
+  const activeSec = SECTIONS.find(s => s.id === active);
+
+  return (
+    <>
+      <UICss/>
+      <style>{css}</style>
+      <div style={{
+        display:"flex", alignItems:"flex-start",
+        fontFamily:"ui-sans-serif,-apple-system,system-ui,sans-serif", color:TEXT,
+      }}>
+
+        {/* LEFT SIDEBAR — icon buttons */}
+        <div style={{
+          position:"sticky", top:0,
+          display:"flex", flexDirection:"column", gap:6,
+          padding:"6px 4px 80px",
+          width:52, flexShrink:0,
+        }}>
+          {SECTIONS.map(sec => {
+            const isActive = active === sec.id;
+            return (
+              <button key={sec.id} onClick={()=>setActive(sec.id)} style={{
+                width:44, height:44, borderRadius:12, border:"none", cursor:"pointer",
+                background: isActive
+                  ? `linear-gradient(145deg,${sec.color}cc,${sec.color}77)`
+                  : `linear-gradient(145deg,${SURF_HI},${SURFACE})`,
+                boxShadow: isActive ? `0 0 0 2px ${sec.color}55, ${SO}` : SO,
+                fontSize:20, display:"flex", alignItems:"center", justifyContent:"center",
+                transition:"all .15s", flexShrink:0,
+              }}>
+                {sec.icon}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* RIGHT PANEL — section content */}
+        <div style={{flex:1, padding:"4px 8px 100px 8px", minWidth:0}}>
+          {activeSec && (
+            <div style={{
+              fontSize:14, fontWeight:800, color:activeSec.color,
+              marginBottom:14, paddingTop:4,
+              display:"flex", alignItems:"center", gap:8,
+            }}>
+              <span>{activeSec.icon}</span>
+              <span>{activeSec.title}</span>
+            </div>
+          )}
+          {renderSection(active)}
+        </div>
       </div>
+
+      <div style={{textAlign:"center",padding:"10px 0 4px",color:FAINT,fontSize:13,fontWeight:600,letterSpacing:0.5}}>
+        {APP_VERSION}
+      </div>
+      <div style={{height:80}}/>
     </>
   );
 }
