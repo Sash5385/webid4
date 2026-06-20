@@ -993,10 +993,11 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
       holdTimerRef.current = null;
       pendingDragRef.current = null;
       setHoldId(null);
-      quickCancelRef.current = null;
       resizeReadyRef.current = null;
-      xVisibleRef.current = false;
-      setQuickCancelId(null);
+      if (!xVisibleRef.current) {
+        quickCancelRef.current = null;
+        setQuickCancelId(null);
+      }
       if (wasDragging) {
         dragEndedRef.current = true;
         setTimeout(() => { dragEndedRef.current = false; }, 400);
