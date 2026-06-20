@@ -3,7 +3,7 @@ import { ref, update, get, onValue, off, remove } from "firebase/database";
 import { db } from "../firebase";
 
 import { ThemeContext, GREEN, BLUE, PURPLE, GOLD, RED, TEAL, ACCENT, ACC_HI, SURFACE, SURF_HI, TEXT } from "../theme.js";
-import { Modal as UIModal, useFX as useUIFX } from "../ui";
+import { Modal as UIModal, useFX } from "../ui";
 // module-level aliases for vars used in ICONS (arrow fns, cannot use hooks)
 const ACCENT_HI  = ACC_HI;
 const SURFACE_HI = SURF_HI;
@@ -454,8 +454,17 @@ const colorOf = (id) => PALETTE.find(p=>p.id===id)?.color || GREEN;
 // SCHEDULE VIEW with drag/resize + pinch-to-zoom + day-count
 // ═══════════════════════════════════════════════════════════════
 function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bookings, setBookings, activeDragIds, navTo, slotExistsRef, openSlotsRef }) {
-  const { BG, BG_DEEP, SURFACE, SURF_HI, SURF_LO, BORDER, TEXT, DIM, FAINT, ACCENT, ACC_HI, SO, SI , GLOW, SHADE, INK, STRIPE_A, STRIPE_B } = useContext(ThemeContext);
-  const glow=a=>`rgba(${GLOW},${a})`,shade=a=>`rgba(${SHADE},${a})`,ink=a=>`rgba(${INK},${a})`;
+  const { BG, BG_DEEP, SURFACE, SURF_HI, SURF_LO, BORDER, TEXT, DIM, FAINT, ACCENT, ACC_HI, SO, SI, STRIPE_A, STRIPE_B } = useContext(ThemeContext);
+  const isLight = BG !== "#1c1d21";
+  const { glow, shade, ink } = useFX();
+  const GRID_H      = isLight ? "rgba(0,0,0,0.09)"        : "rgba(255,255,255,0.07)";
+  const GRID_HH     = isLight ? "rgba(0,0,0,0.04)"        : "rgba(255,255,255,0.025)";
+  const FREE_BG     = isLight ? "rgba(58,140,30,0.10)"    : "rgba(99,211,120,0.10)";
+  const FREE_BD     = isLight ? "rgba(58,140,30,0.38)"    : "rgba(99,211,120,0.38)";
+  const FREE_CLR    = isLight ? "rgba(58,140,30,0.85)"    : "rgba(99,211,120,0.78)";
+  const STICKY_BG   = isLight ? "rgba(58,140,30,0.16)"    : "rgba(99,211,120,0.15)";
+  const STICKY_BD   = isLight ? "rgba(58,140,30,0.65)"    : "rgba(99,211,120,0.45)";
+  const STICKY_CLR  = isLight ? "rgba(58,140,30,0.92)"    : "rgba(99,211,120,0.9)";
   const SURFACE_HI = SURF_HI, SURFACE_LO = SURF_LO, TEXT_DIM = DIM, TEXT_FAINT = FAINT, ACCENT_HI = ACC_HI, SHADOW_OUT = SO, SHADOW_IN = SI;
   const [dragId, setDragId] = useState(null);
   const [holdId, setHoldId] = useState(null);
@@ -1298,8 +1307,8 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                   alignItems:"center", justifyContent:"space-between",
                   padding:"3px 2px 3px", borderRadius:10, cursor: isPastDay ? "default" : "pointer",
                   opacity: isPastDay ? 0.35 : 1, overflow:"visible",
-                  background: isClosedDay ? `rgba(220,60,60,0.13)` : isToday ? `rgba(247,201,72,0.18)` : isOpenCol ? `rgba(99,211,120,0.13)` : `${shade(0.18)}`,
-                  boxShadow: isClosedDay ? `inset 0 0 0 1.5px rgba(220,60,60,0.7)` : isToday ? `inset 0 0 0 1.5px rgba(247,201,72,0.55)` : isOpenCol ? `inset 0 0 0 1px rgba(99,211,120,0.35)` : "none",
+                  background: isClosedDay ? `rgba(220,60,60,0.13)` : isToday ? `rgba(247,201,72,0.18)` : isOpenCol ? (isLight ? `rgba(58,140,30,0.12)` : `rgba(99,211,120,0.13)`) : (isLight ? `rgba(0,0,0,0.07)` : `rgba(0,0,0,0.18)`),
+                  boxShadow: isClosedDay ? `inset 0 0 0 1.5px rgba(220,60,60,0.7)` : isToday ? `inset 0 0 0 1.5px rgba(247,201,72,0.55)` : isOpenCol ? (isLight ? `inset 0 0 0 1px rgba(58,140,30,0.5)` : `inset 0 0 0 1px rgba(99,211,120,0.35)`) : "none",
                 }}>
                 <div style={{fontSize:9, fontWeight:700, lineHeight:1.2,
                   color: isClosedDay ? RED : isToday ? GOLD : isOpenCol ? GREEN : TEXT_FAINT,
@@ -1363,7 +1372,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                 style={{
                   width:COL_W, height:gridHeight,
                   position:"relative", padding:"0 4px",
-                  background:`linear-gradient(135deg,${BG_DEEP},rgba(${SHADE},0.12))`,
+                  background: isLight ? `linear-gradient(135deg,${SURF_LO},${BG_DEEP})` : `linear-gradient(135deg,${BG_DEEP},rgba(0,0,0,0.55))`,
                   borderRadius:14, boxShadow:SHADOW_IN, cursor: isPastDay || isClosedDay ? "default" : "cell",
                   userSelect:"none", WebkitUserSelect:"none", WebkitTouchCallout:"none",
                   opacity: isPastDay ? 0.38 : 1,
@@ -1385,9 +1394,9 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                 const hasSurcharge = !!slot.surcharge;
                 const hasViewer = (viewingSlots[dateStrCol] || []).includes(time);
                 const isSticky = (isVip || isBlocked || hasSurcharge) ? true : isStickySlot(dateStrCol, time);
-                const bg = isVip ? "rgba(168,85,247,0.15)" : isBlocked ? "rgba(239,68,68,0.15)" : hasSurcharge ? "rgba(247,201,72,0.15)" : isSticky ? "rgba(99,211,120,0.15)" : "rgba(99,211,120,0.10)";
-                const borderColor = isVip ? "rgba(168,85,247,0.55)" : isBlocked ? "rgba(239,68,68,0.5)" : hasSurcharge ? "rgba(247,201,72,0.6)" : isSticky ? "rgba(99,211,120,0.45)" : "rgba(99,211,120,0.38)";
-                const color = isVip ? "rgba(168,85,247,0.9)" : isBlocked ? "rgba(239,68,68,0.85)" : hasSurcharge ? "rgba(247,201,72,0.95)" : isSticky ? "rgba(99,211,120,0.9)" : "rgba(99,211,120,0.78)";
+                const bg = isVip ? "rgba(168,85,247,0.15)" : isBlocked ? "rgba(239,68,68,0.15)" : hasSurcharge ? "rgba(247,201,72,0.15)" : isSticky ? STICKY_BG : FREE_BG;
+                const borderColor = isVip ? "rgba(168,85,247,0.55)" : isBlocked ? "rgba(239,68,68,0.5)" : hasSurcharge ? (isLight ? "rgba(140,110,0,0.65)" : "rgba(247,201,72,0.6)") : isSticky ? STICKY_BD : FREE_BD;
+                const color = isVip ? "rgba(168,85,247,0.9)" : isBlocked ? "rgba(239,68,68,0.85)" : hasSurcharge ? (isLight ? "rgba(100,75,0,0.9)" : "rgba(247,201,72,0.95)") : isSticky ? STICKY_CLR : FREE_CLR;
                 return (
                   <div key={`os-${time}`}
                     onPointerDown={e=>{
@@ -1441,7 +1450,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                   position:"absolute",left:0,right:0,
                   top:(i+1)*30*PX_PER_MIN,
                   height:1,
-                  background:isHour?`${ink(0.13)}`:`${ink(0.06)}`
+                  background:isHour ? GRID_H : GRID_HH
                 }}/>;
               })}
 
@@ -1451,7 +1460,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                   position:"absolute",
                   top:minToPx(colLunch.start*60), left:0, right:0,
                   height:(colLunch.end - colLunch.start)*60*PX_PER_MIN,
-                  background:`repeating-linear-gradient(135deg, transparent, transparent 6px, ${ink(0.04)} 6px, ${ink(0.04)} 12px)`,
+                  background: isLight ? `repeating-linear-gradient(135deg, transparent, transparent 6px, rgba(0,0,0,0.05) 6px, rgba(0,0,0,0.05) 12px)` : `repeating-linear-gradient(135deg, transparent, transparent 6px, rgba(255,255,255,0.04) 6px, rgba(255,255,255,0.04) 12px)`,
                   border:`2px solid #1d4ed8`,
                   borderRadius:8, pointerEvents:"none",
                   display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:3,
@@ -2005,7 +2014,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                 <button key={min} onClick={()=>setSlotOptions(prev=>({...prev, time: label}))} style={{
                   flexShrink:0,padding:"5px 10px",borderRadius:20,border:"none",cursor:"pointer",
                   fontSize:13,fontWeight:700,
-                  background: active ? "rgba(245,158,11,0.22)" : `${ink(0.07)}`,
+                  background: active ? "rgba(245,158,11,0.22)" : isLight ? "rgba(0,0,0,0.07)" : "rgba(255,255,255,0.07)",
                   color: active ? "#f59e0b" : TEXT_DIM,
                   outline: active ? "1.5px solid rgba(245,158,11,0.5)" : "none",
                 }}>
