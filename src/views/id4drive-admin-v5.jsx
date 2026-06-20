@@ -1414,6 +1414,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                       opacity: isSticky ? 0.90 : 0.82,
                       background: bg,
                       border: `1.5px solid ${borderColor}`,
+                      boxShadow: `inset 1px 1px 0 rgba(${GLOW},0.32), inset -1px -1px 0 rgba(${SHADE},0.14)`,
                       borderRadius:8, cursor:"pointer", zIndex:1,
                       display:"flex", flexDirection:"column",
                       alignItems:"center", justifyContent:"center",
