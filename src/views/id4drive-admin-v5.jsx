@@ -1385,9 +1385,9 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                 const hasSurcharge = !!slot.surcharge;
                 const hasViewer = (viewingSlots[dateStrCol] || []).includes(time);
                 const isSticky = (isVip || isBlocked || hasSurcharge) ? true : isStickySlot(dateStrCol, time);
-                const bg = isVip ? "rgba(168,85,247,0.15)" : isBlocked ? "rgba(239,68,68,0.15)" : hasSurcharge ? "rgba(247,201,72,0.15)" : isSticky ? "rgba(99,211,120,0.15)" : `${ink(0.05)}`;
-                const borderColor = isVip ? "rgba(168,85,247,0.55)" : isBlocked ? "rgba(239,68,68,0.5)" : hasSurcharge ? "rgba(247,201,72,0.6)" : isSticky ? "rgba(99,211,120,0.45)" : `${ink(0.12)}`;
-                const color = isVip ? "rgba(168,85,247,0.9)" : isBlocked ? "rgba(239,68,68,0.85)" : hasSurcharge ? "rgba(247,201,72,0.95)" : isSticky ? "rgba(99,211,120,0.9)" : `${ink(0.35)}`;
+                const bg = isVip ? "rgba(168,85,247,0.15)" : isBlocked ? "rgba(239,68,68,0.15)" : hasSurcharge ? "rgba(247,201,72,0.15)" : isSticky ? "rgba(99,211,120,0.15)" : "rgba(99,211,120,0.10)";
+                const borderColor = isVip ? "rgba(168,85,247,0.55)" : isBlocked ? "rgba(239,68,68,0.5)" : hasSurcharge ? "rgba(247,201,72,0.6)" : isSticky ? "rgba(99,211,120,0.45)" : "rgba(99,211,120,0.38)";
+                const color = isVip ? "rgba(168,85,247,0.9)" : isBlocked ? "rgba(239,68,68,0.85)" : hasSurcharge ? "rgba(247,201,72,0.95)" : isSticky ? "rgba(99,211,120,0.9)" : "rgba(99,211,120,0.78)";
                 return (
                   <div key={`os-${time}`}
                     onPointerDown={e=>{
@@ -1411,7 +1411,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                       position:"absolute", left:0, right:0,
                       top: minToPx(startMin) + 1,
                       height: slotHeightMin * PX_PER_MIN - 2,
-                      opacity: isSticky ? 0.85 : 0.65,
+                      opacity: isSticky ? 0.90 : 0.82,
                       background: bg,
                       border: `1.5px solid ${borderColor}`,
                       borderRadius:8, cursor:"pointer", zIndex:1,
