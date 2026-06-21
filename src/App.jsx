@@ -647,6 +647,7 @@ export default function App() {
     if (!data) return;
     const all = [];
     Object.entries(data).forEach(([uid, userBkgs]) => {
+      if (!userBkgs || typeof userBkgs !== 'object') return;
       Object.entries(userBkgs).forEach(([key, b]) => {
         if (b.status === 'cancelled') return;
         const umap = usersMapRef.current[uid] || {};
