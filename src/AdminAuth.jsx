@@ -16,10 +16,15 @@ const SO = "6px 6px 16px rgba(0,0,0,0.45),-3px -3px 10px rgba(255,255,255,0.025)
 export function useAdminAuth() {
   const [user, setUser] = useState(undefined);
   useEffect(() => {
-    return onAuthStateChanged(auth, u => {
+    // Fallback: if Firebase Auth doesn't resolve within 6s (IndexedDB blocked, slow network),
+    // treat as logged-out so the login screen appears instead of blank white screen.
+    const fallback = setTimeout(() => setUser(prev => prev === undefined ? null : prev), 6000);
+    const unsub = onAuthStateChanged(auth, u => {
+      clearTimeout(fallback);
       if (u && u.uid === ADMIN_UID) setUser(u);
       else setUser(null);
     });
+    return () => { clearTimeout(fallback); unsub(); };
   }, []);
   return user;
 }

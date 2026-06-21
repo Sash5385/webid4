@@ -892,7 +892,17 @@ const pendingDeletesRef = React.useRef(new Set());
   const theme = getTheme(settings.theme);
   const css = makeCSS(theme);
 
-  if (adminUser === undefined) return null;
+  if (adminUser === undefined) return (
+    <div style={{
+      minHeight:"100dvh", background:"#161719",
+      display:"flex", flexDirection:"column",
+      alignItems:"center", justifyContent:"center", gap:16,
+    }}>
+      <style>{`@keyframes _spin{to{transform:rotate(360deg)}}`}</style>
+      <img src="/icon-192.png" alt="ID4Drive" style={{width:64,height:64,borderRadius:"50%",boxShadow:"-3px 5px 14px rgba(0,0,0,0.55)"}}/>
+      <div style={{width:28,height:28,borderRadius:"50%",border:"3px solid rgba(255,255,255,0.1)",borderTopColor:"#ff5a3c",animation:"_spin .8s linear infinite"}}/>
+    </div>
+  );
   if (adminUser === null) return <LoginScreen/>;
 
   return (
