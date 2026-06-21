@@ -18,7 +18,7 @@ export function useAdminAuth() {
   useEffect(() => {
     // Fallback: if Firebase Auth doesn't resolve within 6s (IndexedDB blocked, slow network),
     // treat as logged-out so the login screen appears instead of blank white screen.
-    const fallback = setTimeout(() => setUser(prev => prev === undefined ? null : prev), 6000);
+    const fallback = setTimeout(() => setUser(prev => prev === undefined ? null : prev), 3000);
     const unsub = onAuthStateChanged(auth, u => {
       clearTimeout(fallback);
       if (u && u.uid === ADMIN_UID) setUser(u);
@@ -40,7 +40,11 @@ export function LoginScreen() {
     try {
       const cred = await signInWithEmailAndPassword(auth, email, password);
       if (cred.user.uid !== ADMIN_UID) { await signOut(auth); setError("Доступ заборонено"); }
-    } catch { setError("Невірний email або пароль"); }
+    } catch (e) {
+      if (e.code === 'auth/network-request-failed') setError("Помилка мережі — перевірте з'єднання");
+      else if (e.code === 'auth/too-many-requests') setError("Забагато спроб — спробуйте пізніше");
+      else setError("Невірний email або пароль");
+    }
     finally { setLoading(false); }
   };
 
