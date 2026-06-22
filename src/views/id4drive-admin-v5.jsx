@@ -501,6 +501,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   const slotHoldFiredRef = useRef(false);
   const [openSlots, setOpenSlots] = useState({}); // { "2025-06-01": ["07:00","08:00",...] }
   const [viewingSlots, setViewingSlots] = useState({});
+  const pendingSlotSnapRef = useRef(null);
   const [genLoadingDays, setGenLoadingDays] = useState(new Set());
   const [isGeneratingAll, setIsGeneratingAll] = useState(false);
   const [genToast, setGenToast] = useState(null); // { absDay, free, blocked }
@@ -550,13 +551,17 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
         if (viewTimes.length) viewing[date] = viewTimes;
         if (slotSet.size) exists[date] = slotSet;
       });
-      setOpenSlots(slots);
-      setViewingSlots(viewing);
       if (slotExistsRef) slotExistsRef.current = exists;
       if (openSlotsRef) openSlotsRef.current = slots;
+      if (activeDragIds?.current?.size > 0) {
+        pendingSlotSnapRef.current = { slots, viewing };
+      } else {
+        setOpenSlots(slots);
+        setViewingSlots(viewing);
+      }
     });
     return () => unsub();
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const absDayToDateStr = (absDay) => {
     const d = new Date(); d.setHours(0,0,0,0);
@@ -1011,10 +1016,16 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
         dragEndedRef.current = true;
         setTimeout(() => { dragEndedRef.current = false; }, 400);
       }
-      // Remove from activeDragIds after save debounce window
+      // Remove from activeDragIds after save debounce window, then flush any deferred slot snap
       if (endedId) setTimeout(() => {
         activeDragIds?.current?.delete(endedId);
         endedMergedIds?.forEach(id => activeDragIds?.current?.delete(id));
+        if (pendingSlotSnapRef.current && activeDragIds?.current?.size === 0) {
+          const { slots, viewing } = pendingSlotSnapRef.current;
+          setOpenSlots(slots);
+          setViewingSlots(viewing);
+          pendingSlotSnapRef.current = null;
+        }
       }, 700);
       swipeRef.current = null;
       // Reset any leftover swipe transform so it doesn't skew drag column calculations

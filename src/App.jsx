@@ -864,7 +864,11 @@ const pendingDeletesRef = React.useRef(new Set());
             const priceUpdate = b.price != null
               ? { price: b.price + Math.round((newSurcharge - oldSurcharge) * discountFactor), surcharge: newSurcharge || undefined }
               : {};
-            // Only block new position — freeing old is done via generate, not on drag.
+            // Free original position, then block new position
+            const orig = moveOriginals.current[b.id];
+            if (orig && orig.date && (orig.date !== newDate || orig.startMin !== b.startMin || orig.durMin !== b.durMin)) {
+              freeSlots(orig.date, orig.startMin, orig.durMin);
+            }
             blockSlots(newDate, b.startMin, b.durMin);
             update(ref(db, `bookings/${b.userId}/${b._fbKey || b.id}`), {
               startMin: b.startMin,
