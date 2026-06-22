@@ -491,9 +491,9 @@ export default function App() {
         }
       } catch {}
     };
-    check();
+    const t0 = setTimeout(check, 10 * 1000);
     const id = setInterval(check, 60 * 1000);
-    return () => clearInterval(id);
+    return () => { clearTimeout(t0); clearInterval(id); };
   }, []);
 
   // Subscribe to unread chat count from chatMeta
@@ -892,8 +892,7 @@ const pendingDeletesRef = React.useRef(new Set());
   const theme = getTheme(settings.theme);
   const css = makeCSS(theme);
 
-  if (adminUser === undefined) return null;
-  if (adminUser === null) return <LoginScreen/>;
+  if (adminUser === undefined || adminUser === null) return <LoginScreen/>;
 
   return (
     <ThemeContext.Provider value={theme}>
