@@ -738,6 +738,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   const [formData, setFormData] = useState(null);
   const [createSlotData, setCreateSlotData] = useState(null); // {day, startMin}
   const [localSelectedBooking, setLocalSelectedBooking] = useState(null);
+  const [todayDir, setTodayDir] = useState(null);
   const emptyHoldTimerRef = useRef(null);
   const emptyHoldPosRef   = useRef(null);
   const dayLongPressRef   = useRef(null);
@@ -1190,7 +1191,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
     <>
     <style>{makeGlobalCSS(SURF_LO, ACCENT, GLOW, SHADE, INK)}</style>
     <Card style={{padding:"6px 3px 0", overflow:"hidden", flex:1, minHeight:0, display:"flex", flexDirection:"column"}}>
-      <div style={{display:"flex", flex:1, minHeight:0, overflow:"hidden"}}>
+      <div style={{display:"flex", flex:1, minHeight:0, overflow:"hidden", position:"relative"}}>
 
         {/* TIME COLUMN — fixed left, never scrolls */}
         <div style={{
@@ -1280,6 +1281,15 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
             if (timeColRef.current)
               timeColRef.current.style.transform = `translateY(-${e.currentTarget.scrollTop}px)`;
             computeVRange();
+            const el = e.currentTarget;
+            const cw = calcRef.current.COL_W;
+            if (cw) {
+              const todayX = PAST_DAYS * (cw + 4);
+              const sl = el.scrollLeft;
+              if (sl > todayX + cw) setTodayDir("left");
+              else if (sl + el.clientWidth < todayX) setTodayDir("right");
+              else setTodayDir(null);
+            }
           }}
           onContextMenu={e=>e.preventDefault()}
           className="schedule-scroll"
@@ -1809,6 +1819,42 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
           </div>
         </div>
 
+      {/* TODAY BUTTON */}
+      {todayDir && (
+        <button
+          onClick={()=>{
+            const el = gridRef.current;
+            const cw = calcRef.current.COL_W;
+            if (el && cw) el.scrollTo({ left: PAST_DAYS * (cw + 4), behavior:"smooth" });
+          }}
+          style={{
+            position:"absolute",
+            bottom:16,
+            ...(todayDir==="left" ? {left: TIME_COL_W + 8} : {right:8}),
+            zIndex:20,
+            padding:"7px 14px",
+            borderRadius:20,
+            border:"none",
+            background:`rgba(${INK},0.82)`,
+            backdropFilter:"blur(10px)",
+            WebkitBackdropFilter:"blur(10px)",
+            color:GOLD,
+            fontSize:12,
+            fontWeight:700,
+            cursor:"pointer",
+            display:"flex",
+            alignItems:"center",
+            gap:5,
+            boxShadow:"0 2px 12px rgba(0,0,0,0.35)",
+            letterSpacing:0.2,
+            touchAction:"none",
+          }}
+        >
+          {todayDir==="left" && <svg width="10" height="10" viewBox="0 0 10 10"><path d="M7 1L3 5l4 4" stroke={GOLD} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" fill="none"/></svg>}
+          Сьогодні
+          {todayDir==="right" && <svg width="10" height="10" viewBox="0 0 10 10"><path d="M3 1l4 4-4 4" stroke={GOLD} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" fill="none"/></svg>}
+        </button>
+      )}
       </div>{/* /outer flex */}
 
     </Card>
