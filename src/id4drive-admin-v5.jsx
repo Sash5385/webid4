@@ -55,8 +55,9 @@ body, html, #root { margin:0; padding:0; }
 }
 .slot-base:active { cursor: grabbing; }
 .slot-colored {
-  background: #4a2c17;
-  border: 1px solid #7a4a28;
+  background: linear-gradient(155deg, color-mix(in srgb, var(--c) 50%, transparent) 0%, color-mix(in srgb, var(--c) 18%, transparent) 100%);
+  border: 1px solid color-mix(in srgb, var(--c) 60%, transparent);
+
   box-shadow:
     -2px 5px 14px rgba(0,0,0,0.5),
     inset 1px 1px 0 rgba(255,255,255,0.18),
