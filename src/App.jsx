@@ -892,7 +892,8 @@ const pendingDeletesRef = React.useRef(new Set());
   const theme = getTheme(settings.theme);
   const css = makeCSS(theme);
 
-  if (adminUser === undefined || adminUser === null) return <LoginScreen/>;
+  if (adminUser === undefined) return null;
+  if (adminUser === null) return <LoginScreen/>;
 
   return (
     <ThemeContext.Provider value={theme}>
