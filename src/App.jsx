@@ -841,12 +841,15 @@ const pendingDeletesRef = React.useRef(new Set());
             moveOriginals.current[b.id] = { startMin: p.startMin, durMin: p.durMin, day: p.day, date: p.date };
           }
           clearTimeout(moveSaveTimers.current[b.id]);
-          moveSaveTimers.current[b.id] = setTimeout(() => {
-            const orig = moveOriginals.current[b.id] || p;
+          const doSaveMove = () => {
+            // Defer write until drag is fully released (activeDragIds cleared after 700ms)
+            if (activeDragIds.current.has(b.id)) {
+              moveSaveTimers.current[b.id] = setTimeout(doSaveMove, 800);
+              return;
+            }
             const hh = String(Math.floor(b.startMin / 60)).padStart(2, "0");
             const mm = String(b.startMin % 60).padStart(2, "0");
             const newDate = dayIdxToDate(b.day);
-            const oldDate = orig.date || dayIdxToDate(orig.day);
             // Recalculate surcharge for the new slot position
             const newSlotsForDate = openSlotsRef.current[newDate] || {};
             let newSurcharge = 0;
@@ -876,7 +879,8 @@ const pendingDeletesRef = React.useRef(new Set());
               delete moveSaveTimers.current[b.id];
               delete moveOriginals.current[b.id];
             });
-          }, 50);
+          };
+          moveSaveTimers.current[b.id] = setTimeout(doSaveMove, 50);
         }
       });
 
