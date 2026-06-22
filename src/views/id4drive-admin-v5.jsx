@@ -1829,30 +1829,28 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
           }}
           style={{
             position:"absolute",
-            bottom:16,
-            ...(todayDir==="left" ? {left: TIME_COL_W + 8} : {right:8}),
+            bottom:4,
+            right:8,
             zIndex:20,
-            padding:"7px 14px",
+            padding:"5px 12px",
             borderRadius:20,
             border:"none",
-            background:`rgba(${INK},0.82)`,
-            backdropFilter:"blur(10px)",
-            WebkitBackdropFilter:"blur(10px)",
-            color:GOLD,
+            background:BLUE,
+            color:"#fff",
             fontSize:12,
             fontWeight:700,
             cursor:"pointer",
             display:"flex",
             alignItems:"center",
             gap:5,
-            boxShadow:"0 2px 12px rgba(0,0,0,0.35)",
+            boxShadow:"0 2px 10px rgba(0,0,0,0.3)",
             letterSpacing:0.2,
             touchAction:"none",
           }}
         >
-          {todayDir==="left" && <svg width="10" height="10" viewBox="0 0 10 10"><path d="M7 1L3 5l4 4" stroke={GOLD} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" fill="none"/></svg>}
+          {todayDir==="left" && <svg width="10" height="10" viewBox="0 0 10 10"><path d="M7 1L3 5l4 4" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" fill="none"/></svg>}
           Сьогодні
-          {todayDir==="right" && <svg width="10" height="10" viewBox="0 0 10 10"><path d="M3 1l4 4-4 4" stroke={GOLD} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" fill="none"/></svg>}
+          {todayDir==="right" && <svg width="10" height="10" viewBox="0 0 10 10"><path d="M3 1l4 4-4 4" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" fill="none"/></svg>}
         </button>
       )}
       </div>{/* /outer flex */}
