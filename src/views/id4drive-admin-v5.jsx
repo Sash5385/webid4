@@ -862,14 +862,6 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
       if (swipeRef.current) {
         swipeRef.current.endX = e.clientX;
         swipeRef.current.endY = e.clientY;
-        // Real-time visual tracking (only when not dragging a slot)
-        if (!dragRef.current && !pendingDragRef.current && gridWrapRef.current) {
-          const dx = e.clientX - swipeRef.current.startX;
-          const dy = e.clientY - swipeRef.current.startY;
-          if (Math.abs(dx) > Math.abs(dy) * 0.7 && Math.abs(dx) > 6) {
-            gridWrapRef.current.style.transform = `translateX(${dx}px)`;
-          }
-        }
       }
       if (pendingDragRef.current) {
         const pd = pendingDragRef.current;
