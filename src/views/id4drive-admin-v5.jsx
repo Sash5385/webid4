@@ -860,8 +860,19 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   useEffect(() => {
     const onMove = (e) => {
       if (swipeRef.current) {
+        const prevX = swipeRef.current.endX;
+        const prevY = swipeRef.current.endY;
         swipeRef.current.endX = e.clientX;
         swipeRef.current.endY = e.clientY;
+        if (!dragRef.current && !pendingDragRef.current && swipeRef.current.manualScroll && gridRef.current) {
+          const dx = prevX - e.clientX;
+          const dy = prevY - e.clientY;
+          if (Math.abs(dx) >= Math.abs(dy)) {
+            gridRef.current.scrollLeft += dx;
+          } else {
+            gridRef.current.scrollTop += dy;
+          }
+        }
       }
       if (pendingDragRef.current) {
         const pd = pendingDragRef.current;
@@ -872,6 +883,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
             if (moved > 8) {
               clearTimeout(holdTimerRef.current);
               pendingDragRef.current = null;
+              if (swipeRef.current) swipeRef.current.manualScroll = true;
             }
             return;
           }
@@ -901,9 +913,10 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
             setDragId(pd.id);
             navigator.vibrate?.(55);
           } else {
-            // Hold не відбувся — скасовуємо (scroll wins)
+            // Hold не відбувся — ручний скрол grid
             pendingDragRef.current = null;
             setHoldId(null);
+            if (swipeRef.current) swipeRef.current.manualScroll = true;
           }
         }
         return;
