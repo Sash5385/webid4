@@ -8,12 +8,6 @@ export function useAppUpdate() {
   useEffect(() => {
     if (!('serviceWorker' in navigator)) return
 
-    // Auto-reload when a new SW takes over (autoUpdate + skipWaiting mode).
-    // prevController guard prevents reload on very first SW install (no old controller).
-    const prevController = navigator.serviceWorker.controller
-    const autoReload = () => { if (prevController) window.location.reload() }
-    navigator.serviceWorker.addEventListener('controllerchange', autoReload, { once: true })
-
     const trackWorker = (worker) => {
       worker.addEventListener('statechange', () => {
         if (worker.state === 'installed' && navigator.serviceWorker.controller) {
@@ -47,7 +41,6 @@ export function useAppUpdate() {
 
     return () => {
       document.removeEventListener('visibilitychange', onVisible)
-      navigator.serviceWorker.removeEventListener('controllerchange', autoReload)
     }
   }, [])
 
