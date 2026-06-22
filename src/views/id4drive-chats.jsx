@@ -409,9 +409,7 @@ export default function ChatsView() {
             const cMsgs      = messages[c.id] || [];
             return (
               <div key={c.id} style={{
-                background:SURFACE,
-                backdropFilter:"blur(8px)",
-                WebkitBackdropFilter:"blur(8px)",
+                background:`linear-gradient(155deg,${SURF_HI},${SURFACE})`,
                 borderRadius:13,overflow:"hidden",boxShadow:SO,
                 border:`1px solid ${isDeleting?"rgba(239,68,68,0.5)":isOpen?"rgba(91,155,255,0.25)":BORDER}`,
                 transition:"border-color .2s",

@@ -303,7 +303,7 @@ function TemplateCard({ tpl, onEdit, onSend, onToggle, onDelete }) {
     <div className="fade-in" style={{
       display:"flex",alignItems:"center",gap:8,padding:"6px 10px",
       background:`linear-gradient(155deg,${SURF_HI},${SURFACE})`,
-      borderRadius:10,marginBottom:4,boxShadow:SO,
+      borderRadius:13,marginBottom:4,boxShadow:SO,
       opacity:tpl.active?1:0.5,
       borderLeft:`3px solid ${cat.color}`,
     }}>
@@ -380,7 +380,7 @@ export default function TemplatesView() {
     <>
       <UICss/>
       <style>{css}</style>
-      <div style={{display:"flex",flexDirection:"column",gap:0,fontFamily:"ui-sans-serif,-apple-system,system-ui,sans-serif",color:TEXT}}>
+      <div style={{display:"flex",flexDirection:"column",gap:8,fontFamily:"ui-sans-serif,-apple-system,system-ui,sans-serif",color:TEXT}}>
 
         {/* ── LIST ── */}
         {list.filter(Boolean).map(tpl=>(

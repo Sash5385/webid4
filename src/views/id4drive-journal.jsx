@@ -178,7 +178,7 @@ export default function JournalView() {
 
         return (
           <div key={ev.id} style={{
-            background: `linear-gradient(145deg,${theme.SURF_HI},${theme.SURFACE})`,
+            background: `linear-gradient(155deg,${theme.SURF_HI},${theme.SURFACE})`,
             borderRadius: 13,
             boxShadow: theme.SO,
             border: `1px solid ${theme.BORDER}`,
