@@ -26,13 +26,14 @@ function aggregateBuckets(buckets, bookings, getKey) {
   bookings.forEach(b => {
     const k = getKey(b);
     if (!map[k]) return;
-    if (b.status === "confirmed") {
+    const st = b.status || "confirmed";
+    if (st === "confirmed" || st === "pending") {
       map[k].income  += bkIncome(b);
       map[k].lessons += 1;
       if (bkType(b) === "school") map[k].school++;
       else map[k].private++;
-    } else if (b.status === "noshow")   { map[k].noshow++; }
-    else if (b.status === "cancelled") { map[k].cancel++; }
+    } else if (st === "noshow")    { map[k].noshow++; }
+    else if (st === "cancelled")  { map[k].cancel++; }
   });
   return buckets.map(b => map[b.key]);
 }
