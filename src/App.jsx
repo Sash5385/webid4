@@ -962,7 +962,8 @@ const pendingDeletesRef = React.useRef(new Set());
           overflowY: tab==="schedule" ? "hidden" : "auto",
           padding: tab==="schedule" ? "0 3px 11px" : "14px 14px 14px",
           display: tab==="schedule" ? "flex" : "block",
-          flexDirection:"column"
+          flexDirection:"column",
+          background: theme.BG_IMAGE && tab!=="schedule" ? "#d4ba96" : "transparent",
         }}>
           <Suspense fallback={<Loader/>}>
             <ViewRenderer tab={tab} settings={settings} setSettings={setSettings} bookings={bookings} setBookings={handleSetBookings} onSlotClick={setSelectedBooking} onEmptySlotClick={setNewBookingData} openInfos={openInfos} toggleInfo={toggleInfo} activeDragIds={activeDragIds} navTo={switchTab} slotExistsRef={slotExistsRef} openSlotsRef={openSlotsRef}/>

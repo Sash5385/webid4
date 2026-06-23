@@ -120,15 +120,7 @@ export default function JournalView() {
   const filtered    = typeFilter === "all" ? byRead : byRead.filter(e => e.type === typeFilter);
 
   return (
-    <div style={{
-      display: "flex", flexDirection: "column",
-      ...(isKava ? {
-        background: "#d4ba96",
-        margin: "-14px -14px 0",
-        padding: "14px 14px 0",
-        minHeight: "calc(100% + 14px)",
-      } : {}),
-    }}>
+    <div style={{ display: "flex", flexDirection: "column" }}>
 
       {/* Filter bar */}
       <div style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 10 }}>
