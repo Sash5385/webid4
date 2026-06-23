@@ -21,15 +21,22 @@ async function pushStudent(uid, title, body, data = {}) {
   const token = snap.val();
   if (!token) return;
   const link = data.url || "https://id4drive.pro/cabinet";
-  await admin.messaging().send({
-    token,
-    notification: { title, body },
-    data: Object.fromEntries(Object.entries({ url: link, ...data }).map(([k,v]) => [k, String(v)])),
-    webpush: {
-      notification: { icon: "/favicon.svg" },
-      fcmOptions: { link },
-    },
-  }).catch(() => {});
+  try {
+    await admin.messaging().send({
+      token,
+      notification: { title, body },
+      data: Object.fromEntries(Object.entries({ url: link, ...data }).map(([k,v]) => [k, String(v)])),
+      webpush: {
+        notification: { icon: "/favicon.svg" },
+        fcmOptions: { link },
+      },
+    });
+  } catch (e) {
+    if (e.code === "messaging/registration-token-not-registered" ||
+        e.code === "messaging/invalid-registration-token") {
+      await db.ref(`users/${uid}/fcmTokens/web/token`).remove().catch(() => {});
+    }
+  }
 }
 
 // Хелпер: запросити наступного в черзі для слота
@@ -170,6 +177,13 @@ exports.onBookingChanged = onValueWritten(
       });
       await saveNotification(uid, "❌ Урок скасовано", `${date} о ${time}`, "booking_cancelled");
       if (date !== "—" && time !== "—") await inviteNextInQueue(`${date}_${time}`).catch(() => {});
+      return;
+    }
+
+    // Студент підтвердив присутність
+    if (after.studentConfirmed && !before.studentConfirmed) {
+      console.log(`onBookingChanged: student confirmed uid=${uid}`);
+      await pushAdmin("✅ Підтвердив присутність", `${name} · ${date} о ${time}`);
       return;
     }
 
@@ -323,11 +337,8 @@ exports.unlockVipSlots = onSchedule("every 1 hours", async () => {
   if (!unlocked) return;
   await db.ref().update(updates);
 
-  const usersSnap = await db.ref("users").get();
-  const usersData = usersSnap.val() || {};
-  const tokens = Object.values(usersData)
-    .filter(u => u.fcmTokens?.web?.token && !u.isVip)
-    .map(u => u.fcmTokens.web.token);
+  const tokenSnap = await db.ref("studentTokens").get();
+  const tokens = Object.values(tokenSnap.val() || {}).filter(Boolean);
   if (!tokens.length) return;
 
   for (let i = 0; i < tokens.length; i += 500) {
@@ -470,5 +481,64 @@ exports.onStudentMessage = onValueCreated(
 
     const text = msg.text || "";
     await pushAdmin(`💬 ${name}`, text.length > 100 ? text.slice(0, 100) + "…" : text);
+  }
+);
+
+// Щогодини: нагадування за 24 год і за 2 год до уроку
+exports.sendLessonReminders = onSchedule(
+  { schedule: "every 1 hours", region: "europe-west1" },
+  async () => {
+    const now = Date.now();
+    const kyivHour = parseInt(
+      new Date().toLocaleString("uk", { timeZone: "Europe/Kiev", hour: "2-digit", hour12: false }), 10
+    );
+
+    const activeSnap = await db.ref("activeStudents").get();
+    if (!activeSnap.exists()) return;
+    const uids = Object.keys(activeSnap.val());
+
+    const sentSnap = await db.ref("sentReminders").get();
+    const sentData = sentSnap.val() || {};
+    const updates = {};
+
+    for (const uid of uids) {
+      const bSnap = await db.ref(`bookings/${uid}`).get();
+      if (!bSnap.exists()) continue;
+
+      for (const [bookingId, b] of Object.entries(bSnap.val())) {
+        if (!b || b.status === "cancelled" || b.cancelledBy) continue;
+        if (!b.date || !b.time) continue;
+
+        const lessonMs = new Date(`${b.date}T${b.time}:00+03:00`).getTime();
+        const diffMs = lessonMs - now;
+        if (diffMs <= 0) continue;
+
+        const sent = sentData[uid]?.[bookingId] || {};
+        const dateFmt = new Date(b.date + "T00:00:00").toLocaleDateString("uk", {
+          day: "numeric", month: "long", weekday: "short",
+        });
+
+        // 24г нагадування (вікно 23–25г, не в тихі години)
+        if (!sent.r24 && !(kyivHour >= 23 || kyivHour < 6)
+            && diffMs >= 23 * 3600000 && diffMs <= 25 * 3600000) {
+          await pushStudent(uid, "🚗 Нагадування про урок", `Завтра о ${b.time} — ${dateFmt}`, {
+            url: "https://id4drive.pro/cabinet/bookings",
+          });
+          await saveNotification(uid, "🚗 Нагадування про урок", `Завтра о ${b.time} — ${dateFmt}`, "reminder");
+          updates[`sentReminders/${uid}/${bookingId}/r24`] = true;
+        }
+
+        // 2г нагадування (вікно 1.5–2.5г, завжди)
+        if (!sent.r2 && diffMs >= 90 * 60000 && diffMs <= 150 * 60000) {
+          await pushStudent(uid, "⏰ Урок через 2 години", `о ${b.time} — ${dateFmt}`, {
+            url: "https://id4drive.pro/cabinet/bookings",
+          });
+          await saveNotification(uid, "⏰ Урок через 2 години", `о ${b.time} — ${dateFmt}`, "reminder");
+          updates[`sentReminders/${uid}/${bookingId}/r2`] = true;
+        }
+      }
+    }
+
+    if (Object.keys(updates).length) await db.ref("/").update(updates).catch(() => {});
   }
 );
