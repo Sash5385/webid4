@@ -92,6 +92,15 @@ function computeYearData(bookings, offsetYears = 0, svcs) {
   return aggregateBuckets(buckets, bookings, b => (b.date||"").slice(0, 7), svcs);
 }
 
+function filterByPeriod(bookings, data, period) {
+  const keys = new Set(data.map(b => b.key));
+  return bookings.filter(b => {
+    if (period === 'day') return keys.has(`${b.date}_${parseInt((b.time||'').split(':')[0], 10)}`);
+    if (period === 'week') return keys.has(b.date||'');
+    return keys.has((b.date||'').slice(0, 7));
+  });
+}
+
 function computeTopStudents(bookings, sortBy = 'paid', svcs) {
   const map = {};
   bookings.filter(b => b.status === "confirmed" || b.status === "pending").forEach(b => {
@@ -161,16 +170,16 @@ function trendPct(cur, prev) {
   return Math.round(((cur - prev) / prev) * 100);
 }
 
-function exportCSV(bookings) {
+function exportCSV(bookings, svcs) {
   const rows = bookings
-    .filter(b => b.status === 'confirmed')
+    .filter(b => b.status === 'confirmed' || b.status === 'pending')
     .sort((a, b) => (b.date||'').localeCompare(a.date||''))
     .map(b => [
       b.date||'', b.time||'',
       (b.studentName||b.name||'').replace(/,/g,' '),
-      b.serviceType||'', (b.price||0)+(b.surcharge||0), b.durationHours||1,
+      b.serviceType||'', bkIncome(b, svcs), b.durMin || (b.durationHours ? b.durationHours*60 : 60),
     ].join(','));
-  const csv = ['Дата,Час,Учень,Тип,Сума,Годин', ...rows].join('\n');
+  const csv = ['Дата,Час,Учень,Тип,Сума,Хвилин', ...rows].join('\n');
   const blob = new Blob(['﻿'+csv], {type:'text/csv;charset=utf-8;'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -365,8 +374,9 @@ export default function StatsView() {
   const noshowPct    = totalLessons ? Math.round((totalNoshow / totalLessons) * 100) : 0;
   const prevAvgCheck = prev.lessons ? Math.round(prev.income / prev.lessons) : 0;
 
-  const topStudents  = computeTopStudents(bookings, topBy, services);
-  const popularSlots = computePopularSlots(bookings, services);
+  const periodBookings = filterByPeriod(bookings, data, period);
+  const topStudents  = computeTopStudents(periodBookings, topBy, services);
+  const popularSlots = computePopularSlots(periodBookings, services);
   const forecast     = period === "year" ? computeYearForecast(bookings, services) : computeMonthForecast(bookings, services);
   const slotsPerBucket = period === "day" ? 10 : 8;
   const occupancy    = data.length ? Math.min(100, Math.round((cur.lessons / (data.length * slotsPerBucket)) * 100)) : 0;
@@ -568,8 +578,8 @@ export default function StatsView() {
                   </div>
                   <div style={{flexShrink:0,textAlign:"right"}}>
                     {topBy === 'lessons'
-                      ? <><div style={{fontSize:12,fontWeight:800,color:BLUE}}>{s.hours} год</div><div style={{fontSize:9,color:FAINT}}>{(s.paid/1000).toFixed(1)}к ₴</div></>
-                      : <><div style={{fontSize:12,fontWeight:800,color:GOLD}}>{(s.paid/1000).toFixed(1)}к ₴</div><div style={{fontSize:9,color:FAINT}}>{s.hours} год</div></>
+                      ? <><div style={{fontSize:12,fontWeight:800,color:BLUE}}>{s.hours} год</div><div style={{fontSize:9,color:FAINT}}>{fmtK(s.paid)}</div></>
+                      : <><div style={{fontSize:12,fontWeight:800,color:GOLD}}>{fmtK(s.paid)}</div><div style={{fontSize:9,color:FAINT}}>{s.hours} год</div></>
                     }
                   </div>
                 </div>
@@ -583,7 +593,7 @@ export default function StatsView() {
           <div style={{fontSize:9,color:FAINT,letterSpacing:1,textTransform:"uppercase",fontWeight:700,marginBottom:10}}>Експорт</div>
           <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:7}}>
             {[
-              {label:"Excel", emoji:"📊", color:GREEN, sub:"Статистика",     onClick:()=>exportCSV(bookings)},
+              {label:"Excel", emoji:"📊", color:GREEN, sub:"Статистика",     onClick:()=>exportCSV(bookings, services)},
               {label:"PDF",   emoji:"📄", color:RED,   sub:"Для податкової", onClick:()=>window.print()},
               {label:"Share", emoji:"↗️", color:BLUE,  sub:"Поділитись",     onClick:()=>{}},
             ].map(e=>(
