@@ -745,12 +745,17 @@ const pendingDeletesRef = React.useRef(new Set());
       const dragging = activeDragIds.current.size > 0;
       const intervalMin = settings.snapMin ?? 30;
 
-      const blockSlots = (date, startMin, durMin) => {
+      const blockSlots = (date, startMin, durMin, onlyExisting = false) => {
         if (!date) return;
+        const existsForDate = slotExistsRef.current[date];
         const upd = {};
         for (let cur = startMin; cur < startMin + durMin; cur += intervalMin) {
           const h = String(Math.floor(cur / 60)).padStart(2, "0");
           const m = String(cur % 60).padStart(2, "0");
+          // При переносі (onlyExisting) позначаємо зайнятими лише вже згенеровані
+          // слоти — не створюємо нові вузли в днях без розкладу, інакше
+          // перетягування «спавнить» вільні слоти в чужих днях.
+          if (onlyExisting && !existsForDate?.has(`${h}:${m}`)) continue;
           upd[`timeslots/${date}/slot${h}${m}/available`] = false;
           upd[`timeslots/${date}/slot${h}${m}/time`] = `${h}:${m}`;
         }
@@ -864,12 +869,16 @@ const pendingDeletesRef = React.useRef(new Set());
             const priceUpdate = b.price != null
               ? { price: b.price + Math.round((newSurcharge - oldSurcharge) * discountFactor), surcharge: newSurcharge || undefined }
               : {};
-            // Free original position, then block new position
+            // Free original position, then block new position.
+            // Стару дату беремо з orig.day (надійний абсолютний індекс), а не з
+            // orig.date — поле date під час drag не оновлюється і при повторному
+            // перетягуванні залишається застарілим, через що звільнявся не той день.
             const orig = moveOriginals.current[b.id];
-            if (orig && orig.date && (orig.date !== newDate || orig.startMin !== b.startMin || orig.durMin !== b.durMin)) {
-              freeSlots(orig.date, orig.startMin, orig.durMin);
+            const origDate = orig ? dayIdxToDate(orig.day) : null;
+            if (orig && origDate && (origDate !== newDate || orig.startMin !== b.startMin || orig.durMin !== b.durMin)) {
+              freeSlots(origDate, orig.startMin, orig.durMin);
             }
-            blockSlots(newDate, b.startMin, b.durMin);
+            blockSlots(newDate, b.startMin, b.durMin, true);
             update(ref(db, `bookings/${b.userId}/${b._fbKey || b.id}`), {
               startMin: b.startMin,
               durMin:   b.durMin,
