@@ -284,10 +284,10 @@ function Donut({ school, total, size=76 }) {
     <svg width={size} height={size}>
       <circle cx={cx} cy={cy} r={r} fill="none" stroke={SURF_LO} strokeWidth="9"/>
       <circle cx={cx} cy={cy} r={r} fill="none" stroke={GREEN} strokeWidth="9"
-        strokeDasharray={`${pct*c} ${c}`} strokeDashoffset={c*.25} strokeLinecap="round"
+        strokeDasharray={`${pct*c} ${c}`} strokeDashoffset={c*.75} strokeLinecap="round"
         style={{filter:`drop-shadow(0 0 5px ${GREEN}66)`}}/>
       <circle cx={cx} cy={cy} r={r} fill="none" stroke={GOLD} strokeWidth="9"
-        strokeDasharray={`${(1-pct)*c} ${c}`} strokeDashoffset={-(pct*c - c*.25)} strokeLinecap="round"
+        strokeDasharray={`${(1-pct)*c} ${c}`} strokeDashoffset={c*(.75+pct)} strokeLinecap="round"
         style={{filter:`drop-shadow(0 0 5px ${GOLD}66)`}}/>
       <text x={cx} y={cy} textAnchor="middle" dominantBaseline="middle" fill={TEXT} fontSize="12" fontWeight="800">{Math.round(pct*100)}%</text>
     </svg>
