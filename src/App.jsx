@@ -131,7 +131,7 @@ function BottomNav({ active, onChange, settings, chatUnread, journalUnread }) {
   const visible = TAB_IDS.filter(t => settings?.navTabs?.includes(t.id) ?? true);
 
   const navBg = isKava
-    ? `linear-gradient(180deg,${theme.SURF_HI},${theme.SURFACE})`
+    ? `linear-gradient(180deg,#d9c4a0,#ccb48c)`
     : "linear-gradient(180deg,#3a3b40,#2e2f34)";
   const navBorder = isKava
     ? `1px solid ${theme.BORDER}`
@@ -963,7 +963,7 @@ const pendingDeletesRef = React.useRef(new Set());
           padding: tab==="schedule" ? "0 3px 11px" : "14px 14px 14px",
           display: tab==="schedule" ? "flex" : "block",
           flexDirection:"column",
-          background: theme.BG_IMAGE && tab!=="schedule" ? "#d4ba96" : "transparent",
+          background: theme.BG_IMAGE ? "#d4ba96" : "transparent",
         }}>
           <Suspense fallback={<Loader/>}>
             <ViewRenderer tab={tab} settings={settings} setSettings={setSettings} bookings={bookings} setBookings={handleSetBookings} onSlotClick={setSelectedBooking} onEmptySlotClick={setNewBookingData} openInfos={openInfos} toggleInfo={toggleInfo} activeDragIds={activeDragIds} navTo={switchTab} slotExistsRef={slotExistsRef} openSlotsRef={openSlotsRef}/>
