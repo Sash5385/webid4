@@ -18,7 +18,7 @@ function getDateStr(d) {
 }
 
 function bkType(b) { return b.serviceType || b.type || "private"; }
-function bkIncome(b) { return (b.price||0) + (b.surcharge||0); }
+function bkIncome(b) { return (b.price||0); }
 
 function aggregateBuckets(buckets, bookings, getKey) {
   const map = {};
