@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useContext } from "react";
 import { ref, onValue } from "firebase/database";
 import { db } from "../firebase";
+import { ThemeContext } from "../theme.js";
 
 export const JOURNAL_READ_KEY = "journal_read_at";
 
@@ -61,47 +62,46 @@ function buildEvents(data) {
 }
 
 const BY_LABEL = { admin: "адмін", client: "учень" };
-const ROW_H = 72;
 
-// Mint/sage palette — light green skin inspired by clean insurance app design
-const M = {
-  TEXT:    "#0f3d2a",
-  DIM:     "#4d8a6e",
-  CARD:    "#ffffff",
-  CBORDER: "rgba(15,100,70,0.09)",
-  CSHADOW: "0 2px 14px rgba(15,100,70,0.09)",
-  PILL_A:  "#0f3d2a",
-  PILL_AT: "#ffffff",
-  PILL_I:  "rgba(15,61,42,0.09)",
-  PILL_IT: "#4d8a6e",
-  WRAP:    "linear-gradient(160deg,#c4e8d4 0%,#d9eef6 55%,#dce6f5 100%)",
-  GREEN:   "#059669",
-  RED:     "#dc2626",
-  GOLD:    "#d97706",
-};
-
-const EVENT_META = {
-  new:        { label: "Новий запис", color: M.GREEN, bg: "#d1fae5", border: "rgba(5,150,105,0.25)",  icon: "📅" },
-  cancel:     { label: "Скасовано",   color: M.RED,   bg: "#fee2e2", border: "rgba(220,38,38,0.25)",  icon: "✗"  },
-  reschedule: { label: "Перенос",     color: M.GOLD,  bg: "#fef3c7", border: "rgba(217,119,6,0.25)",  icon: "↔"  },
-};
-
-function EventIcon({ type }) {
-  const meta = EVENT_META[type] || { color: M.GREEN, bg: "#d1fae5", border: "rgba(5,150,105,0.25)", icon: "•" };
+function EventIcon({ color, icon, isKava, theme }) {
   return (
     <div style={{
       width: 46, height: 46, borderRadius: 14, flexShrink: 0,
-      background: meta.bg,
-      border: `1.5px solid ${meta.border}`,
-      boxShadow: `0 2px 8px ${meta.color}20`,
+      background: isKava
+        ? `linear-gradient(145deg,${theme.SURF_HI},${theme.SURF_LO})`
+        : `${color}18`,
+      border: `1.5px solid ${color}${isKava ? "99" : "44"}`,
+      boxShadow: isKava
+        ? theme.SI
+        : `0 2px 8px ${color}28`,
       display: "flex", alignItems: "center", justifyContent: "center",
+      position: "relative", overflow: "hidden",
     }}>
-      <span style={{ fontSize: 20, fontWeight: 800, color: meta.color }}>{meta.icon}</span>
+      {isKava && (
+        <div style={{
+          position: "absolute", top: 0, right: 0, width: "60%", height: "50%",
+          background: `radial-gradient(ellipse at top right,rgba(255,250,243,0.45) 0%,transparent 70%)`,
+          pointerEvents: "none",
+        }} />
+      )}
+      <span style={{
+        position: "relative", zIndex: 1,
+        fontSize: 20, fontWeight: 800, color,
+      }}>{icon}</span>
     </div>
   );
 }
 
 export default function JournalView() {
+  const theme  = useContext(ThemeContext);
+  const isKava = !!theme.BG_IMAGE;
+
+  const EVENT_TYPES = {
+    new:        { label: "Новий запис", color: theme.GREEN, icon: "📅" },
+    cancel:     { label: "Скасовано",   color: theme.RED,   icon: "✗" },
+    reschedule: { label: "Перенос",     color: theme.GOLD,  icon: "↔" },
+  };
+
   const [events,     setEvents]    = useState([]);
   const [filter,     setFilter]    = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
@@ -120,12 +120,7 @@ export default function JournalView() {
   const filtered    = typeFilter === "all" ? byRead : byRead.filter(e => e.type === typeFilter);
 
   return (
-    <div style={{
-      borderRadius: 20,
-      background: M.WRAP,
-      padding: "14px 12px 12px",
-      margin: "-4px -4px 0",
-    }}>
+    <div style={{ display: "flex", flexDirection: "column" }}>
 
       {/* Filter bar */}
       <div style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 10 }}>
@@ -134,34 +129,33 @@ export default function JournalView() {
           ["unread", `Непрочитані${unreadCount > 0 ? ` (${unreadCount})` : ""}`],
         ].map(([id, lbl]) => (
           <button key={id} onClick={() => setFilter(id)} style={{
-            padding: "6px 16px", borderRadius: 20, border: "none",
+            padding: "5px 14px", borderRadius: 12, border: "none",
             cursor: "pointer", fontSize: 12, fontWeight: 700,
-            background: filter === id ? M.PILL_A : M.PILL_I,
-            color: filter === id ? M.PILL_AT : M.PILL_IT,
-            boxShadow: filter === id ? "0 2px 8px rgba(15,61,42,0.25)" : "none",
+            background: filter === id ? theme.ACCENT : theme.SURF_LO,
+            color: filter === id ? (isKava ? "#fff8ef" : "#fff") : theme.DIM,
+            boxShadow: filter === id ? theme.SO : "none",
             transition: "all .15s",
           }}>{lbl}</button>
         ))}
         <div style={{ flex: 1 }} />
-        <span style={{ fontSize: 10, color: M.DIM }}>{filtered.length} подій</span>
+        <span style={{ fontSize: 10, color: theme.DIM }}>{filtered.length} подій</span>
       </div>
 
       {/* Type filter bar */}
-      <div style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 12, flexWrap: "wrap" }}>
+      <div style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 10, flexWrap: "wrap" }}>
         {[
-          ["all",        "Всі типи",    M.DIM],
-          ["cancel",     "Скасовано",   M.RED],
-          ["new",        "Новий запис", M.GREEN],
-          ["reschedule", "Перенос",     M.GOLD],
+          ["all",        "Всі типи",    theme.DIM],
+          ["cancel",     "Скасовано",   theme.RED],
+          ["new",        "Новий запис", theme.GREEN],
+          ["reschedule", "Перенос",     theme.GOLD],
         ].map(([id, lbl, color]) => {
           const active = typeFilter === id;
           return (
             <button key={id} onClick={() => setTypeFilter(id)} style={{
-              padding: "5px 13px", borderRadius: 20,
-              border: `1.5px solid ${active ? color : "rgba(15,61,42,0.15)"}`,
+              padding: "5px 12px", borderRadius: 12, border: `1.5px solid ${active ? color : "transparent"}`,
               cursor: "pointer", fontSize: 11, fontWeight: 700,
-              background: active ? `${color}18` : "rgba(255,255,255,0.55)",
-              color: active ? color : M.DIM,
+              background: active ? `${color}22` : theme.SURF_LO,
+              color: active ? color : theme.DIM,
               transition: "all .15s",
             }}>{lbl}</button>
           );
@@ -169,74 +163,70 @@ export default function JournalView() {
       </div>
 
       {filtered.length === 0 && (
-        <div style={{ textAlign: "center", color: M.DIM, fontSize: 13, paddingTop: 40 }}>
+        <div style={{ textAlign: "center", color: theme.DIM, fontSize: 13, paddingTop: 40 }}>
           {filter === "unread" ? "Немає нових подій" : "Журнал порожній"}
         </div>
       )}
 
       {filtered.map((ev, i) => {
-        const meta    = EVENT_META[ev.type] || { label: ev.type, color: M.GREEN, bg: "#d1fae5", border: "rgba(5,150,105,0.25)", icon: "•" };
+        const meta    = EVENT_TYPES[ev.type] || { label: ev.type, color: theme.ACCENT, icon: "•" };
         const isNew   = ev.ts > prevReadAt;
         const byLabel = BY_LABEL[ev.by] || ev.by;
 
         return (
           <div key={ev.id} style={{
-            background: M.CARD,
-            borderRadius: 16,
-            boxShadow: M.CSHADOW,
-            border: `1px solid ${M.CBORDER}`,
-            padding: "0 12px",
+            background: `linear-gradient(155deg,${theme.SURF_HI},${theme.SURFACE})`,
+            borderRadius: 13,
+            boxShadow: theme.SO,
+            border: `1px solid ${theme.BORDER}`,
+            padding: "10px 12px",
             marginBottom: i < filtered.length - 1 ? 8 : 0,
+            display: "flex",
+            alignItems: "flex-start",
+            gap: 12,
           }}>
-            <div style={{
-              height: ROW_H,
-              display: "flex",
-              alignItems: "center",
-              gap: 12,
-            }}>
-              <EventIcon type={ev.type} />
+            <EventIcon color={meta.color} icon={meta.icon} isKava={isKava} theme={theme} />
 
-              {/* Text */}
-              <div style={{ flex: 1, minWidth: 0 }}>
-                {/* Row 1: event type + time */}
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
-                  <span style={{
-                    fontSize: 12, fontWeight: 700,
-                    color: meta.color,
-                  }}>{meta.label}</span>
-                  <span style={{
-                    fontSize: 11, flexShrink: 0,
-                    color: isNew ? meta.color : M.DIM,
-                    fontWeight: isNew ? 700 : 400,
-                  }}>{formatDT(ev.ts)}</span>
-                </div>
-
-                {/* Row 2: name · slot · by */}
-                <div style={{
-                  display: "flex", alignItems: "center", gap: 5,
-                  marginTop: 3, overflow: "hidden",
-                }}>
-                  <span style={{
-                    fontSize: 14, fontWeight: isNew ? 800 : 600,
-                    color: M.TEXT,
-                    overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flexShrink: 1,
-                  }}>{ev.name}</span>
-                  {ev.slot && (
-                    <span style={{ fontSize: 11, color: M.DIM, flexShrink: 0, whiteSpace: "nowrap" }}>· {ev.slot}</span>
-                  )}
-                  {byLabel && (
-                    <span style={{ fontSize: 11, color: M.DIM, flexShrink: 0, whiteSpace: "nowrap" }}>· від: {byLabel}</span>
-                  )}
-                </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              {/* Row 1: event type + time */}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8, marginBottom: 3 }}>
+                <span style={{ fontSize: 12, fontWeight: 700, color: meta.color }}>{meta.label}</span>
+                <span style={{
+                  fontSize: 11, flexShrink: 0,
+                  color: isNew ? meta.color : theme.DIM,
+                  fontWeight: isNew ? 700 : 400,
+                }}>{formatDT(ev.ts)}</span>
               </div>
 
-              {/* Unread dot */}
-              {isNew && (
-                <div style={{
-                  width: 9, height: 9, borderRadius: "50%",
-                  background: meta.color, flexShrink: 0,
-                  boxShadow: `0 0 6px ${meta.color}88`,
-                }} />
+              {/* Row 2: full name */}
+              <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
+                <span style={{
+                  fontSize: 14, fontWeight: isNew ? 800 : 600,
+                  color: theme.TEXT,
+                  lineHeight: 1.3,
+                }}>{ev.name}</span>
+                {isNew && (
+                  <div style={{
+                    width: 8, height: 8, borderRadius: "50%", flexShrink: 0,
+                    background: meta.color,
+                    boxShadow: `0 0 6px ${meta.color}88`,
+                  }} />
+                )}
+              </div>
+
+              {/* Row 3: slot + by */}
+              {(ev.slot || byLabel) && (
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  {ev.slot && (
+                    <span style={{ fontSize: 11, color: theme.DIM }}>{ev.slot}</span>
+                  )}
+                  {ev.slot && byLabel && (
+                    <span style={{ fontSize: 11, color: theme.FAINT }}>·</span>
+                  )}
+                  {byLabel && (
+                    <span style={{ fontSize: 11, color: theme.DIM }}>від: {byLabel}</span>
+                  )}
+                </div>
               )}
             </div>
           </div>
