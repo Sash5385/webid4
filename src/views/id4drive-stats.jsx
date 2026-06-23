@@ -18,9 +18,15 @@ function getDateStr(d) {
 }
 
 function bkType(b) { return b.serviceType || b.type || "private"; }
-function bkIncome(b) { return (b.price||0); }
+function bkIncome(b, svcs) {
+  const svc = (svcs||[]).find(s => s.id === b.serviceId);
+  const dur = b.durMin || (b.durationHours ? b.durationHours * 60 : 60);
+  if (svc && svc.price && svc.duration) return Math.round((svc.price / svc.duration) * dur);
+  if (b.price && b.durationHours && b.durMin) return Math.round((b.price / (b.durationHours * 60)) * b.durMin);
+  return b.price || 0;
+}
 
-function aggregateBuckets(buckets, bookings, getKey) {
+function aggregateBuckets(buckets, bookings, getKey, svcs) {
   const map = {};
   buckets.forEach(b => { map[b.key] = { ...b, income:0, lessons:0, school:0, private:0, noshow:0, cancel:0 }; });
   bookings.forEach(b => {
@@ -28,7 +34,7 @@ function aggregateBuckets(buckets, bookings, getKey) {
     if (!map[k]) return;
     const st = b.status || "confirmed";
     if (st === "confirmed" || st === "pending") {
-      map[k].income  += bkIncome(b);
+      map[k].income  += bkIncome(b, svcs);
       map[k].lessons += 1;
       if (bkType(b) === "school") map[k].school++;
       else map[k].private++;
@@ -38,7 +44,7 @@ function aggregateBuckets(buckets, bookings, getKey) {
   return buckets.map(b => map[b.key]);
 }
 
-function computeDayData(bookings, offsetDays = 0) {
+function computeDayData(bookings, offsetDays = 0, svcs) {
   const d = new Date();
   d.setDate(d.getDate() + offsetDays);
   const dateStr = getDateStr(d);
@@ -50,10 +56,10 @@ function computeDayData(bookings, offsetDays = 0) {
     if (!b.date || b.date !== dateStr) return '';
     const h = parseInt((b.time || '').split(':')[0], 10);
     return `${b.date}_${h}`;
-  });
+  }, svcs);
 }
 
-function computeWeekData(bookings, offset = 0) {
+function computeWeekData(bookings, offset = 0, svcs) {
   const now = new Date();
   const wd  = now.getDay();
   const weekStart = new Date(now);
@@ -63,32 +69,32 @@ function computeWeekData(bookings, offset = 0) {
     const d = new Date(weekStart); d.setDate(weekStart.getDate() + i);
     return { key: getDateStr(d), label };
   });
-  return aggregateBuckets(buckets, bookings, b => b.date || "");
+  return aggregateBuckets(buckets, bookings, b => b.date || "", svcs);
 }
 
-function computeMonthData(bookings, offsetMonths = 0) {
+function computeMonthData(bookings, offsetMonths = 0, svcs) {
   const now = new Date();
   const buckets = Array.from({length: 5}, (_, i) => {
     const d = new Date(now.getFullYear(), now.getMonth() - 4 + i + offsetMonths, 1);
     const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
     return { key, label: UK_MONTHS[d.getMonth()] };
   });
-  return aggregateBuckets(buckets, bookings, b => (b.date||"").slice(0, 7));
+  return aggregateBuckets(buckets, bookings, b => (b.date||"").slice(0, 7), svcs);
 }
 
-function computeYearData(bookings, offsetYears = 0) {
+function computeYearData(bookings, offsetYears = 0, svcs) {
   const now = new Date();
   const buckets = Array.from({length: 12}, (_, i) => {
     const d = new Date(now.getFullYear() + offsetYears, now.getMonth() - 11 + i, 1);
     const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
     return { key, label: UK_MONTHS[d.getMonth()] };
   });
-  return aggregateBuckets(buckets, bookings, b => (b.date||"").slice(0, 7));
+  return aggregateBuckets(buckets, bookings, b => (b.date||"").slice(0, 7), svcs);
 }
 
-function computeTopStudents(bookings, sortBy = 'paid') {
+function computeTopStudents(bookings, sortBy = 'paid', svcs) {
   const map = {};
-  bookings.filter(b => b.status === "confirmed").forEach(b => {
+  bookings.filter(b => b.status === "confirmed" || b.status === "pending").forEach(b => {
     const name = b.studentName || b.name || "Без імені";
     if (!map[name]) {
       map[name] = {
@@ -97,7 +103,7 @@ function computeTopStudents(bookings, sortBy = 'paid') {
         hue: Math.abs((name.charCodeAt(0)||0)*53 + (name.charCodeAt(1)||0)*17) % 360,
       };
     }
-    map[name].paid  += bkIncome(b);
+    map[name].paid  += bkIncome(b, svcs);
     map[name].hours += (b.durMin || (b.durationHours ? b.durationHours*60 : 60)) / 60;
   });
   return Object.values(map)
@@ -106,18 +112,18 @@ function computeTopStudents(bookings, sortBy = 'paid') {
     .map(s => ({...s, hours: Math.round(s.hours * 10) / 10}));
 }
 
-function computePopularSlots(bookings) {
+function computePopularSlots(bookings, svcs) {
   const map = {};
-  bookings.filter(b => b.status === "confirmed" && b.time).forEach(b => {
+  bookings.filter(b => (b.status === "confirmed" || b.status === "pending") && b.time).forEach(b => {
     const h = String(parseInt((b.time||'').split(':')[0], 10)).padStart(2,'0');
     if (!map[h]) map[h] = { hour: `${h}:00`, count: 0, income: 0 };
     map[h].count++;
-    map[h].income += bkIncome(b);
+    map[h].income += bkIncome(b, svcs);
   });
   return Object.values(map).sort((a, b) => b.count - a.count).slice(0, 6);
 }
 
-function computeMonthForecast(bookings) {
+function computeMonthForecast(bookings, svcs) {
   const now = new Date();
   const year = now.getFullYear();
   const month = now.getMonth();
@@ -126,8 +132,8 @@ function computeMonthForecast(bookings) {
   if (dayOfMonth < 3) return null;
   const monthKey = `${year}-${String(month+1).padStart(2,'0')}`;
   const monthIncome = bookings
-    .filter(b => b.status === 'confirmed' && (b.date||'').startsWith(monthKey))
-    .reduce((s, b) => s + bkIncome(b), 0);
+    .filter(b => (b.status === 'confirmed' || b.status === 'pending') && (b.date||'').startsWith(monthKey))
+    .reduce((s, b) => s + bkIncome(b, svcs), 0);
   return Math.round((monthIncome / dayOfMonth) * daysInMonth);
 }
 
@@ -290,6 +296,7 @@ export default function StatsView() {
   const [chartType, setChartType] = useState("line");
   const [metric,    setMetric]    = useState("income");
   const [bookings,  setBookings]  = useState([]);
+  const [services,  setServices]  = useState([]);
   const [topBy,     setTopBy]     = useState("paid");
 
   const css = `
@@ -318,15 +325,22 @@ export default function StatsView() {
     }, () => {});
   }, []);
 
-  const data     = period === "week"  ? computeWeekData(bookings)
-                 : period === "year"  ? computeYearData(bookings)
-                 : period === "day"   ? computeDayData(bookings)
-                 :                      computeMonthData(bookings);
+  useEffect(() => {
+    return onValue(ref(db, "admin_settings/services"), snap => {
+      const d = snap.val();
+      setServices(Array.isArray(d) ? d : []);
+    }, () => {});
+  }, []);
 
-  const prevData = period === "week"  ? computeWeekData(bookings, -1)
-                 : period === "year"  ? computeYearData(bookings, -1)
-                 : period === "day"   ? computeDayData(bookings, -1)
-                 :                      computeMonthData(bookings, -5);
+  const data     = period === "week"  ? computeWeekData(bookings, 0, services)
+                 : period === "year"  ? computeYearData(bookings, 0, services)
+                 : period === "day"   ? computeDayData(bookings, 0, services)
+                 :                      computeMonthData(bookings, 0, services);
+
+  const prevData = period === "week"  ? computeWeekData(bookings, -1, services)
+                 : period === "year"  ? computeYearData(bookings, -1, services)
+                 : period === "day"   ? computeDayData(bookings, -1, services)
+                 :                      computeMonthData(bookings, -5, services);
 
   const cur  = periodSum(data);
   const prev = periodSum(prevData);
@@ -341,10 +355,10 @@ export default function StatsView() {
   const noshowPct    = totalLessons ? Math.round((totalNoshow / totalLessons) * 100) : 0;
   const prevAvgCheck = prev.lessons ? Math.round(prev.income / prev.lessons) : 0;
 
-  const weekData     = computeWeekData(bookings);
-  const topStudents  = computeTopStudents(bookings, topBy);
-  const popularSlots = computePopularSlots(bookings);
-  const forecast     = computeMonthForecast(bookings);
+  const weekData     = computeWeekData(bookings, 0, services);
+  const topStudents  = computeTopStudents(bookings, topBy, services);
+  const popularSlots = computePopularSlots(bookings, services);
+  const forecast     = computeMonthForecast(bookings, services);
   const weekBooked   = weekData.reduce((s, d) => s + d.lessons, 0);
   const weekOccupancy= weekData.length ? Math.min(100, Math.round((weekBooked / (weekData.length * 8)) * 100)) : 0;
 
