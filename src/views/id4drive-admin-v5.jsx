@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useLayoutEffect, useMemo, useContext } from "react";
-import { ref, update, get, onValue, off, remove } from "firebase/database";
+import { ref, update, get, onValue, off, remove, push as fbPush } from "firebase/database";
 import { db } from "../firebase";
 
 import { ThemeContext, GREEN, BLUE, PURPLE, GOLD, RED, TEAL, ACCENT, ACC_HI, SURFACE, SURF_HI, TEXT } from "../theme.js";
@@ -449,6 +449,97 @@ function statusPill(s) {
 const fmtTime = (m) => `${String(Math.floor(m/60)).padStart(2,"0")}:${String(m%60).padStart(2,"0")}`;
 const fmtDur = (m) => { const h=Math.floor(m/60),min=m%60; return h===0?`${min}хв`:min===0?`${h}год`:`${h}год ${min}хв`; };
 const colorOf = (id) => PALETTE.find(p=>p.id===id)?.color || GREEN;
+
+// ═══════════════════════════════════════════════════════════════
+// BROADCAST MODAL — ручна розсилка пушу учням
+// ═══════════════════════════════════════════════════════════════
+function BroadcastModal({ initialDate, onClose }) {
+  const { BG_DEEP, SURFACE, SURF_LO, BORDER, TEXT, DIM, FAINT, ACCENT, ACC_HI, SO, SI, GLOW, SHADE, INK } = useContext(ThemeContext);
+  const glow = a => `rgba(${GLOW},${a})`, shade = a => `rgba(${SHADE},${a})`, ink = a => `rgba(${INK},${a})`;
+  const SHADOW_IN = SI;
+
+  const [date, setDate]       = useState(initialDate || "");
+  const [slot1, setSlot1]     = useState("");
+  const [slot2, setSlot2]     = useState("");
+  const [comment, setComment] = useState("");
+  const [sending, setSending] = useState(false);
+  const [sent, setSent]       = useState(false);
+
+  const slotsArr = [slot1, slot2].filter(Boolean);
+  const canSend  = !!(date && slot1 && !sending);
+
+  const preview = (() => {
+    if (!date || !slot1) return null;
+    try {
+      const fmt = new Date(date + "T00:00:00").toLocaleDateString("uk", { day: "numeric", month: "long", weekday: "short" });
+      return `${fmt} о ${slotsArr.join(" та ")}${comment ? " — " + comment : ""}`;
+    } catch { return null; }
+  })();
+
+  const handleSend = async () => {
+    if (!canSend) return;
+    setSending(true);
+    try {
+      await fbPush(ref(db, "push_tasks"), { date, slots: slotsArr, comment: comment || null, createdAt: Date.now(), status: "pending" });
+      setSent(true);
+    } catch (e) { alert("Помилка: " + e.message); }
+    finally { setSending(false); }
+  };
+
+  const inp = { background: `linear-gradient(135deg,${BG_DEEP},${SURF_LO})`, border: `1px solid ${BORDER}`, outline: "none", color: TEXT, fontSize: 13, padding: "9px 12px", borderRadius: 10, boxShadow: SHADOW_IN, width: "100%", boxSizing: "border-box" };
+
+  return (
+    <div style={{ position:"fixed", inset:0, zIndex:9999, background:"rgba(0,0,0,0.65)", display:"flex", alignItems:"flex-end", justifyContent:"center" }}
+      onClick={e => e.target === e.currentTarget && onClose()}>
+      <div style={{ width:"100%", maxWidth:420, background:`linear-gradient(160deg,${SURFACE},${SURF_LO})`, borderRadius:"18px 18px 0 0", padding:"20px 20px 36px", boxShadow:`0 -8px 40px ${glow(0.2)}` }}>
+        <div style={{ width:40, height:4, background:BORDER, borderRadius:2, margin:"0 auto 16px" }}/>
+        {sent ? (
+          <div style={{ textAlign:"center", padding:"20px 0" }}>
+            <div style={{ fontSize:40, marginBottom:8 }}>✅</div>
+            <div style={{ fontSize:16, fontWeight:800, color:TEXT }}>Надіслано!</div>
+            <div style={{ fontSize:12, color:DIM, marginTop:6 }}>Сповіщення отримають активні учні</div>
+            <button onClick={onClose} style={{ marginTop:20, background:ACCENT, color:"#fff", border:"none", borderRadius:12, padding:"10px 28px", fontSize:13, fontWeight:700, cursor:"pointer" }}>Закрити</button>
+          </div>
+        ) : (
+          <>
+            <div style={{ fontSize:16, fontWeight:800, color:TEXT, marginBottom:16 }}>📣 Розсилка учням</div>
+            <div style={{ marginBottom:10 }}>
+              <div style={{ fontSize:11, color:DIM, marginBottom:4, fontWeight:600 }}>Дата</div>
+              <input type="date" value={date} onChange={e => setDate(e.target.value)} style={inp}/>
+            </div>
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:10 }}>
+              <div>
+                <div style={{ fontSize:11, color:DIM, marginBottom:4, fontWeight:600 }}>Слот 1 *</div>
+                <input type="time" value={slot1} onChange={e => setSlot1(e.target.value)} style={inp}/>
+              </div>
+              <div>
+                <div style={{ fontSize:11, color:DIM, marginBottom:4, fontWeight:600 }}>Слот 2 (необов.)</div>
+                <input type="time" value={slot2} onChange={e => setSlot2(e.target.value)} style={inp}/>
+              </div>
+            </div>
+            <div style={{ marginBottom:14 }}>
+              <div style={{ fontSize:11, color:DIM, marginBottom:4, fontWeight:600 }}>Коментар (необов.)</div>
+              <input value={comment} onChange={e => setComment(e.target.value)} placeholder="напр. «записуйся поки є місце»" style={{ ...inp, fontSize:12 }} maxLength={60}/>
+            </div>
+            {preview && (
+              <div style={{ background:`rgba(${GLOW},0.06)`, border:`1px solid ${glow(0.18)}`, borderRadius:10, padding:"10px 12px", marginBottom:14 }}>
+                <div style={{ fontSize:10, color:DIM, marginBottom:4, fontWeight:700, letterSpacing:0.5 }}>ПРЕВ'Ю ПУШУ</div>
+                <div style={{ fontSize:12, color:TEXT, fontWeight:700 }}>🚗 Є вільний слот!</div>
+                <div style={{ fontSize:11, color:DIM, marginTop:3 }}>{preview}</div>
+              </div>
+            )}
+            <div style={{ display:"flex", gap:8 }}>
+              <button onClick={onClose} style={{ flex:1, background:"transparent", color:DIM, border:`1px solid ${BORDER}`, borderRadius:12, padding:"11px 0", fontSize:13, cursor:"pointer" }}>Скасувати</button>
+              <button onClick={handleSend} disabled={!canSend} style={{ flex:2, background:canSend?ACCENT:`rgba(${GLOW},0.08)`, color:canSend?"#fff":DIM, border:"none", borderRadius:12, padding:"11px 0", fontSize:13, fontWeight:700, cursor:canSend?"pointer":"default", transition:"all 0.2s" }}>
+                {sending ? "Надсилаємо…" : "📣 Надіслати"}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
 
 // ═══════════════════════════════════════════════════════════════
 // SCHEDULE VIEW with drag/resize + pinch-to-zoom + day-count
@@ -1186,6 +1277,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
     setLocalSelectedBooking(null);
   };
   const [blockModal, setBlockModal] = useState(null); // {id, day, startMin, durMin}
+  const [broadcastDate, setBroadcastDate] = useState(null);
 
   const handleBlock = ({ day, startMin }) => {
     setBookings(bs=>[...bs,{
@@ -1403,6 +1495,12 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                     whiteSpace:"nowrap", zIndex:20, pointerEvents:"none",
                   }}>
                     {genToast.free > 0 ? `+${genToast.free}` : `0 / ${genToast.blocked}б`}
+                  </div>
+                )}
+                {!isPastDay && !isClosedDay && (
+                  <div title="Розіслати сповіщення" onClick={e => { e.stopPropagation(); setBroadcastDate(dateStrCol); }}
+                    style={{ position:"absolute", top:1, right:1, fontSize:8, lineHeight:1, opacity:0.45, cursor:"pointer", zIndex:2, padding:"1px 2px" }}>
+                    📣
                   </div>
                 )}
               </div>
@@ -2355,6 +2453,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
         </div>
       </div>
     )}
+    {broadcastDate && <BroadcastModal initialDate={broadcastDate} onClose={() => setBroadcastDate(null)}/>}
     </>
   );
 }
@@ -3106,6 +3205,7 @@ function SettingsView({ settings, setSettings }) {
   const { BG, BG_DEEP, SURFACE, SURF_HI, SURF_LO, BORDER, TEXT, DIM, FAINT, ACCENT, ACC_HI, SO, SI , GLOW, SHADE, INK } = useContext(ThemeContext);
   const glow=a=>`rgba(${GLOW},${a})`,shade=a=>`rgba(${SHADE},${a})`,ink=a=>`rgba(${INK},${a})`;
   const SURFACE_HI = SURF_HI, SURFACE_LO = SURF_LO, TEXT_DIM = DIM, TEXT_FAINT = FAINT, ACCENT_HI = ACC_HI, SHADOW_OUT = SO, SHADOW_IN = SI;
+  const [broadcastOpen, setBroadcastOpen] = useState(false);
   const upd = (k, v) => setSettings(s => ({...s, [k]:v}));
   const updNested = (k1, k2, v) => setSettings(s => ({...s, [k1]:{...s[k1], [k2]:v}}));
 
@@ -3486,6 +3586,16 @@ function SettingsView({ settings, setSettings }) {
             }}/>
           </Row>
         ))}
+      </Card>
+
+      {/* ── BROADCAST PUSH ── */}
+      <Card style={{padding:"20px"}}>
+        <SectionTitle>Сповіщення учням</SectionTitle>
+        <div style={{fontSize:12,color:DIM,marginBottom:14}}>Ручна розсилка пушу активним учням про вільний слот</div>
+        <button onClick={()=>setBroadcastOpen(true)} style={{width:"100%",background:`linear-gradient(135deg,${ACCENT},${ACC_HI})`,color:"#fff",border:"none",borderRadius:14,padding:"13px 0",fontSize:14,fontWeight:800,cursor:"pointer"}}>
+          📣 Надіслати сповіщення учням
+        </button>
+        {broadcastOpen && <BroadcastModal onClose={()=>setBroadcastOpen(false)}/>}
       </Card>
 
       <div style={{height:30}}/>
