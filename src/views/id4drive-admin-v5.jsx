@@ -3629,6 +3629,17 @@ export default function App() {
     if (action === "confirm")  setBookings(bs=>bs.map(x=>x.id===b.id?{...x,status:"confirmed"}:x));
     if (action === "cancel") {
       if (b.userId && b.id) {
+        if (b.date && b.startMin !== undefined && b.durMin) {
+          const upd = {};
+          for (let i = 0; i < b.durMin; i += 30) {
+            const sm = b.startMin + i;
+            const hh = String(Math.floor(sm/60)).padStart(2,'0'), mm = String(sm%60).padStart(2,'0');
+            const path = `timeslots/${b.date}/slot${hh}${mm}`;
+            if (i % 60 === 0) { upd[`${path}/available`] = true; upd[`${path}/time`] = `${hh}:${mm}`; }
+            else { upd[path] = null; }
+          }
+          if (Object.keys(upd).length) update(ref(db,'/'), upd).catch(()=>{});
+        }
         // Скасовуємо обидва можливі вузли (дубль міг з'явитись від старого коду)
         const keys = [...new Set([b._fbKey, b.id].filter(Boolean))];
         keys.forEach(k => update(ref(db, `bookings/${b.userId}/${k}`), { status:"cancelled", cancelledAt:Date.now(), cancelledBy:"admin" }).catch(()=>{}));
