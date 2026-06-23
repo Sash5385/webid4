@@ -122,6 +122,7 @@ exports.onBookingChanged = onValueWritten(
     if (before === null && after) {
       const slotUpd = buildSlotUpdates(after, false);
       if (Object.keys(slotUpd).length) await db.ref("/").update(slotUpd).catch(() => {});
+      await db.ref(`activeStudents/${uid}`).set(true).catch(() => {});
       if (after.createdBy === "admin" && uid !== "admin") {
         // Адмін вручну записав учня — сповіщаємо учня
         console.log(`onBookingChanged: admin manual booking uid=${uid}`);
@@ -379,6 +380,10 @@ exports.onSlotFreed = onValueWritten(
 exports.flushSlotFreedQueue = onSchedule(
   { schedule: "every 1 minutes", region: "europe-west1" },
   async () => {
+    // Тихі години 23:00–6:00 за Києвом
+    const kyivHour = parseInt(new Date().toLocaleString("uk", { timeZone: "Europe/Kiev", hour: "2-digit", hour12: false }), 10);
+    if (kyivHour >= 23 || kyivHour < 6) return;
+
     const snap = await db.ref("slotFreedQueue").get();
     if (!snap.exists()) return;
     const now = Date.now();
@@ -388,29 +393,26 @@ exports.flushSlotFreedQueue = onSchedule(
       const val = entry.val();
       if (val && val.sendAfter <= now) tasks.push({ key: entry.key, ...val });
     });
+    if (!tasks.length) return;
+
+    // Студенти що хоч раз бронювали (індекс, замість повного скану bookings)
+    const activeSnap = await db.ref("activeStudents").get();
+    const notifyUids = activeSnap.exists() ? Object.keys(activeSnap.val()) : [];
+    if (!notifyUids.length) return;
+
+    // Rate-limit: не слати одному студенту частіше ніж раз на 30 хвилин
+    const lastNotifSnap = await db.ref("lastSlotNotif").get();
+    const lastNotifData = lastNotifSnap.val() || {};
+    const RATE_LIMIT_MS = 30 * 60 * 1000;
 
     for (const { key, date, time } of tasks) {
-      // Видаляємо з черги одразу
       await db.ref(`slotFreedQueue/${key}`).remove().catch(() => {});
 
-      // Перевіряємо що слот ще вільний (не встигли перезаписати)
+      // Перевіряємо що слот ще вільний
       const slotId = `slot${time.replace(":", "")}`;
       const slotSnap = await db.ref(`timeslots/${date}/${slotId}`).get();
       const slot = slotSnap.val();
       if (!slot || slot.available !== true) continue;
-
-      // Клієнти що записувались за останній місяць
-      const oneMonthAgo = now - 30 * 24 * 60 * 60 * 1000;
-      const bookingsSnap = await db.ref("bookings").get();
-      const bookingsData = bookingsSnap.val() || {};
-
-      const notifyUids = new Set();
-      for (const [uid, userBookings] of Object.entries(bookingsData)) {
-        if (!userBookings || typeof userBookings !== "object") continue;
-        for (const booking of Object.values(userBookings)) {
-          if ((booking.createdAt || 0) >= oneMonthAgo) { notifyUids.add(uid); break; }
-        }
-      }
 
       const slotDate = new Date(date + "T00:00:00");
       const dateFormatted = slotDate.toLocaleDateString("uk", { day: "numeric", month: "long", weekday: "short" });
@@ -419,8 +421,11 @@ exports.flushSlotFreedQueue = onSchedule(
       const url   = `https://id4drive.pro/cabinet?date=${date}`;
 
       for (const uid of notifyUids) {
+        if (lastNotifData[uid] && now - lastNotifData[uid] < RATE_LIMIT_MS) continue;
         await pushStudent(uid, title, body, { url, date, time }).catch(() => {});
         await saveNotification(uid, title, body, "slot_freed").catch(() => {});
+        lastNotifData[uid] = now; // локально щоб не спамити кілька слотів за один запуск
+        await db.ref(`lastSlotNotif/${uid}`).set(now).catch(() => {});
       }
     }
   }
