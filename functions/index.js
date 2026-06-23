@@ -130,6 +130,7 @@ exports.onBookingChanged = onValueWritten(
       const slotUpd = buildSlotUpdates(after, false);
       if (Object.keys(slotUpd).length) await db.ref("/").update(slotUpd).catch(() => {});
       await db.ref(`activeStudents/${uid}`).set(true).catch(() => {});
+      await db.ref(`recentStudents/${uid}`).set(Date.now()).catch(() => {});
       if (after.createdBy === "admin" && uid !== "admin") {
         // Адмін вручну записав учня — сповіщаємо учня
         console.log(`onBookingChanged: admin manual booking uid=${uid}`);
@@ -540,5 +541,53 @@ exports.sendLessonReminders = onSchedule(
     }
 
     if (Object.keys(updates).length) await db.ref("/").update(updates).catch(() => {});
+  }
+);
+
+// Ручна розсилка адміна → пуш активним учням (останній місяць)
+exports.onPushTask = onValueCreated(
+  { ref: "push_tasks/{taskId}", region: "europe-west1" },
+  async (event) => {
+    const task = event.data.val();
+    if (!task || task.status === "sent") return;
+    const { date, slots, comment } = task;
+    const taskId = event.params.taskId;
+
+    const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
+    const recentSnap = await db.ref("recentStudents").get();
+    const recentUids = recentSnap.exists()
+      ? Object.entries(recentSnap.val()).filter(([, ts]) => ts >= thirtyDaysAgo).map(([uid]) => uid)
+      : [];
+
+    if (!recentUids.length) {
+      await db.ref(`push_tasks/${taskId}`).update({ status: "sent", sentCount: 0, sentAt: Date.now() });
+      return;
+    }
+
+    const slotsArr = Array.isArray(slots) ? slots : Object.values(slots || {});
+    const d = new Date(date + "T00:00:00");
+    const dateFmt = d.toLocaleDateString("uk", { day: "numeric", month: "long", weekday: "short" });
+    const slotsStr = slotsArr.filter(Boolean).join(" та ");
+    const title = "🚗 Є вільний слот!";
+    const body = `${dateFmt} о ${slotsStr}${comment ? " — " + comment : ""}`;
+    const url = `https://id4drive.pro/cabinet?date=${date}${slotsArr[0] ? `&time=${encodeURIComponent(slotsArr[0])}` : ""}`;
+
+    const tokenSnaps = await Promise.all(recentUids.map(uid => db.ref(`users/${uid}/fcmTokens/web/token`).get()));
+    const tokened = tokenSnaps.map((s, i) => ({ token: s.val(), uid: recentUids[i] })).filter(t => t.token);
+
+    let sentCount = 0;
+    for (let i = 0; i < tokened.length; i += 500) {
+      const batch = tokened.slice(i, i + 500);
+      const res = await admin.messaging().sendEachForMulticast({
+        tokens: batch.map(t => t.token),
+        notification: { title, body },
+        data: { url, date, time: slotsArr[0] || "" },
+        webpush: { notification: { icon: "/favicon.svg" }, fcmOptions: { link: url } },
+      }).catch(() => ({ successCount: 0 }));
+      sentCount += res?.successCount || 0;
+    }
+
+    await Promise.all(recentUids.map(uid => saveNotification(uid, title, body, "slot_broadcast").catch(() => {})));
+    await db.ref(`push_tasks/${taskId}`).update({ status: "sent", sentCount, sentAt: Date.now() });
   }
 );
