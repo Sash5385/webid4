@@ -574,30 +574,36 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   // Тільки блокує — звільнення слотів виконує App.jsx при зміні/скасуванні.
   useEffect(() => {
     if (activeDragIds?.current?.size > 0) return;
-    const bkByDate = {};
-    bookings.forEach(b => {
-      if (b.status === "cancelled") return;
-      if (b.startMin == null || !b.durMin) return;
-      const d = Number.isInteger(b.day) ? absDayToDateStr(b.day) : b.date;
-      if (!d) return;
-      (bkByDate[d] || (bkByDate[d] = [])).push(b);
-    });
-    const upd = {};
-    Object.entries(openSlots).forEach(([date, slotMap]) => {
-      const dayBk = bkByDate[date];
-      if (!dayBk) return;
-      Object.entries(slotMap).forEach(([time, slot]) => {
-        if (!slot.available) return;
-        const [h, m] = time.split(":").map(Number);
-        const sMin = h * 60 + m;
-        if (dayBk.some(b => b.startMin < sMin + 60 && b.startMin + b.durMin > sMin)) {
-          const hh = String(h).padStart(2, "0");
-          const mm = String(m).padStart(2, "0");
-          upd[`timeslots/${date}/slot${hh}${mm}/available`] = false;
-        }
+    // Дебаунс: bookings/openSlots можуть оновлюватись пачкою (стрім із Firebase,
+    // перетягування). Чекаємо паузу, щоб зробити один запис, а не кілька підряд.
+    const t = setTimeout(() => {
+      if (activeDragIds?.current?.size > 0) return;
+      const bkByDate = {};
+      bookings.forEach(b => {
+        if (b.status === "cancelled") return;
+        if (b.startMin == null || !b.durMin) return;
+        const d = Number.isInteger(b.day) ? absDayToDateStr(b.day) : b.date;
+        if (!d) return;
+        (bkByDate[d] || (bkByDate[d] = [])).push(b);
       });
-    });
-    if (Object.keys(upd).length) update(ref(db, "/"), upd).catch(() => {});
+      const upd = {};
+      Object.entries(openSlots).forEach(([date, slotMap]) => {
+        const dayBk = bkByDate[date];
+        if (!dayBk) return;
+        Object.entries(slotMap).forEach(([time, slot]) => {
+          if (!slot.available) return;
+          const [h, m] = time.split(":").map(Number);
+          const sMin = h * 60 + m;
+          if (dayBk.some(b => b.startMin < sMin + 60 && b.startMin + b.durMin > sMin)) {
+            const hh = String(h).padStart(2, "0");
+            const mm = String(m).padStart(2, "0");
+            upd[`timeslots/${date}/slot${hh}${mm}/available`] = false;
+          }
+        });
+      });
+      if (Object.keys(upd).length) update(ref(db, "/"), upd).catch(() => {});
+    }, 400);
+    return () => clearTimeout(t);
   }, [bookings, openSlots]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Returns {free, blocked} counts, or null if day is skipped
