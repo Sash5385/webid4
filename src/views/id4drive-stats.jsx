@@ -92,13 +92,37 @@ function computeYearData(bookings, offsetYears = 0, svcs) {
   return aggregateBuckets(buckets, bookings, b => (b.date||"").slice(0, 7), svcs);
 }
 
-function filterByPeriod(bookings, data, period) {
+function filterByPeriod(bookings, data, period, cfrom, cto) {
+  if (period === 'custom') return bookings.filter(b => cfrom && cto && b.date >= cfrom && b.date <= cto);
   const keys = new Set(data.map(b => b.key));
   return bookings.filter(b => {
     if (period === 'day') return keys.has(`${b.date}_${parseInt((b.time||'').split(':')[0], 10)}`);
     if (period === 'week') return keys.has(b.date||'');
     return keys.has((b.date||'').slice(0, 7));
   });
+}
+
+function computeCustomData(bookings, from, to, svcs) {
+  if (!from || !to || from > to) return [];
+  const fromD = new Date(from), toD = new Date(to);
+  const diffDays = Math.round((toD - fromD) / 86400000) + 1;
+  if (diffDays <= 62) {
+    const buckets = Array.from({length: diffDays}, (_, i) => {
+      const d = new Date(fromD); d.setDate(fromD.getDate() + i);
+      const key = getDateStr(d);
+      return { key, label: `${d.getDate()}.${String(d.getMonth()+1).padStart(2,'0')}` };
+    });
+    return aggregateBuckets(buckets, bookings, b => b.date || '', svcs);
+  }
+  const arr = [];
+  const cur = new Date(fromD.getFullYear(), fromD.getMonth(), 1);
+  const end = new Date(toD.getFullYear(), toD.getMonth(), 1);
+  while (cur <= end) {
+    const key = `${cur.getFullYear()}-${String(cur.getMonth()+1).padStart(2,'0')}`;
+    arr.push({ key, label: UK_MONTHS[cur.getMonth()] });
+    cur.setMonth(cur.getMonth() + 1);
+  }
+  return aggregateBuckets(arr, bookings, b => (b.date||'').slice(0, 7), svcs);
 }
 
 function computeTopStudents(bookings, sortBy = 'paid', svcs) {
@@ -311,12 +335,14 @@ export default function StatsView() {
   const { BG_DEEP, SURFACE, SURF_HI, BORDER, TEXT, DIM, FAINT, ACCENT, ACC_HI, GREEN, BLUE, PURPLE, GOLD, RED, SO, SI } = useContext(ThemeContext);
   const lang = useContext(LangContext);
   const t = createT(lang);
-  const [period,    setPeriod]    = useState("month");
-  const [chartType, setChartType] = useState("line");
-  const [metric,    setMetric]    = useState("income");
-  const [bookings,  setBookings]  = useState([]);
-  const [services,  setServices]  = useState([]);
-  const [topBy,     setTopBy]     = useState("paid");
+  const [period,     setPeriod]    = useState("month");
+  const [chartType,  setChartType] = useState("line");
+  const [metric,     setMetric]    = useState("income");
+  const [bookings,   setBookings]  = useState([]);
+  const [services,   setServices]  = useState([]);
+  const [topBy,      setTopBy]     = useState("paid");
+  const [customFrom, setCustomFrom] = useState('');
+  const [customTo,   setCustomTo]   = useState('');
 
   const css = `
 @keyframes bar-grow{from{height:0%}to{height:var(--h)}}
@@ -351,15 +377,17 @@ export default function StatsView() {
     }, () => {});
   }, []);
 
-  const data     = period === "week"  ? computeWeekData(bookings, 0, services)
-                 : period === "year"  ? computeYearData(bookings, 0, services)
-                 : period === "day"   ? computeDayData(bookings, 0, services)
-                 :                      computeMonthData(bookings, 0, services);
+  const data     = period === "week"   ? computeWeekData(bookings, 0, services)
+                 : period === "year"   ? computeYearData(bookings, 0, services)
+                 : period === "day"    ? computeDayData(bookings, 0, services)
+                 : period === "custom" ? computeCustomData(bookings, customFrom, customTo, services)
+                 :                       computeMonthData(bookings, 0, services);
 
-  const prevData = period === "week"  ? computeWeekData(bookings, -1, services)
-                 : period === "year"  ? computeYearData(bookings, -1, services)
-                 : period === "day"   ? computeDayData(bookings, -1, services)
-                 :                      computeMonthData(bookings, -5, services);
+  const prevData = period === "custom" ? data
+                 : period === "week"   ? computeWeekData(bookings, -1, services)
+                 : period === "year"   ? computeYearData(bookings, -1, services)
+                 : period === "day"    ? computeDayData(bookings, -1, services)
+                 :                       computeMonthData(bookings, -5, services);
 
   const cur  = periodSum(data);
   const prev = periodSum(prevData);
@@ -374,15 +402,16 @@ export default function StatsView() {
   const noshowPct    = totalLessons ? Math.round((totalNoshow / totalLessons) * 100) : 0;
   const prevAvgCheck = prev.lessons ? Math.round(prev.income / prev.lessons) : 0;
 
-  const periodBookings = filterByPeriod(bookings, data, period);
+  const customDiffDays = customFrom && customTo ? Math.round((new Date(customTo) - new Date(customFrom)) / 86400000) + 1 : 0;
+  const periodBookings = filterByPeriod(bookings, data, period, customFrom, customTo);
   const topStudents  = computeTopStudents(periodBookings, topBy, services);
   const popularSlots = computePopularSlots(periodBookings, services);
-  const forecast     = period === "year" ? computeYearForecast(bookings, services) : computeMonthForecast(bookings, services);
+  const forecast     = period === "year" ? computeYearForecast(bookings, services) : period === "custom" ? null : computeMonthForecast(bookings, services);
   const slotsPerBucket = period === "day" ? 10 : 8;
   const occupancy    = data.length ? Math.min(100, Math.round((cur.lessons / (data.length * slotsPerBucket)) * 100)) : 0;
-  const occupancySub = period === "day" ? "сьогодні" : period === "week" ? "цей тиждень" : period === "month" ? "5 місяців" : "рік";
-  const forecastSub  = period === "year" ? "рік (прогноз)" : "місяць (прогноз)";
-  const byPeriodLabel= period === "day" ? "По годинах" : period === "week" ? "По днях" : period === "month" ? "По місяцях" : "По місяцях";
+  const occupancySub = period === "day" ? "сьогодні" : period === "week" ? "цей тиждень" : period === "month" ? "5 місяців" : period === "custom" ? "свій інтервал" : "рік";
+  const forecastSub  = period === "year" ? "рік (прогноз)" : period === "custom" ? "—" : "місяць (прогноз)";
+  const byPeriodLabel= period === "day" ? "По годинах" : period === "week" ? "По днях" : period === "custom" && customDiffDays <= 62 ? "По днях" : "По місяцях";
 
   const METRICS = [
     {id:"income",  label:t('income')+' ₴', color:GOLD},
@@ -400,10 +429,19 @@ export default function StatsView() {
 
         {/* ── PERIOD ── */}
         <div style={{display:"flex",gap:6,overflowX:"auto",paddingBottom:2}}>
-          {[["day","День"],["week",t('st2.week')],["month",t('st2.month')],["year",t('st2.year')]].map(([k,l])=>(
+          {[["day","День"],["week",t('st2.week')],["month",t('st2.month')],["year",t('st2.year')],["custom","Свій"]].map(([k,l])=>(
             <Chip key={k} label={l} active={period===k} onClick={()=>setPeriod(k)}/>
           ))}
         </div>
+        {period === "custom" && (
+          <div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}}>
+            <input type="date" value={customFrom} onChange={e=>setCustomFrom(e.target.value)}
+              style={{background:SURF_HI,border:"none",borderRadius:9,padding:"7px 10px",color:TEXT,fontSize:12,fontFamily:"inherit",boxShadow:SI,flex:1,minWidth:130}}/>
+            <span style={{color:FAINT,fontSize:14,fontWeight:700}}>—</span>
+            <input type="date" value={customTo} onChange={e=>setCustomTo(e.target.value)}
+              style={{background:SURF_HI,border:"none",borderRadius:9,padding:"7px 10px",color:TEXT,fontSize:12,fontFamily:"inherit",boxShadow:SI,flex:1,minWidth:130}}/>
+          </div>
+        )}
 
         {/* ── KPI 2×3 ── */}
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7}}>
