@@ -44,6 +44,14 @@ git add . && git commit -m "..." && git checkout master && git pull --rebase ori
 git add . && git commit -m "..." && git checkout main && git pull --rebase origin main && git merge <branch> --no-edit && git push origin main && git checkout <branch>
 ```
 
+## Шаг 6 — Спросить пользователя про деплой
+
+После завершения задачи **всегда спрашивать**:
+> "Деплоить?"
+
+Если пользователь говорит «да» — выполнить Шаг 5 (merge → push в master/main).
+Если говорит «нет» — оставить только в feature-ветке.
+
 ---
 
 ## О проекте
