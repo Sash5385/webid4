@@ -591,11 +591,10 @@ export default function StatsView() {
         {/* ── ЕКСПОРТ ── */}
         <Card className="fu" style={{padding:"12px"}}>
           <div style={{fontSize:9,color:FAINT,letterSpacing:1,textTransform:"uppercase",fontWeight:700,marginBottom:10}}>Експорт</div>
-          <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:7}}>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:7}}>
             {[
               {label:"Excel", emoji:"📊", color:GREEN, sub:"Статистика",     onClick:()=>exportCSV(bookings, services)},
               {label:"PDF",   emoji:"📄", color:RED,   sub:"Для податкової", onClick:()=>window.print()},
-              {label:"Share", emoji:"↗️", color:BLUE,  sub:"Поділитись",     onClick:()=>{}},
             ].map(e=>(
               <button key={e.label} onClick={e.onClick} style={{
                 padding:"11px 6px", borderRadius:11, border:"none", cursor:"pointer", fontFamily:"inherit",
