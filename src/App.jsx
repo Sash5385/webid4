@@ -743,15 +743,19 @@ const pendingDeletesRef = React.useRef(new Set());
       // Під час drag пропускаємо всю Firebase-логіку крім debounce-таймера позиції.
       // Це запобігає випадковим delete/create операціям під час кожного pointermove.
       const dragging = activeDragIds.current.size > 0;
-      const intervalMin = settings.snapMin ?? 30;
+      const bookingDateOf = (x) => Number.isInteger(x.day) ? dayIdxToDate(x.day) : x.date;
 
+      // Годинний слот H зайнятий, якщо запис перетинає [H:00, H+1:00). Перебираємо
+      // всі години, які перекриває запис (а не лише позицію startMin), щоб слот,
+      // накритий навіть наполовину (напр. запис о :30), теж ставав недоступним.
       const blockSlots = (date, startMin, durMin, onlyExisting = false) => {
         if (!date) return;
         const existsForDate = slotExistsRef.current[date];
+        const endMin = startMin + durMin;
         const upd = {};
-        for (let cur = startMin; cur < startMin + durMin; cur += intervalMin) {
+        for (let cur = Math.floor(startMin / 60) * 60; cur < endMin; cur += 60) {
           const h = String(Math.floor(cur / 60)).padStart(2, "0");
-          const m = String(cur % 60).padStart(2, "0");
+          const m = "00";
           // При переносі (onlyExisting) позначаємо зайнятими лише вже згенеровані
           // слоти — не створюємо нові вузли в днях без розкладу, інакше
           // перетягування «спавнить» вільні слоти в чужих днях.
@@ -765,14 +769,20 @@ const pendingDeletesRef = React.useRef(new Set());
       const freeSlots = (date, startMin, durMin) => {
         if (!date) return;
         const existsForDate = slotExistsRef.current[date];
+        const endMin = startMin + durMin;
         const upd = {};
-        for (let cur = startMin; cur < startMin + durMin; cur += intervalMin) {
+        for (let cur = Math.floor(startMin / 60) * 60; cur < endMin; cur += 60) {
+          const slotEnd = cur + 60;
+          // Не звільняємо годину, яку все ще перекриває інший активний запис
+          // (інакше слот, поділений між двома записами, помилково став би вільним).
+          const stillTaken = next.some(x =>
+            x.status !== "cancelled" && bookingDateOf(x) === date &&
+            x.startMin < slotEnd && x.startMin + x.durMin > cur);
+          if (stillTaken) continue;
           const h = String(Math.floor(cur / 60)).padStart(2, "0");
-          const m = String(cur % 60).padStart(2, "0");
+          const m = "00";
           const key = `timeslots/${date}/slot${h}${m}`;
-          // Half-hour slots (9:30, 10:30…) were never generated — always delete them.
-          // Hour-boundary slots restore to available if they exist, else delete.
-          if (cur % 60 === 0 && existsForDate?.has(`${h}:${m}`)) {
+          if (existsForDate?.has(`${h}:${m}`)) {
             upd[`${key}/available`] = true;
           } else {
             upd[key] = null;

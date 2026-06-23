@@ -1301,7 +1301,15 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
             const colIdx = vRange.s + _i;
             const absDay = dayOffset + colIdx;
             const dateStrCol = absDayToDateStr(absDay);
-            const isOpenCol = Object.values(openSlots[dateStrCol] || {}).some(s => s.available);
+            // Записи цього дня — для приховування вільних слотів, які запис накрив
+            // (навіть наполовину): такий слот не показуємо й не пропонуємо клієнту.
+            const colBookings = bookings.filter(b => b.day === absDay && b.status !== "cancelled");
+            const slotCovered = (mn) => colBookings.some(b => b.startMin < mn + 60 && b.startMin + b.durMin > mn);
+            const isOpenCol = Object.entries(openSlots[dateStrCol] || {}).some(([t, s]) => {
+              if (!s.available) return false;
+              const [hh, mm] = t.split(":").map(Number);
+              return !slotCovered(hh * 60 + mm);
+            });
             const _dow = (new Date(dateStrCol + "T12:00:00").getDay() + 6) % 7;
             const _ov  = (settings.dateOverrides || []).find(o => o.date === dateStrCol);
             const _ws  = (settings.weekSchedule  || [])[_dow] || {};
@@ -1413,6 +1421,8 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                 const [h, m] = time.split(":").map(Number);
                 const startMin = h * 60 + m;
                 if (startMin < effectiveWorkStart * 60 || startMin >= effectiveWorkEnd * 60) return null;
+                // Вільний/доступний слот, накритий записом (хоча б частково), не показуємо.
+                if (slot.available && slotCovered(startMin)) return null;
                 const nextMin = sortedMins.find(t => t > startMin) ?? (startMin + 60);
                 const slotHeightMin = Math.min(60, nextMin - startMin, effectiveWorkEnd * 60 - startMin);
                 const isVip = slot.vipOnly;
