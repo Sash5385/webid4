@@ -744,15 +744,21 @@ const pendingDeletesRef = React.useRef(new Set());
       // Це запобігає випадковим delete/create операціям під час кожного pointermove.
       const dragging = activeDragIds.current.size > 0;
       const bookingDateOf = (x) => Number.isInteger(x.day) ? dayIdxToDate(x.day) : x.date;
+      // Аудит: хто і коли змінив слот — пишемо в сам слот для дебагу
+      // (видно, чому слот став доступним/недоступним).
+      const auditBy = adminUser?.uid || "admin";
 
       // Годинний слот H зайнятий, якщо запис перетинає [H:00, H+1:00). Перебираємо
       // всі години, які перекриває запис (а не лише позицію startMin), щоб слот,
       // накритий навіть наполовину (напр. запис о :30), теж ставав недоступним.
-      const blockSlots = (date, startMin, durMin, onlyExisting = false) => {
+      // acc !== null → пишемо в спільний об'єкт (атомарний запис разом з бронюванням),
+      // інакше робимо самостійний update.
+      const blockSlots = (date, startMin, durMin, onlyExisting = false, acc = null) => {
         if (!date) return;
         const existsForDate = slotExistsRef.current[date];
         const endMin = startMin + durMin;
-        const upd = {};
+        const upd = acc || {};
+        const now = Date.now();
         for (let cur = Math.floor(startMin / 60) * 60; cur < endMin; cur += 60) {
           const h = String(Math.floor(cur / 60)).padStart(2, "0");
           const m = "00";
@@ -760,17 +766,21 @@ const pendingDeletesRef = React.useRef(new Set());
           // слоти — не створюємо нові вузли в днях без розкладу, інакше
           // перетягування «спавнить» вільні слоти в чужих днях.
           if (onlyExisting && !existsForDate?.has(`${h}:${m}`)) continue;
-          upd[`timeslots/${date}/slot${h}${m}/available`] = false;
-          upd[`timeslots/${date}/slot${h}${m}/time`] = `${h}:${m}`;
+          const key = `timeslots/${date}/slot${h}${m}`;
+          upd[`${key}/available`] = false;
+          upd[`${key}/time`] = `${h}:${m}`;
+          upd[`${key}/lastChangedBy`] = auditBy;
+          upd[`${key}/lastChangedAt`] = now;
         }
-        if (Object.keys(upd).length) update(ref(db, "/"), upd).catch(() => {});
+        if (!acc && Object.keys(upd).length) update(ref(db, "/"), upd).catch(() => {});
       };
 
-      const freeSlots = (date, startMin, durMin) => {
+      const freeSlots = (date, startMin, durMin, acc = null) => {
         if (!date) return;
         const existsForDate = slotExistsRef.current[date];
         const endMin = startMin + durMin;
-        const upd = {};
+        const upd = acc || {};
+        const now = Date.now();
         for (let cur = Math.floor(startMin / 60) * 60; cur < endMin; cur += 60) {
           const slotEnd = cur + 60;
           // Не звільняємо годину, яку все ще перекриває інший активний запис
@@ -784,11 +794,13 @@ const pendingDeletesRef = React.useRef(new Set());
           const key = `timeslots/${date}/slot${h}${m}`;
           if (existsForDate?.has(`${h}:${m}`)) {
             upd[`${key}/available`] = true;
+            upd[`${key}/lastChangedBy`] = auditBy;
+            upd[`${key}/lastChangedAt`] = now;
           } else {
             upd[key] = null;
           }
         }
-        if (Object.keys(upd).length) update(ref(db, "/"), upd).catch(() => {});
+        if (!acc && Object.keys(upd).length) update(ref(db, "/"), upd).catch(() => {});
       };
 
       if (!dragging) {
@@ -876,29 +888,41 @@ const pendingDeletesRef = React.useRef(new Set());
             }
             const oldSurcharge = b.surcharge || 0;
             const discountFactor = 1 - (b.discountPct || 0) / 100;
-            const priceUpdate = b.price != null
-              ? { price: b.price + Math.round((newSurcharge - oldSurcharge) * discountFactor), surcharge: newSurcharge || undefined }
-              : {};
-            // Free original position, then block new position.
+            // Атомарність: звільнення старих слотів + блокування нових + оновлення
+            // запису одним update(). Якщо Firebase відхилить — не запишеться нічого,
+            // тож не буде стану «слот вільний, але запис уже там» чи навпаки.
             // Стару дату беремо з orig.day (надійний абсолютний індекс), а не з
             // orig.date — поле date під час drag не оновлюється і при повторному
             // перетягуванні залишається застарілим, через що звільнявся не той день.
+            const upd = {};
             const orig = moveOriginals.current[b.id];
             const origDate = orig ? dayIdxToDate(orig.day) : null;
             if (orig && origDate && (origDate !== newDate || orig.startMin !== b.startMin || orig.durMin !== b.durMin)) {
-              freeSlots(origDate, orig.startMin, orig.durMin);
+              freeSlots(origDate, orig.startMin, orig.durMin, upd);
             }
-            blockSlots(newDate, b.startMin, b.durMin, true);
-            update(ref(db, `bookings/${b.userId}/${b._fbKey || b.id}`), {
-              startMin: b.startMin,
-              durMin:   b.durMin,
-              durationHours: b.durMin / 60,
-              day:      b.day,
-              date:     newDate,
-              time:     `${hh}:${mm}`,
-              rescheduledAt: Date.now(),
-              ...priceUpdate,
-            }).catch(() => {}).finally(() => {
+            blockSlots(newDate, b.startMin, b.durMin, true, upd);
+            const bp = `bookings/${b.userId}/${b._fbKey || b.id}`;
+            upd[`${bp}/startMin`]      = b.startMin;
+            upd[`${bp}/durMin`]        = b.durMin;
+            upd[`${bp}/durationHours`] = b.durMin / 60;
+            upd[`${bp}/day`]           = b.day;
+            upd[`${bp}/date`]          = newDate;
+            upd[`${bp}/time`]          = `${hh}:${mm}`;
+            upd[`${bp}/rescheduledAt`] = Date.now();
+            if (b.price != null) {
+              upd[`${bp}/price`] = b.price + Math.round((newSurcharge - oldSurcharge) * discountFactor);
+              if (newSurcharge) upd[`${bp}/surcharge`] = newSurcharge;
+            }
+            update(ref(db, "/"), upd).catch(() => {
+              // Відкат: атомарний запис не пройшов, тож у Firebase нічого не
+              // змінилось. Повертаємо картку на старе місце, щоб UI не розходився з БД.
+              if (orig) {
+                setBookings(bs => bs.map(x => x.id === b.id
+                  ? { ...x, startMin: orig.startMin, durMin: orig.durMin, day: orig.day, date: dayIdxToDate(orig.day) }
+                  : x));
+              }
+              console.warn("[move] save failed — reverted booking", b.id);
+            }).finally(() => {
               delete moveSaveTimers.current[b.id];
               delete moveOriginals.current[b.id];
             });
