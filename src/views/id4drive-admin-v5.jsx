@@ -1247,7 +1247,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
             onPointerCancel={handleLockUp}
             onContextMenu={e=>e.preventDefault()}
             style={{
-              height:30, flexShrink:0,
+              height:30, flexShrink:0, marginBottom:19,
               display:"flex", alignItems:"center", justifyContent:"center",
               WebkitUserSelect:"none", userSelect:"none", touchAction:"none", cursor:"pointer",
             }}
