@@ -137,6 +137,16 @@ function computeMonthForecast(bookings, svcs) {
   return Math.round((monthIncome / dayOfMonth) * daysInMonth);
 }
 
+function computeYearForecast(bookings, svcs) {
+  const now = new Date();
+  const dayOfYear = Math.floor((now - new Date(now.getFullYear(), 0, 0)) / 86400000);
+  if (dayOfYear < 10) return null;
+  const yearIncome = bookings
+    .filter(b => (b.status === 'confirmed' || b.status === 'pending') && (b.date||'').startsWith(`${now.getFullYear()}`))
+    .reduce((s, b) => s + bkIncome(b, svcs), 0);
+  return Math.round((yearIncome / dayOfYear) * 365);
+}
+
 function periodSum(data) {
   return {
     income:  data.reduce((s, d) => s + d.income,  0),
@@ -355,12 +365,14 @@ export default function StatsView() {
   const noshowPct    = totalLessons ? Math.round((totalNoshow / totalLessons) * 100) : 0;
   const prevAvgCheck = prev.lessons ? Math.round(prev.income / prev.lessons) : 0;
 
-  const weekData     = computeWeekData(bookings, 0, services);
   const topStudents  = computeTopStudents(bookings, topBy, services);
   const popularSlots = computePopularSlots(bookings, services);
-  const forecast     = computeMonthForecast(bookings, services);
-  const weekBooked   = weekData.reduce((s, d) => s + d.lessons, 0);
-  const weekOccupancy= weekData.length ? Math.min(100, Math.round((weekBooked / (weekData.length * 8)) * 100)) : 0;
+  const forecast     = period === "year" ? computeYearForecast(bookings, services) : computeMonthForecast(bookings, services);
+  const slotsPerBucket = period === "day" ? 10 : 8;
+  const occupancy    = data.length ? Math.min(100, Math.round((cur.lessons / (data.length * slotsPerBucket)) * 100)) : 0;
+  const occupancySub = period === "day" ? "сьогодні" : period === "week" ? "цей тиждень" : period === "month" ? "5 місяців" : "рік";
+  const forecastSub  = period === "year" ? "рік (прогноз)" : "місяць (прогноз)";
+  const byPeriodLabel= period === "day" ? "По годинах" : period === "week" ? "По днях" : period === "month" ? "По місяцях" : "По місяцях";
 
   const METRICS = [
     {id:"income",  label:t('income')+' ₴', color:GOLD},
@@ -390,8 +402,8 @@ export default function StatsView() {
             {label:"Уроків",       value:totalLessons,                    sub:`${totalSchool}а · ${totalPrivate}п`, color:BLUE,                                       trend:trendPct(cur.lessons, prev.lessons)},
             {label:"Серед. чек",   value:fmtK(avgCheck),                  sub:"дохід / урок",                      color:GREEN,                                      trend:trendPct(avgCheck, prevAvgCheck)},
             {label:"No-show",      value:`${noshowPct}%`,                 sub:`скасувань: ${totalCancel}`,          color:noshowPct>5?RED:DIM,                        trend:trendPct(cur.noshow, prev.noshow) * -1},
-            {label:"Заповненість", value:`${weekOccupancy}%`,             sub:"цей тиждень",                       color:weekOccupancy<50?RED:weekOccupancy<80?GOLD:GREEN, trend:0},
-            {label:"Прогноз",      value:forecast!=null?fmtK(forecast):"—", sub:"місяць (прогноз)",                color:PURPLE,                                     trend:0},
+            {label:"Заповненість", value:`${occupancy}%`,               sub:occupancySub,                        color:occupancy<50?RED:occupancy<80?GOLD:GREEN, trend:0},
+            {label:"Прогноз",      value:forecast!=null?fmtK(forecast):"—", sub:forecastSub,                      color:PURPLE,                                   trend:0},
           ].map((k, i) => (
             <Card key={i} className="fu" style={{padding:"12px 13px"}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:6}}>
@@ -467,9 +479,9 @@ export default function StatsView() {
           </Card>
 
           <Card className="fu" style={{padding:"12px"}}>
-            <div style={{fontSize:9,color:FAINT,letterSpacing:1,textTransform:"uppercase",fontWeight:700,marginBottom:9}}>По днях</div>
-            {weekData.map((d, i) => {
-              const maxI = Math.max(...weekData.map(x => x.income), 1);
+            <div style={{fontSize:9,color:FAINT,letterSpacing:1,textTransform:"uppercase",fontWeight:700,marginBottom:9}}>{byPeriodLabel}</div>
+            {data.map((d, i) => {
+              const maxI = Math.max(...data.map(x => x.income), 1);
               const pct  = d.income / maxI;
               return (
                 <div key={i} style={{display:"flex",alignItems:"center",gap:6,marginBottom:6}}>
