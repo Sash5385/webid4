@@ -31,10 +31,25 @@ function aggregateBuckets(buckets, bookings, getKey) {
       map[k].lessons += 1;
       if (bkType(b) === "school") map[k].school++;
       else map[k].private++;
-    } else if (b.status === "noshow")    { map[k].noshow++; }
-    else if (b.status === "cancelled")  { map[k].cancel++; }
+    } else if (b.status === "noshow")   { map[k].noshow++; }
+    else if (b.status === "cancelled") { map[k].cancel++; }
   });
   return buckets.map(b => map[b.key]);
+}
+
+function computeDayData(bookings, offsetDays = 0) {
+  const d = new Date();
+  d.setDate(d.getDate() + offsetDays);
+  const dateStr = getDateStr(d);
+  const buckets = Array.from({length: 10}, (_, i) => {
+    const h = 8 + i;
+    return { key: `${dateStr}_${h}`, label: `${String(h).padStart(2,'0')}:00` };
+  });
+  return aggregateBuckets(buckets, bookings, b => {
+    if (!b.date || b.date !== dateStr) return '';
+    const h = parseInt((b.time || '').split(':')[0], 10);
+    return `${b.date}_${h}`;
+  });
 }
 
 function computeWeekData(bookings, offset = 0) {
@@ -70,7 +85,7 @@ function computeYearData(bookings, offsetYears = 0) {
   return aggregateBuckets(buckets, bookings, b => (b.date||"").slice(0, 7));
 }
 
-function computeTopStudents(bookings) {
+function computeTopStudents(bookings, sortBy = 'paid') {
   const map = {};
   bookings.filter(b => b.status === "confirmed").forEach(b => {
     const name = b.studentName || b.name || "Без імені";
@@ -85,9 +100,34 @@ function computeTopStudents(bookings) {
     map[name].hours += (b.durMin || (b.durationHours ? b.durationHours*60 : 60)) / 60;
   });
   return Object.values(map)
-    .sort((a, b) => b.paid - a.paid)
+    .sort((a, b) => sortBy === 'lessons' ? b.hours - a.hours : b.paid - a.paid)
     .slice(0, 5)
     .map(s => ({...s, hours: Math.round(s.hours * 10) / 10}));
+}
+
+function computePopularSlots(bookings) {
+  const map = {};
+  bookings.filter(b => b.status === "confirmed" && b.time).forEach(b => {
+    const h = String(parseInt((b.time||'').split(':')[0], 10)).padStart(2,'0');
+    if (!map[h]) map[h] = { hour: `${h}:00`, count: 0, income: 0 };
+    map[h].count++;
+    map[h].income += bkIncome(b);
+  });
+  return Object.values(map).sort((a, b) => b.count - a.count).slice(0, 6);
+}
+
+function computeMonthForecast(bookings) {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const dayOfMonth = now.getDate();
+  if (dayOfMonth < 3) return null;
+  const monthKey = `${year}-${String(month+1).padStart(2,'0')}`;
+  const monthIncome = bookings
+    .filter(b => b.status === 'confirmed' && (b.date||'').startsWith(monthKey))
+    .reduce((s, b) => s + bkIncome(b), 0);
+  return Math.round((monthIncome / dayOfMonth) * daysInMonth);
 }
 
 function periodSum(data) {
@@ -104,7 +144,26 @@ function trendPct(cur, prev) {
   return Math.round(((cur - prev) / prev) * 100);
 }
 
-// ─── INSET (border-free chart backdrop) ─────────────────────────
+function exportCSV(bookings) {
+  const rows = bookings
+    .filter(b => b.status === 'confirmed')
+    .sort((a, b) => (b.date||'').localeCompare(a.date||''))
+    .map(b => [
+      b.date||'', b.time||'',
+      (b.studentName||b.name||'').replace(/,/g,' '),
+      b.serviceType||'', (b.price||0)+(b.surcharge||0), b.durationHours||1,
+    ].join(','));
+  const csv = ['Дата,Час,Учень,Тип,Сума,Годин', ...rows].join('\n');
+  const blob = new Blob(['﻿'+csv], {type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `id4drive-${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ─── INSET ───────────────────────────────────────────────────────
 const Inset = ({children, style={}}) => {
   const { BG_DEEP, SI } = useContext(ThemeContext);
   return (
@@ -209,7 +268,7 @@ function Donut({ school, total, size=76 }) {
   );
 }
 
-// ─── CHIP (period segmented) ─────────────────────────────────────
+// ─── CHIP ────────────────────────────────────────────────────────
 const Chip = ({label, active, onClick, color}) => {
   const { ACC_HI, ACCENT, SURF_HI, SURFACE, DIM, SO } = useContext(ThemeContext);
   return (
@@ -230,6 +289,7 @@ export default function StatsView() {
   const [chartType, setChartType] = useState("line");
   const [metric,    setMetric]    = useState("income");
   const [bookings,  setBookings]  = useState([]);
+  const [topBy,     setTopBy]     = useState("paid");
 
   const css = `
 @keyframes bar-grow{from{height:0%}to{height:var(--h)}}
@@ -257,14 +317,14 @@ export default function StatsView() {
     }, () => {});
   }, []);
 
-  // Compute period data
   const data     = period === "week"  ? computeWeekData(bookings)
                  : period === "year"  ? computeYearData(bookings)
+                 : period === "day"   ? computeDayData(bookings)
                  :                      computeMonthData(bookings);
 
-  // Previous period for trends
   const prevData = period === "week"  ? computeWeekData(bookings, -1)
                  : period === "year"  ? computeYearData(bookings, -1)
+                 : period === "day"   ? computeDayData(bookings, -1)
                  :                      computeMonthData(bookings, -5);
 
   const cur  = periodSum(data);
@@ -278,11 +338,14 @@ export default function StatsView() {
   const totalCancel  = data.reduce((s, d) => s + (d.cancel||0), 0);
   const avgCheck     = totalLessons ? Math.round(totalIncome / totalLessons) : 0;
   const noshowPct    = totalLessons ? Math.round((totalNoshow / totalLessons) * 100) : 0;
-
   const prevAvgCheck = prev.lessons ? Math.round(prev.income / prev.lessons) : 0;
 
-  const weekData    = computeWeekData(bookings);
-  const topStudents = computeTopStudents(bookings);
+  const weekData     = computeWeekData(bookings);
+  const topStudents  = computeTopStudents(bookings, topBy);
+  const popularSlots = computePopularSlots(bookings);
+  const forecast     = computeMonthForecast(bookings);
+  const weekBooked   = weekData.reduce((s, d) => s + d.lessons, 0);
+  const weekOccupancy= weekData.length ? Math.min(100, Math.round((weekBooked / (weekData.length * 8)) * 100)) : 0;
 
   const METRICS = [
     {id:"income",  label:t('income')+' ₴', color:GOLD},
@@ -300,18 +363,20 @@ export default function StatsView() {
 
         {/* ── PERIOD ── */}
         <div style={{display:"flex",gap:6,overflowX:"auto",paddingBottom:2}}>
-          {[["week",t('st2.week')],["month",t('st2.month')],["year",t('st2.year')]].map(([k,l])=>(
+          {[["day","День"],["week",t('st2.week')],["month",t('st2.month')],["year",t('st2.year')]].map(([k,l])=>(
             <Chip key={k} label={l} active={period===k} onClick={()=>setPeriod(k)}/>
           ))}
         </div>
 
-        {/* ── KPI 2×2 ── */}
+        {/* ── KPI 2×3 ── */}
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7}}>
           {[
-            {label:"Дохід",      value:fmtK(totalIncome),  sub:"за період",               color:GOLD,  trend:trendPct(cur.income,  prev.income)},
-            {label:"Уроків",     value:totalLessons,        sub:`${totalSchool}а · ${totalPrivate}п`, color:BLUE,  trend:trendPct(cur.lessons, prev.lessons)},
-            {label:"Серед. чек", value:fmtK(avgCheck),      sub:"дохід / урок",             color:GREEN, trend:trendPct(avgCheck, prevAvgCheck)},
-            {label:"No-show",    value:`${noshowPct}%`,     sub:`скасувань: ${totalCancel}`, color:noshowPct>5?RED:DIM, trend:trendPct(cur.noshow, prev.noshow) * -1},
+            {label:"Дохід",        value:fmtK(totalIncome),               sub:"за період",                         color:GOLD,                                       trend:trendPct(cur.income,  prev.income)},
+            {label:"Уроків",       value:totalLessons,                    sub:`${totalSchool}а · ${totalPrivate}п`, color:BLUE,                                       trend:trendPct(cur.lessons, prev.lessons)},
+            {label:"Серед. чек",   value:fmtK(avgCheck),                  sub:"дохід / урок",                      color:GREEN,                                      trend:trendPct(avgCheck, prevAvgCheck)},
+            {label:"No-show",      value:`${noshowPct}%`,                 sub:`скасувань: ${totalCancel}`,          color:noshowPct>5?RED:DIM,                        trend:trendPct(cur.noshow, prev.noshow) * -1},
+            {label:"Заповненість", value:`${weekOccupancy}%`,             sub:"цей тиждень",                       color:weekOccupancy<50?RED:weekOccupancy<80?GOLD:GREEN, trend:0},
+            {label:"Прогноз",      value:forecast!=null?fmtK(forecast):"—", sub:"місяць (прогноз)",                color:PURPLE,                                     trend:0},
           ].map((k, i) => (
             <Card key={i} className="fu" style={{padding:"12px 13px"}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:6}}>
@@ -368,9 +433,8 @@ export default function StatsView() {
           </div>
         </Card>
 
-        {/* ── РОЗПОДІЛ + ЗАВАНТАЖЕННЯ ── */}
+        {/* ── РОЗПОДІЛ + ПО ДНЯХ ── */}
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7}}>
-
           <Card className="fu" style={{padding:"12px"}}>
             <div style={{fontSize:9,color:FAINT,letterSpacing:1,textTransform:"uppercase",fontWeight:700,marginBottom:9}}>Розподіл</div>
             <div style={{display:"flex",alignItems:"center",gap:8}}>
@@ -405,12 +469,48 @@ export default function StatsView() {
           </Card>
         </div>
 
+        {/* ── ПОПУЛЯРНІ СЛОТИ ── */}
+        {popularSlots.length > 0 && (
+          <Card className="fu" style={{padding:"12px 13px"}}>
+            <div style={{fontSize:9,color:FAINT,letterSpacing:1,textTransform:"uppercase",fontWeight:700,marginBottom:10}}>Популярні слоти</div>
+            {popularSlots.map((s, i) => {
+              const maxCount = popularSlots[0].count;
+              const pct = s.count / maxCount;
+              return (
+                <div key={s.hour} style={{display:"flex",alignItems:"center",gap:8,marginBottom:7}}>
+                  <span style={{fontSize:11,color:i===0?GOLD:FAINT,fontWeight:700,width:36,flexShrink:0}}>{s.hour}</span>
+                  <div style={{flex:1,height:6,background:BG_DEEP,borderRadius:3,boxShadow:SI,overflow:"hidden"}}>
+                    <div style={{height:"100%",width:`${pct*100}%`,borderRadius:3,
+                      background:i===0?`linear-gradient(90deg,${GOLD},${GREEN})`:`linear-gradient(90deg,${PURPLE},${ACCENT})`,
+                      transition:"width .5s ease"}}/>
+                  </div>
+                  <span style={{fontSize:10,color:i===0?GOLD:PURPLE,fontWeight:800,width:44,textAlign:"right",flexShrink:0}}>
+                    {s.count} ур.
+                  </span>
+                </div>
+              );
+            })}
+          </Card>
+        )}
+
         {/* ── ТОП-5 ── */}
         {topStudents.length > 0 && (
           <Card className="fu" style={{padding:"12px 13px 8px"}}>
-            <div style={{fontSize:9,color:FAINT,letterSpacing:1,textTransform:"uppercase",fontWeight:700,marginBottom:10}}>Топ-5 учнів</div>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+              <div style={{fontSize:9,color:FAINT,letterSpacing:1,textTransform:"uppercase",fontWeight:700}}>Топ-5 учнів</div>
+              <div style={{display:"flex",gap:5}}>
+                {[["paid","₴"],["lessons","год"]].map(([k,l])=>(
+                  <button key={k} onClick={()=>setTopBy(k)} style={{
+                    padding:"3px 8px", borderRadius:6, border:"none", cursor:"pointer", fontSize:10, fontWeight:700, fontFamily:"inherit",
+                    background:topBy===k?`${GOLD}22`:`linear-gradient(145deg,${SURF_HI},${SURFACE})`,
+                    color:topBy===k?GOLD:FAINT, boxShadow:SO,
+                  }}>{l}</button>
+                ))}
+              </div>
+            </div>
             {topStudents.map((s, i) => {
-              const maxH = topStudents[0].paid;
+              const maxH = topStudents[0][topBy === 'lessons' ? 'hours' : 'paid'];
+              const barVal = topBy === 'lessons' ? s.hours : s.paid;
               const medals = [GOLD,"#94a3b8","#fb923c"];
               return (
                 <div key={i} style={{
@@ -434,14 +534,16 @@ export default function StatsView() {
                     <div style={{fontSize:12,fontWeight:700,color:TEXT,marginBottom:4,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{s.name}</div>
                     <div style={{height:4,background:BG_DEEP,borderRadius:3,boxShadow:SI,overflow:"hidden"}}>
                       <div style={{
-                        height:"100%", width:`${(s.paid/maxH)*100}%`, borderRadius:3,
+                        height:"100%", width:`${(barVal/maxH)*100}%`, borderRadius:3,
                         background: s.type==="school" ? `linear-gradient(90deg,${BLUE},${GREEN})` : `linear-gradient(90deg,${PURPLE},${GOLD})`,
                       }}/>
                     </div>
                   </div>
                   <div style={{flexShrink:0,textAlign:"right"}}>
-                    <div style={{fontSize:12,fontWeight:800,color:GOLD}}>{(s.paid/1000).toFixed(1)}к ₴</div>
-                    <div style={{fontSize:9,color:FAINT}}>{s.hours} год</div>
+                    {topBy === 'lessons'
+                      ? <><div style={{fontSize:12,fontWeight:800,color:BLUE}}>{s.hours} год</div><div style={{fontSize:9,color:FAINT}}>{(s.paid/1000).toFixed(1)}к ₴</div></>
+                      : <><div style={{fontSize:12,fontWeight:800,color:GOLD}}>{(s.paid/1000).toFixed(1)}к ₴</div><div style={{fontSize:9,color:FAINT}}>{s.hours} год</div></>
+                    }
                   </div>
                 </div>
               );
@@ -454,11 +556,11 @@ export default function StatsView() {
           <div style={{fontSize:9,color:FAINT,letterSpacing:1,textTransform:"uppercase",fontWeight:700,marginBottom:10}}>Експорт</div>
           <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:7}}>
             {[
-              {label:"Excel", emoji:"📊", color:GREEN, sub:"Статистика"},
-              {label:"PDF",   emoji:"📄", color:RED,   sub:"Для податкової"},
-              {label:"Share", emoji:"↗️", color:BLUE,  sub:"Поділитись"},
+              {label:"Excel", emoji:"📊", color:GREEN, sub:"Статистика",     onClick:()=>exportCSV(bookings)},
+              {label:"PDF",   emoji:"📄", color:RED,   sub:"Для податкової", onClick:()=>window.print()},
+              {label:"Share", emoji:"↗️", color:BLUE,  sub:"Поділитись",     onClick:()=>{}},
             ].map(e=>(
-              <button key={e.label} style={{
+              <button key={e.label} onClick={e.onClick} style={{
                 padding:"11px 6px", borderRadius:11, border:"none", cursor:"pointer", fontFamily:"inherit",
                 background:`linear-gradient(145deg,${SURF_HI},${SURFACE})`,
                 display:"flex", flexDirection:"column", alignItems:"center", gap:5, boxShadow:SO,
