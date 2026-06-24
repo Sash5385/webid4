@@ -43,9 +43,9 @@ export function UICss() {
 .drag-item.dragging{opacity:.85;box-shadow:0 16px 40px rgba(${SHADE},0.6);z-index:50;transform:scale(1.01)}
 @keyframes fade-in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
 .fade-in{animation:fade-in .18s ease both}
-@keyframes modal-sheet-in{from{opacity:0;transform:translateY(40px)}to{opacity:1;transform:translateY(0)}}
+@keyframes modal-sheet-in{from{opacity:0;transform:translateY(-70px)}to{opacity:1;transform:translateY(0)}}
 @keyframes modal-pop-in{from{opacity:0;transform:scale(.96)}to{opacity:1;transform:scale(1)}}
-.modal-sheet-in{animation:modal-sheet-in .22s ease both}
+.modal-sheet-in{animation:modal-sheet-in .32s cubic-bezier(0.34,1.56,0.64,1) both}
 .modal-pop-in{animation:modal-pop-in .18s ease both}
 .modal-footer>*{flex:1}
 `}</style>;
