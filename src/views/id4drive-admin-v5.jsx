@@ -3106,6 +3106,7 @@ function NewBookingModal({ data, onClose, onConfirm, settings, bookings = [] }) 
   const [note,       setNote]       = useState("");
   const [tsc,        setTsc]        = useState("");
   const [students,   setStudents]   = useState([]);
+  const [closing,    setClosing]    = useState(false);
 
   useEffect(()=>{
     const r = ref(db, "users");
@@ -3145,7 +3146,7 @@ function NewBookingModal({ data, onClose, onConfirm, settings, bookings = [] }) 
     });
   }, [students, bookings]);
 
-  if(!data) return null;
+  if(!data && !closing) return null;
 
   const isNewStudent = selStudent?.id === "new";
   const selSvc    = activeServices.find(s=>s.id===svcId) ?? null;
@@ -3166,6 +3167,8 @@ function NewBookingModal({ data, onClose, onConfirm, settings, bookings = [] }) 
       textTransform:"uppercase",marginBottom:7}}>{children}</div>
   );
 
+  const _close = () => setClosing(true);
+
   const handleConfirm = () => {
     if(!canConfirm) return;
     const today = new Date(); today.setHours(0,0,0,0);
@@ -3180,13 +3183,50 @@ function NewBookingModal({ data, onClose, onConfirm, settings, bookings = [] }) 
       userId: (!isNewStudent && selStudent?.id) ? selStudent.id : null,
       ...(note.trim() && { note:note.trim() }),
     });
-    onClose();
+    _close();
   };
 
   return (
-    <UIModal open={!!data} onClose={onClose} sheet={false} size="70vw" maxH="70vh" title="Новий запис"
-      footer={<button disabled={!canConfirm} onClick={handleConfirm} style={{flex:1,width:"100%",padding:"14px",borderRadius:14,border:"none",cursor:"pointer",fontFamily:"inherit",background:canConfirm?`linear-gradient(160deg,${GREEN},#4ade80)`:`${SURFACE_LO}`,color:canConfirm?"#fff":TEXT_FAINT,fontSize:15,fontWeight:800,letterSpacing:0.2,boxShadow:canConfirm?`0 6px 20px ${GREEN}55`:SHADOW_OUT,transition:"all .2s"}}>✓ Записати</button>}>
-        <div style={{display:"flex",flexDirection:"column",gap:16}}>
+    <>
+      <style>{`
+        @keyframes _nb-up{from{transform:translateY(100%)}to{transform:translateY(0)}}
+        @keyframes _nb-down{from{transform:translateY(0);opacity:1}to{transform:translateY(100%);opacity:0}}
+        @keyframes _nb-bg-in{from{opacity:0}to{opacity:1}}
+        @keyframes _nb-bg-out{from{opacity:1}to{opacity:0}}
+      `}</style>
+      <div onClick={closing ? undefined : _close} style={{
+        position:"fixed",inset:0,zIndex:200,
+        background:shade(0.55),
+        display:"flex",alignItems:"flex-end",justifyContent:"center",
+        backdropFilter:"blur(8px)",
+        animation: closing ? `_nb-bg-out 0.26s ease-in forwards` : `_nb-bg-in 0.2s ease-out`,
+      }}>
+        <div onClick={e=>e.stopPropagation()}
+          onAnimationEnd={closing ? ()=>{ setClosing(false); onClose(); } : undefined}
+          style={{
+            width:"100%",maxWidth:480,background:BG_DEEP,
+            borderRadius:"24px 24px 0 0",
+            boxShadow:`0 -2px 0 rgba(34,197,94,0.3), 0 -16px 60px ${shade(0.6)}`,
+            maxHeight:"85vh",overflowY:"auto",
+            WebkitOverflowScrolling:"touch",scrollbarWidth:"none",
+            pointerEvents: closing ? "none" : undefined,
+            animation: closing
+              ? `_nb-down 0.26s ease-in forwards`
+              : `_nb-up 0.38s cubic-bezier(0.34,1.56,0.64,1)`,
+          }}>
+
+          {/* Header */}
+          <div style={{
+            padding:"10px 18px 14px",
+            background:"linear-gradient(145deg,rgba(34,197,94,0.12),rgba(22,163,74,0.05))",
+            borderBottom:"1px solid rgba(34,197,94,0.15)",
+            borderRadius:"24px 24px 0 0",
+          }}>
+            <div style={{width:36,height:4,borderRadius:2,background:"rgba(34,197,94,0.35)",margin:"0 auto 12px"}}/>
+            <div style={{fontSize:17,fontWeight:800,color:"#22c55e"}}>➕ Новий запис</div>
+          </div>
+
+          <div style={{padding:"16px 16px 0",display:"flex",flexDirection:"column",gap:16}}>
 
           {/* УЧЕНЬ */}
           <div>
@@ -3392,8 +3432,20 @@ function NewBookingModal({ data, onClose, onConfirm, settings, bookings = [] }) 
             }}
           />
 
+          {/* Кнопка підтвердження */}
+          <button disabled={!canConfirm} onClick={handleConfirm} style={{
+            width:"100%",padding:"14px",borderRadius:14,border:"none",cursor:"pointer",fontFamily:"inherit",
+            background:canConfirm?`linear-gradient(160deg,${GREEN},#4ade80)`:SURFACE_LO,
+            color:canConfirm?"#fff":TEXT_FAINT,
+            fontSize:15,fontWeight:800,letterSpacing:0.2,
+            boxShadow:canConfirm?`0 6px 20px ${GREEN}55`:SHADOW_OUT,
+            transition:"all .2s",marginBottom:20,
+          }}>✓ Записати</button>
+
         </div>
-    </UIModal>
+        </div>
+      </div>
+    </>
   );
 }
 
