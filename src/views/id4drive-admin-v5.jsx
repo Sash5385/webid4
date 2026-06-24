@@ -2904,6 +2904,8 @@ function PersonalEventModal({ data, onClose, onConfirm }) {
   ];
 
   return (
+    <>
+    <style>{`@keyframes _pe-in{from{transform:translateY(-100vh);opacity:0}to{transform:translateY(0);opacity:1}}`}</style>
     <div onClick={onClose} style={{
       position:"fixed",inset:0,background:shade(0.75),zIndex:200,
       display:"flex",alignItems:"flex-end",justifyContent:"center",
@@ -2915,7 +2917,7 @@ function PersonalEventModal({ data, onClose, onConfirm }) {
         boxShadow:`0 -2px 0 rgba(45,212,191,0.3), 0 -16px 60px ${shade(0.6)}`,
         maxHeight:"85vh",overflowY:"auto",
         WebkitOverflowScrolling:"touch",scrollbarWidth:"none",
-        animation:"_ltm-up 0.42s cubic-bezier(0.34,1.56,0.64,1)",
+        animation:"_pe-in 0.5s cubic-bezier(0.22,1,0.36,1)",
       }}>
         <div style={{
           padding:"18px 18px 14px",
@@ -3000,6 +3002,7 @@ function PersonalEventModal({ data, onClose, onConfirm }) {
         </div>
       </div>
     </div>
+    </>
   );
 }
 
