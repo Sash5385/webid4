@@ -2321,14 +2321,14 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                 ? `_so-down 0.26s ease-in forwards`
                 : `_so-up 0.38s cubic-bezier(0.34,1.56,0.64,1)`,
             }}>
-            {/* handle */}
-            <div style={{width:36,height:4,borderRadius:2,background:ink(0.18),margin:"12px auto 0"}}/>
-            {/* header */}
+            {/* header (includes handle) */}
             <div style={{
-              padding:"12px 18px 12px",
+              padding:"10px 18px 14px",
               background:"linear-gradient(145deg,rgba(34,197,94,0.12),rgba(22,163,74,0.05))",
               borderBottom:"1px solid rgba(34,197,94,0.15)",
+              borderRadius:"24px 24px 0 0",
             }}>
+              <div style={{width:36,height:4,borderRadius:2,background:"rgba(34,197,94,0.35)",margin:"0 auto 12px"}}/>
               <div style={{fontSize:18,fontWeight:800,color:"#22c55e"}}>🟢 Вільний слот</div>
               <div style={{fontSize:12,color:TEXT_FAINT}}>{_so.dateStr} · {fmtTime(_soSelMin)}</div>
             </div>
@@ -2408,19 +2408,28 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                 <span>👑</span> VIP слот
                 {_so.slot?.vipOnly && <span style={{marginLeft:"auto",fontSize:11,color:"#c084fc",opacity:0.7}}>✓ активний</span>}
               </button>
-              {/* Надбавки */}
-              {(settings.surcharges?.length ? settings.surcharges : [100,200,300]).map((amt,i,arr)=>(
-                <button key={amt} onClick={()=>applySlotOption(_so.dateStr, fmtTime(_soSelMin), amt)} style={{
-                  width:"100%",padding:"14px 18px",border:"none",cursor:"pointer",
-                  background: _so.slot?.surcharge === amt ? ink(0.06) : "none",
-                  borderBottom: (i<arr.length-1 || _so.slot?.vipOnly || _so.slot?.surcharge) ? `1px solid ${ink(0.05)}` : "none",
-                  color:GOLD,fontSize:15,fontWeight:700,
-                  display:"flex",alignItems:"center",justifyContent:"space-between",
-                }}>
-                  <span style={{color:TEXT_DIM,fontWeight:500}}>Надбавка</span>
-                  <span>+{amt}₴</span>
-                </button>
-              ))}
+              {/* Надбавки — чіпи */}
+              <div style={{padding:"12px 16px",borderBottom:(_so.slot?.vipOnly||_so.slot?.surcharge)?`1px solid ${ink(0.05)}`:"none"}}>
+                <div style={{fontSize:11,color:TEXT_FAINT,fontWeight:600,marginBottom:8}}>Надбавка</div>
+                <div style={{display:"flex",gap:6}}>
+                  {(settings.surcharges?.length ? settings.surcharges : [100,200,300]).map(amt=>{
+                    const _isActive = _so.slot?.surcharge === amt;
+                    return (
+                      <button key={amt} onClick={()=>applySlotOption(_so.dateStr, fmtTime(_soSelMin), amt)} style={{
+                        flex:1,padding:"9px 4px",borderRadius:20,cursor:"pointer",fontFamily:"inherit",
+                        background: _isActive ? "rgba(245,158,11,0.22)" : "transparent",
+                        color: _isActive ? "#f59e0b" : GOLD,
+                        fontSize:14,fontWeight:700,
+                        border: _isActive ? `1px solid rgba(245,158,11,0.5)` : `1px solid ${ink(0.1)}`,
+                        textAlign:"center",
+                        transition:"all 0.15s",
+                      }}>
+                        +{amt}₴
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
               {/* Скинути — тільки якщо є що скидати */}
               {(_so.slot?.vipOnly || _so.slot?.surcharge) && (
                 <button onClick={()=>applySlotOption(_so.dateStr, fmtTime(_soSelMin), "reset")} style={{
