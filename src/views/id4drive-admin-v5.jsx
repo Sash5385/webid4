@@ -2686,8 +2686,10 @@ function BookingModal({ booking, onClose, onAction, settings }) {
   const glow=a=>`rgba(${GLOW},${a})`,shade=a=>`rgba(${SHADE},${a})`,ink=a=>`rgba(${INK},${a})`;
   const SURFACE_HI = SURF_HI, SURFACE_LO = SURF_LO, TEXT_DIM = DIM, TEXT_FAINT = FAINT, ACCENT_HI = ACC_HI, SHADOW_OUT = SO, SHADOW_IN = SI;
   const [queueEntries, setQueueEntries] = useState([]);
+  const [closing, setClosing] = useState(false);
   useEffect(() => {
     if (!booking) return;
+    setClosing(false);
     const dateStr = booking.date || (() => {
       const d = new Date(); d.setHours(0,0,0,0);
       d.setDate(d.getDate() + booking.day);
@@ -2707,7 +2709,7 @@ function BookingModal({ booking, onClose, onAction, settings }) {
     return () => unsub();
   }, [booking]);
 
-  if (!booking) return null;
+  if (!booking && !closing) return null;
 
   const svc   = settings.services.find(s => s.id === booking.serviceId)
              || settings.services.find(s => s.active && s.type===(booking.serviceType||booking.type) && Number(s.duration)===booking.durMin);
@@ -2727,94 +2729,138 @@ function BookingModal({ booking, onClose, onAction, settings }) {
   const IcoPhone = <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2A19.79 19.79 0 0 1 4.14 6.18 2 2 0 0 1 6.12 4h3a2 2 0 0 1 2 1.72c.13 1 .37 1.98.72 2.91a2 2 0 0 1-.45 2.11L10 12a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.93.35 1.91.59 2.91.72A2 2 0 0 1 22 16.92z"/></svg>;
   const IcoChat  = <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>;
 
+  const _close = () => setClosing(true);
+
   return (
-    <UIModal open={!!booking} onClose={onClose} sheet={false} size={340} title="Деталі запису" pad={false}
-      footer={<>
-        <button onClick={() => onAction("call", booking)} style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",gap:7,padding:"11px",borderRadius:14,border:"none",cursor:"pointer",background:"linear-gradient(145deg,#34d399,#059669)",boxShadow:"0 4px 14px rgba(52,211,153,0.35)",color:"#fff",fontSize:13,fontWeight:800,fontFamily:"inherit"}}>{IcoPhone} Дзвонити</button>
-        <button onClick={() => onAction("chat", booking)} style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",gap:7,padding:"11px",borderRadius:14,border:"none",cursor:"pointer",background:`linear-gradient(145deg,${SURFACE_HI},${SURFACE})`,boxShadow:SHADOW_OUT,color:BLUE,fontSize:13,fontWeight:800,fontFamily:"inherit"}}>{IcoChat} Чат</button>
-      </>}>
-        {/* Student row */}
-        <div style={{
-          display:"flex", alignItems:"center", gap:11,
-          padding:"14px 14px 12px",
-          borderBottom:`1px solid ${ink(0.06)}`,
-          background:`linear-gradient(135deg,${c}18,${c}08)`,
-        }}>
+    <>
+      <style>{`
+        @keyframes _bm-up{from{transform:translateY(100%)}to{transform:translateY(0)}}
+        @keyframes _bm-down{from{transform:translateY(0);opacity:1}to{transform:translateY(100%);opacity:0}}
+        @keyframes _bm-bg-in{from{opacity:0}to{opacity:1}}
+        @keyframes _bm-bg-out{from{opacity:1}to{opacity:0}}
+      `}</style>
+      <div onClick={closing ? undefined : _close} style={{
+        position:"fixed",inset:0,zIndex:200,
+        background:shade(0.55),
+        display:"flex",alignItems:"flex-end",justifyContent:"center",
+        backdropFilter:"blur(8px)",
+        animation: closing ? `_bm-bg-out 0.26s ease-in forwards` : `_bm-bg-in 0.2s ease-out`,
+      }}>
+        <div onClick={e=>e.stopPropagation()}
+          onAnimationEnd={closing ? ()=>{ setClosing(false); onClose(); } : undefined}
+          style={{
+            width:"100%",maxWidth:480,background:BG_DEEP,
+            borderRadius:"24px 24px 0 0",
+            boxShadow:`0 -2px 0 ${c}66, 0 -16px 60px ${shade(0.6)}`,
+            maxHeight:"85vh",overflowY:"auto",
+            WebkitOverflowScrolling:"touch",scrollbarWidth:"none",
+            pointerEvents: closing ? "none" : undefined,
+            animation: closing
+              ? `_bm-down 0.26s ease-in forwards`
+              : `_bm-up 0.38s cubic-bezier(0.34,1.56,0.64,1)`,
+          }}>
+
+          {/* Header: handle + student info */}
           <div style={{
-            width:40, height:40, borderRadius:12, flexShrink:0,
-            background:`linear-gradient(145deg,${c},color-mix(in srgb,${c} 55%,#000))`,
-            boxShadow:`0 0 0 2px ${c}33`,
-            display:"flex", alignItems:"center", justifyContent:"center",
-            fontSize:15, fontWeight:900, color:"#fff",
-          }}>{ini}</div>
-          <div style={{flex:1, minWidth:0}}>
-            <div style={{fontSize:14, fontWeight:800, color:TEXT, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap"}}>{booking.name}</div>
-            <div style={{fontSize:10, color:c, fontWeight:700, marginTop:2}}>{typeLabel}</div>
+            padding:"10px 16px 14px",
+            background:`linear-gradient(145deg,${c}22,${c}0d)`,
+            borderBottom:`1px solid ${c}28`,
+            borderRadius:"24px 24px 0 0",
+          }}>
+            <div style={{width:36,height:4,borderRadius:2,background:`${c}66`,margin:"0 auto 12px"}}/>
+            <div style={{display:"flex",alignItems:"center",gap:10}}>
+              <div style={{
+                width:40,height:40,borderRadius:12,flexShrink:0,
+                background:`linear-gradient(145deg,${c},color-mix(in srgb,${c} 55%,#000))`,
+                boxShadow:`0 0 0 2px ${c}44`,
+                display:"flex",alignItems:"center",justifyContent:"center",
+                fontSize:15,fontWeight:900,color:"#fff",
+              }}>{ini}</div>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:15,fontWeight:800,color:TEXT,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{booking.name}</div>
+                <div style={{fontSize:10,color:c,fontWeight:700,marginTop:1}}>{typeLabel}</div>
+              </div>
+            </div>
           </div>
-        </div>
 
-        {/* Info grid */}
-        <div style={{display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:1, background:`${ink(0.04)}`}}>
-          {[
-            { label:"Дата",  val:`${day.num} ${day.month}`, sub:day.label },
-            { label:"Час",   val:`${fmtTime(booking.startMin)}`, sub:`–${fmtTime(booking.startMin+booking.durMin)}` },
-            { label:"Ціна",  val:`${price}₴`, sub: booking.surcharge ? `+${booking.surcharge}₴` : (svc ? `${svc.duration}хв` : "—"), gold: !!booking.surcharge },
-          ].map(({ label, val, sub, gold }, i) => (
-            <div key={i} style={{
-              padding:"11px 6px",
-              background:BG_DEEP,
-              display:"flex", flexDirection:"column", alignItems:"center", textAlign:"center",
-              borderRight: i < 2 ? `1px solid ${ink(0.05)}` : "none",
-            }}>
-              <div style={{fontSize:8, fontWeight:700, letterSpacing:1, color:TEXT_FAINT, textTransform:"uppercase", marginBottom:5}}>{label}</div>
-              <div style={{fontSize:14, fontWeight:900, color: gold ? GOLD : TEXT, lineHeight:1}}>{val}</div>
-              <div style={{fontSize:9, color: gold ? `${GOLD}99` : TEXT_FAINT, marginTop:3, fontWeight:600}}>{sub}</div>
-            </div>
-          ))}
-        </div>
-
-        {/* Queue */}
-        {queueEntries.length > 0 && (
-          <div style={{padding:"10px 14px", borderBottom:`1px solid ${ink(0.06)}`}}>
-            <div style={{fontSize:9, fontWeight:700, letterSpacing:1, color:GOLD, textTransform:"uppercase", marginBottom:6}}>
-              ⏳ Черга ({queueEntries.length})
-            </div>
-            {queueEntries.map((e, i) => (
-              <div key={e.uid||i} style={{display:"flex", alignItems:"center", gap:8, padding:"4px 0", borderBottom: i < queueEntries.length-1 ? `1px solid ${ink(0.04)}` : "none"}}>
-                <div style={{width:16, height:16, borderRadius:5, background:`${ink(0.07)}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:8, fontWeight:800, color:GOLD, flexShrink:0}}>{i+1}</div>
-                <div style={{flex:1, minWidth:0}}>
-                  <div style={{fontSize:12, fontWeight:700, color:TEXT, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap"}}>{e.name || "—"}</div>
-                  {e.phone && <div style={{fontSize:10, color:DIM}}>{e.phone}</div>}
-                </div>
-                {e.uid && (() => {
-                  const dateStr = booking.date || (() => {
-                    const d = new Date(); d.setHours(0,0,0,0);
-                    d.setDate(d.getDate() + (booking.day || 0));
-                    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-                  })();
-                  const hh = String(Math.floor(booking.startMin/60)).padStart(2,'0');
-                  const mm = String(booking.startMin%60).padStart(2,'0');
-                  const slotKey = `${dateStr}_${hh}:${mm}`;
-                  return (
-                    <button onClick={() => remove(ref(db, `queue/${slotKey}/entries/${e.uid}`)).catch(()=>{})}
-                      style={{width:22, height:22, borderRadius:7, border:"none", cursor:"pointer", flexShrink:0,
-                        background:"rgba(239,68,68,0.15)", color:"rgba(248,113,113,0.9)", fontSize:11, fontWeight:800,
-                        display:"flex", alignItems:"center", justifyContent:"center"}}>✕</button>
-                  );
-                })()}
+          {/* Info grid */}
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:1,background:ink(0.04)}}>
+            {[
+              { label:"Дата",  val:`${day.num} ${day.month}`, sub:day.label },
+              { label:"Час",   val:`${fmtTime(booking.startMin)}`, sub:`–${fmtTime(booking.startMin+booking.durMin)}` },
+              { label:"Ціна",  val:`${price}₴`, sub: booking.surcharge ? `+${booking.surcharge}₴` : (svc ? `${svc.duration}хв` : "—"), gold: !!booking.surcharge },
+            ].map(({ label, val, sub, gold }, i) => (
+              <div key={i} style={{
+                padding:"11px 6px",background:BG_DEEP,
+                display:"flex",flexDirection:"column",alignItems:"center",textAlign:"center",
+                borderRight: i < 2 ? `1px solid ${ink(0.05)}` : "none",
+              }}>
+                <div style={{fontSize:8,fontWeight:700,letterSpacing:1,color:TEXT_FAINT,textTransform:"uppercase",marginBottom:5}}>{label}</div>
+                <div style={{fontSize:14,fontWeight:900,color: gold ? GOLD : TEXT,lineHeight:1}}>{val}</div>
+                <div style={{fontSize:9,color: gold ? `${GOLD}99` : TEXT_FAINT,marginTop:3,fontWeight:600}}>{sub}</div>
               </div>
             ))}
           </div>
-        )}
 
-        {/* Cancel link */}
-        <button onClick={() => { onAction("cancel", booking); onClose(); }} style={{
-          width:"100%", padding:"9px", border:"none", cursor:"pointer",
-          background:"none", borderTop:`1px solid ${ink(0.05)}`,
-          color:"rgba(248,113,113,0.7)", fontSize:11, fontWeight:600,
-        }}>Скасувати запис</button>
+          {/* Queue */}
+          {queueEntries.length > 0 && (
+            <div style={{padding:"10px 14px",borderBottom:`1px solid ${ink(0.06)}`}}>
+              <div style={{fontSize:9,fontWeight:700,letterSpacing:1,color:GOLD,textTransform:"uppercase",marginBottom:6}}>
+                ⏳ Черга ({queueEntries.length})
+              </div>
+              {queueEntries.map((e, i) => (
+                <div key={e.uid||i} style={{display:"flex",alignItems:"center",gap:8,padding:"4px 0",borderBottom: i < queueEntries.length-1 ? `1px solid ${ink(0.04)}` : "none"}}>
+                  <div style={{width:16,height:16,borderRadius:5,background:ink(0.07),display:"flex",alignItems:"center",justifyContent:"center",fontSize:8,fontWeight:800,color:GOLD,flexShrink:0}}>{i+1}</div>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontSize:12,fontWeight:700,color:TEXT,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{e.name || "—"}</div>
+                    {e.phone && <div style={{fontSize:10,color:DIM}}>{e.phone}</div>}
+                  </div>
+                  {e.uid && (() => {
+                    const dateStr = booking.date || (() => {
+                      const d = new Date(); d.setHours(0,0,0,0);
+                      d.setDate(d.getDate() + (booking.day || 0));
+                      return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+                    })();
+                    const hh = String(Math.floor(booking.startMin/60)).padStart(2,'0');
+                    const mm = String(booking.startMin%60).padStart(2,'0');
+                    const slotKey = `${dateStr}_${hh}:${mm}`;
+                    return (
+                      <button onClick={() => remove(ref(db, `queue/${slotKey}/entries/${e.uid}`)).catch(()=>{})}
+                        style={{width:22,height:22,borderRadius:7,border:"none",cursor:"pointer",flexShrink:0,
+                          background:"rgba(239,68,68,0.15)",color:"rgba(248,113,113,0.9)",fontSize:11,fontWeight:800,
+                          display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
+                    );
+                  })()}
+                </div>
+              ))}
+            </div>
+          )}
 
-    </UIModal>
+          {/* Action buttons */}
+          <div style={{padding:"10px 10px 4px",display:"flex",gap:8}}>
+            <button onClick={() => onAction("call", booking)} style={{
+              flex:1,display:"flex",alignItems:"center",justifyContent:"center",gap:7,
+              padding:"11px",borderRadius:14,border:"none",cursor:"pointer",fontFamily:"inherit",
+              background:"rgba(52,211,153,0.12)",color:"#34d399",fontSize:13,fontWeight:800,
+            }}>{IcoPhone} Дзвонити</button>
+            <button onClick={() => onAction("chat", booking)} style={{
+              flex:1,display:"flex",alignItems:"center",justifyContent:"center",gap:7,
+              padding:"11px",borderRadius:14,border:"none",cursor:"pointer",fontFamily:"inherit",
+              background:`rgba(${GLOW},0.1)`,color:BLUE,fontSize:13,fontWeight:800,
+            }}>{IcoChat} Чат</button>
+          </div>
+
+          {/* Cancel link */}
+          <button onClick={() => { onAction("cancel", booking); _close(); }} style={{
+            width:"100%",padding:"10px",border:"none",cursor:"pointer",
+            background:"none",borderTop:`1px solid ${ink(0.05)}`,
+            color:"rgba(248,113,113,0.7)",fontSize:11,fontWeight:600,
+            marginTop:4,marginBottom:20,
+          }}>Скасувати запис</button>
+
+        </div>
+      </div>
+    </>
   );
 }
 
