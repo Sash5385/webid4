@@ -2171,21 +2171,22 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
           {/* header — time chips */}
           <div style={{marginBottom:16}}>
             <div style={{fontSize:11,color:TEXT_FAINT,fontWeight:600,marginBottom:8}}>{_ltmLabel}</div>
-            <div style={{display:"flex",gap:6,alignItems:"center"}}>
-              {[-60,0,60].map(delta=>{
+            <div style={{display:"flex",gap:4,alignItems:"center"}}>
+              {[-60,-30,0,30,60].map(delta=>{
                 const _cm = longTapMenu.startMin + delta;
                 if (_cm < 0 || _cm > 23*60+30) return null;
                 const _isActive = _cm === (longTapMenu.selectedMin ?? longTapMenu.startMin);
                 return (
                   <button key={delta} onClick={()=>setLongTapMenu(prev=>({...prev,selectedMin:_cm}))} style={{
-                    padding:"8px 16px",borderRadius:20,cursor:"pointer",fontFamily:"inherit",
+                    flex:1,padding:"8px 2px",borderRadius:20,cursor:"pointer",fontFamily:"inherit",
                     background: _isActive ? ink(0.14) : "transparent",
                     color: _isActive ? TEXT : TEXT_FAINT,
-                    fontSize: _isActive ? 22 : 14,
+                    fontSize: _isActive ? 18 : 13,
                     fontWeight: _isActive ? 900 : 500,
-                    letterSpacing: _isActive ? 0.5 : 0,
+                    letterSpacing: _isActive ? 0.3 : 0,
                     border: _isActive ? `1px solid ${ink(0.22)}` : `1px solid ${ink(0.07)}`,
                     transition:"all 0.15s",
+                    textAlign:"center",
                   }}>
                     {fmtTime(_cm)}
                   </button>
