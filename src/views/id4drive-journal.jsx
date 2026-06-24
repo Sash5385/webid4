@@ -63,48 +63,112 @@ function buildEvents(data) {
 
 const BY_LABEL = { admin: "адмін", client: "учень" };
 
-function EventIcon({ color, icon, isKava, theme }) {
+function EventDetailSheet({ ev, meta, onClose, theme }) {
+  const [closing, setClosing] = useState(false);
+  const shade = a => `rgba(${theme.SHADE},${a})`;
+  const glow  = a => `rgba(${theme.GLOW},${a})`;
+  const byLabel = BY_LABEL[ev.by] || ev.by;
+  const _close = () => setClosing(true);
+
+  return (
+    <>
+      <style>{`
+        @keyframes _jd-up{from{transform:translateY(100%)}to{transform:translateY(0)}}
+        @keyframes _jd-down{from{transform:translateY(0);opacity:1}to{transform:translateY(100%);opacity:0}}
+        @keyframes _jd-bg-in{from{opacity:0}to{opacity:1}}
+        @keyframes _jd-bg-out{from{opacity:1}to{opacity:0}}
+      `}</style>
+      <div
+        onClick={closing ? undefined : _close}
+        style={{
+          position:"fixed",inset:0,zIndex:200,
+          background:shade(0.55),
+          backdropFilter:"blur(8px)",
+          display:"flex",alignItems:"flex-end",justifyContent:"center",
+          animation: closing ? `_jd-bg-out 0.26s ease-in forwards` : `_jd-bg-in 0.2s ease-out`,
+        }}
+      >
+        <div
+          onClick={e => e.stopPropagation()}
+          onAnimationEnd={closing ? () => { setClosing(false); onClose(); } : undefined}
+          style={{
+            width:"100%",maxWidth:480,
+            background:theme.BG_DEEP,
+            borderRadius:"24px 24px 0 0",
+            boxShadow:`0 -2px 0 ${glow(0.08)},0 -16px 60px ${shade(0.8)}`,
+            overflow:"hidden",
+            pointerEvents: closing ? "none" : undefined,
+            animation: closing ? `_jd-down 0.26s ease-in forwards` : `_jd-up 0.38s cubic-bezier(0.34,1.56,0.64,1)`,
+          }}
+        >
+          <div style={{width:36,height:4,borderRadius:2,background:glow(0.15),margin:"10px auto 0"}} />
+
+          <div style={{
+            padding:"16px 20px 14px",
+            display:"flex",alignItems:"center",gap:12,
+            borderBottom:`1px solid ${theme.BORDER}`,
+          }}>
+            <div style={{
+              width:42,height:42,borderRadius:13,flexShrink:0,
+              background:`${meta.color}22`,
+              border:`1.5px solid ${meta.color}55`,
+              display:"flex",alignItems:"center",justifyContent:"center",
+              fontSize:20,
+            }}>{meta.icon}</div>
+            <div style={{flex:1}}>
+              <div style={{fontSize:11,color:theme.FAINT,marginBottom:2}}>{formatDT(ev.ts)}</div>
+              <div style={{fontSize:15,fontWeight:700,color:meta.color}}>{meta.label}</div>
+            </div>
+            <div
+              onClick={_close}
+              style={{
+                width:28,height:28,borderRadius:8,
+                background:glow(0.07),
+                display:"flex",alignItems:"center",justifyContent:"center",
+                cursor:"pointer",color:theme.FAINT,fontSize:14,userSelect:"none",flexShrink:0,
+              }}
+            >✕</div>
+          </div>
+
+          <div style={{padding:"14px 20px 28px",display:"flex",flexDirection:"column",gap:8}}>
+            <InfoRow label="УЧЕНЬ" value={ev.name} valueStyle={{fontSize:16,fontWeight:800,color:theme.TEXT}} theme={theme} />
+            {ev.slot && <InfoRow label="ЗАНЯТТЯ" value={ev.slot} theme={theme} />}
+            {byLabel && <InfoRow label="ДІЯ ВІД" value={byLabel} theme={theme} />}
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function InfoRow({ label, value, theme, valueStyle = {} }) {
+  const glow = a => `rgba(${theme.GLOW},${a})`;
   return (
     <div style={{
-      width: 46, height: 46, borderRadius: 14, flexShrink: 0,
-      background: isKava
-        ? `linear-gradient(145deg,${theme.SURF_HI},${theme.SURF_LO})`
-        : `${color}18`,
-      border: `1.5px solid ${color}${isKava ? "99" : "44"}`,
-      boxShadow: isKava
-        ? theme.SI
-        : `0 2px 8px ${color}28`,
-      display: "flex", alignItems: "center", justifyContent: "center",
-      position: "relative", overflow: "hidden",
+      background:glow(0.04),
+      borderRadius:10,
+      border:`1px solid ${theme.BORDER}`,
+      padding:"10px 14px",
     }}>
-      {isKava && (
-        <div style={{
-          position: "absolute", top: 0, right: 0, width: "60%", height: "50%",
-          background: `radial-gradient(ellipse at top right,rgba(255,250,243,0.45) 0%,transparent 70%)`,
-          pointerEvents: "none",
-        }} />
-      )}
-      <span style={{
-        position: "relative", zIndex: 1,
-        fontSize: 20, fontWeight: 800, color,
-      }}>{icon}</span>
+      <div style={{fontSize:10,color:theme.FAINT,letterSpacing:1,marginBottom:4}}>{label}</div>
+      <div style={{fontSize:14,fontWeight:600,color:theme.DIM,...valueStyle}}>{value}</div>
     </div>
   );
 }
 
 export default function JournalView() {
-  const theme  = useContext(ThemeContext);
-  const isKava = !!theme.BG_IMAGE;
+  const theme = useContext(ThemeContext);
 
   const EVENT_TYPES = {
     new:        { label: "Новий запис", color: theme.GREEN, icon: "📅" },
-    cancel:     { label: "Скасовано",   color: theme.RED,   icon: "✗" },
-    reschedule: { label: "Перенос",     color: theme.GOLD,  icon: "↔" },
+    cancel:     { label: "Скасовано",   color: theme.RED,   icon: "✗"  },
+    reschedule: { label: "Перенос",     color: theme.GOLD,  icon: "↔"  },
   };
 
   const [events,     setEvents]    = useState([]);
-  const [filter,     setFilter]    = useState("all");
+  const [section,    setSection]   = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
+  const [detail,     setDetail]    = useState(null);
   const [prevReadAt] = useState(getJournalReadAt);
 
   useEffect(() => {
@@ -116,55 +180,64 @@ export default function JournalView() {
   }, []);
 
   const unreadCount = events.filter(e => e.ts > prevReadAt).length;
-  const byRead      = filter === "unread" ? events.filter(e => e.ts > prevReadAt) : events;
-  const filtered    = typeFilter === "all" ? byRead : byRead.filter(e => e.type === typeFilter);
+  const bySection   = section === "admin" ? events.filter(e => e.by === "admin") : events;
+  const filtered    = typeFilter === "all" ? bySection : bySection.filter(e => e.type === typeFilter);
 
   return (
-    <div style={{ display: "flex", flexDirection: "column" }}>
+    <div style={{ display:"flex", flexDirection:"column" }}>
+      <style>{`
+        @keyframes _jc-in{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+        .jcard{animation:_jc-in .15s ease both;cursor:pointer}
+        .jcard:active{opacity:.85}
+      `}</style>
 
-      {/* Filter bar */}
-      <div style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 10 }}>
+      {/* Section tabs */}
+      <div style={{
+        display:"flex",gap:4,marginBottom:12,
+        background:theme.BG_DEEP,borderRadius:12,padding:4,
+        border:`1px solid ${theme.BORDER}`,
+      }}>
         {[
-          ["all",    "Всі"],
-          ["unread", `Непрочитані${unreadCount > 0 ? ` (${unreadCount})` : ""}`],
+          ["all",   unreadCount > 0 ? `Всі записи · ${unreadCount}` : "Всі записи"],
+          ["admin", "Дії адміна"],
         ].map(([id, lbl]) => (
-          <button key={id} onClick={() => setFilter(id)} style={{
-            padding: "5px 14px", borderRadius: 12, border: "none",
-            cursor: "pointer", fontSize: 12, fontWeight: 700,
-            background: filter === id ? theme.ACCENT : theme.SURF_LO,
-            color: filter === id ? (isKava ? "#fff8ef" : "#fff") : theme.DIM,
-            boxShadow: filter === id ? theme.SO : "none",
-            transition: "all .15s",
+          <button key={id} onClick={() => setSection(id)} style={{
+            flex:1,padding:"7px 10px",borderRadius:9,border:"none",
+            cursor:"pointer",fontSize:12,fontWeight:700,fontFamily:"inherit",
+            background: section === id ? theme.ACCENT : "transparent",
+            color: section === id ? "#fff" : theme.DIM,
+            transition:"all .15s",
           }}>{lbl}</button>
         ))}
-        <div style={{ flex: 1 }} />
-        <span style={{ fontSize: 10, color: theme.DIM }}>{filtered.length} подій</span>
       </div>
 
-      {/* Type filter bar */}
-      <div style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 10, flexWrap: "wrap" }}>
+      {/* Type filter chips */}
+      <div style={{ display:"flex", gap:6, alignItems:"center", marginBottom:10, flexWrap:"wrap" }}>
         {[
-          ["all",        "Всі типи",    theme.DIM],
-          ["cancel",     "Скасовано",   theme.RED],
+          ["all",        "Всі типи",    theme.DIM  ],
+          ["cancel",     "Скасовано",   theme.RED  ],
           ["new",        "Новий запис", theme.GREEN],
-          ["reschedule", "Перенос",     theme.GOLD],
+          ["reschedule", "Перенос",     theme.GOLD ],
         ].map(([id, lbl, color]) => {
           const active = typeFilter === id;
           return (
             <button key={id} onClick={() => setTypeFilter(id)} style={{
-              padding: "5px 12px", borderRadius: 12, border: `1.5px solid ${active ? color : "transparent"}`,
-              cursor: "pointer", fontSize: 11, fontWeight: 700,
+              padding:"5px 12px",borderRadius:12,
+              border:`1.5px solid ${active ? color : "transparent"}`,
+              cursor:"pointer",fontSize:11,fontWeight:700,fontFamily:"inherit",
               background: active ? `${color}22` : theme.SURF_LO,
               color: active ? color : theme.DIM,
-              transition: "all .15s",
+              transition:"all .15s",
             }}>{lbl}</button>
           );
         })}
+        <div style={{flex:1}} />
+        <span style={{fontSize:10,color:theme.DIM}}>{filtered.length} подій</span>
       </div>
 
       {filtered.length === 0 && (
-        <div style={{ textAlign: "center", color: theme.DIM, fontSize: 13, paddingTop: 40 }}>
-          {filter === "unread" ? "Немає нових подій" : "Журнал порожній"}
+        <div style={{ textAlign:"center", color:theme.DIM, fontSize:13, paddingTop:40 }}>
+          {section === "admin" ? "Немає дій адміна" : "Журнал порожній"}
         </div>
       )}
 
@@ -174,64 +247,79 @@ export default function JournalView() {
         const byLabel = BY_LABEL[ev.by] || ev.by;
 
         return (
-          <div key={ev.id} style={{
-            background: `linear-gradient(155deg,${theme.SURF_HI},${theme.SURFACE})`,
-            borderRadius: 13,
-            boxShadow: theme.SO,
-            border: `1px solid ${theme.BORDER}`,
-            padding: "10px 12px",
-            marginBottom: i < filtered.length - 1 ? 8 : 0,
-            display: "flex",
-            alignItems: "flex-start",
-            gap: 12,
-          }}>
-            <EventIcon color={meta.color} icon={meta.icon} isKava={isKava} theme={theme} />
+          <div
+            key={ev.id}
+            className="jcard"
+            onClick={() => setDetail(ev)}
+            style={{
+              background:theme.BG_DEEP,
+              borderRadius:12,
+              boxShadow:theme.SI,
+              border:`1px solid ${theme.BORDER}`,
+              marginBottom: i < filtered.length - 1 ? 8 : 0,
+              display:"flex",
+              overflow:"hidden",
+            }}
+          >
+            <div style={{width:4,background:meta.color,flexShrink:0}} />
 
-            <div style={{ flex: 1, minWidth: 0 }}>
-              {/* Row 1: event type + time */}
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8, marginBottom: 3 }}>
-                <span style={{ fontSize: 12, fontWeight: 700, color: meta.color }}>{meta.label}</span>
-                <span style={{
-                  fontSize: 11, flexShrink: 0,
-                  color: isNew ? meta.color : theme.DIM,
-                  fontWeight: isNew ? 700 : 400,
-                }}>{formatDT(ev.ts)}</span>
-              </div>
+            <div style={{flex:1,padding:"10px 10px 10px 12px",display:"flex",alignItems:"center",gap:10,minWidth:0}}>
+              <div style={{
+                width:38,height:38,borderRadius:11,flexShrink:0,
+                background:`${meta.color}18`,
+                border:`1.5px solid ${meta.color}44`,
+                display:"flex",alignItems:"center",justifyContent:"center",
+                fontSize:18,
+              }}>{meta.icon}</div>
 
-              {/* Row 2: full name */}
-              <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
-                <span style={{
-                  fontSize: 14, fontWeight: isNew ? 800 : 600,
-                  color: theme.TEXT,
-                  lineHeight: 1.3,
-                }}>{ev.name}</span>
-                {isNew && (
-                  <div style={{
-                    width: 8, height: 8, borderRadius: "50%", flexShrink: 0,
-                    background: meta.color,
-                    boxShadow: `0 0 6px ${meta.color}88`,
-                  }} />
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",gap:8,marginBottom:2}}>
+                  <span style={{fontSize:11,fontWeight:700,color:meta.color}}>{meta.label}</span>
+                  <span style={{
+                    fontSize:10,flexShrink:0,
+                    color:isNew ? meta.color : theme.FAINT,
+                    fontWeight:isNew ? 700 : 400,
+                  }}>{formatDT(ev.ts)}</span>
+                </div>
+                <div style={{display:"flex",alignItems:"center",gap:5,marginBottom:1}}>
+                  <span style={{
+                    fontSize:13,fontWeight:isNew ? 800 : 600,
+                    color:theme.TEXT,
+                    overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",
+                  }}>{ev.name}</span>
+                  {isNew && (
+                    <div style={{
+                      width:6,height:6,borderRadius:"50%",flexShrink:0,
+                      background:meta.color,
+                      boxShadow:`0 0 5px ${meta.color}88`,
+                    }} />
+                  )}
+                </div>
+                {(ev.slot || byLabel) && (
+                  <div style={{display:"flex",alignItems:"center",gap:5}}>
+                    {ev.slot && <span style={{fontSize:10,color:theme.DIM}}>{ev.slot}</span>}
+                    {ev.slot && byLabel && <span style={{fontSize:10,color:theme.FAINT}}>·</span>}
+                    {byLabel && <span style={{fontSize:10,color:theme.DIM}}>від: {byLabel}</span>}
+                  </div>
                 )}
               </div>
 
-              {/* Row 3: slot + by */}
-              {(ev.slot || byLabel) && (
-                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  {ev.slot && (
-                    <span style={{ fontSize: 11, color: theme.DIM }}>{ev.slot}</span>
-                  )}
-                  {ev.slot && byLabel && (
-                    <span style={{ fontSize: 11, color: theme.FAINT }}>·</span>
-                  )}
-                  {byLabel && (
-                    <span style={{ fontSize: 11, color: theme.DIM }}>від: {byLabel}</span>
-                  )}
-                </div>
-              )}
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={theme.FAINT} strokeWidth="2.5" strokeLinecap="round" style={{flexShrink:0}}>
+                <polyline points="9 18 15 12 9 6" />
+              </svg>
             </div>
           </div>
         );
       })}
+
+      {detail && (
+        <EventDetailSheet
+          ev={detail}
+          meta={EVENT_TYPES[detail.type] || { label: detail.type, color: theme.ACCENT, icon: "•" }}
+          onClose={() => setDetail(null)}
+          theme={theme}
+        />
+      )}
     </div>
   );
 }
