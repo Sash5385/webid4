@@ -1297,7 +1297,8 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   };
 
   const [vipSlotModal, setVipSlotModal] = useState(null);
-  const [slotOptions, setSlotOptions] = useState(null); // { dateStr, time, slot }
+  const [slotOptions, setSlotOptions] = useState(null); // { dateStr, time, startTime, slot }
+  const [slotClosing, setSlotClosing] = useState(false);
   const [personalEventData, setPersonalEventData] = useState(null); // { dateStr, time }
   const [longTapMenu, setLongTapMenu] = useState(null); // { dateStr, startMin, clientX, clientY }
   const [ltmClosing, setLtmClosing] = useState(false);
@@ -1591,7 +1592,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                       slotHoldTimerRef.current = setTimeout(()=>{
                         slotHoldFiredRef.current = true;
                         navigator.vibrate?.(40);
-                        setSlotOptions({ dateStr: dateStrCol, time, slot });
+                        setSlotOptions({ dateStr: dateStrCol, time, startTime: time, slot });
                       }, 600);
                     }}
                     onPointerUp={()=>clearTimeout(slotHoldTimerRef.current)}
@@ -2283,140 +2284,155 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
       );
     })()}
 
-    {/* ── Меню опцій слота (довгий тап) — компактне вікно ── */}
-    {slotOptions && (()=>{
-      const snap = settings.snapMin ?? 30;
-      const [sh, sm] = slotOptions.time.split(":").map(Number);
-      const curMin = sh * 60 + sm;
-      const nearbySlots = [];
-      for (let i = -2; i <= 2; i++) {
-        const m = curMin + i * snap;
-        if (m >= (settings.workStart ?? 7) * 60 && m < (settings.workEnd ?? 20) * 60)
-          nearbySlots.push({ min: m, label: fmtTime(m) });
-      }
+    {/* ── Меню опцій слота (довгий тап на вільний слот) — bottom sheet ── */}
+    {(slotOptions || slotClosing) && (()=>{
+      const _so = slotOptions || {};
+      const _closeSO = () => setSlotClosing(true);
+      const _soStartMin = _so.startTime
+        ? (([h,m]) => h*60+m)(_so.startTime.split(":").map(Number))
+        : 0;
+      const _soSelMin = _so.selectedMin ?? _soStartMin;
       return (
-      <div onClick={()=>setSlotOptions(null)} style={{
-        position:"fixed",inset:0,zIndex:200,
-        background:`${shade(0.45)}`,
-        display:"flex",alignItems:"center",justifyContent:"center",
-      }}>
-        <div onClick={e=>e.stopPropagation()} style={{
-          width:260,
-          background:BG_DEEP,
-          borderRadius:18,
-          boxShadow:`0 8px 40px ${shade(0.7)}, inset 0 1px 0 ${glow(0.07)}`,
-          overflow:"hidden",
+      <>
+        <style>{`
+          @keyframes _so-up{from{transform:translateY(100%)}to{transform:translateY(0)}}
+          @keyframes _so-down{from{transform:translateY(0);opacity:1}to{transform:translateY(100%);opacity:0}}
+          @keyframes _so-bg-in{from{opacity:0}to{opacity:1}}
+          @keyframes _so-bg-out{from{opacity:1}to{opacity:0}}
+        `}</style>
+        <div onClick={slotClosing ? undefined : _closeSO} style={{
+          position:"fixed",inset:0,zIndex:200,
+          background:`${shade(0.55)}`,
+          display:"flex",alignItems:"flex-end",justifyContent:"center",
+          backdropFilter:"blur(8px)",
+          animation: slotClosing ? `_so-bg-out 0.26s ease-in forwards` : `_so-bg-in 0.2s ease-out`,
         }}>
-          {/* Заголовок */}
-          <div style={{
-            padding:"10px 14px 6px",
-            borderBottom:`1px solid ${ink(0.06)}`,
-            fontSize:11,fontWeight:700,color:TEXT_FAINT,textAlign:"center",
-          }}>Оберіть час</div>
-
-          {/* Сусідні слоти */}
-          <div style={{
-            display:"flex",gap:6,padding:"8px 10px",
-            overflowX:"auto",scrollbarWidth:"none",
-            borderBottom:`1px solid ${ink(0.06)}`,
-          }}>
-            {nearbySlots.map(({min, label})=>{
-              const active = label === slotOptions.time;
-              return (
-                <button key={min} onClick={()=>setSlotOptions(prev=>({...prev, time: label}))} style={{
-                  flexShrink:0,padding:"5px 10px",borderRadius:20,border:"none",cursor:"pointer",
-                  fontSize:13,fontWeight:700,
-                  background: active ? "rgba(245,158,11,0.22)" : isLight ? "rgba(0,0,0,0.07)" : "rgba(255,255,255,0.07)",
-                  color: active ? "#f59e0b" : TEXT_DIM,
-                  outline: active ? "1.5px solid rgba(245,158,11,0.5)" : "none",
-                }}>
-                  {label}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Додати букінг */}
-          <button onClick={()=>{
-            const [h, m] = slotOptions.time.split(":").map(Number);
-            const startMin = h * 60 + m;
-            const today = new Date(); today.setHours(0,0,0,0);
-            const slotDate = new Date(slotOptions.dateStr + "T00:00:00");
-            const day = Math.round((slotDate - today) / (1000 * 60 * 60 * 24));
-            setFormData({ startMin, day });
-            setSlotOptions(null);
-          }} style={{
-            width:"100%",padding:"11px 14px",border:"none",cursor:"pointer",
-            background:"none",borderBottom:`1px solid ${ink(0.05)}`,
-            color:"#f59e0b",fontSize:13,fontWeight:700,
-            display:"flex",alignItems:"center",gap:9,
-          }}>
-            <span>👤</span> Додати букінг
-          </button>
-
-          {/* Особиста подія */}
-          <button onClick={()=>{
-            setPersonalEventData({ dateStr: slotOptions.dateStr, time: slotOptions.time, slot: slotOptions.slot });
-            setSlotOptions(null);
-          }} style={{
-            width:"100%",padding:"11px 14px",border:"none",cursor:"pointer",
-            background:"none",borderBottom:`1px solid ${ink(0.05)}`,
-            color:"#2dd4bf",fontSize:13,fontWeight:700,
-            display:"flex",alignItems:"center",gap:9,
-          }}>
-            <span>📌</span> Особиста подія
-          </button>
-
-          {/* Розіслати учням */}
-          <button onClick={()=>{
-            setBroadcastInit({ date: slotOptions.dateStr, slot: slotOptions.time });
-            setSlotOptions(null);
-          }} style={{
-            width:"100%",padding:"11px 14px",border:"none",cursor:"pointer",
-            background:"none",borderBottom:`1px solid ${ink(0.05)}`,
-            color:ACCENT,fontSize:13,fontWeight:700,
-            display:"flex",alignItems:"center",gap:9,
-          }}>
-            <span>📣</span> Розіслати учням
-          </button>
-
-          {/* VIP + надбавки — для відкритих і закритих слотів */}
-          {slotOptions.slot?.available === false && (
-            <div style={{padding:"8px 14px 4px",color:TEXT_FAINT,fontSize:10,fontWeight:600,letterSpacing:0.5}}>
-              ЗАКРИТИЙ СЛОТ
-            </div>
-          )}
-          <button onClick={()=>applySlotOption(slotOptions.dateStr, slotOptions.time, "vip")} style={{
-            width:"100%",padding:"11px 14px",border:"none",cursor:"pointer",
-            background:"none",borderBottom:`1px solid ${ink(0.05)}`,
-            color:"#c084fc",fontSize:13,fontWeight:700,
-            display:"flex",alignItems:"center",gap:9,
-          }}>
-            <span>👑</span> VIP слот
-          </button>
-          {(settings.surcharges?.length ? settings.surcharges : [100,200,300]).map((amt,i,arr)=>(
-            <button key={amt} onClick={()=>applySlotOption(slotOptions.dateStr, slotOptions.time, amt)} style={{
-              width:"100%",padding:"11px 14px",border:"none",cursor:"pointer",
-              background:"none",
-              borderBottom: i<arr.length-1 ? `1px solid ${ink(0.05)}` : "none",
-              color:GOLD,fontSize:13,fontWeight:700,
-              display:"flex",alignItems:"center",justifyContent:"space-between",
+          <div onClick={e=>e.stopPropagation()}
+            onAnimationEnd={slotClosing ? ()=>{ setSlotClosing(false); setSlotOptions(null); } : undefined}
+            style={{
+              width:"100%",maxWidth:480,
+              background:BG_DEEP,
+              borderRadius:"24px 24px 0 0",
+              boxShadow:`0 -2px 0 rgba(34,197,94,0.3), 0 -16px 60px ${shade(0.6)}`,
+              maxHeight:"85vh",overflowY:"auto",
+              WebkitOverflowScrolling:"touch",scrollbarWidth:"none",
+              pointerEvents: slotClosing ? "none" : undefined,
+              animation: slotClosing
+                ? `_so-down 0.26s ease-in forwards`
+                : `_so-up 0.38s cubic-bezier(0.34,1.56,0.64,1)`,
             }}>
-              <span style={{color:TEXT_DIM,fontWeight:500}}>Надбавка</span>
-              <span>+{amt}₴</span>
-            </button>
-          ))}
-
-          {/* Скинути — тільки якщо є що скидати */}
-          {(slotOptions.slot?.vipOnly || slotOptions.slot?.surcharge) && (
-            <button onClick={()=>applySlotOption(slotOptions.dateStr, slotOptions.time, "reset")} style={{
-              width:"100%",padding:"10px 14px",border:"none",cursor:"pointer",
-              background:"none",borderTop:`1px solid ${ink(0.06)}`,
-              color:TEXT_FAINT,fontSize:12,fontWeight:600,
-            }}>Скинути</button>
-          )}
+            {/* handle */}
+            <div style={{width:36,height:4,borderRadius:2,background:ink(0.18),margin:"12px auto 0"}}/>
+            {/* header */}
+            <div style={{
+              padding:"12px 18px 12px",
+              background:"linear-gradient(145deg,rgba(34,197,94,0.12),rgba(22,163,74,0.05))",
+              borderBottom:"1px solid rgba(34,197,94,0.15)",
+            }}>
+              <div style={{fontSize:18,fontWeight:800,color:"#22c55e"}}>🟢 Вільний слот</div>
+              <div style={{fontSize:12,color:TEXT_FAINT}}>{_so.dateStr} · {fmtTime(_soSelMin)}</div>
+            </div>
+            {/* time chips */}
+            <div style={{padding:"12px 16px 4px"}}>
+              <div style={{fontSize:11,color:TEXT_FAINT,fontWeight:600,marginBottom:8}}>Оберіть час</div>
+              <div style={{display:"flex",gap:4,alignItems:"center"}}>
+                {[-60,-30,0,30,60].map(delta=>{
+                  const _cm = _soStartMin + delta;
+                  if (_cm < 0 || _cm > 23*60+59) return null;
+                  const _isActive = _cm === _soSelMin;
+                  return (
+                    <button key={delta} onClick={()=>setSlotOptions(prev=>({...prev, selectedMin:_cm}))} style={{
+                      flex:1,padding:"8px 2px",borderRadius:20,cursor:"pointer",fontFamily:"inherit",
+                      background: _isActive ? ink(0.14) : "transparent",
+                      color: _isActive ? TEXT : TEXT_FAINT,
+                      fontSize: _isActive ? 18 : 13,
+                      fontWeight: _isActive ? 900 : 500,
+                      border: _isActive ? `1px solid ${ink(0.22)}` : `1px solid ${ink(0.07)}`,
+                      transition:"all 0.15s",
+                      textAlign:"center",
+                    }}>
+                      {fmtTime(_cm)}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            {/* actions */}
+            <div style={{padding:"8px 0 32px"}}>
+              {/* Додати букінг */}
+              <button onClick={()=>{
+                const today = new Date(); today.setHours(0,0,0,0);
+                const slotDate = new Date(_so.dateStr + "T00:00:00");
+                const day = Math.round((slotDate - today) / (1000 * 60 * 60 * 24));
+                setFormData({ startMin: _soSelMin, day });
+                setSlotOptions(null);
+              }} style={{
+                width:"100%",padding:"14px 18px",border:"none",cursor:"pointer",
+                background:"none",borderBottom:`1px solid ${ink(0.05)}`,
+                color:"#f59e0b",fontSize:15,fontWeight:700,
+                display:"flex",alignItems:"center",gap:10,
+              }}>
+                <span>👤</span> Додати букінг
+              </button>
+              {/* Особиста подія */}
+              <button onClick={()=>{
+                setPersonalEventData({ dateStr: _so.dateStr, time: fmtTime(_soSelMin), slot: _so.slot });
+                setSlotOptions(null);
+              }} style={{
+                width:"100%",padding:"14px 18px",border:"none",cursor:"pointer",
+                background:"none",borderBottom:`1px solid ${ink(0.05)}`,
+                color:"#2dd4bf",fontSize:15,fontWeight:700,
+                display:"flex",alignItems:"center",gap:10,
+              }}>
+                <span>📌</span> Особиста подія
+              </button>
+              {/* Розіслати учням */}
+              <button onClick={()=>{
+                setBroadcastInit({ date: _so.dateStr, slot: fmtTime(_soSelMin) });
+                setSlotOptions(null);
+              }} style={{
+                width:"100%",padding:"14px 18px",border:"none",cursor:"pointer",
+                background:"none",borderBottom:`1px solid ${ink(0.05)}`,
+                color:ACCENT,fontSize:15,fontWeight:700,
+                display:"flex",alignItems:"center",gap:10,
+              }}>
+                <span>📣</span> Розіслати учням
+              </button>
+              {/* VIP слот */}
+              <button onClick={()=>applySlotOption(_so.dateStr, fmtTime(_soSelMin), "vip")} style={{
+                width:"100%",padding:"14px 18px",border:"none",cursor:"pointer",
+                background:"none",borderBottom:`1px solid ${ink(0.05)}`,
+                color:"#c084fc",fontSize:15,fontWeight:700,
+                display:"flex",alignItems:"center",gap:10,
+              }}>
+                <span>👑</span> VIP слот
+                {_so.slot?.vipOnly && <span style={{marginLeft:"auto",fontSize:11,color:"#c084fc",opacity:0.7}}>✓ активний</span>}
+              </button>
+              {/* Надбавки */}
+              {(settings.surcharges?.length ? settings.surcharges : [100,200,300]).map((amt,i,arr)=>(
+                <button key={amt} onClick={()=>applySlotOption(_so.dateStr, fmtTime(_soSelMin), amt)} style={{
+                  width:"100%",padding:"14px 18px",border:"none",cursor:"pointer",
+                  background: _so.slot?.surcharge === amt ? ink(0.06) : "none",
+                  borderBottom: (i<arr.length-1 || _so.slot?.vipOnly || _so.slot?.surcharge) ? `1px solid ${ink(0.05)}` : "none",
+                  color:GOLD,fontSize:15,fontWeight:700,
+                  display:"flex",alignItems:"center",justifyContent:"space-between",
+                }}>
+                  <span style={{color:TEXT_DIM,fontWeight:500}}>Надбавка</span>
+                  <span>+{amt}₴</span>
+                </button>
+              ))}
+              {/* Скинути — тільки якщо є що скидати */}
+              {(_so.slot?.vipOnly || _so.slot?.surcharge) && (
+                <button onClick={()=>applySlotOption(_so.dateStr, fmtTime(_soSelMin), "reset")} style={{
+                  width:"100%",padding:"12px 18px",border:"none",cursor:"pointer",
+                  background:"none",
+                  color:TEXT_FAINT,fontSize:13,fontWeight:600,
+                }}>Скинути</button>
+              )}
+            </div>
+          </div>
         </div>
-      </div>
+      </>
       );
     })()}
 
