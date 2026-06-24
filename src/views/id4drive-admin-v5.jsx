@@ -453,13 +453,13 @@ const colorOf = (id) => PALETTE.find(p=>p.id===id)?.color || GREEN;
 // ═══════════════════════════════════════════════════════════════
 // BROADCAST MODAL — ручна розсилка пушу учням
 // ═══════════════════════════════════════════════════════════════
-function BroadcastModal({ initialDate, onClose }) {
+function BroadcastModal({ initialDate, initialSlot, onClose }) {
   const { BG_DEEP, SURFACE, SURF_LO, BORDER, TEXT, DIM, FAINT, ACCENT, ACC_HI, SO, SI, GLOW, SHADE, INK } = useContext(ThemeContext);
   const glow = a => `rgba(${GLOW},${a})`, shade = a => `rgba(${SHADE},${a})`, ink = a => `rgba(${INK},${a})`;
   const SHADOW_IN = SI;
 
   const [date, setDate]       = useState(initialDate || "");
-  const [slot1, setSlot1]     = useState("");
+  const [slot1, setSlot1]     = useState(initialSlot || "");
   const [slot2, setSlot2]     = useState("");
   const [comment, setComment] = useState("");
   const [sending, setSending] = useState(false);
@@ -1277,7 +1277,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
     setLocalSelectedBooking(null);
   };
   const [blockModal, setBlockModal] = useState(null); // {id, day, startMin, durMin}
-  const [broadcastDate, setBroadcastDate] = useState(null);
+  const [broadcastInit, setBroadcastInit] = useState(null);
 
   const handleBlock = ({ day, startMin }) => {
     setBookings(bs=>[...bs,{
@@ -1495,12 +1495,6 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                     whiteSpace:"nowrap", zIndex:20, pointerEvents:"none",
                   }}>
                     {genToast.free > 0 ? `+${genToast.free}` : `0 / ${genToast.blocked}б`}
-                  </div>
-                )}
-                {!isPastDay && !isClosedDay && (
-                  <div title="Розіслати сповіщення" onClick={e => { e.stopPropagation(); setBroadcastDate(dateStrCol); }}
-                    style={{ position:"absolute", top:1, right:1, fontSize:8, lineHeight:1, opacity:0.45, cursor:"pointer", zIndex:2, padding:"1px 2px" }}>
-                    📣
                   </div>
                 )}
               </div>
@@ -2173,6 +2167,15 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
             color:"#2dd4bf",fontSize:12,fontWeight:800,
             border:"1px solid rgba(45,212,191,0.3)",
           }}>📌 Особиста подія</button>
+          <button onClick={()=>{
+            setBroadcastInit({ date: longTapMenu.dateStr, slot: fmtTime(longTapMenu.startMin) });
+            setLongTapMenu(null);
+          }} style={{
+            marginTop:8, width:"100%",padding:"9px 12px",borderRadius:10,cursor:"pointer",
+            background:`rgba(${GLOW},0.08)`,
+            color:ACCENT,fontSize:12,fontWeight:800,
+            border:`1px solid rgba(${GLOW},0.22)`,
+          }}>📣 Розіслати учням</button>
         </div>
       </div>
     )}
@@ -2453,7 +2456,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
         </div>
       </div>
     )}
-    {broadcastDate && <BroadcastModal initialDate={broadcastDate} onClose={() => setBroadcastDate(null)}/>}
+    {broadcastInit && <BroadcastModal initialDate={broadcastInit.date} initialSlot={broadcastInit.slot} onClose={() => setBroadcastInit(null)}/>}
     </>
   );
 }
