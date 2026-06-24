@@ -2905,7 +2905,7 @@ function PersonalEventModal({ data, onClose, onConfirm }) {
 
   return (
     <>
-    <style>{`@keyframes _pe-in{from{transform:translateY(-100vh);opacity:0}to{transform:translateY(0);opacity:1}}`}</style>
+    <style>{`@keyframes _pe-in{from{transform:translateY(100%)}to{transform:translateY(0)}}`}</style>
     <div onClick={onClose} style={{
       position:"fixed",inset:0,background:shade(0.75),zIndex:200,
       display:"flex",alignItems:"flex-end",justifyContent:"center",
@@ -2932,7 +2932,6 @@ function PersonalEventModal({ data, onClose, onConfirm }) {
           <div>
             <div style={{fontSize:10,fontWeight:700,letterSpacing:1.2,color:FAINT,textTransform:"uppercase",marginBottom:7}}>Назва</div>
             <input
-              autoFocus
               value={title}
               onChange={e=>setTitle(e.target.value)}
               placeholder="Наприклад: Лікар, Справи..."
