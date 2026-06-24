@@ -1301,6 +1301,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   const [personalEventData, setPersonalEventData] = useState(null); // { dateStr, time }
   const [longTapMenu, setLongTapMenu] = useState(null); // { dateStr, startMin, clientX, clientY }
   const [ltmClosing, setLtmClosing] = useState(false);
+  const [ltmScatter, setLtmScatter] = useState(false);
   const [personalEventView, setPersonalEventView] = useState(null); // booking object for viewing
 
   const isStickySlot = (dateStr, time) => {
@@ -1514,7 +1515,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                   emptyHoldTimerRef.current = setTimeout(() => {
                     if (!emptyHoldPosRef.current) return;
                     navigator.vibrate?.(30);
-                    setLtmClosing(false);
+                    setLtmClosing(false); setLtmScatter(false);
                     setLongTapMenu({ dateStr: dateStrCol, startMin: minute, selectedMin: minute, clientX: e.clientX, clientY: e.clientY, isClosedDay });
                     emptyHoldPosRef.current = null;
                   }, 480);
@@ -2151,11 +2152,16 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
       </div>
     )}
 
-    {(longTapMenu || ltmClosing) && (()=>{
+    {(longTapMenu || ltmClosing || ltmScatter) && (()=>{
       const _menu = longTapMenu || {};
       const _closeLtm = () => setLtmClosing(true);
+      const _scatterLtm = (cb) => {
+        setLtmScatter(true);
+        setTimeout(() => { setLtmScatter(false); setLongTapMenu(null); if(cb) cb(); }, 400);
+      };
       const _ltmD = _menu.dateStr ? new Date(_menu.dateStr + "T12:00:00") : new Date();
       const _ltmLabel = _ltmD.toLocaleDateString("uk", { weekday:"short", day:"numeric", month:"short" });
+      const _anyClose = ltmClosing || ltmScatter;
       return (
       <>
         <style>{`
@@ -2163,12 +2169,17 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
           @keyframes _ltm-down{from{transform:translateY(0);opacity:1}to{transform:translateY(100%);opacity:0}}
           @keyframes _ltm-bg-in{from{opacity:0}to{opacity:1}}
           @keyframes _ltm-bg-out{from{opacity:1}to{opacity:0}}
+          @keyframes _ltm-sc-sheet{from{opacity:1}to{opacity:0}}
+          @keyframes _ltm-sc-l{from{transform:translate(0,0) rotate(0);opacity:1}to{transform:translate(-180px,70px) rotate(-22deg);opacity:0}}
+          @keyframes _ltm-sc-c{from{transform:translate(0,0) scale(1);opacity:1}to{transform:translate(0,-90px) scale(0.3);opacity:0}}
+          @keyframes _ltm-sc-r{from{transform:translate(0,0) rotate(0);opacity:1}to{transform:translate(180px,70px) rotate(22deg);opacity:0}}
+          @keyframes _ltm-sc-chips{from{transform:translateY(0);opacity:1}to{transform:translateY(-50px);opacity:0}}
         `}</style>
-        <div onClick={_closeLtm} style={{
+        <div onClick={_anyClose ? undefined : _closeLtm} style={{
           position:"fixed",inset:0,zIndex:200,
           background:`${shade(0.55)}`,
           display:"flex",alignItems:"flex-end",
-          animation: ltmClosing ? `_ltm-bg-out 0.26s ease-in forwards` : `_ltm-bg-in 0.2s ease-out`,
+          animation: _anyClose ? `_ltm-bg-out 0.38s ease-in forwards` : `_ltm-bg-in 0.2s ease-out`,
         }}>
           <div onClick={e=>e.stopPropagation()}
             onAnimationEnd={ltmClosing ? ()=>{ setLtmClosing(false); setLongTapMenu(null); } : undefined}
@@ -2179,14 +2190,19 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
               padding:"10px 16px 32px",
               boxShadow:`0 -8px 40px ${shade(0.6)},inset 0 1px 0 ${glow(0.08)}`,
               border:`1px solid ${BORDER}`,borderBottom:"none",
+              pointerEvents: _anyClose ? "none" : undefined,
               animation: ltmClosing
                 ? `_ltm-down 0.26s ease-in forwards`
-                : `_ltm-up 0.38s cubic-bezier(0.34,1.56,0.64,1)`,
+                : ltmScatter
+                  ? `_ltm-sc-sheet 0.38s ease-in forwards`
+                  : `_ltm-up 0.38s cubic-bezier(0.34,1.56,0.64,1)`,
             }}>
             {/* handle */}
             <div style={{width:36,height:4,borderRadius:2,background:ink(0.18),margin:"0 auto 14px"}}/>
             {/* header — time chips */}
-            {!ltmClosing && <div style={{marginBottom:16}}>
+            {!ltmClosing && <div style={{marginBottom:16,
+              ...(ltmScatter ? {animation:`_ltm-sc-chips 0.25s ease-in forwards`} : {}),
+            }}>
               <div style={{fontSize:11,color:TEXT_FAINT,fontWeight:600,marginBottom:8}}>{_ltmLabel}</div>
               <div style={{display:"flex",gap:4,alignItems:"center"}}>
                 {[-60,-30,0,30,60].map(delta=>{
@@ -2202,7 +2218,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                       fontWeight: _isActive ? 900 : 500,
                       letterSpacing: _isActive ? 0.3 : 0,
                       border: _isActive ? `1px solid ${ink(0.22)}` : `1px solid ${ink(0.07)}`,
-                      transition:"all 0.15s",
+                      transition: ltmScatter ? "none" : "all 0.15s",
                       textAlign:"center",
                     }}>
                       {fmtTime(_cm)}
@@ -2226,6 +2242,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                   color:GREEN,fontSize:12,fontWeight:800,
                   display:"flex",flexDirection:"column",alignItems:"center",gap:6,
                   border:`1px solid rgba(99,211,120,0.28)`,
+                  ...(ltmScatter ? {animation:`_ltm-sc-l 0.32s ease-in forwards`} : {}),
                 }}>
                   <span style={{fontSize:24}}>🕐</span>
                   Вільний слот
@@ -2233,13 +2250,14 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
               )}
               <button onClick={()=>{
                 setPersonalEventData({ dateStr: _menu.dateStr, time: fmtTime(_menu.selectedMin ?? _menu.startMin) });
-                _closeLtm();
+                _scatterLtm();
               }} style={{
                 flex:1,padding:"16px 8px",borderRadius:16,cursor:"pointer",fontFamily:"inherit",
                 background:"rgba(45,212,191,0.1)",
                 color:"#2dd4bf",fontSize:12,fontWeight:800,
                 display:"flex",flexDirection:"column",alignItems:"center",gap:6,
                 border:"1px solid rgba(45,212,191,0.22)",
+                ...(ltmScatter ? {animation:`_ltm-sc-c 0.28s ease-in forwards`} : {}),
               }}>
                 <span style={{fontSize:24}}>📌</span>
                 Особиста подія
@@ -2253,6 +2271,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                 color:"#f87171",fontSize:12,fontWeight:800,
                 display:"flex",flexDirection:"column",alignItems:"center",gap:6,
                 border:"1px solid rgba(239,68,68,0.2)",
+                ...(ltmScatter ? {animation:`_ltm-sc-r 0.32s ease-in forwards`} : {}),
               }}>
                 <span style={{fontSize:24}}>{_menu.isClosedDay ? "🔓" : "🔒"}</span>
                 {_menu.isClosedDay ? "Відкрити" : "Закрити"} день
