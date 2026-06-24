@@ -464,9 +464,11 @@ function BroadcastModal({ initialDate, initialSlot, onClose }) {
   const [comment, setComment] = useState("");
   const [sending, setSending] = useState(false);
   const [sent, setSent]       = useState(false);
+  const [closing, setClosing] = useState(false);
 
   const slotsArr = [slot1, slot2].filter(Boolean);
   const canSend  = !!(date && slot1 && !sending);
+  const _close   = () => setClosing(true);
 
   const preview = (() => {
     if (!date || !slot1) return null;
@@ -489,55 +491,92 @@ function BroadcastModal({ initialDate, initialSlot, onClose }) {
   const inp = { background: `linear-gradient(135deg,${BG_DEEP},${SURF_LO})`, border: `1px solid ${BORDER}`, outline: "none", color: TEXT, fontSize: 13, padding: "9px 12px", borderRadius: 10, boxShadow: SHADOW_IN, width: "100%", boxSizing: "border-box" };
 
   return (
-    <div style={{ position:"fixed", inset:0, zIndex:9999, background:"rgba(0,0,0,0.65)", display:"flex", alignItems:"flex-end", justifyContent:"center" }}
-      onClick={e => e.target === e.currentTarget && onClose()}>
-      <div style={{ width:"100%", maxWidth:420, background:`linear-gradient(160deg,${SURFACE},${SURF_LO})`, borderRadius:"18px 18px 0 0", padding:"20px 20px 36px", boxShadow:`0 -8px 40px ${glow(0.2)}` }}>
-        <div style={{ width:40, height:4, background:BORDER, borderRadius:2, margin:"0 auto 16px" }}/>
-        {sent ? (
-          <div style={{ textAlign:"center", padding:"20px 0" }}>
-            <div style={{ fontSize:40, marginBottom:8 }}>✅</div>
-            <div style={{ fontSize:16, fontWeight:800, color:TEXT }}>Надіслано!</div>
-            <div style={{ fontSize:12, color:DIM, marginTop:6 }}>Сповіщення отримають активні учні</div>
-            <button onClick={onClose} style={{ marginTop:20, background:ACCENT, color:"#fff", border:"none", borderRadius:12, padding:"10px 28px", fontSize:13, fontWeight:700, cursor:"pointer" }}>Закрити</button>
+    <>
+      <style>{`
+        @keyframes _br-up{from{transform:translateY(100%)}to{transform:translateY(0)}}
+        @keyframes _br-down{from{transform:translateY(0);opacity:1}to{transform:translateY(100%);opacity:0}}
+        @keyframes _br-bg-in{from{opacity:0}to{opacity:1}}
+        @keyframes _br-bg-out{from{opacity:1}to{opacity:0}}
+      `}</style>
+      <div onClick={closing ? undefined : _close} style={{
+        position:"fixed",inset:0,zIndex:9999,
+        background:shade(0.55),
+        display:"flex",alignItems:"flex-end",justifyContent:"center",
+        backdropFilter:"blur(8px)",
+        animation: closing ? `_br-bg-out 0.26s ease-in forwards` : `_br-bg-in 0.2s ease-out`,
+      }}>
+        <div onClick={e=>e.stopPropagation()}
+          onAnimationEnd={closing ? ()=>{ setClosing(false); onClose(); } : undefined}
+          style={{
+            width:"100%",maxWidth:480,background:BG_DEEP,
+            borderRadius:"24px 24px 0 0",
+            boxShadow:`0 -2px 0 rgba(192,132,252,0.3), 0 -16px 60px ${shade(0.6)}`,
+            maxHeight:"85vh",overflowY:"auto",
+            WebkitOverflowScrolling:"touch",scrollbarWidth:"none",
+            pointerEvents: closing ? "none" : undefined,
+            animation: closing
+              ? `_br-down 0.26s ease-in forwards`
+              : `_br-up 0.38s cubic-bezier(0.34,1.56,0.64,1)`,
+          }}>
+
+          {/* Header */}
+          <div style={{
+            padding:"10px 18px 14px",
+            background:"linear-gradient(145deg,rgba(192,132,252,0.12),rgba(168,85,247,0.05))",
+            borderBottom:"1px solid rgba(192,132,252,0.15)",
+            borderRadius:"24px 24px 0 0",
+          }}>
+            <div style={{width:36,height:4,borderRadius:2,background:"rgba(192,132,252,0.4)",margin:"0 auto 12px"}}/>
+            <div style={{fontSize:17,fontWeight:800,color:"#c084fc"}}>📣 Розсилка учням</div>
           </div>
-        ) : (
-          <>
-            <div style={{ fontSize:16, fontWeight:800, color:TEXT, marginBottom:16 }}>📣 Розсилка учням</div>
-            <div style={{ marginBottom:10 }}>
-              <div style={{ fontSize:11, color:DIM, marginBottom:4, fontWeight:600 }}>Дата</div>
-              <input type="date" value={date} onChange={e => setDate(e.target.value)} style={inp}/>
-            </div>
-            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:10 }}>
-              <div>
-                <div style={{ fontSize:11, color:DIM, marginBottom:4, fontWeight:600 }}>Слот 1 *</div>
-                <input type="time" value={slot1} onChange={e => setSlot1(e.target.value)} style={inp}/>
+
+          <div style={{padding:"16px 18px 32px"}}>
+            {sent ? (
+              <div style={{ textAlign:"center", padding:"20px 0" }}>
+                <div style={{ fontSize:40, marginBottom:8 }}>✅</div>
+                <div style={{ fontSize:16, fontWeight:800, color:TEXT }}>Надіслано!</div>
+                <div style={{ fontSize:12, color:DIM, marginTop:6 }}>Сповіщення отримають активні учні</div>
+                <button onClick={_close} style={{ marginTop:20, background:"rgba(192,132,252,0.15)", color:"#c084fc", border:"none", borderRadius:12, padding:"10px 28px", fontSize:13, fontWeight:700, cursor:"pointer" }}>Закрити</button>
               </div>
-              <div>
-                <div style={{ fontSize:11, color:DIM, marginBottom:4, fontWeight:600 }}>Слот 2 (необов.)</div>
-                <input type="time" value={slot2} onChange={e => setSlot2(e.target.value)} style={inp}/>
-              </div>
-            </div>
-            <div style={{ marginBottom:14 }}>
-              <div style={{ fontSize:11, color:DIM, marginBottom:4, fontWeight:600 }}>Коментар (необов.)</div>
-              <input value={comment} onChange={e => setComment(e.target.value)} placeholder="напр. «записуйся поки є місце»" style={{ ...inp, fontSize:12 }} maxLength={60}/>
-            </div>
-            {preview && (
-              <div style={{ background:`rgba(${GLOW},0.06)`, border:`1px solid ${glow(0.18)}`, borderRadius:10, padding:"10px 12px", marginBottom:14 }}>
-                <div style={{ fontSize:10, color:DIM, marginBottom:4, fontWeight:700, letterSpacing:0.5 }}>ПРЕВ'Ю ПУШУ</div>
-                <div style={{ fontSize:12, color:TEXT, fontWeight:700 }}>🚗 Є вільний слот!</div>
-                <div style={{ fontSize:11, color:DIM, marginTop:3 }}>{preview}</div>
-              </div>
+            ) : (
+              <>
+                <div style={{ marginBottom:10 }}>
+                  <div style={{ fontSize:11, color:DIM, marginBottom:4, fontWeight:600 }}>Дата</div>
+                  <input type="date" value={date} onChange={e => setDate(e.target.value)} style={inp}/>
+                </div>
+                <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:10 }}>
+                  <div>
+                    <div style={{ fontSize:11, color:DIM, marginBottom:4, fontWeight:600 }}>Слот 1 *</div>
+                    <input type="time" value={slot1} onChange={e => setSlot1(e.target.value)} style={inp}/>
+                  </div>
+                  <div>
+                    <div style={{ fontSize:11, color:DIM, marginBottom:4, fontWeight:600 }}>Слот 2 (необов.)</div>
+                    <input type="time" value={slot2} onChange={e => setSlot2(e.target.value)} style={inp}/>
+                  </div>
+                </div>
+                <div style={{ marginBottom:14 }}>
+                  <div style={{ fontSize:11, color:DIM, marginBottom:4, fontWeight:600 }}>Коментар (необов.)</div>
+                  <input value={comment} onChange={e => setComment(e.target.value)} placeholder="напр. «записуйся поки є місце»" style={{ ...inp, fontSize:12 }} maxLength={60}/>
+                </div>
+                {preview && (
+                  <div style={{ background:"rgba(192,132,252,0.07)", border:"1px solid rgba(192,132,252,0.2)", borderRadius:10, padding:"10px 12px", marginBottom:14 }}>
+                    <div style={{ fontSize:10, color:DIM, marginBottom:4, fontWeight:700, letterSpacing:0.5 }}>ПРЕВ'Ю ПУШУ</div>
+                    <div style={{ fontSize:12, color:TEXT, fontWeight:700 }}>🚗 Є вільний слот!</div>
+                    <div style={{ fontSize:11, color:DIM, marginTop:3 }}>{preview}</div>
+                  </div>
+                )}
+                <div style={{ display:"flex", gap:8 }}>
+                  <button onClick={_close} style={{ flex:1, background:"transparent", color:DIM, border:`1px solid ${BORDER}`, borderRadius:12, padding:"11px 0", fontSize:13, cursor:"pointer" }}>Скасувати</button>
+                  <button onClick={handleSend} disabled={!canSend} style={{ flex:2, background:canSend?"rgba(192,132,252,0.18)":"rgba(192,132,252,0.06)", color:canSend?"#c084fc":DIM, border:"none", borderRadius:12, padding:"11px 0", fontSize:13, fontWeight:700, cursor:canSend?"pointer":"default", transition:"all 0.2s" }}>
+                    {sending ? "Надсилаємо…" : "📣 Надіслати"}
+                  </button>
+                </div>
+              </>
             )}
-            <div style={{ display:"flex", gap:8 }}>
-              <button onClick={onClose} style={{ flex:1, background:"transparent", color:DIM, border:`1px solid ${BORDER}`, borderRadius:12, padding:"11px 0", fontSize:13, cursor:"pointer" }}>Скасувати</button>
-              <button onClick={handleSend} disabled={!canSend} style={{ flex:2, background:canSend?ACCENT:`rgba(${GLOW},0.08)`, color:canSend?"#fff":DIM, border:"none", borderRadius:12, padding:"11px 0", fontSize:13, fontWeight:700, cursor:canSend?"pointer":"default", transition:"all 0.2s" }}>
-                {sending ? "Надсилаємо…" : "📣 Надіслати"}
-              </button>
-            </div>
-          </>
-        )}
+          </div>
+        </div>
       </div>
-    </div>
+    </>
   );
 }
 
