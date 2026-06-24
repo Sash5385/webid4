@@ -2149,44 +2149,82 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
       </div>
     )}
 
-    {longTapMenu && (
-      <div onClick={()=>setLongTapMenu(null)} style={{position:"fixed",inset:"0 0 80px 0",zIndex:100}}>
+    {longTapMenu && (()=>{
+      const _ltmD = new Date(longTapMenu.dateStr + "T12:00:00");
+      const _ltmLabel = _ltmD.toLocaleDateString("uk", { weekday:"short", day:"numeric", month:"short" });
+      return (
+      <div onClick={()=>setLongTapMenu(null)} style={{
+        position:"fixed",inset:0,zIndex:200,
+        background:`${shade(0.55)}`,
+        display:"flex",alignItems:"flex-end",
+      }}>
         <div onClick={e=>e.stopPropagation()} style={{
-          position:"absolute",
-          top: Math.max(60, Math.min(longTapMenu.clientY - 50, window.innerHeight - 120)),
-          left: Math.max(10, Math.min(longTapMenu.clientX - 10, window.innerWidth - 180)),
-          width:168,
-          background:`linear-gradient(135deg,${SURFACE},${BG_DEEP})`,
-          borderRadius:14, padding:"10px 12px",
-          boxShadow:`0 8px 32px ${shade(0.65)},inset 1px 1px 0 ${glow(0.08)}`,
-          border:`1px solid ${BORDER}`
+          width:"100%",
+          background:`linear-gradient(180deg,${SURFACE},${BG_DEEP})`,
+          borderRadius:"20px 20px 0 0",
+          padding:"10px 16px 32px",
+          boxShadow:`0 -8px 40px ${shade(0.6)},inset 0 1px 0 ${glow(0.08)}`,
+          border:`1px solid ${BORDER}`,borderBottom:"none",
         }}>
-          <div style={{fontSize:18,fontWeight:900,color:TEXT,marginBottom:8,letterSpacing:0.5}}>
-            {fmtTime(longTapMenu.startMin)}
+          {/* handle */}
+          <div style={{width:36,height:4,borderRadius:2,background:ink(0.18),margin:"0 auto 14px"}}/>
+          {/* header */}
+          <div style={{display:"flex",alignItems:"baseline",gap:8,marginBottom:16}}>
+            <div style={{fontSize:26,fontWeight:900,color:TEXT,letterSpacing:0.5}}>
+              {fmtTime(longTapMenu.startMin)}
+            </div>
+            <div style={{fontSize:12,color:TEXT_FAINT,fontWeight:600}}>{_ltmLabel}</div>
           </div>
-          {!longTapMenu.isClosedDay && <button onClick={()=>{
-            const _hh = String(Math.floor(longTapMenu.startMin/60)).padStart(2,'0');
-            const _mm = String(longTapMenu.startMin%60).padStart(2,'0');
-            update(ref(db, `timeslots/${longTapMenu.dateStr}/slot${_hh}${_mm}`), { available: true, time: `${_hh}:${_mm}` }).catch(()=>{});
-            setLongTapMenu(null);
-          }} style={{
-            width:"100%",padding:"9px 12px",borderRadius:10,border:"none",cursor:"pointer",
-            background:`linear-gradient(165deg,rgba(99,211,120,0.9),rgba(34,197,94,0.85))`,
-            color:"#fff",fontSize:12,fontWeight:800,
-            boxShadow:`0 4px 12px rgba(99,211,120,0.35)`,
-          }}>🕐 Вільний слот</button>}
-          <button onClick={()=>{
-            setPersonalEventData({ dateStr: longTapMenu.dateStr, time: fmtTime(longTapMenu.startMin) });
-            setLongTapMenu(null);
-          }} style={{
-            marginTop:8, width:"100%",padding:"9px 12px",borderRadius:10,cursor:"pointer",
-            background:"rgba(45,212,191,0.12)",
-            color:"#2dd4bf",fontSize:12,fontWeight:800,
-            border:"1px solid rgba(45,212,191,0.3)",
-          }}>📌 Особиста подія</button>
+          {/* buttons row */}
+          <div style={{display:"flex",gap:10}}>
+            {!longTapMenu.isClosedDay && (
+              <button onClick={()=>{
+                const _hh = String(Math.floor(longTapMenu.startMin/60)).padStart(2,'0');
+                const _mm = String(longTapMenu.startMin%60).padStart(2,'0');
+                update(ref(db, `timeslots/${longTapMenu.dateStr}/slot${_hh}${_mm}`), { available: true, time: `${_hh}:${_mm}` }).catch(()=>{});
+                setLongTapMenu(null);
+              }} style={{
+                flex:1,padding:"16px 8px",borderRadius:16,border:"none",cursor:"pointer",fontFamily:"inherit",
+                background:`linear-gradient(160deg,rgba(99,211,120,0.22),rgba(34,197,94,0.14))`,
+                color:GREEN,fontSize:12,fontWeight:800,
+                display:"flex",flexDirection:"column",alignItems:"center",gap:6,
+                border:`1px solid rgba(99,211,120,0.28)`,
+              }}>
+                <span style={{fontSize:24}}>🕐</span>
+                Вільний слот
+              </button>
+            )}
+            <button onClick={()=>{
+              setPersonalEventData({ dateStr: longTapMenu.dateStr, time: fmtTime(longTapMenu.startMin) });
+              setLongTapMenu(null);
+            }} style={{
+              flex:1,padding:"16px 8px",borderRadius:16,cursor:"pointer",fontFamily:"inherit",
+              background:"rgba(45,212,191,0.1)",
+              color:"#2dd4bf",fontSize:12,fontWeight:800,
+              display:"flex",flexDirection:"column",alignItems:"center",gap:6,
+              border:"1px solid rgba(45,212,191,0.22)",
+            }}>
+              <span style={{fontSize:24}}>📌</span>
+              Особиста подія
+            </button>
+            <button onClick={()=>{
+              toggleDayBlocked(longTapMenu.dateStr);
+              setLongTapMenu(null);
+            }} style={{
+              flex:1,padding:"16px 8px",borderRadius:16,cursor:"pointer",fontFamily:"inherit",
+              background:"rgba(239,68,68,0.09)",
+              color:"#f87171",fontSize:12,fontWeight:800,
+              display:"flex",flexDirection:"column",alignItems:"center",gap:6,
+              border:"1px solid rgba(239,68,68,0.2)",
+            }}>
+              <span style={{fontSize:24}}>{longTapMenu.isClosedDay ? "🔓" : "🔒"}</span>
+              {longTapMenu.isClosedDay ? "Відкрити" : "Закрити"} день
+            </button>
+          </div>
         </div>
       </div>
-    )}
+      );
+    })()}
 
     {/* ── Меню опцій слота (довгий тап) — компактне вікно ── */}
     {slotOptions && (()=>{
