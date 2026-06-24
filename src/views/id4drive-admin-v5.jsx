@@ -1513,7 +1513,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                   emptyHoldTimerRef.current = setTimeout(() => {
                     if (!emptyHoldPosRef.current) return;
                     navigator.vibrate?.(30);
-                    setLongTapMenu({ dateStr: dateStrCol, startMin: minute, clientX: e.clientX, clientY: e.clientY, isClosedDay });
+                    setLongTapMenu({ dateStr: dateStrCol, startMin: minute, selectedMin: minute, clientX: e.clientX, clientY: e.clientY, isClosedDay });
                     emptyHoldPosRef.current = null;
                   }, 480);
                 }}
@@ -2168,19 +2168,38 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
         }}>
           {/* handle */}
           <div style={{width:36,height:4,borderRadius:2,background:ink(0.18),margin:"0 auto 14px"}}/>
-          {/* header */}
-          <div style={{display:"flex",alignItems:"baseline",gap:8,marginBottom:16}}>
-            <div style={{fontSize:26,fontWeight:900,color:TEXT,letterSpacing:0.5}}>
-              {fmtTime(longTapMenu.startMin)}
+          {/* header — time chips */}
+          <div style={{marginBottom:16}}>
+            <div style={{fontSize:11,color:TEXT_FAINT,fontWeight:600,marginBottom:8}}>{_ltmLabel}</div>
+            <div style={{display:"flex",gap:6,alignItems:"center"}}>
+              {[-60,0,60].map(delta=>{
+                const _cm = longTapMenu.startMin + delta;
+                if (_cm < 0 || _cm > 23*60+30) return null;
+                const _isActive = _cm === (longTapMenu.selectedMin ?? longTapMenu.startMin);
+                return (
+                  <button key={delta} onClick={()=>setLongTapMenu(prev=>({...prev,selectedMin:_cm}))} style={{
+                    padding:"8px 16px",borderRadius:20,cursor:"pointer",fontFamily:"inherit",
+                    background: _isActive ? ink(0.14) : "transparent",
+                    color: _isActive ? TEXT : TEXT_FAINT,
+                    fontSize: _isActive ? 22 : 14,
+                    fontWeight: _isActive ? 900 : 500,
+                    letterSpacing: _isActive ? 0.5 : 0,
+                    border: _isActive ? `1px solid ${ink(0.22)}` : `1px solid ${ink(0.07)}`,
+                    transition:"all 0.15s",
+                  }}>
+                    {fmtTime(_cm)}
+                  </button>
+                );
+              })}
             </div>
-            <div style={{fontSize:12,color:TEXT_FAINT,fontWeight:600}}>{_ltmLabel}</div>
           </div>
           {/* buttons row */}
           <div style={{display:"flex",gap:10}}>
             {!longTapMenu.isClosedDay && (
               <button onClick={()=>{
-                const _hh = String(Math.floor(longTapMenu.startMin/60)).padStart(2,'0');
-                const _mm = String(longTapMenu.startMin%60).padStart(2,'0');
+                const _sm = longTapMenu.selectedMin ?? longTapMenu.startMin;
+                const _hh = String(Math.floor(_sm/60)).padStart(2,'0');
+                const _mm = String(_sm%60).padStart(2,'0');
                 update(ref(db, `timeslots/${longTapMenu.dateStr}/slot${_hh}${_mm}`), { available: true, time: `${_hh}:${_mm}` }).catch(()=>{});
                 setLongTapMenu(null);
               }} style={{
@@ -2195,7 +2214,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
               </button>
             )}
             <button onClick={()=>{
-              setPersonalEventData({ dateStr: longTapMenu.dateStr, time: fmtTime(longTapMenu.startMin) });
+              setPersonalEventData({ dateStr: longTapMenu.dateStr, time: fmtTime(longTapMenu.selectedMin ?? longTapMenu.startMin) });
               setLongTapMenu(null);
             }} style={{
               flex:1,padding:"16px 8px",borderRadius:16,cursor:"pointer",fontFamily:"inherit",
