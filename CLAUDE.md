@@ -34,7 +34,9 @@ cat /home/user/webOlhaDrive/src/version.js
 Формат: `vДД.ММ.N` (N — порядковый номер за день).
 Обновить в обоих файлах: `src/version.js`.
 
-## Шаг 5 — Запушить и задеплоить
+## Шаг 5 — Запушить и задеплоить (АВТОМАТИЧЕСКИ, без вопросов)
+
+**Після кожного фіксу деплоїти одразу. Не питати "Деплоїти?".**
 
 ```bash
 # webid4
@@ -43,14 +45,6 @@ git add . && git commit -m "..." && git checkout master && git pull --rebase ori
 # webOlhaDrive
 git add . && git commit -m "..." && git checkout main && git pull --rebase origin main && git merge <branch> --no-edit && git push origin main && git checkout <branch>
 ```
-
-## Шаг 6 — Спросить пользователя про деплой
-
-После завершения задачи **всегда спрашивать**:
-> "Деплоить?"
-
-Если пользователь говорит «да» — выполнить Шаг 5 (merge → push в master/main).
-Если говорит «нет» — оставить только в feature-ветке.
 
 ---
 
