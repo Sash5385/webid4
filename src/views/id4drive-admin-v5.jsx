@@ -2358,7 +2358,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
               </div>
             </div>
             {/* actions */}
-            <div style={{padding:"8px 0 32px"}}>
+            <div style={{padding:"8px 10px 12px",display:"flex",flexDirection:"column",gap:5}}>
               {/* Додати букінг */}
               <button onClick={()=>{
                 const today = new Date(); today.setHours(0,0,0,0);
@@ -2367,8 +2367,8 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                 setFormData({ startMin: _soSelMin, day });
                 setSlotOptions(null);
               }} style={{
-                width:"100%",padding:"14px 18px",border:"none",cursor:"pointer",
-                background:"none",borderBottom:`1px solid ${ink(0.05)}`,
+                width:"100%",padding:"13px 14px",border:"none",cursor:"pointer",
+                background:"rgba(245,158,11,0.09)",borderRadius:12,
                 color:"#f59e0b",fontSize:15,fontWeight:700,
                 display:"flex",alignItems:"center",gap:10,
               }}>
@@ -2379,8 +2379,8 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                 setPersonalEventData({ dateStr: _so.dateStr, time: fmtTime(_soSelMin), slot: _so.slot });
                 setSlotOptions(null);
               }} style={{
-                width:"100%",padding:"14px 18px",border:"none",cursor:"pointer",
-                background:"none",borderBottom:`1px solid ${ink(0.05)}`,
+                width:"100%",padding:"13px 14px",border:"none",cursor:"pointer",
+                background:"rgba(45,212,191,0.09)",borderRadius:12,
                 color:"#2dd4bf",fontSize:15,fontWeight:700,
                 display:"flex",alignItems:"center",gap:10,
               }}>
@@ -2391,51 +2391,50 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                 setBroadcastInit({ date: _so.dateStr, slot: fmtTime(_soSelMin) });
                 setSlotOptions(null);
               }} style={{
-                width:"100%",padding:"14px 18px",border:"none",cursor:"pointer",
-                background:"none",borderBottom:`1px solid ${ink(0.05)}`,
-                color:ACCENT,fontSize:15,fontWeight:700,
+                width:"100%",padding:"13px 14px",border:"none",cursor:"pointer",
+                background:"rgba(129,140,248,0.09)",borderRadius:12,
+                color:"#818cf8",fontSize:15,fontWeight:700,
                 display:"flex",alignItems:"center",gap:10,
               }}>
                 <span>📣</span> Розіслати учням
               </button>
               {/* VIP слот */}
               <button onClick={()=>applySlotOption(_so.dateStr, fmtTime(_soSelMin), "vip")} style={{
-                width:"100%",padding:"14px 18px",border:"none",cursor:"pointer",
-                background:"none",borderBottom:`1px solid ${ink(0.05)}`,
+                width:"100%",padding:"13px 14px",border:"none",cursor:"pointer",
+                background:"rgba(192,132,252,0.09)",borderRadius:12,
                 color:"#c084fc",fontSize:15,fontWeight:700,
                 display:"flex",alignItems:"center",gap:10,
               }}>
                 <span>👑</span> VIP слот
                 {_so.slot?.vipOnly && <span style={{marginLeft:"auto",fontSize:11,color:"#c084fc",opacity:0.7}}>✓ активний</span>}
               </button>
-              {/* Надбавки — чіпи */}
-              <div style={{padding:"12px 16px",borderBottom:(_so.slot?.vipOnly||_so.slot?.surcharge)?`1px solid ${ink(0.05)}`:"none"}}>
-                <div style={{fontSize:11,color:TEXT_FAINT,fontWeight:600,marginBottom:8}}>Надбавка</div>
-                <div style={{display:"flex",gap:6}}>
-                  {(settings.surcharges?.length ? settings.surcharges : [100,200,300]).map(amt=>{
-                    const _isActive = _so.slot?.surcharge === amt;
-                    return (
-                      <button key={amt} onClick={()=>applySlotOption(_so.dateStr, fmtTime(_soSelMin), amt)} style={{
-                        flex:1,padding:"9px 4px",borderRadius:20,cursor:"pointer",fontFamily:"inherit",
-                        background: _isActive ? "rgba(245,158,11,0.22)" : "transparent",
-                        color: _isActive ? "#f59e0b" : GOLD,
-                        fontSize:14,fontWeight:700,
-                        border: _isActive ? `1px solid rgba(245,158,11,0.5)` : `1px solid ${ink(0.1)}`,
-                        textAlign:"center",
-                        transition:"all 0.15s",
-                      }}>
-                        +{amt}₴
-                      </button>
-                    );
-                  })}
-                </div>
+            </div>
+            {/* Надбавки — чіпи */}
+            <div style={{padding:"4px 16px 32px"}}>
+              <div style={{fontSize:11,color:TEXT_FAINT,fontWeight:600,marginBottom:8}}>Надбавка</div>
+              <div style={{display:"flex",gap:6}}>
+                {(settings.surcharges?.length ? settings.surcharges : [100,200,300]).map(amt=>{
+                  const _isActive = _so.slot?.surcharge === amt;
+                  return (
+                    <button key={amt} onClick={()=>applySlotOption(_so.dateStr, fmtTime(_soSelMin), amt)} style={{
+                      flex:1,padding:"9px 4px",borderRadius:20,cursor:"pointer",fontFamily:"inherit",
+                      background: _isActive ? "rgba(245,158,11,0.22)" : "transparent",
+                      color: _isActive ? "#f59e0b" : GOLD,
+                      fontSize:14,fontWeight:700,
+                      border: _isActive ? `1px solid rgba(245,158,11,0.5)` : `1px solid ${ink(0.1)}`,
+                      textAlign:"center",
+                      transition:"all 0.15s",
+                    }}>
+                      +{amt}₴
+                    </button>
+                  );
+                })}
               </div>
               {/* Скинути — тільки якщо є що скидати */}
               {(_so.slot?.vipOnly || _so.slot?.surcharge) && (
                 <button onClick={()=>applySlotOption(_so.dateStr, fmtTime(_soSelMin), "reset")} style={{
-                  width:"100%",padding:"12px 18px",border:"none",cursor:"pointer",
-                  background:"none",
-                  color:TEXT_FAINT,fontSize:13,fontWeight:600,
+                  width:"100%",padding:"12px 0 0",border:"none",cursor:"pointer",
+                  background:"none",color:TEXT_FAINT,fontSize:13,fontWeight:600,
                 }}>Скинути</button>
               )}
             </div>
