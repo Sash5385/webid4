@@ -1300,6 +1300,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   const [slotOptions, setSlotOptions] = useState(null); // { dateStr, time, slot }
   const [personalEventData, setPersonalEventData] = useState(null); // { dateStr, time }
   const [longTapMenu, setLongTapMenu] = useState(null); // { dateStr, startMin, clientX, clientY }
+  const [ltmClosing, setLtmClosing] = useState(false);
   const [personalEventView, setPersonalEventView] = useState(null); // booking object for viewing
 
   const isStickySlot = (dateStr, time) => {
@@ -1513,6 +1514,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                   emptyHoldTimerRef.current = setTimeout(() => {
                     if (!emptyHoldPosRef.current) return;
                     navigator.vibrate?.(30);
+                    setLtmClosing(false);
                     setLongTapMenu({ dateStr: dateStrCol, startMin: minute, selectedMin: minute, clientX: e.clientX, clientY: e.clientY, isClosedDay });
                     emptyHoldPosRef.current = null;
                   }, 480);
@@ -2149,100 +2151,116 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
       </div>
     )}
 
-    {longTapMenu && (()=>{
-      const _ltmD = new Date(longTapMenu.dateStr + "T12:00:00");
+    {(longTapMenu || ltmClosing) && (()=>{
+      const _menu = longTapMenu || {};
+      const _closeLtm = () => setLtmClosing(true);
+      const _ltmD = _menu.dateStr ? new Date(_menu.dateStr + "T12:00:00") : new Date();
       const _ltmLabel = _ltmD.toLocaleDateString("uk", { weekday:"short", day:"numeric", month:"short" });
       return (
-      <div onClick={()=>setLongTapMenu(null)} style={{
-        position:"fixed",inset:0,zIndex:200,
-        background:`${shade(0.55)}`,
-        display:"flex",alignItems:"flex-end",
-      }}>
-        <div onClick={e=>e.stopPropagation()} style={{
-          width:"100%",
-          background:`linear-gradient(180deg,${SURFACE},${BG_DEEP})`,
-          borderRadius:"20px 20px 0 0",
-          padding:"10px 16px 32px",
-          boxShadow:`0 -8px 40px ${shade(0.6)},inset 0 1px 0 ${glow(0.08)}`,
-          border:`1px solid ${BORDER}`,borderBottom:"none",
+      <>
+        <style>{`
+          @keyframes _ltm-up{from{transform:translateY(100%)}to{transform:translateY(0)}}
+          @keyframes _ltm-down{from{transform:translateY(0);opacity:1}to{transform:translateY(100%);opacity:0}}
+          @keyframes _ltm-bg-in{from{opacity:0}to{opacity:1}}
+          @keyframes _ltm-bg-out{from{opacity:1}to{opacity:0}}
+        `}</style>
+        <div onClick={_closeLtm} style={{
+          position:"fixed",inset:0,zIndex:200,
+          background:`${shade(0.55)}`,
+          display:"flex",alignItems:"flex-end",
+          animation: ltmClosing ? `_ltm-bg-out 0.26s ease-in forwards` : `_ltm-bg-in 0.2s ease-out`,
         }}>
-          {/* handle */}
-          <div style={{width:36,height:4,borderRadius:2,background:ink(0.18),margin:"0 auto 14px"}}/>
-          {/* header — time chips */}
-          <div style={{marginBottom:16}}>
-            <div style={{fontSize:11,color:TEXT_FAINT,fontWeight:600,marginBottom:8}}>{_ltmLabel}</div>
-            <div style={{display:"flex",gap:4,alignItems:"center"}}>
-              {[-60,-30,0,30,60].map(delta=>{
-                const _cm = longTapMenu.startMin + delta;
-                if (_cm < 0 || _cm > 23*60+30) return null;
-                const _isActive = _cm === (longTapMenu.selectedMin ?? longTapMenu.startMin);
-                return (
-                  <button key={delta} onClick={()=>setLongTapMenu(prev=>({...prev,selectedMin:_cm}))} style={{
-                    flex:1,padding:"8px 2px",borderRadius:20,cursor:"pointer",fontFamily:"inherit",
-                    background: _isActive ? ink(0.14) : "transparent",
-                    color: _isActive ? TEXT : TEXT_FAINT,
-                    fontSize: _isActive ? 18 : 13,
-                    fontWeight: _isActive ? 900 : 500,
-                    letterSpacing: _isActive ? 0.3 : 0,
-                    border: _isActive ? `1px solid ${ink(0.22)}` : `1px solid ${ink(0.07)}`,
-                    transition:"all 0.15s",
-                    textAlign:"center",
-                  }}>
-                    {fmtTime(_cm)}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-          {/* buttons row */}
-          <div style={{display:"flex",gap:10}}>
-            {!longTapMenu.isClosedDay && (
+          <div onClick={e=>e.stopPropagation()}
+            onAnimationEnd={ltmClosing ? ()=>{ setLtmClosing(false); setLongTapMenu(null); } : undefined}
+            style={{
+              width:"100%",
+              background:`linear-gradient(180deg,${SURFACE},${BG_DEEP})`,
+              borderRadius:"20px 20px 0 0",
+              padding:"10px 16px 32px",
+              boxShadow:`0 -8px 40px ${shade(0.6)},inset 0 1px 0 ${glow(0.08)}`,
+              border:`1px solid ${BORDER}`,borderBottom:"none",
+              animation: ltmClosing
+                ? `_ltm-down 0.26s ease-in forwards`
+                : `_ltm-up 0.38s cubic-bezier(0.34,1.56,0.64,1)`,
+            }}>
+            {/* handle */}
+            <div style={{width:36,height:4,borderRadius:2,background:ink(0.18),margin:"0 auto 14px"}}/>
+            {/* header — time chips */}
+            {!ltmClosing && <div style={{marginBottom:16}}>
+              <div style={{fontSize:11,color:TEXT_FAINT,fontWeight:600,marginBottom:8}}>{_ltmLabel}</div>
+              <div style={{display:"flex",gap:4,alignItems:"center"}}>
+                {[-60,-30,0,30,60].map(delta=>{
+                  const _cm = _menu.startMin + delta;
+                  if (_cm < 0 || _cm > 23*60+30) return null;
+                  const _isActive = _cm === (_menu.selectedMin ?? _menu.startMin);
+                  return (
+                    <button key={delta} onClick={()=>setLongTapMenu(prev=>({...prev,selectedMin:_cm}))} style={{
+                      flex:1,padding:"8px 2px",borderRadius:20,cursor:"pointer",fontFamily:"inherit",
+                      background: _isActive ? ink(0.14) : "transparent",
+                      color: _isActive ? TEXT : TEXT_FAINT,
+                      fontSize: _isActive ? 18 : 13,
+                      fontWeight: _isActive ? 900 : 500,
+                      letterSpacing: _isActive ? 0.3 : 0,
+                      border: _isActive ? `1px solid ${ink(0.22)}` : `1px solid ${ink(0.07)}`,
+                      transition:"all 0.15s",
+                      textAlign:"center",
+                    }}>
+                      {fmtTime(_cm)}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>}
+            {/* buttons row */}
+            {!ltmClosing && <div style={{display:"flex",gap:10}}>
+              {!_menu.isClosedDay && (
+                <button onClick={()=>{
+                  const _sm = _menu.selectedMin ?? _menu.startMin;
+                  const _hh = String(Math.floor(_sm/60)).padStart(2,'0');
+                  const _mm = String(_sm%60).padStart(2,'0');
+                  update(ref(db, `timeslots/${_menu.dateStr}/slot${_hh}${_mm}`), { available: true, time: `${_hh}:${_mm}` }).catch(()=>{});
+                  _closeLtm();
+                }} style={{
+                  flex:1,padding:"16px 8px",borderRadius:16,border:"none",cursor:"pointer",fontFamily:"inherit",
+                  background:`linear-gradient(160deg,rgba(99,211,120,0.22),rgba(34,197,94,0.14))`,
+                  color:GREEN,fontSize:12,fontWeight:800,
+                  display:"flex",flexDirection:"column",alignItems:"center",gap:6,
+                  border:`1px solid rgba(99,211,120,0.28)`,
+                }}>
+                  <span style={{fontSize:24}}>🕐</span>
+                  Вільний слот
+                </button>
+              )}
               <button onClick={()=>{
-                const _sm = longTapMenu.selectedMin ?? longTapMenu.startMin;
-                const _hh = String(Math.floor(_sm/60)).padStart(2,'0');
-                const _mm = String(_sm%60).padStart(2,'0');
-                update(ref(db, `timeslots/${longTapMenu.dateStr}/slot${_hh}${_mm}`), { available: true, time: `${_hh}:${_mm}` }).catch(()=>{});
-                setLongTapMenu(null);
+                setPersonalEventData({ dateStr: _menu.dateStr, time: fmtTime(_menu.selectedMin ?? _menu.startMin) });
+                _closeLtm();
               }} style={{
-                flex:1,padding:"16px 8px",borderRadius:16,border:"none",cursor:"pointer",fontFamily:"inherit",
-                background:`linear-gradient(160deg,rgba(99,211,120,0.22),rgba(34,197,94,0.14))`,
-                color:GREEN,fontSize:12,fontWeight:800,
+                flex:1,padding:"16px 8px",borderRadius:16,cursor:"pointer",fontFamily:"inherit",
+                background:"rgba(45,212,191,0.1)",
+                color:"#2dd4bf",fontSize:12,fontWeight:800,
                 display:"flex",flexDirection:"column",alignItems:"center",gap:6,
-                border:`1px solid rgba(99,211,120,0.28)`,
+                border:"1px solid rgba(45,212,191,0.22)",
               }}>
-                <span style={{fontSize:24}}>🕐</span>
-                Вільний слот
+                <span style={{fontSize:24}}>📌</span>
+                Особиста подія
               </button>
-            )}
-            <button onClick={()=>{
-              setPersonalEventData({ dateStr: longTapMenu.dateStr, time: fmtTime(longTapMenu.selectedMin ?? longTapMenu.startMin) });
-              setLongTapMenu(null);
-            }} style={{
-              flex:1,padding:"16px 8px",borderRadius:16,cursor:"pointer",fontFamily:"inherit",
-              background:"rgba(45,212,191,0.1)",
-              color:"#2dd4bf",fontSize:12,fontWeight:800,
-              display:"flex",flexDirection:"column",alignItems:"center",gap:6,
-              border:"1px solid rgba(45,212,191,0.22)",
-            }}>
-              <span style={{fontSize:24}}>📌</span>
-              Особиста подія
-            </button>
-            <button onClick={()=>{
-              toggleDayBlocked(longTapMenu.dateStr);
-              setLongTapMenu(null);
-            }} style={{
-              flex:1,padding:"16px 8px",borderRadius:16,cursor:"pointer",fontFamily:"inherit",
-              background:"rgba(239,68,68,0.09)",
-              color:"#f87171",fontSize:12,fontWeight:800,
-              display:"flex",flexDirection:"column",alignItems:"center",gap:6,
-              border:"1px solid rgba(239,68,68,0.2)",
-            }}>
-              <span style={{fontSize:24}}>{longTapMenu.isClosedDay ? "🔓" : "🔒"}</span>
-              {longTapMenu.isClosedDay ? "Відкрити" : "Закрити"} день
-            </button>
+              <button onClick={()=>{
+                toggleDayBlocked(_menu.dateStr);
+                _closeLtm();
+              }} style={{
+                flex:1,padding:"16px 8px",borderRadius:16,cursor:"pointer",fontFamily:"inherit",
+                background:"rgba(239,68,68,0.09)",
+                color:"#f87171",fontSize:12,fontWeight:800,
+                display:"flex",flexDirection:"column",alignItems:"center",gap:6,
+                border:"1px solid rgba(239,68,68,0.2)",
+              }}>
+                <span style={{fontSize:24}}>{_menu.isClosedDay ? "🔓" : "🔒"}</span>
+                {_menu.isClosedDay ? "Відкрити" : "Закрити"} день
+              </button>
+            </div>}
           </div>
         </div>
-      </div>
+      </>
       );
     })()}
 
