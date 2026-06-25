@@ -368,7 +368,7 @@ exports.onSlotFreed = onValueWritten(
     if (before?.available === true) return; // вже був вільний — не дублюємо
     if (!after || after.available !== true) return;
 
-    const { date } = event.params;
+    const { date, slotId } = event.params;
 
     // Тільки найближчі 10 днів
     const slotDate = new Date(date + "T00:00:00");
@@ -385,6 +385,18 @@ exports.onSlotFreed = onValueWritten(
     await db.ref(`slotFreedQueue/${slotKey}`).set({
       date, time, sendAfter: Date.now() + 5 * 60 * 1000,
     }).catch(() => {});
+
+    // Якщо в цьому слоті був phone-only запис — скасовуємо його
+    const slotBookingSnap = await db.ref(`slotBookings/${date}/${slotId}`).get();
+    if (slotBookingSnap.exists()) {
+      const { phone, bookingId } = slotBookingSnap.val();
+      if (phone && bookingId) {
+        await db.ref(`bookings_by_phone/${phone}/${bookingId}`).update({
+          status: "cancelled", cancelledAt: Date.now(), cancelledBy: "admin"
+        }).catch(() => {});
+        await db.ref(`slotBookings/${date}/${slotId}`).remove().catch(() => {});
+      }
+    }
   }
 );
 
@@ -407,9 +419,9 @@ exports.flushSlotFreedQueue = onSchedule(
     });
     if (!tasks.length) return;
 
-    // Студенти що хоч раз бронювали (індекс, замість повного скану bookings)
-    const activeSnap = await db.ref("activeStudents").get();
-    const notifyUids = activeSnap.exists() ? Object.keys(activeSnap.val()) : [];
+    // Всі студенти з увімкненими push-сповіщеннями
+    const tokenSnap = await db.ref("studentTokens").get();
+    const notifyUids = tokenSnap.exists() ? Object.keys(tokenSnap.val()) : [];
     if (!notifyUids.length) return;
 
     // Rate-limit: не слати одному студенту частіше ніж раз на 30 хвилин
