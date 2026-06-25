@@ -2594,7 +2594,15 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
             update(ref(db, `bookings/${b.userId}/${b.id}`), fbData).catch(()=>{});
           } else {
             const phone = (b.phone || '').replace(/\D/g, '');
-            if (phone) update(ref(db, `bookings_by_phone/${phone}/${b.id}`), fbData).catch(()=>{});
+            if (phone) {
+              update(ref(db, `bookings_by_phone/${phone}/${b.id}`), fbData).catch(()=>{});
+              for (let i = 0; i < b.durMin; i += 30) {
+                const slotMin = b.startMin + i;
+                const sh = String(Math.floor(slotMin / 60)).padStart(2, '0');
+                const sm = String(slotMin % 60).padStart(2, '0');
+                update(ref(db, `slotBookings/${b.date}/slot${sh}${sm}`), {phone, bookingId: b.id}).catch(()=>{});
+              }
+            }
           }
         }
         if (b.date && b.startMin !== undefined && b.durMin) {
@@ -4197,7 +4205,15 @@ export default function App() {
         update(ref(db, `bookings/${b.userId}/${b.id}`), fbData).catch(()=>{});
       } else {
         const phone = (b.phone || '').replace(/\D/g, '');
-        if (phone) update(ref(db, `bookings_by_phone/${phone}/${b.id}`), fbData).catch(()=>{});
+        if (phone) {
+          update(ref(db, `bookings_by_phone/${phone}/${b.id}`), fbData).catch(()=>{});
+          for (let i = 0; i < b.durMin; i += 30) {
+            const slotMin = b.startMin + i;
+            const sh = String(Math.floor(slotMin / 60)).padStart(2, '0');
+            const sm = String(slotMin % 60).padStart(2, '0');
+            update(ref(db, `slotBookings/${b.date}/slot${sh}${sm}`), {phone, bookingId: b.id}).catch(()=>{});
+          }
+        }
       }
     }
     if (b.date && b.startMin !== undefined && b.durMin) {

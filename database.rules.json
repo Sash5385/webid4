@@ -88,6 +88,10 @@
     "recentStudents": {
       ".read": "auth != null && auth.uid === 'IjyqouYBDUg5KGzs3U27PUcs8Uj1'",
       ".write": "auth != null"
+    },
+    "slotBookings": {
+      ".read": "auth != null && auth.uid === 'IjyqouYBDUg5KGzs3U27PUcs8Uj1'",
+      ".write": "auth != null && auth.uid === 'IjyqouYBDUg5KGzs3U27PUcs8Uj1'"
     }
   }
 }
