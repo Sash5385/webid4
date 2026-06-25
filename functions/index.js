@@ -506,19 +506,41 @@ exports.sendLessonReminders = onSchedule(
       new Date().toLocaleString("uk", { timeZone: "Europe/Kiev", hour: "2-digit", hour12: false }), 10
     );
 
-    const activeSnap = await db.ref("activeStudents").get();
-    if (!activeSnap.exists()) return;
-    const uids = Object.keys(activeSnap.val());
+    const [activeSnap, tokenSnap] = await Promise.all([
+      db.ref("activeStudents").get(),
+      db.ref("studentTokens").get(),
+    ]);
+    const allUids = new Set([
+      ...(activeSnap.exists() ? Object.keys(activeSnap.val()) : []),
+      ...(tokenSnap.exists() ? Object.keys(tokenSnap.val()) : []),
+    ]);
+    if (!allUids.size) return;
 
     const sentSnap = await db.ref("sentReminders").get();
     const sentData = sentSnap.val() || {};
     const updates = {};
 
-    for (const uid of uids) {
-      const bSnap = await db.ref(`bookings/${uid}`).get();
-      if (!bSnap.exists()) continue;
+    for (const uid of allUids) {
+      const [bSnap, profilePhoneSnap] = await Promise.all([
+        db.ref(`bookings/${uid}`).get(),
+        db.ref(`users/${uid}/profile/phone`).get(),
+      ]);
 
-      for (const [bookingId, b] of Object.entries(bSnap.val())) {
+      const bookingsObj = bSnap.exists() ? { ...bSnap.val() } : {};
+
+      const rawPhone = (profilePhoneSnap.val() || "").replace(/\D/g, "");
+      if (rawPhone) {
+        const phoneBookingsSnap = await db.ref(`bookings_by_phone/${rawPhone}`).get();
+        if (phoneBookingsSnap.exists()) {
+          Object.entries(phoneBookingsSnap.val()).forEach(([id, b]) => {
+            if (!bookingsObj[id]) bookingsObj[id] = b;
+          });
+        }
+      }
+
+      if (!Object.keys(bookingsObj).length) continue;
+
+      for (const [bookingId, b] of Object.entries(bookingsObj)) {
         if (!b || b.status === "cancelled" || b.cancelledBy) continue;
         if (!b.date || !b.time) continue;
 
