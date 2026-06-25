@@ -102,13 +102,18 @@ function filterByPeriod(bookings, data, period, cfrom, cto) {
   });
 }
 
+function parseLocalDate(str) {
+  const [y, m, d] = str.split('-').map(Number);
+  return new Date(y, m - 1, d);
+}
+
 function computeCustomData(bookings, from, to, svcs) {
   if (!from || !to || from > to) return [];
-  const fromD = new Date(from), toD = new Date(to);
+  const fromD = parseLocalDate(from), toD = parseLocalDate(to);
   const diffDays = Math.round((toD - fromD) / 86400000) + 1;
   if (diffDays <= 62) {
     const buckets = Array.from({length: diffDays}, (_, i) => {
-      const d = new Date(fromD); d.setDate(fromD.getDate() + i);
+      const d = new Date(fromD.getFullYear(), fromD.getMonth(), fromD.getDate() + i);
       const key = getDateStr(d);
       return { key, label: `${d.getDate()}.${String(d.getMonth()+1).padStart(2,'0')}` };
     });
@@ -436,10 +441,10 @@ export default function StatsView() {
         {period === "custom" && (
           <div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}}>
             <input type="date" value={customFrom} onChange={e=>setCustomFrom(e.target.value)}
-              style={{background:SURF_HI,border:"none",borderRadius:9,padding:"7px 10px",color:TEXT,fontSize:12,fontFamily:"inherit",boxShadow:SI,flex:1,minWidth:130}}/>
+              style={{background:SURF_HI,border:`1px solid ${BORDER}`,borderRadius:9,padding:"7px 10px",color:TEXT,fontSize:12,fontFamily:"inherit",boxShadow:SI,flex:1,minWidth:130,colorScheme:"dark"}}/>
             <span style={{color:FAINT,fontSize:14,fontWeight:700}}>—</span>
             <input type="date" value={customTo} onChange={e=>setCustomTo(e.target.value)}
-              style={{background:SURF_HI,border:"none",borderRadius:9,padding:"7px 10px",color:TEXT,fontSize:12,fontFamily:"inherit",boxShadow:SI,flex:1,minWidth:130}}/>
+              style={{background:SURF_HI,border:`1px solid ${BORDER}`,borderRadius:9,padding:"7px 10px",color:TEXT,fontSize:12,fontFamily:"inherit",boxShadow:SI,flex:1,minWidth:130,colorScheme:"dark"}}/>
           </div>
         )}
 
