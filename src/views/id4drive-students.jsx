@@ -146,7 +146,7 @@ function StudentForm({ initial, onSave, onCancel, saveLabel="Зберегти" }
 
 // ─── STUDENT CARD (collapsed row only) ──────────────────────────
 function StudentCard({ s, onSelect }) {
-  const { BG_DEEP, BORDER, TEXT, DIM, FAINT, GREEN, GOLD, RED, SI } = useContext(ThemeContext);
+  const { BG_DEEP, SURF_HI, SURFACE, BORDER, TEXT, DIM, FAINT, GREEN, GOLD, RED, SI } = useContext(ThemeContext);
   const typeColor = s.type === "school" ? GREEN : GOLD;
   const typeLabel = s.type === "school" ? "Автошкола" : "Приватний";
   const ini       = s.name.split(" ").map(w=>w[0]).slice(0,2).join("");
@@ -156,7 +156,7 @@ function StudentCard({ s, onSelect }) {
     <div
       onClick={() => onSelect(s)}
       style={{
-        background:BG_DEEP, borderRadius:12, boxShadow:SI,
+        background:`linear-gradient(155deg,${SURF_HI},${SURFACE})`, borderRadius:12, boxShadow:SI,
         border:`1px solid ${BORDER}`, opacity:s.blocked?0.8:1,
         display:"flex", overflow:"hidden", cursor:"pointer",
       }}

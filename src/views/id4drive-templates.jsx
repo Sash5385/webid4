@@ -78,8 +78,8 @@ const INIT_TEMPLATES = [
 
 // ─── HELPERS ────────────────────────────────────────────────────
 function Inset({ children, style={} }) {
-  const { BG_DEEP, SURF_LO, SI } = useContext(ThemeContext);
-  return <div style={{background:`linear-gradient(135deg,${BG_DEEP},${SURF_LO})`,borderRadius:12,boxShadow:SI,padding:"10px 14px",...style}}>{children}</div>;
+  const { SURF_HI, SURFACE, SI } = useContext(ThemeContext);
+  return <div style={{background:`linear-gradient(155deg,${SURF_HI},${SURFACE})`,borderRadius:12,boxShadow:SI,padding:"10px 14px",...style}}>{children}</div>;
 }
 const chOf  = id => CHANNELS.find(c=>c.id===id)||CHANNELS[0];
 const catOf = id => CATEGORIES.find(c=>c.id===id)||CATEGORIES[5];
@@ -282,7 +282,7 @@ function EditModal({ tpl, onSave, onClose }) {
       )}
 
       {/* active */}
-      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:0,padding:"12px 14px",background:`linear-gradient(135deg,${BG_DEEP},${SURF_LO})`,borderRadius:12,boxShadow:SI}}>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:0,padding:"12px 14px",background:`linear-gradient(155deg,${SURF_HI},${SURFACE})`,borderRadius:12,boxShadow:SI}}>
         <div>
           <div style={{fontSize:13,fontWeight:700,color:TEXT}}>Активний шаблон</div>
           <div style={{fontSize:11,color:DIM,marginTop:2}}>Вимкнений шаблон не відправляється автоматично</div>

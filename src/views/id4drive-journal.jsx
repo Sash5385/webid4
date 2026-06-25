@@ -291,7 +291,7 @@ export default function JournalView() {
 
           {/* Group panel */}
           <div style={{
-            background:BG_DEEP,borderRadius:16,
+            background:`linear-gradient(155deg,${SURF_HI},${SURFACE})`,borderRadius:16,
             border:`1px solid ${BORDER}`,overflow:"hidden",
             boxShadow:SI,
           }}>
