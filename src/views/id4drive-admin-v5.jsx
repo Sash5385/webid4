@@ -464,6 +464,7 @@ function BroadcastModal({ initialDate, initialSlot, onClose }) {
   const [comment, setComment] = useState("");
   const [sending, setSending] = useState(false);
   const [sent, setSent]       = useState(false);
+  const [sendError, setSendError] = useState(null);
   const [closing, setClosing] = useState(false);
 
   const slotsArr = [slot1, slot2].filter(Boolean);
@@ -484,7 +485,7 @@ function BroadcastModal({ initialDate, initialSlot, onClose }) {
     try {
       await fbPush(ref(db, "push_tasks"), { date, slots: slotsArr, comment: comment || null, createdAt: Date.now(), status: "pending" });
       setSent(true);
-    } catch (e) { alert("Помилка: " + e.message); }
+    } catch (e) { setSendError("Помилка: " + e.message); }
     finally { setSending(false); }
   };
 
@@ -564,6 +565,9 @@ function BroadcastModal({ initialDate, initialSlot, onClose }) {
                     <div style={{ fontSize:12, color:TEXT, fontWeight:700 }}>🚗 Є вільний слот!</div>
                     <div style={{ fontSize:11, color:DIM, marginTop:3 }}>{preview}</div>
                   </div>
+                )}
+                {sendError && (
+                  <div style={{ fontSize:12, color:"#ef4444", background:"rgba(239,68,68,0.1)", border:"1px solid rgba(239,68,68,0.25)", borderRadius:8, padding:"8px 12px", marginBottom:10 }}>{sendError}</div>
                 )}
                 <div style={{ display:"flex", gap:8 }}>
                   <button onClick={_close} style={{ flex:1, background:"transparent", color:DIM, border:`1px solid ${BORDER}`, borderRadius:12, padding:"11px 0", fontSize:13, cursor:"pointer" }}>Скасувати</button>
