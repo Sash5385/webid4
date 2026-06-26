@@ -481,6 +481,60 @@ exports.flushRescheduleQueue = onSchedule(
   }
 );
 
+// Щодня о 10:00 Kyiv: push студентам з несплаченими минулими уроками (dedup 7 днів)
+exports.sendDebtReminders = onSchedule(
+  { schedule: "0 7 * * *", region: "europe-west1", timeZone: "UTC" }, // 7:00 UTC = 10:00 Kyiv
+  async () => {
+    const now = Date.now();
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const SEVEN_DAYS = 7 * 24 * 3600 * 1000;
+
+    const snap = await db.ref("bookings").get();
+    if (!snap.exists()) return null;
+
+    const studentDebt = {};
+    snap.forEach(userSnap => {
+      const uid = userSnap.key;
+      if (uid.startsWith("guest_")) return;
+
+      userSnap.forEach(bSnap => {
+        const b = bSnap.val();
+        if (!b || b.status !== "confirmed" || b.isPaid || !b.price || b.price <= 0) return;
+        if (!b.date || b.date >= todayStr) return;
+        if (!studentDebt[uid]) studentDebt[uid] = { total: 0, lastSent: b.debtReminderSentAt || 0 };
+        studentDebt[uid].total += b.price;
+      });
+    });
+
+    const tasks = Object.entries(studentDebt)
+      .filter(([, info]) => info.total > 0 && now - info.lastSent >= SEVEN_DAYS)
+      .map(([uid, info]) => ({ uid, total: info.total }));
+
+    if (!tasks.length) return null;
+
+    await Promise.allSettled(tasks.map(async ({ uid, total }) => {
+      await pushStudent(uid, "💳 Нагадування про оплату",
+        `Є неоплачені уроки на суму ${total} ₴. Зверніться до інструктора.`,
+        { url: "https://id4drive.pro/cabinet/bookings" }
+      );
+      await saveNotification(uid, "💳 Нагадування про оплату",
+        `Є неоплачені уроки на суму ${total} ₴.`, "debt_reminder"
+      );
+      const userSnap = await db.ref(`bookings/${uid}`).get();
+      const updates = {};
+      userSnap.forEach(bSnap => {
+        const b = bSnap.val();
+        if (b && b.status === "confirmed" && !b.isPaid && b.price > 0 && b.date < todayStr) {
+          updates[`bookings/${uid}/${bSnap.key}/debtReminderSentAt`] = now;
+        }
+      });
+      if (Object.keys(updates).length) await db.ref("/").update(updates).catch(() => {});
+    }));
+
+    return null;
+  }
+);
+
 // Студент надіслав повідомлення → пуш адміну
 exports.onStudentMessage = onValueCreated(
   { ref: "chats/{uid}/{msgId}", region: "europe-west1" },
