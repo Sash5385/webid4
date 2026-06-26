@@ -803,24 +803,27 @@ const pendingDeletesRef = React.useRef(new Set());
         if (!acc && Object.keys(upd).length) update(ref(db, "/"), upd).catch(() => {});
       };
 
-      if (!dragging) {
-        // 1. Deleted bookings → mark cancelled in Firebase + free timeslots
-        prev.forEach(b => {
-          if (!nextIds.has(b.id) && b.userId && b.id) {
-            pendingDeletesRef.current.add(b.id);
-            freeSlots(b.date, b.startMin, b.durMin);
-            Promise.resolve().then(() => {
-              const keys = [...new Set([b._fbKey, b.id].filter(Boolean))];
-              const now = Date.now();
-              Promise.all(keys.map(k =>
-                update(ref(db, `bookings/${b.userId}/${k}`), { status:'cancelled', cancelledAt:now, cancelledBy:'admin' }).catch(() =>
-                  remove(ref(db, `bookings/${b.userId}/${k}`)).catch(() => {})
-                )
-              )).finally(() => setTimeout(() => pendingDeletesRef.current.delete(b.id), 3000));
-            });
-          }
-        });
-      }
+      // 1. Deleted bookings — runs even during drag (drag updates never remove bookings from next)
+      prev.forEach(b => {
+        if (!nextIds.has(b.id) && b.userId && b.id) {
+          // Cancel pending drag-save so doSaveMove won't fire for a deleted booking
+          clearTimeout(moveSaveTimers.current[b.id]);
+          delete moveSaveTimers.current[b.id];
+          // Free original slot (before any drag) if booking was moved before deletion
+          const orig = moveOriginals.current[b.id];
+          if (orig && orig.date) freeSlots(orig.date, orig.startMin, orig.durMin);
+          delete moveOriginals.current[b.id];
+          pendingDeletesRef.current.add(b.id);
+          freeSlots(b.date, b.startMin, b.durMin);
+          Promise.resolve().then(() => {
+            const fbKey = b._fbKey || b.id;
+            const now = Date.now();
+            update(ref(db, `bookings/${b.userId}/${fbKey}`), { status:'cancelled', cancelledAt:now, cancelledBy:'admin' }).catch(() =>
+              remove(ref(db, `bookings/${b.userId}/${fbKey}`)).catch(() => {})
+            ).finally(() => setTimeout(() => pendingDeletesRef.current.delete(b.id), 3000));
+          });
+        }
+      });
 
       next.forEach(b => {
         const p = prevMap.get(b.id);
