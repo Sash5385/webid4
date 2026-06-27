@@ -2,6 +2,7 @@ import React, { useState, useEffect, lazy, Suspense, createContext, useContext }
 import { ref, onValue, update, push, remove, get } from "firebase/database";
 import { db, registerAdminFCM, onAdminForegroundMessage } from "./firebase";
 import { useAdminAuth, LoginScreen } from "./AdminAuth";
+import { TrialBanner, SubscriptionExpiredScreen } from "./SubscriptionScreen";
 import { useAppUpdate } from "./hooks/useAppUpdate"
 import { setGlobalLang, createT } from "./lang";
 import { ThemeContext, getTheme } from "./theme.js";
@@ -434,6 +435,7 @@ export default function App() {
   const [chatUnread,    setChatUnread]    = useState(0);
   const [journalUnread, setJournalUnread] = useState(0);
   const [queueCount,    setQueueCount]    = useState(0);
+  const [subscription,  setSubscription]  = useState(null);
   const usersMapRef = React.useRef({});
   const rawBookingsSnapRef = React.useRef(null);
 
@@ -533,6 +535,13 @@ export default function App() {
   }, [tab]);
 
   // Register FCM token on login and every time tab becomes visible (handles token rotation)
+  useEffect(() => {
+    if (!adminUser) return;
+    return onValue(ref(db, "subscription"), snap => {
+      setSubscription(snap.val() || {});
+    });
+  }, [adminUser]);
+
   useEffect(() => {
     if (!adminUser) return;
     registerAdminFCM().catch(() => {});
@@ -960,6 +969,13 @@ const pendingDeletesRef = React.useRef(new Set());
   if (adminUser === undefined) return null;
   if (adminUser === null) return <LoginScreen/>;
 
+  const subExpired = subscription !== null && (
+    !subscription.plan ||
+    (subscription.plan === "trial"  && (subscription.trialEndsAt || 0) <= Date.now()) ||
+    (subscription.plan === "active" && (subscription.expiresAt   || 0) <= Date.now())
+  );
+  if (subExpired) return <SubscriptionExpiredScreen subscription={subscription}/>;
+
   return (
     <ThemeContext.Provider value={theme}>
     <LangContext.Provider value={lang}>
@@ -970,6 +986,7 @@ const pendingDeletesRef = React.useRef(new Set());
         fontFamily:"ui-sans-serif,-apple-system,BlinkMacSystemFont,system-ui,sans-serif",
         display:"flex",flexDirection:"column"
       }}>
+        <TrialBanner subscription={subscription}/>
         <TopBar tab={tab} onChange={switchTab} settings={settings} setSettings={setSettings}/>
         <div className="tab-anim" key={`${tab}-${tabVisits[tab]||0}`} style={{
           flex:1, minHeight:0,

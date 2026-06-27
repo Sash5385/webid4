@@ -1,6 +1,12 @@
 const { onSchedule } = require("firebase-functions/v2/scheduler");
 const { onValueCreated, onValueUpdated, onValueWritten } = require("firebase-functions/v2/database");
+const { onRequest } = require("firebase-functions/v2/https");
+const { defineSecret } = require("firebase-functions/params");
 const admin = require("firebase-admin");
+const crypto = require("crypto");
+
+const LIQPAY_PUBLIC_KEY  = defineSecret("LIQPAY_PUBLIC_KEY");
+const LIQPAY_PRIVATE_KEY = defineSecret("LIQPAY_PRIVATE_KEY");
 
 admin.initializeApp();
 const db = admin.database();
@@ -185,6 +191,24 @@ exports.onBookingChanged = onValueWritten(
     if (after.studentConfirmed && !before.studentConfirmed) {
       console.log(`onBookingChanged: student confirmed uid=${uid}`);
       await pushAdmin("✅ Підтвердив присутність", `${name} · ${date} о ${time}`);
+      return;
+    }
+
+    // No-show — повідомляємо студента
+    if (after.status === "noshow" && before.status !== "noshow") {
+      await pushStudent(uid, "😔 Урок пропущено", `${date} о ${time} — зверніться до інструктора`, {
+        url: "https://id4drive.pro/cabinet/bookings",
+      });
+      await saveNotification(uid, "😔 Урок пропущено", `${date} о ${time}`, "noshow");
+      return;
+    }
+
+    // Інструктор додав нотатку — повідомляємо студента
+    if (after.instructorNote && after.instructorNote !== before.instructorNote) {
+      await pushStudent(uid, "📝 Інструктор залишив нотатку", `${date} о ${time}`, {
+        url: "https://id4drive.pro/cabinet/bookings",
+      });
+      await saveNotification(uid, "📝 Нотатка інструктора", after.instructorNote.slice(0, 80), "instructor_note");
       return;
     }
 
@@ -478,6 +502,82 @@ exports.flushRescheduleQueue = onSchedule(
       await db.ref(`rescheduleQueue/${uid}/${bookingId}`).remove();
       console.log(`flushRescheduleQueue: sent to uid=${uid} bookingId=${bookingId}`);
     }));
+  }
+);
+
+// ─── LIQPAY SUBSCRIPTION ─────────────────────────────────────────────
+
+const MONTHLY_PRICE = 499;
+
+exports.createLiqPayOrder = onRequest(
+  {
+    region: "europe-west1",
+    cors: ["https://admin.id4drive.pro", "http://localhost:5174"],
+    secrets: [LIQPAY_PUBLIC_KEY, LIQPAY_PRIVATE_KEY],
+  },
+  async (req, res) => {
+    if (req.method !== "POST") { res.status(405).send("Method Not Allowed"); return; }
+    const { amount, months } = req.body || {};
+
+    const pubKey  = LIQPAY_PUBLIC_KEY.value();
+    const privKey = LIQPAY_PRIVATE_KEY.value();
+
+    const orderId = `sub_admin_${Date.now()}`;
+    const params = {
+      version:     "3",
+      public_key:  pubKey,
+      action:      "pay",
+      amount:      String(amount || MONTHLY_PRICE),
+      currency:    "UAH",
+      description: `ID4Drive підписка ${months || 1} міс.`,
+      order_id:    orderId,
+      result_url:  "https://admin.id4drive.pro/",
+      server_url:  "https://europe-west1-id4drive-booking-44182.cloudfunctions.net/liqpayCallback",
+    };
+
+    const data = Buffer.from(JSON.stringify(params)).toString("base64");
+    const signature = crypto.createHash("sha1")
+      .update(privKey + data + privKey)
+      .digest("base64");
+
+    res.json({ data, signature, action: "https://www.liqpay.ua/api/3/checkout" });
+  }
+);
+
+exports.liqpayCallback = onRequest(
+  {
+    region: "europe-west1",
+    cors: true,
+    secrets: [LIQPAY_PRIVATE_KEY],
+  },
+  async (req, res) => {
+    const { data, signature } = req.body || {};
+    if (!data || !signature) { res.status(400).send("Bad request"); return; }
+
+    const privKey = LIQPAY_PRIVATE_KEY.value();
+    const expected = crypto.createHash("sha1")
+      .update(privKey + data + privKey)
+      .digest("base64");
+    if (expected !== signature) { res.status(403).send("Invalid signature"); return; }
+
+    const params = JSON.parse(Buffer.from(data, "base64").toString("utf8"));
+    const { status, amount } = params;
+
+    if (status !== "success" && status !== "sandbox") { res.send("OK"); return; }
+
+    const months    = Math.max(1, Math.round(Number(amount) / MONTHLY_PRICE));
+    const now       = Date.now();
+    const expiresAt = now + months * 30 * 24 * 3600 * 1000;
+
+    await db.ref("subscription").update({
+      plan: "active",
+      expiresAt,
+      lastPaidAt:        now,
+      lastPaymentAmount: Number(amount),
+    }).catch(console.error);
+
+    console.log(`liqpayCallback: activated months=${months} expiresAt=${new Date(expiresAt).toISOString()}`);
+    res.send("OK");
   }
 );
 
