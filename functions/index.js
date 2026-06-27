@@ -171,6 +171,22 @@ exports.onBookingChanged = onValueWritten(
         url: "https://id4drive.pro/cabinet/bookings",
       });
       await saveNotification(uid, "✅ Урок підтверджено", `${date} о ${time}`, "booking_confirmed");
+      // Реферальний бонус: якщо це перший урок і є referredBy
+      const profSnap = await db.ref(`users/${uid}/profile`).get().catch(() => null);
+      const prof = profSnap?.val() || {};
+      if (prof.referredBy && !prof.firstLessonBonusSent) {
+        const allSnap = await db.ref(`bookings/${uid}`).get().catch(() => null);
+        const confirmedCount = allSnap?.exists()
+          ? Object.values(allSnap.val()).filter(b => b.status === "confirmed").length
+          : 0;
+        if (confirmedCount <= 1) {
+          const refUid = prof.referredBy;
+          await db.ref(`users/${uid}/profile/firstLessonBonusSent`).set(true).catch(() => {});
+          await db.ref(`users/${refUid}/referralBonusLessons`).transaction(n => (n || 0) + 1).catch(() => {});
+          await pushStudent(refUid, "🎁 Ваш друг записався!", "Ви отримали бонусний урок за запрошення", { url: "https://id4drive.pro/cabinet" });
+          await saveNotification(refUid, "🎁 Реферальний бонус", "Ваш друг записався — +1 бонусний урок!", "referral_bonus");
+        }
+      }
       return;
     }
 
