@@ -1328,6 +1328,10 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
       const bookKey = b._fbKey || b.id;
       if (b.userId) {
         update(ref(db, `bookings/${b.userId}/${bookKey}`), { status:'noshow', noshowAt:Date.now() }).catch(()=>{});
+        if (!b.userId.startsWith('guest_')) {
+          fbPush(ref(db, `notifications/${b.userId}`), { type:'booking_noshow', title:'Пропущений урок', body:`${b.date} о ${b.time || fmtTime(b.startMin)}`, ts:Date.now() }).catch(()=>{});
+          fbPush(ref(db, 'pushQueue'), { uid:b.userId, title:'Пропущений урок ⚠️', body:`${b.date} о ${b.time || fmtTime(b.startMin)}`, ts:Date.now() }).catch(()=>{});
+        }
       } else if (b.phone) {
         const ph = (b.phone||'').replace(/\D/g,'');
         update(ref(db, `bookings/guest_${ph}/${bookKey}`), { status:'noshow', noshowAt:Date.now() }).catch(()=>{});
