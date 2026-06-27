@@ -796,6 +796,45 @@ exports.onPushTask = onValueCreated(
   }
 );
 
+// Щодня о 18:00 Kyiv: нагадування "Урок завтра"
+exports.sendTomorrowReminders = onSchedule(
+  { schedule: "0 15 * * *", region: "europe-west1", timeZone: "UTC" }, // 15:00 UTC = 18:00 Kyiv
+  async () => {
+    const now = new Date();
+    const tomorrow = new Date(now);
+    tomorrow.setUTCDate(now.getUTCDate() + 1);
+    const tomorrowStr = tomorrow.toISOString().slice(0, 10);
+
+    const snap = await db.ref("bookings").get();
+    if (!snap.exists()) return null;
+
+    const tasks = [];
+    snap.forEach(userSnap => {
+      const uid = userSnap.key;
+      if (uid.startsWith("guest_")) return;
+      userSnap.forEach(bSnap => {
+        const b = bSnap.val();
+        if (!b || b.status !== "confirmed") return;
+        if (b.reminderSent && b.reminderSent["day"]) return;
+        if (b.date !== tomorrowStr) return;
+        tasks.push({ uid, key: bSnap.key, date: b.date, time: b.time || "" });
+      });
+    });
+
+    if (!tasks.length) return null;
+
+    const ts = Date.now();
+    await Promise.allSettled(tasks.map(async ({ uid, key, date, time }) => {
+      const t = (time || "").slice(0, 5);
+      await pushStudent(uid, "📅 Урок завтра", `${date} о ${t} — чекаємо на вас!`, { url: "https://id4drive.pro/cabinet/bookings" });
+      await saveNotification(uid, "📅 Урок завтра", `${date} о ${t} — чекаємо на вас!`, "lesson_reminder_day");
+      await db.ref(`bookings/${uid}/${key}/reminderSent/day`).set(ts).catch(() => {});
+    }));
+
+    return null;
+  }
+);
+
 exports.sendDailySummary = onSchedule(
   { schedule: "0 18 * * *", region: "europe-west1", timeZone: "UTC" }, // 18:00 UTC = 21:00 Kyiv
   async () => {
