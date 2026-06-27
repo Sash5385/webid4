@@ -679,3 +679,14 @@ exports.onPushTask = onValueCreated(
     await db.ref(`push_tasks/${taskId}`).update({ status: "sent", sentCount, sentAt: Date.now() });
   }
 );
+
+exports.onAdminPushQueue = onValueCreated(
+  { ref: "pushQueue/{pushId}", region: "europe-west1" },
+  async event => {
+    const { uid, title, body } = event.data.val() || {};
+    if (!uid || !title || !body) { await event.data.ref.remove().catch(() => {}); return; }
+    await pushStudent(uid, title, body);
+    await saveNotification(uid, title, body, "admin_message");
+    await event.data.ref.remove().catch(() => {});
+  }
+);
