@@ -1323,7 +1323,16 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
         delete cancelTimers.current[b.id];
       }, 2000);
     }
-    if (action === "noshow")  setBookings(bs=>bs.map(x=>x.id===b.id?{...x,status:"noshow"}:x));
+    if (action === "noshow") {
+      setBookings(bs=>bs.map(x=>x.id===b.id?{...x,status:"noshow"}:x));
+      const bookKey = b._fbKey || b.id;
+      if (b.userId) {
+        update(ref(db, `bookings/${b.userId}/${bookKey}`), { status:'noshow', noshowAt:Date.now() }).catch(()=>{});
+      } else if (b.phone) {
+        const ph = (b.phone||'').replace(/\D/g,'');
+        update(ref(db, `bookings/guest_${ph}/${bookKey}`), { status:'noshow', noshowAt:Date.now() }).catch(()=>{});
+      }
+    }
     if (action === "delete")  setBookings(bs=>bs.filter(x=>x.id!==b.id));
     if (action === "repeat") {
       const newId = `b-${Date.now()}`;
