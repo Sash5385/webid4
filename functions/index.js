@@ -680,6 +680,35 @@ exports.onPushTask = onValueCreated(
   }
 );
 
+exports.sendDailySummary = onSchedule(
+  { schedule: "0 18 * * *", region: "europe-west1", timeZone: "UTC" }, // 18:00 UTC = 21:00 Kyiv
+  async () => {
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const snap = await db.ref("bookings").get();
+    if (!snap.exists()) return null;
+
+    let count = 0, totalEarned = 0, totalPaid = 0, totalHours = 0;
+    snap.forEach(userSnap => {
+      userSnap.forEach(bSnap => {
+        const b = bSnap.val();
+        if (!b || b.date !== todayStr || b.status !== "confirmed") return;
+        if (b.type === "personal" || b.type === "block" || b.type === "vip-slot") return;
+        count++;
+        totalEarned += b.price || 0;
+        if (b.isPaid) totalPaid += b.price || 0;
+        totalHours += b.durationHours || 1;
+      });
+    });
+
+    if (count === 0) return null;
+    const notPaid = totalEarned - totalPaid;
+    const body = `Уроків: ${count} (${totalHours} год) · Зароблено: ${totalEarned} ₴` +
+      (notPaid > 0 ? ` · Борг: ${notPaid} ₴` : " · Всі оплачені ✓");
+    await pushAdmin("📊 Підсумок дня", body);
+    return null;
+  }
+);
+
 exports.onAdminPushQueue = onValueCreated(
   { ref: "pushQueue/{pushId}", region: "europe-west1" },
   async event => {
