@@ -2469,6 +2469,21 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                 <span>👑</span> VIP слот
                 {_so.slot?.vipOnly && <span style={{marginLeft:"auto",fontSize:11,color:"#c084fc",opacity:0.7}}>✓ активний</span>}
               </button>
+              {/* Заблокувати / Розблокувати слот */}
+              <button onClick={()=>{
+                toggleSlotFree(_so.dateStr, fmtTime(_soSelMin), _so.slot);
+                _closeSO();
+              }} style={{
+                width:"100%",padding:"13px 14px",border:"none",cursor:"pointer",
+                background: _so.slot?.adminBlocked ? "rgba(34,197,94,0.09)" : "rgba(239,68,68,0.09)",
+                borderRadius:12,
+                color: _so.slot?.adminBlocked ? GREEN : "#f87171",
+                fontSize:15,fontWeight:700,
+                display:"flex",alignItems:"center",gap:10,
+              }}>
+                <span>{_so.slot?.adminBlocked ? "🔓" : "🚫"}</span>
+                {_so.slot?.adminBlocked ? "Розблокувати слот" : "Заблокувати слот"}
+              </button>
             </div>
             {/* Надбавки — чіпи */}
             <div style={{padding:"4px 16px 32px"}}>
