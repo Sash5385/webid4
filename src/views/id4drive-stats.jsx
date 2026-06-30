@@ -231,6 +231,7 @@ function LineChart({ data, valueKey, color, height=120 }) {
   const { FAINT } = useContext(ThemeContext);
   const { ink } = useFX();
   const W=320, H=height, P=12;
+  if (data.length < 2) return <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={height}/>;
   const vals = data.map(d => d[valueKey]);
   const max = Math.max(...vals), min = Math.min(...vals);
   const range = max - min || 1;
@@ -414,7 +415,7 @@ export default function StatsView() {
   const forecast     = period === "year" ? computeYearForecast(bookings, services) : period === "custom" ? null : computeMonthForecast(bookings, services);
   const slotsPerBucket = period === "day" ? 10 : 8;
   const occupancy    = data.length ? Math.min(100, Math.round((cur.lessons / (data.length * slotsPerBucket)) * 100)) : 0;
-  const occupancySub = period === "day" ? "сьогодні" : period === "week" ? "цей тиждень" : period === "month" ? "5 місяців" : period === "custom" ? "свій інтервал" : "рік";
+  const occupancySub = period === "day" ? "сьогодні" : period === "week" ? "цей тиждень" : period === "month" ? "5 місяців" : period === "custom" ? "інтервал" : "рік";
   const forecastSub  = period === "year" ? "рік (прогноз)" : period === "custom" ? "—" : "місяць (прогноз)";
   const byPeriodLabel= period === "day" ? "По годинах" : period === "week" ? "По днях" : period === "custom" && customDiffDays <= 62 ? "По днях" : "По місяцях";
 
@@ -434,7 +435,7 @@ export default function StatsView() {
 
         {/* ── PERIOD ── */}
         <div style={{display:"flex",gap:6,overflowX:"auto",paddingBottom:2}}>
-          {[["day","День"],["week",t('st2.week')],["month",t('st2.month')],["year",t('st2.year')],["custom","Свій"]].map(([k,l])=>(
+          {[["day","День"],["week",t('st2.week')],["month",t('st2.month')],["year",t('st2.year')],["custom","Період"]].map(([k,l])=>(
             <Chip key={k} label={l} active={period===k} onClick={()=>setPeriod(k)}/>
           ))}
         </div>
@@ -446,6 +447,9 @@ export default function StatsView() {
             <input type="date" value={customTo} onChange={e=>setCustomTo(e.target.value)}
               style={{background:SURF_HI,border:`1px solid ${BORDER}`,borderRadius:9,padding:"7px 10px",color:TEXT,fontSize:12,fontFamily:"inherit",boxShadow:SI,flex:1,minWidth:130,colorScheme:"dark"}}/>
           </div>
+        )}
+        {period === "custom" && (!customFrom || !customTo) && (
+          <div style={{textAlign:"center",color:FAINT,fontSize:12,padding:"8px 0"}}>Оберіть початкову та кінцеву дату</div>
         )}
 
         {/* ── KPI 2×3 ── */}
