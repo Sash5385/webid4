@@ -83,7 +83,9 @@ function buildEvents(data) {
       if (!b) return;
       const name = b.studentName || b.name || "Без імені";
       const dateStr = b.date ? b.date.split("-").reverse().join(".") : "";
-      const slot = [dateStr, b.time].filter(Boolean).join(" ");
+      const durH = b.durationHours ?? (b.durMin ? b.durMin / 60 : null);
+      const durStr = durH ? ` · ${durH} год` : "";
+      const slot = [dateStr, b.time].filter(Boolean).join(" ") + durStr;
       if (b.createdAt)     evs.push({ id: `${key}_new`,        type: "new",        ts: b.createdAt,     name, slot, by: b.createdBy   || "" });
       if (b.cancelledAt)   evs.push({ id: `${key}_cancel`,     type: "cancel",     ts: b.cancelledAt,   name, slot, by: b.cancelledBy  || "" });
       if (b.rescheduledAt) evs.push({ id: `${key}_reschedule`, type: "reschedule", ts: b.rescheduledAt, name, slot, by: "" });
