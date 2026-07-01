@@ -1280,6 +1280,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
             const sm = mb.startMin + i;
             const hh = String(Math.floor(sm/60)).padStart(2,'0'), mm = String(sm%60).padStart(2,'0');
             upd[`timeslots/${dateStr}/slot${hh}${mm}/available`] = true;
+            upd[`timeslots/${dateStr}/slot${hh}${mm}/time`] = `${hh}:${mm}`;
           }
           if (Object.keys(upd).length) update(ref(db,'/'), upd).catch(()=>{});
         }
