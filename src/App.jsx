@@ -748,9 +748,10 @@ const pendingDeletesRef = React.useRef(new Set());
       // (видно, чому слот став доступним/недоступним).
       const auditBy = adminUser?.uid || "admin";
 
-      // Годинний слот H зайнятий, якщо запис перетинає [H:00, H+1:00). Перебираємо
-      // всі години, які перекриває запис (а не лише позицію startMin), щоб слот,
-      // накритий навіть наполовину (напр. запис о :30), теж ставав недоступним.
+      // Перебираємо 30-хв кроки від фактичного startMin (а не від початку години),
+      // щоб слоти з отриманим зі сторони клієнта зсувом (напр. запис о :30)
+      // теж коректно блокувались/звільнялись — так само, як markSlotsUnavailable/
+      // cancelBooking роблять у клієнтському застосунку.
       // acc !== null → пишемо в спільний об'єкт (атомарний запис разом з бронюванням),
       // інакше робимо самостійний update.
       const blockSlots = (date, startMin, durMin, onlyExisting = false, acc = null) => {
@@ -759,9 +760,9 @@ const pendingDeletesRef = React.useRef(new Set());
         const endMin = startMin + durMin;
         const upd = acc || {};
         const now = Date.now();
-        for (let cur = Math.floor(startMin / 60) * 60; cur < endMin; cur += 60) {
+        for (let cur = startMin; cur < endMin; cur += 30) {
           const h = String(Math.floor(cur / 60)).padStart(2, "0");
-          const m = "00";
+          const m = String(cur % 60).padStart(2, "0");
           // При переносі (onlyExisting) позначаємо зайнятими лише вже згенеровані
           // слоти — не створюємо нові вузли в днях без розкладу, інакше
           // перетягування «спавнить» вільні слоти в чужих днях.
@@ -781,18 +782,21 @@ const pendingDeletesRef = React.useRef(new Set());
         const endMin = startMin + durMin;
         const upd = acc || {};
         const now = Date.now();
-        for (let cur = Math.floor(startMin / 60) * 60; cur < endMin; cur += 60) {
-          const slotEnd = cur + 60;
-          // Не звільняємо годину, яку все ще перекриває інший активний запис
+        for (let i = 0, cur = startMin; cur < endMin; cur += 30, i += 30) {
+          const slotEnd = cur + 30;
+          // Не звільняємо інтервал, який все ще перекриває інший активний запис
           // (інакше слот, поділений між двома записами, помилково став би вільним).
           const stillTaken = next.some(x =>
             x.status !== "cancelled" && bookingDateOf(x) === date &&
             x.startMin < slotEnd && x.startMin + x.durMin > cur);
           if (stillTaken) continue;
           const h = String(Math.floor(cur / 60)).padStart(2, "0");
-          const m = "00";
+          const m = String(cur % 60).padStart(2, "0");
           const key = `timeslots/${date}/slot${h}${m}`;
-          if (existsForDate?.has(`${h}:${m}`)) {
+          // Слот на власному старті запису (i=0, 60, 120...) — «канонічний»,
+          // відновлюємо available:true. Проміжний 30-хв слот — фантом,
+          // створений лише на час бронювання, видаляємо повністю.
+          if (i % 60 === 0 && existsForDate?.has(`${h}:${m}`)) {
             upd[`${key}/available`] = true;
             upd[`${key}/lastChangedBy`] = auditBy;
             upd[`${key}/lastChangedAt`] = now;
