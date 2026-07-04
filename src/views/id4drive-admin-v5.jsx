@@ -1252,8 +1252,16 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   for (let h = settings.workStart; h <= settings.workEnd; h++) hours.push(h);
 
   const slotColor = (b) => {
-    const svc = settings.services.find(s=>s.id===b.serviceId)
-             || settings.services.find(s=>s.active && s.type===(b.serviceType||b.type) && Number(s.duration)===b.durMin);
+    // Записи із самозапису клієнта (анкета) не мають serviceId — лише serviceType+durationHours.
+    // Тому після точного збігу (id, потім тип+тривалість) додаємо запасний пошук просто за типом,
+    // інакше колір послуги не застосовувався й картка падала в дефолтний GREEN.
+    const svcs = settings.services || [];
+    const t = b.serviceType || b.type;
+    const svc = svcs.find(s=>s.id===b.serviceId)
+             || svcs.find(s=>s.active && s.type===t && Number(s.duration)===b.durMin)
+             || svcs.find(s=>s.type===t && Number(s.duration)===b.durMin)
+             || svcs.find(s=>s.active && s.type===t)
+             || svcs.find(s=>s.type===t);
     return colorOf(svc?.colorId);
   };
 
