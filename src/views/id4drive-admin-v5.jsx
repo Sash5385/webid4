@@ -4173,19 +4173,12 @@ function TemplatesView() {
         return (
           <Card key={meta.type} style={{padding:20}}>
             <SectionTitle right={
-              <div style={{display:"flex",gap:8}}>
-                <button onClick={()=>sendTest(meta.type)} style={{
-                  ...btnBase,
-                  background: testSent[meta.type] ? `linear-gradient(165deg,${GREEN}cc,${GREEN}88)` : `linear-gradient(135deg,${SURF_HI},${SURFACE})`,
-                  color: testSent[meta.type] ? "#fff" : DM, boxShadow:SO2,
-                }}>{testSent[meta.type] ? "✓ Надіслано" : "Тест →"}</button>
-                <button onClick={()=>save(meta.type)} style={{
-                  ...btnBase,
-                  background:`linear-gradient(165deg,${AH},${ACCENT})`,
-                  color:"#fff", boxShadow:`inset 1px 1px 0 ${glow(0.25)}`,
-                  opacity: saved[meta.type] ? 0.7 : 1,
-                }}>{saved[meta.type] ? "✓ Збережено" : "Зберегти"}</button>
-              </div>
+              <button onClick={()=>save(meta.type)} style={{
+                ...btnBase,
+                background:`linear-gradient(165deg,${AH},${ACCENT})`,
+                color:"#fff", boxShadow:`inset 1px 1px 0 ${glow(0.25)}`,
+                opacity: saved[meta.type] ? 0.7 : 1,
+              }}>{saved[meta.type] ? "✓ Збережено" : "Зберегти"}</button>
             }>{meta.label}</SectionTitle>
 
             <div style={{marginBottom:10}}>
@@ -4212,11 +4205,20 @@ function TemplatesView() {
               <span style={{fontSize:11,color:FT}}>— вставити змінну</span>
             </div>
 
-            <div style={{padding:"12px 14px",borderRadius:14,background:ink(0.04),border:`1px solid ${ink(0.06)}`}}>
+            <div style={{padding:"12px 14px",borderRadius:14,background:ink(0.04),border:`1px solid ${ink(0.06)}`,marginBottom:12}}>
               <div style={{fontSize:10,color:FT,fontWeight:700,letterSpacing:1.5,textTransform:"uppercase",marginBottom:6}}>Превью</div>
               <div style={{fontSize:13,fontWeight:700,color:TEXT,marginBottom:2}}>{applyV(draft.title,meta.sample)}</div>
               <div style={{fontSize:12,color:DM,lineHeight:1.4}}>{applyV(draft.body,meta.sample)}</div>
             </div>
+
+            <button onClick={()=>sendTest(meta.type)} style={{
+              ...btnBase, width:"100%", padding:"10px 0", fontSize:13,
+              background: testSent[meta.type]
+                ? `linear-gradient(165deg,${GREEN}cc,${GREEN}88)`
+                : `linear-gradient(165deg,${ACCENT},${AH})`,
+              color:"#fff",
+              boxShadow: testSent[meta.type] ? "none" : `inset 1px 1px 0 ${glow(0.25)},0 2px 8px ${ACCENT}44`,
+            }}>{testSent[meta.type] ? "✓ Пуш надіслано" : "📲 Надіслати тест-пуш"}</button>
           </Card>
         );
       })}
