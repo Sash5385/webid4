@@ -2830,7 +2830,11 @@ function BookingModal({ booking, onClose, onAction, settings }) {
     return () => unsub();
   }, [booking]);
 
-  if (!booking && !closing) return null;
+  // booking може стати null синхронно (напр. cancel обнуляє вибір), поки closing=true.
+  // Guard "!booking && !closing" пропускав такий кадр далі й падав на booking.serviceId
+  // (сірий екран). Достатньо: немає booking — нічого не рендеримо. Анімацію закриття це
+  // не ламає — при звичайному закритті booking лишається до кінця анімації (onClose на animationEnd).
+  if (!booking) return null;
 
   const svc   = settings.services.find(s => s.id === booking.serviceId)
              || settings.services.find(s => s.active && s.type===(booking.serviceType||booking.type) && Number(s.duration)===booking.durMin);
