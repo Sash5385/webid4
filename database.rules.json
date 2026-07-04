@@ -96,6 +96,13 @@
     "slotBookings": {
       ".read": "auth != null && auth.uid === 'IjyqouYBDUg5KGzs3U27PUcs8Uj1'",
       ".write": "auth != null && auth.uid === 'IjyqouYBDUg5KGzs3U27PUcs8Uj1'"
+    },
+    "pushTemplates": {
+      ".read": "auth != null && auth.uid === 'IjyqouYBDUg5KGzs3U27PUcs8Uj1'",
+      ".write": "auth != null && auth.uid === 'IjyqouYBDUg5KGzs3U27PUcs8Uj1'"
+    },
+    "pushLog": {
+      ".read": "auth != null && auth.uid === 'IjyqouYBDUg5KGzs3U27PUcs8Uj1'"
     }
   }
 }
