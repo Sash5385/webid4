@@ -2859,6 +2859,7 @@ function BookingModal({ booking, onClose, onAction, settings, bookings }) {
   const [editOpen, setEditOpen] = useState(false);
   const [draftPrice, setDraftPrice] = useState("");
   const [draftDur, setDraftDur] = useState("");
+  const [editRate, setEditRate] = useState(0);
   useEffect(() => {
     if (!booking) return;
     setClosing(false);
@@ -2908,7 +2909,17 @@ function BookingModal({ booking, onClose, onAction, settings, bookings }) {
     .reduce((min, x) => Math.min(min, x.startMin), Infinity);
   const maxDurMin = nextStart === Infinity ? 360 : Math.max(15, nextStart - booking.startMin);
 
-  const openEdit = () => { setDraftPrice(String(price)); setDraftDur(String(booking.durMin)); setEditOpen(true); };
+  const openEdit = () => {
+    setDraftPrice(String(price));
+    setDraftDur(String(booking.durMin));
+    setEditRate(booking.durMin > 0 ? price / booking.durMin : 0);
+    setEditOpen(true);
+  };
+  const onDurChange = (v) => {
+    setDraftDur(v);
+    const n = parseInt(v, 10);
+    if (!isNaN(n) && editRate) setDraftPrice(String(Math.round(editRate * n)));
+  };
   const saveEdit = () => {
     const p = Math.max(0, parseInt(draftPrice, 10) || 0);
     const d = Math.min(maxDurMin, Math.max(15, parseInt(draftDur, 10) || booking.durMin));
@@ -2970,13 +2981,19 @@ function BookingModal({ booking, onClose, onAction, settings, bookings }) {
                 <div style={{fontSize:15,fontWeight:800,color:TEXT,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{booking.name}</div>
                 <div style={{fontSize:10,color:c,fontWeight:700,marginTop:1}}>{typeLabel}</div>
               </div>
-              <button onClick={openEdit} style={{
-                width:30,height:30,borderRadius:9,border:"none",cursor:"pointer",flexShrink:0,
-                background:ink(0.08),color:GREEN,fontSize:14,
-                display:"flex",alignItems:"center",justifyContent:"center",
-              }}>✎</button>
             </div>
           </div>
+
+          {/* Кнопка редагування ціни/тривалості */}
+          {!editOpen && (
+            <div style={{padding:"10px 16px 0"}}>
+              <button onClick={openEdit} style={{
+                width:"100%",padding:"10px",borderRadius:12,border:"none",cursor:"pointer",fontFamily:"inherit",
+                background:`${GREEN}1f`,color:GREEN,fontSize:13,fontWeight:800,
+                display:"flex",alignItems:"center",justifyContent:"center",gap:7,
+              }}>✎ Редагувати ціну і час</button>
+            </div>
+          )}
 
           {/* Edit sheet: ціна/тривалість */}
           {editOpen && (
@@ -2988,7 +3005,7 @@ function BookingModal({ booking, onClose, onAction, settings, bookings }) {
                 <div style={{flex:1}}>
                   <div style={{fontSize:9,fontWeight:700,letterSpacing:1,color:TEXT_FAINT,textTransform:"uppercase",marginBottom:5,textAlign:"center"}}>Тривалість, хв</div>
                   <input type="number" min={15} max={maxDurMin} step={5} value={draftDur}
-                    onChange={e=>setDraftDur(e.target.value)}
+                    onChange={e=>onDurChange(e.target.value)}
                     style={{width:"100%",textAlign:"center",padding:"9px 6px",borderRadius:10,border:`1px solid ${ink(0.1)}`,background:BG_DEEP,color:TEXT,fontSize:14,fontWeight:800,fontFamily:"inherit"}}/>
                 </div>
                 <div style={{flex:1}}>
@@ -2999,7 +3016,7 @@ function BookingModal({ booking, onClose, onAction, settings, bookings }) {
                 </div>
               </div>
               <div style={{fontSize:9,color:TEXT_FAINT,textAlign:"center",marginBottom:10}}>
-                Макс. тривалість зараз: {maxDurMin}хв · ціна не перераховується автоматично при зміні тривалості
+                Макс. тривалість зараз: {maxDurMin}хв · ціна перераховується автоматично при зміні тривалості
               </div>
               <div style={{display:"flex",gap:8}}>
                 <button onClick={()=>setEditOpen(false)} style={{flex:1,padding:"9px",borderRadius:11,border:"none",cursor:"pointer",fontFamily:"inherit",background:ink(0.06),color:TEXT_DIM,fontSize:12.5,fontWeight:700}}>Скасувати</button>
