@@ -4409,6 +4409,7 @@ function TemplatesView() {
     booking_confirmed:"✅ Підтверд.", booking_cancelled:"❌ Скасування",
     lesson_reminder:"⏰ Нагадування", admin:"💬 Особистий",
     slot_free:"🚗 Вільний слот", queue_offer:"🎉 Черга",
+    admin_alert:"🔔 Адміну",
   };
 
   const inputSt = {
@@ -4495,6 +4496,11 @@ function TemplatesView() {
             <div style={{fontSize:11,color:DM,flexShrink:0,textAlign:"right"}}>
               {TYPE_LABELS[item.type]||item.type}
               {item.recipients>1 && <div style={{fontSize:10,color:FT}}>{item.recipients} учнів</div>}
+              {item.status && item.status!=="sent" && (
+                <div style={{fontSize:10,color:"#ef4444",fontWeight:700}}>
+                  ⚠ {item.status==="no_token" ? "немає токена" : "не надіслано"}
+                </div>
+              )}
             </div>
           </div>
         ))}
