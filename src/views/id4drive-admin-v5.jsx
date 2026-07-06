@@ -1326,6 +1326,18 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
       setLocalSelectedBooking(prev=>prev?{...prev,isVipOnly:next,categoryId:next?"cat-vip":null}:null);
       return;
     }
+    if (action === "editBooking") {
+      const patch = {};
+      if (b.manualPrice !== undefined) patch.manualPrice = b.manualPrice;
+      if (b.durMin !== undefined) { patch.durMin = b.durMin; patch.durationHours = b.durationHours; }
+      setBookings(bs=>bs.map(x=>x.id===b.id?{...x,...patch}:x));
+      setLocalSelectedBooking(prev=>prev?{...prev,...patch}:null);
+      if (b.userId) {
+        const key = b._fbKey || b.id;
+        update(ref(db, `bookings/${b.userId}/${key}`), patch).catch(()=>{});
+      }
+      return;
+    }
     setLocalSelectedBooking(null);
   };
   const [blockModal, setBlockModal] = useState(null); // {id, day, startMin, durMin}
@@ -2072,7 +2084,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
     </Card>
 
     <BookingModal booking={localSelectedBooking} onClose={()=>setLocalSelectedBooking(null)}
-      onAction={handleAction} settings={settings}/>
+      onAction={handleAction} settings={settings} bookings={bookings}/>
 
     {/* ── Модалка блокування ── */}
     {(blockModal || blockModalClosing) && (() => {
@@ -2826,15 +2838,31 @@ function CreateSlotSheet({ data, settings, onClose }) {
 // ═══════════════════════════════════════════════════════════════
 // BOOKING DETAIL MODAL
 // ═══════════════════════════════════════════════════════════════
-function BookingModal({ booking, onClose, onAction, settings }) {
+function computeBookingPrice(b, services) {
+  if (b.manualPrice != null) return b.manualPrice;
+  const svc = services.find(s => s.id === b.serviceId)
+           || services.find(s => s.active && s.type===(b.serviceType||b.type) && Number(s.duration)===b.durMin);
+  const base = svc
+    ? Math.round((svc.price / svc.duration) * b.durMin)
+    : b.price && b.durationHours
+      ? Math.round((b.price / (b.durationHours * 60)) * b.durMin)
+      : (b.price || 0);
+  return base + (b.surcharge || 0);
+}
+
+function BookingModal({ booking, onClose, onAction, settings, bookings }) {
   const { BG, BG_DEEP, SURFACE, SURF_HI, SURF_LO, BORDER, TEXT, DIM, FAINT, ACCENT, ACC_HI, SO, SI , GLOW, SHADE, INK } = useContext(ThemeContext);
   const glow=a=>`rgba(${GLOW},${a})`,shade=a=>`rgba(${SHADE},${a})`,ink=a=>`rgba(${INK},${a})`;
   const SURFACE_HI = SURF_HI, SURFACE_LO = SURF_LO, TEXT_DIM = DIM, TEXT_FAINT = FAINT, ACCENT_HI = ACC_HI, SHADOW_OUT = SO, SHADOW_IN = SI;
   const [queueEntries, setQueueEntries] = useState([]);
   const [closing, setClosing] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [draftPrice, setDraftPrice] = useState("");
+  const [draftDur, setDraftDur] = useState("");
   useEffect(() => {
     if (!booking) return;
     setClosing(false);
+    setEditOpen(false);
     const dateStr = booking.date || (() => {
       const d = new Date(); d.setHours(0,0,0,0);
       d.setDate(d.getDate() + booking.day);
@@ -2866,14 +2894,27 @@ function BookingModal({ booking, onClose, onAction, settings }) {
   const day = booking.date
     ? (() => { const d = new Date(booking.date + "T12:00:00"); const dow = (d.getDay()+6)%7; return { num:d.getDate(), month:_MLABELS[d.getMonth()], label:_DLABELS[dow], fullLabel:_DLABELS_FULL[dow], wk:dow>=5 }; })()
     : getDayInfo(booking.day);
-  const basePrice = svc
-    ? Math.round((svc.price / svc.duration) * booking.durMin)
-    : booking.price && booking.durationHours
-      ? Math.round((booking.price / (booking.durationHours * 60)) * booking.durMin)
-      : (booking.price || 0);
-  const price = basePrice + (booking.surcharge || 0);
+  const price = computeBookingPrice(booking, settings.services);
   const ini   = booking.name.trim().split(" ").slice(0, 2).map(w => w[0]).join("");
   const typeLabel = booking.type === "school" ? "🎓 Автошкола" : "🚗 Приватний";
+
+  const sameDayBookings = (bookings || []).filter(x =>
+    x.id !== booking.id && x.status !== "cancelled" &&
+    (booking.date ? x.date === booking.date : x.day === booking.day)
+  );
+  const otherDayTotal = sameDayBookings.reduce((sum, x) => sum + computeBookingPrice(x, settings.services), 0);
+  const nextStart = sameDayBookings
+    .filter(x => x.startMin > booking.startMin)
+    .reduce((min, x) => Math.min(min, x.startMin), Infinity);
+  const maxDurMin = nextStart === Infinity ? 360 : Math.max(15, nextStart - booking.startMin);
+
+  const openEdit = () => { setDraftPrice(String(price)); setDraftDur(String(booking.durMin)); setEditOpen(true); };
+  const saveEdit = () => {
+    const p = Math.max(0, parseInt(draftPrice, 10) || 0);
+    const d = Math.min(maxDurMin, Math.max(15, parseInt(draftDur, 10) || booking.durMin));
+    onAction("editBooking", { ...booking, manualPrice: p, durMin: d, durationHours: d / 60 });
+    setEditOpen(false);
+  };
 
   const IcoPhone = <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2A19.79 19.79 0 0 1 4.14 6.18 2 2 0 0 1 6.12 4h3a2 2 0 0 1 2 1.72c.13 1 .37 1.98.72 2.91a2 2 0 0 1-.45 2.11L10 12a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.93.35 1.91.59 2.91.72A2 2 0 0 1 22 16.92z"/></svg>;
   const IcoChat  = <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>;
@@ -2929,8 +2970,43 @@ function BookingModal({ booking, onClose, onAction, settings }) {
                 <div style={{fontSize:15,fontWeight:800,color:TEXT,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{booking.name}</div>
                 <div style={{fontSize:10,color:c,fontWeight:700,marginTop:1}}>{typeLabel}</div>
               </div>
+              <button onClick={openEdit} style={{
+                width:30,height:30,borderRadius:9,border:"none",cursor:"pointer",flexShrink:0,
+                background:ink(0.08),color:GREEN,fontSize:14,
+                display:"flex",alignItems:"center",justifyContent:"center",
+              }}>✎</button>
             </div>
           </div>
+
+          {/* Edit sheet: ціна/тривалість */}
+          {editOpen && (
+            <div style={{padding:"12px 16px",background:ink(0.03),borderBottom:`1px solid ${ink(0.06)}`}}>
+              <div style={{textAlign:"center",fontSize:10,fontWeight:700,color:GOLD,marginBottom:10}}>
+                Разом за день: {otherDayTotal + (parseInt(draftPrice,10)||0)}₴
+              </div>
+              <div style={{display:"flex",gap:10,marginBottom:8}}>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:9,fontWeight:700,letterSpacing:1,color:TEXT_FAINT,textTransform:"uppercase",marginBottom:5,textAlign:"center"}}>Тривалість, хв</div>
+                  <input type="number" min={15} max={maxDurMin} step={5} value={draftDur}
+                    onChange={e=>setDraftDur(e.target.value)}
+                    style={{width:"100%",textAlign:"center",padding:"9px 6px",borderRadius:10,border:`1px solid ${ink(0.1)}`,background:BG_DEEP,color:TEXT,fontSize:14,fontWeight:800,fontFamily:"inherit"}}/>
+                </div>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:9,fontWeight:700,letterSpacing:1,color:TEXT_FAINT,textTransform:"uppercase",marginBottom:5,textAlign:"center"}}>Ціна, ₴</div>
+                  <input type="number" min={0} step={50} value={draftPrice}
+                    onChange={e=>setDraftPrice(e.target.value)}
+                    style={{width:"100%",textAlign:"center",padding:"9px 6px",borderRadius:10,border:`1px solid ${ink(0.1)}`,background:BG_DEEP,color:TEXT,fontSize:14,fontWeight:800,fontFamily:"inherit"}}/>
+                </div>
+              </div>
+              <div style={{fontSize:9,color:TEXT_FAINT,textAlign:"center",marginBottom:10}}>
+                Макс. тривалість зараз: {maxDurMin}хв · ціна не перераховується автоматично при зміні тривалості
+              </div>
+              <div style={{display:"flex",gap:8}}>
+                <button onClick={()=>setEditOpen(false)} style={{flex:1,padding:"9px",borderRadius:11,border:"none",cursor:"pointer",fontFamily:"inherit",background:ink(0.06),color:TEXT_DIM,fontSize:12.5,fontWeight:700}}>Скасувати</button>
+                <button onClick={saveEdit} style={{flex:1,padding:"9px",borderRadius:11,border:"none",cursor:"pointer",fontFamily:"inherit",background:GREEN,color:"#0a0d0a",fontSize:12.5,fontWeight:800}}>Зберегти</button>
+              </div>
+            </div>
+          )}
 
           {/* Info grid */}
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:1,background:ink(0.04)}}>
@@ -2990,7 +3066,7 @@ function BookingModal({ booking, onClose, onAction, settings }) {
             <button onClick={() => onAction("call", booking)} style={{
               flex:1,display:"flex",alignItems:"center",justifyContent:"center",gap:7,
               padding:"11px",borderRadius:14,border:"none",cursor:"pointer",fontFamily:"inherit",
-              background:"rgba(52,211,153,0.12)",color:"#34d399",fontSize:13,fontWeight:800,
+              background:`${GREEN}1f`,color:GREEN,fontSize:13,fontWeight:800,
             }}>{IcoPhone} Дзвонити</button>
             <button onClick={() => onAction("chat", booking)} style={{
               flex:1,display:"flex",alignItems:"center",justifyContent:"center",gap:7,
