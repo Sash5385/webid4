@@ -17,9 +17,11 @@ firebase.initializeApp({
 const messaging = firebase.messaging()
 
 messaging.onBackgroundMessage((payload) => {
-  const title = payload.notification?.title || 'ID4Drive'
+  // Data-only push (без top-level/webpush "notification") — інакше браузер
+  // додатково показав би те саме сповіщення сам, і виходив дубль.
+  const title = payload.data?.title || 'ID4Drive'
   const options = {
-    body: payload.notification?.body || '',
+    body: payload.data?.body || '',
     icon: '/favicon.svg',
     badge: '/favicon.svg',
     tag: payload.data?.tag || 'admin',

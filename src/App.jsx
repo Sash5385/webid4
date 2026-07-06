@@ -534,8 +534,9 @@ export default function App() {
   useEffect(() => {
     if (!adminUser) return;
     return onAdminForegroundMessage((payload) => {
-      const title = payload.notification?.title || "ID4Drive";
-      const body  = payload.notification?.body  || "";
+      // Data-only push — див. firebase-messaging-sw.js чому без "notification"
+      const title = payload.data?.title || "ID4Drive";
+      const body  = payload.data?.body  || "";
       if (Notification.permission === "granted" && "serviceWorker" in navigator) {
         navigator.serviceWorker.ready.then(reg => {
           reg.showNotification(title, {
