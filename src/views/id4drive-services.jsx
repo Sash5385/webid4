@@ -406,10 +406,11 @@ export default function ServicesView() {
   const [editSvc,      setEditSvc]      = useState(null);
   const [deleteSvc,    setDeleteSvc]    = useState(null);
   const saveTimer = useRef(null);
+  const dirtyRef = useRef(false); // true щойно юзер щось поміняв — щоб пізній get() не затер це старими даними
   const { getHandlers } = useDragReorder(services, setServices);
 
   useEffect(() => {
-    get(ref(db,'admin_data/services')).then(snap=>{const d=snap.val();if(Array.isArray(d))setServices(d);setLoaded(true);}).catch(()=>setLoaded(true));
+    get(ref(db,'admin_data/services')).then(snap=>{const d=snap.val();if(!dirtyRef.current && Array.isArray(d))setServices(d);setLoaded(true);}).catch(()=>setLoaded(true));
   }, []);
 
   useEffect(() => {
@@ -422,10 +423,10 @@ export default function ServicesView() {
   const archived = services.filter(s=>s.archived);
   const shown    = showArchived ? services : active;
 
-  const onToggle  = (id,val) => setServices(ss=>ss.map(s=>s.id===id?{...s,active:val,archived:false}:s));
-  const onSave    = form => { setServices(ss=>{const idx=ss.findIndex(s=>s.id===form.id);if(idx>=0){const n=[...ss];n[idx]=form;return n;}return[...ss,form];}); setEditSvc(null); };
-  const onArchive = id => setServices(ss=>ss.map(s=>s.id===id?{...s,archived:true,active:false}:s));
-  const onDelete  = id => setServices(ss=>ss.filter(s=>s.id!==id));
+  const onToggle  = (id,val) => { dirtyRef.current = true; setServices(ss=>ss.map(s=>s.id===id?{...s,active:val,archived:false}:s)); };
+  const onSave    = form => { dirtyRef.current = true; setServices(ss=>{const idx=ss.findIndex(s=>s.id===form.id);if(idx>=0){const n=[...ss];n[idx]=form;return n;}return[...ss,form];}); setEditSvc(null); };
+  const onArchive = id => { dirtyRef.current = true; setServices(ss=>ss.map(s=>s.id===id?{...s,archived:true,active:false}:s)); };
+  const onDelete  = id => { dirtyRef.current = true; setServices(ss=>ss.filter(s=>s.id!==id)); };
 
   return (
     <>
