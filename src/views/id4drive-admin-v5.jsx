@@ -1768,14 +1768,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                 const slotTimeStr = String(Math.floor(b.startMin/60)).padStart(2,'0')+':'+String(b.startMin%60).padStart(2,'0');
                 const queueCount = b.date ? (queueMap[`${b.date}_${slotTimeStr}`] || 0) : 0;
                 const isDimmed = !isBlock && !isVipSlot && !isPersonal && (b.status==="noshow" || isCancelling);
-                const svc = settings.services.find(s=>s.id===b.serviceId)
-                         || settings.services.find(s=>s.active && s.type===(b.serviceType||b.type) && Number(s.duration)===b.durMin);
-                const basePrice = svc
-                  ? Math.round((svc.price / svc.duration) * b.durMin)
-                  : b.price && b.durationHours
-                    ? Math.round((b.price / (b.durationHours * 60)) * b.durMin)
-                    : (b.price || 0);
-                const price = basePrice + (b.surcharge || 0);
+                const price = computeBookingPrice(b, settings.services);
                 return (
                   /* Обгортка — overflow:visible щоб значок не обрізався */
                   <div key={b.id} style={{
@@ -2012,15 +2005,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
               {(() => {
                 const daySum = bookings
                   .filter(b=>b.day===absDay && b.type!=="block" && b.type!=="vip-slot" && b.type!=="personal" && b.status!=="cancelled" && b.status!=="noshow")
-                  .reduce((s,b)=>{
-                    const svc=(settings.services||[]).find(sv=>sv.id===b.serviceId||sv.id===b.svcId);
-                    const price = svc
-                      ? Math.round((svc.price/svc.duration)*b.durMin)
-                      : b.price && b.durationHours
-                        ? Math.round((b.price/(b.durationHours*60))*b.durMin)
-                        : (b.price||0);
-                    return s+price;
-                  },0);
+                  .reduce((s,b)=>s+computeBookingPrice(b, settings.services||[]),0);
                 if (daySum<=0) return null;
                 return (
                   <div style={{
@@ -2838,12 +2823,26 @@ function CreateSlotSheet({ data, settings, onClose }) {
 // ═══════════════════════════════════════════════════════════════
 // BOOKING DETAIL MODAL
 // ═══════════════════════════════════════════════════════════════
+// Ціна послуги на конкретну дату уроку: якщо задано nextPrice/nextPriceFrom
+// і дата уроку вже досягла nextPriceFrom — використовуємо нову ціну.
+function effectivePrice(svc, dateStr) {
+  if (!svc) return 0;
+  if (svc.nextPrice != null && svc.nextPriceFrom && dateStr && dateStr >= svc.nextPriceFrom) {
+    return svc.nextPrice;
+  }
+  return svc.price;
+}
+
 function computeBookingPrice(b, services) {
   if (b.manualPrice != null) return b.manualPrice;
   const svc = services.find(s => s.id === b.serviceId)
            || services.find(s => s.active && s.type===(b.serviceType||b.type) && Number(s.duration)===b.durMin);
+  const dateStr = b.date || (() => {
+    const d = new Date(); d.setHours(0,0,0,0); d.setDate(d.getDate() + (b.day || 0));
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  })();
   const base = svc
-    ? Math.round((svc.price / svc.duration) * b.durMin)
+    ? Math.round((effectivePrice(svc, dateStr) / svc.duration) * b.durMin)
     : b.price && b.durationHours
       ? Math.round((b.price / (b.durationHours * 60)) * b.durMin)
       : (b.price || 0);

@@ -18,11 +18,20 @@ function getDateStr(d) {
 }
 
 function bkType(b) { return b.serviceType || b.type || "private"; }
+// Ціна послуги на дату уроку: якщо задано nextPrice/nextPriceFrom і дата
+// уроку вже досягла nextPriceFrom — використовуємо нову ціну (див. id4drive-admin-v5.jsx).
+function effectivePrice(svc, dateStr) {
+  if (!svc) return 0;
+  if (svc.nextPrice != null && svc.nextPriceFrom && dateStr && dateStr >= svc.nextPriceFrom) {
+    return svc.nextPrice;
+  }
+  return svc.price;
+}
 function bkIncome(b, svcs) {
   if (b.manualPrice != null) return b.manualPrice;
   const svc = (svcs||[]).find(s => s.id === b.serviceId);
   const dur = b.durMin || (b.durationHours ? b.durationHours * 60 : 60);
-  if (svc && svc.price && svc.duration) return Math.round((svc.price / svc.duration) * dur);
+  if (svc && svc.price && svc.duration) return Math.round((effectivePrice(svc, b.date) / svc.duration) * dur);
   if (b.price && b.durationHours && b.durMin) return Math.round((b.price / (b.durationHours * 60)) * b.durMin);
   return b.price || 0;
 }

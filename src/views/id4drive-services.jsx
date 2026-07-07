@@ -156,6 +156,34 @@ function ServiceFormModal({ svc, onSave, onClose }) {
         </div>
       </div>
 
+      {/* scheduled price change */}
+      <div style={{marginBottom:14}}>
+        <div style={{fontSize:10,color:FAINT,letterSpacing:1,marginBottom:6}}>ЗАПЛАНОВАНА ЗМІНА ЦІНИ (опційно)</div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr auto",gap:10,alignItems:"center"}}>
+          <Inset style={{padding:"8px 12px"}}>
+            <input type="date" value={form.nextPriceFrom||""} onChange={e=>upd("nextPriceFrom", e.target.value||null)}
+              style={{width:"100%",background:"transparent",border:"none",outline:"none",color:TEXT,fontSize:13,fontFamily:"inherit"}}/>
+          </Inset>
+          <Inset style={{padding:"8px 12px",display:"flex",alignItems:"center",gap:6}}>
+            <input type="number" value={form.nextPrice ?? ""} min={0} placeholder="ціна"
+              onChange={e=>upd("nextPrice", e.target.value===""?null:+e.target.value)}
+              style={{flex:1,background:"transparent",border:"none",outline:"none",color:GOLD,fontSize:15,fontWeight:800,width:70,fontFamily:"inherit"}}/>
+            <span style={{color:GOLD,fontSize:12,fontWeight:700}}>₴</span>
+          </Inset>
+          {(form.nextPrice != null || form.nextPriceFrom) && (
+            <button onClick={()=>{upd("nextPrice",null);upd("nextPriceFrom",null);}} style={{
+              width:32,height:32,borderRadius:9,border:"none",cursor:"pointer",
+              background:`${ACCENT}1f`,color:ACCENT,fontSize:14,fontWeight:800,
+            }}>✕</button>
+          )}
+        </div>
+        {form.nextPrice != null && form.nextPriceFrom && (
+          <div style={{fontSize:10,color:FAINT,marginTop:6}}>
+            З {form.nextPriceFrom} ціна автоматично стане {form.nextPrice}₴ для записів на уроки з цією датою й пізніше.
+          </div>
+        )}
+      </div>
+
       {/* color */}
       <div style={{marginBottom:14}}>
         <div style={{fontSize:10,color:FAINT,letterSpacing:1,marginBottom:8}}>КОЛІР СЛОТУ</div>
