@@ -3546,7 +3546,7 @@ function NewBookingModal({ data, onClose, onConfirm, settings, bookings = [] }) 
                       <div style={{fontSize:13,fontWeight:700,color:GREEN}}>Новий учень</div>
                     </div>
                   )}
-                  {filtered.slice(0,6).map(s=>(
+                  {filtered.map(s=>(
                     <div key={s.id} onClick={()=>{setSelStudent(s);setPhone(s.phone);setSearch("");if(s.tsc)setTsc(s.tsc);}}
                       style={{display:"flex",alignItems:"center",justifyContent:"space-between",
                         padding:"9px 13px",cursor:"pointer",borderBottom:`1px solid ${BORDER}`,background:BG_DEEP}}>
