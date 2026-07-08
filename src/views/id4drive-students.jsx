@@ -393,6 +393,20 @@ function StudentDetailSheet({ s, onClose, onUpdate, onDelete, onBlock }) {
                   </div>
                 </div>
 
+                {/* Filming/video consent */}
+                <div style={{display:"flex",alignItems:"center",gap:10,borderRadius:10,padding:"10px 13px",background:glow(0.04),border:`1px solid ${BORDER}`}}>
+                  <span style={{fontSize:16,lineHeight:1}}>🎬</span>
+                  <div style={{flex:1}}>
+                    <div style={{fontSize:12,fontWeight:700,color:TEXT}}>Згода на зйомку відео/аудіо</div>
+                    <div style={{fontSize:10,color:FAINT,marginTop:2}}>Вказано учнем при реєстрації</div>
+                  </div>
+                  <span style={{
+                    fontSize:11,fontWeight:800,padding:"3px 9px",borderRadius:7,
+                    color:s.filmingConsent===undefined?FAINT:(s.filmingConsent?GREEN:RED),
+                    background:s.filmingConsent===undefined?glow(0.06):(s.filmingConsent?`${GREEN}1a`:`${RED}1a`),
+                  }}>{s.filmingConsent===undefined?"Не вказано":(s.filmingConsent?"Так":"Ні")}</span>
+                </div>
+
                 {/* Notes */}
                 {s.notes && (
                   <div style={{background:glow(0.04),borderRadius:10,padding:"9px 12px",border:`1px solid ${BORDER}`,fontSize:12,color:DIM,lineHeight:1.5}}>📝 {s.notes}</div>
@@ -468,6 +482,7 @@ export default function StudentsView() {
           hours:u.hours||0, hoursOffset:u.hoursOffset||0,
           discount:u.discount||0, notes:u.notes||"", blocked:u.blocked||false, isVip:u.isVip||false,
           noIntervalLimit:u.noIntervalLimit||false,
+          filmingConsent:p.filmingConsent,
         };
       }));
       setLoading(false);
