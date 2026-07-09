@@ -19,6 +19,18 @@ function fmtWait(ts) {
   return h < 24 ? `${h} год` : `${Math.floor(h/24)} дн`;
 }
 
+// slotKey формату `${YYYY-MM-DD}_${H:MM}` (див. webID4client/src/firebase/db.js joinQueue)
+function isSlotPast(slotKey) {
+  if (!slotKey) return false;
+  const [datePart, timePart] = slotKey.split("_");
+  if (!datePart || !timePart) return false;
+  const [h, m] = timePart.split(":").map(Number);
+  const dt = new Date(datePart);
+  if (isNaN(dt.getTime())) return false;
+  dt.setHours(h||0, m||0, 0, 0);
+  return dt.getTime() < Date.now();
+}
+
 // ─── DRAG REORDER ────────────────────────────────────────────────
 function useDragReorder(items, onReorder) {
   const dragIdx  = useRef(null);
@@ -238,7 +250,9 @@ export default function QueueView({ settings }) {
     newArr.forEach((item,i) => update(ref(db,`queue/${item.id}`),{order:i}));
   });
 
-  const active   = all.filter(q => q.status !== "archived");
+  const isExpired = q => q.status === "waiting" && isSlotPast(q.slotKey);
+  const active   = all.filter(q => q.status !== "archived" && !isExpired(q));
+  const expired  = all.filter(q => q.status !== "archived" && isExpired(q));
   const archived = all.filter(q => q.status === "archived");
 
   const setStatus = (id, status) => update(ref(db,`queue/${id}`),{status});
@@ -311,6 +325,23 @@ export default function QueueView({ settings }) {
           </div>
           Додати до черги
         </Btn>
+
+        {/* ── МИНУЛІ (час слота вже пройшов) ── */}
+        {expired.length > 0 && (
+          <Section title={`⏱ Минулі (${expired.length})`}>
+            {expired.map(item=>(
+              <QueueRow
+                key={item.id} item={item} pos="—" isDragging={false}
+                svcMap={svcMap}
+                onInvite={()=>invite(item.id)}
+                onBooked={()=>booked(item.id)}
+                onArchive={()=>archive(item.id)}
+                onDelete={()=>del(item.id)}
+                dragHandleProps={{}}
+              />
+            ))}
+          </Section>
+        )}
 
         {/* ── ARCHIVE ── */}
         {archived.length > 0 && (
