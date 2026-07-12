@@ -343,14 +343,15 @@ exports.unlockVipSlots = onSchedule("every 1 hours", async () => {
   if (!tokens.length) return;
 
   for (let i = 0; i < tokens.length; i += 500) {
+    // Data-only push (title/body в data) — див. onPushTask/SW щодо дублів.
     await admin.messaging().sendEachForMulticast({
       tokens: tokens.slice(i, i + 500),
-      notification: {
+      data: {
         title: "🚗 З'явились нові слоти!",
         body: "Відкрились нові години для запису. Поспішай!",
+        url: "https://id4drive.pro/cabinet",
       },
       webpush: {
-        notification: { icon: "/favicon.svg" },
         fcmOptions: { link: "https://id4drive.pro/cabinet" },
       },
     }).catch(() => {});
@@ -612,11 +613,13 @@ exports.onPushTask = onValueCreated(
     let sentCount = 0;
     for (let i = 0; i < tokened.length; i += 500) {
       const batch = tokened.slice(i, i + 500);
+      // Data-only push — title/body в data (клієнт читає payload.data),
+      // без top-level/webpush "notification", інакше браузер показав би
+      // сповіщення ще раз ДОДАТКОВО до showNotification() у SW (дубль).
       const res = await admin.messaging().sendEachForMulticast({
         tokens: batch.map(t => t.token),
-        notification: { title, body },
-        data: { url, date, time: slotsArr[0] || "" },
-        webpush: { notification: { icon: "/favicon.svg" }, fcmOptions: { link: url } },
+        data: { title, body, url, date, time: slotsArr[0] || "" },
+        webpush: { fcmOptions: { link: url } },
       }).catch(() => ({ successCount: 0 }));
       sentCount += res?.successCount || 0;
     }
