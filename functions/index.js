@@ -22,12 +22,12 @@ async function pushStudent(uid, title, body, data = {}) {
   if (!token) return;
   const link = data.url || "https://id4drive.pro/cabinet";
   try {
+    // Data-only push — title/body/url у data (клієнт читає payload.data),
+    // без notification, щоб браузер не показав дубль поверх showNotification().
     await admin.messaging().send({
       token,
-      notification: { title, body },
-      data: Object.fromEntries(Object.entries({ url: link, ...data }).map(([k,v]) => [k, String(v)])),
+      data: Object.fromEntries(Object.entries({ title, body, url: link, ...data }).map(([k,v]) => [k, String(v)])),
       webpush: {
-        notification: { icon: "/favicon.svg" },
         fcmOptions: { link },
       },
     });
@@ -60,11 +60,12 @@ async function pushAdmin(title, body) {
   console.log(`pushAdmin: token exists=${!!token}, title="${title}"`);
   if (!token) { console.warn("pushAdmin: no token at admin/fcmToken"); return; }
   try {
+    // Data-only push — адмінка читає payload.data (App.jsx + SW), без
+    // notification, щоб не було дубля поверх showNotification().
     const result = await admin.messaging().send({
       token,
-      notification: { title, body },
+      data: { title, body },
       webpush: {
-        notification: { icon: "/favicon.svg" },
         fcmOptions: { link: "https://admin.id4drive.pro" },
       },
     });
