@@ -725,14 +725,17 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
         const dayBk = bkByDate[date];
         if (!dayBk) return;
         Object.entries(slotMap).forEach(([time, slot]) => {
-          if (!slot.available) return;
           const [h, m] = time.split(":").map(Number);
           const sMin = h * 60 + m;
-          if (dayBk.some(b => b.startMin < sMin + (settings.snapMin || 30) && b.startMin + b.durMin > sMin)) {
-            const hh = String(h).padStart(2, "0");
-            const mm = String(m).padStart(2, "0");
-            upd[`timeslots/${date}/slot${hh}${mm}/available`] = false;
+          const snap = settings.snapMin || 30;
+          const covered = dayBk.some(b => b.startMin < sMin + snap && b.startMin + b.durMin > sMin);
+          const hh = String(h).padStart(2, "0");
+          const mm = String(m).padStart(2, "0");
+          if (!slot.available) {
+            if (!covered) upd[`timeslots/${date}/slot${hh}${mm}/available`] = true;
+            return;
           }
+          if (covered) upd[`timeslots/${date}/slot${hh}${mm}/available`] = false;
         });
       });
       if (Object.keys(upd).length) update(ref(db, "/"), upd).catch(() => {});
@@ -1326,18 +1329,6 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
       setLocalSelectedBooking(prev=>prev?{...prev,isVipOnly:next,categoryId:next?"cat-vip":null}:null);
       return;
     }
-    if (action === "editBooking") {
-      const patch = {};
-      if (b.manualPrice !== undefined) patch.manualPrice = b.manualPrice;
-      if (b.durMin !== undefined) { patch.durMin = b.durMin; patch.durationHours = b.durationHours; }
-      setBookings(bs=>bs.map(x=>x.id===b.id?{...x,...patch}:x));
-      setLocalSelectedBooking(prev=>prev?{...prev,...patch}:null);
-      if (b.userId) {
-        const key = b._fbKey || b.id;
-        update(ref(db, `bookings/${b.userId}/${key}`), patch).catch(()=>{});
-      }
-      return;
-    }
     setLocalSelectedBooking(null);
   };
   const [blockModal, setBlockModal] = useState(null); // {id, day, startMin, durMin}
@@ -1768,7 +1759,14 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                 const slotTimeStr = String(Math.floor(b.startMin/60)).padStart(2,'0')+':'+String(b.startMin%60).padStart(2,'0');
                 const queueCount = b.date ? (queueMap[`${b.date}_${slotTimeStr}`] || 0) : 0;
                 const isDimmed = !isBlock && !isVipSlot && !isPersonal && (b.status==="noshow" || isCancelling);
-                const price = computeBookingPrice(b, settings.services);
+                const svc = settings.services.find(s=>s.id===b.serviceId)
+                         || settings.services.find(s=>s.active && s.type===(b.serviceType||b.type) && Number(s.duration)===b.durMin);
+                const basePrice = svc
+                  ? Math.round((svc.price / svc.duration) * b.durMin)
+                  : b.price && b.durationHours
+                    ? Math.round((b.price / (b.durationHours * 60)) * b.durMin)
+                    : (b.price || 0);
+                const price = basePrice + (b.surcharge || 0);
                 return (
                   /* Обгортка — overflow:visible щоб значок не обрізався */
                   <div key={b.id} style={{
@@ -2004,7 +2002,15 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
               {(() => {
                 const daySum = bookings
                   .filter(b=>b.day===absDay && b.type!=="block" && b.type!=="vip-slot" && b.type!=="personal" && b.status!=="cancelled" && b.status!=="noshow")
-                  .reduce((s,b)=>s+computeBookingPrice(b, settings.services||[]),0);
+                  .reduce((s,b)=>{
+                    const svc=(settings.services||[]).find(sv=>sv.id===b.serviceId||sv.id===b.svcId);
+                    const price = svc
+                      ? Math.round((svc.price/svc.duration)*b.durMin)
+                      : b.price && b.durationHours
+                        ? Math.round((b.price/(b.durationHours*60))*b.durMin)
+                        : (b.price||0);
+                    return s+price;
+                  },0);
                 if (daySum<=0) return null;
                 return (
                   <div style={{
@@ -2068,7 +2074,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
     </Card>
 
     <BookingModal booking={localSelectedBooking} onClose={()=>setLocalSelectedBooking(null)}
-      onAction={handleAction} settings={settings} bookings={bookings}/>
+      onAction={handleAction} settings={settings}/>
 
     {/* ── Модалка блокування ── */}
     {(blockModal || blockModalClosing) && (() => {
@@ -2822,46 +2828,15 @@ function CreateSlotSheet({ data, settings, onClose }) {
 // ═══════════════════════════════════════════════════════════════
 // BOOKING DETAIL MODAL
 // ═══════════════════════════════════════════════════════════════
-// Ціна послуги на конкретну дату уроку: якщо задано nextPrice/nextPriceFrom
-// і дата уроку вже досягла nextPriceFrom — використовуємо нову ціну.
-function effectivePrice(svc, dateStr) {
-  if (!svc) return 0;
-  if (svc.nextPrice != null && svc.nextPriceFrom && dateStr && dateStr >= svc.nextPriceFrom) {
-    return svc.nextPrice;
-  }
-  return svc.price;
-}
-
-function computeBookingPrice(b, services) {
-  if (b.manualPrice != null) return b.manualPrice;
-  const svc = services.find(s => s.id === b.serviceId)
-           || services.find(s => s.active && s.type===(b.serviceType||b.type) && Number(s.duration)===b.durMin);
-  const dateStr = b.date || (() => {
-    const d = new Date(); d.setHours(0,0,0,0); d.setDate(d.getDate() + (b.day || 0));
-    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-  })();
-  const base = svc
-    ? Math.round((effectivePrice(svc, dateStr) / svc.duration) * b.durMin)
-    : b.price && b.durationHours
-      ? Math.round((b.price / (b.durationHours * 60)) * b.durMin)
-      : (b.price || 0);
-  return base + (b.surcharge || 0);
-}
-
-function BookingModal({ booking, onClose, onAction, settings, bookings }) {
+function BookingModal({ booking, onClose, onAction, settings }) {
   const { BG, BG_DEEP, SURFACE, SURF_HI, SURF_LO, BORDER, TEXT, DIM, FAINT, ACCENT, ACC_HI, SO, SI , GLOW, SHADE, INK } = useContext(ThemeContext);
   const glow=a=>`rgba(${GLOW},${a})`,shade=a=>`rgba(${SHADE},${a})`,ink=a=>`rgba(${INK},${a})`;
   const SURFACE_HI = SURF_HI, SURFACE_LO = SURF_LO, TEXT_DIM = DIM, TEXT_FAINT = FAINT, ACCENT_HI = ACC_HI, SHADOW_OUT = SO, SHADOW_IN = SI;
   const [queueEntries, setQueueEntries] = useState([]);
   const [closing, setClosing] = useState(false);
-  const [editOpen, setEditOpen] = useState(false);
-  const [draftPrice, setDraftPrice] = useState("");
-  const [draftDur, setDraftDur] = useState("");
-  const [editRate, setEditRate] = useState(0);
   useEffect(() => {
     if (!booking) return;
     setClosing(false);
-    setEditOpen(false);
     const dateStr = booking.date || (() => {
       const d = new Date(); d.setHours(0,0,0,0);
       d.setDate(d.getDate() + booking.day);
@@ -2893,37 +2868,14 @@ function BookingModal({ booking, onClose, onAction, settings, bookings }) {
   const day = booking.date
     ? (() => { const d = new Date(booking.date + "T12:00:00"); const dow = (d.getDay()+6)%7; return { num:d.getDate(), month:_MLABELS[d.getMonth()], label:_DLABELS[dow], fullLabel:_DLABELS_FULL[dow], wk:dow>=5 }; })()
     : getDayInfo(booking.day);
-  const price = computeBookingPrice(booking, settings.services);
+  const basePrice = svc
+    ? Math.round((svc.price / svc.duration) * booking.durMin)
+    : booking.price && booking.durationHours
+      ? Math.round((booking.price / (booking.durationHours * 60)) * booking.durMin)
+      : (booking.price || 0);
+  const price = basePrice + (booking.surcharge || 0);
   const ini   = booking.name.trim().split(" ").slice(0, 2).map(w => w[0]).join("");
   const typeLabel = booking.type === "school" ? "🎓 Автошкола" : "🚗 Приватний";
-
-  const sameDayBookings = (bookings || []).filter(x =>
-    x.id !== booking.id && x.status !== "cancelled" &&
-    (booking.date ? x.date === booking.date : x.day === booking.day)
-  );
-  const otherDayTotal = sameDayBookings.reduce((sum, x) => sum + computeBookingPrice(x, settings.services), 0);
-  const nextStart = sameDayBookings
-    .filter(x => x.startMin > booking.startMin)
-    .reduce((min, x) => Math.min(min, x.startMin), Infinity);
-  const maxDurMin = nextStart === Infinity ? 360 : Math.max(15, nextStart - booking.startMin);
-
-  const openEdit = () => {
-    setDraftPrice(String(price));
-    setDraftDur(String(booking.durMin));
-    setEditRate(booking.durMin > 0 ? price / booking.durMin : 0);
-    setEditOpen(true);
-  };
-  const onDurChange = (v) => {
-    setDraftDur(v);
-    const n = parseInt(v, 10);
-    if (!isNaN(n) && editRate) setDraftPrice(String(Math.round(editRate * n)));
-  };
-  const saveEdit = () => {
-    const p = Math.max(0, parseInt(draftPrice, 10) || 0);
-    const d = Math.min(maxDurMin, Math.max(15, parseInt(draftDur, 10) || booking.durMin));
-    onAction("editBooking", { ...booking, manualPrice: p, durMin: d, durationHours: d / 60 });
-    setEditOpen(false);
-  };
 
   const IcoPhone = <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2A19.79 19.79 0 0 1 4.14 6.18 2 2 0 0 1 6.12 4h3a2 2 0 0 1 2 1.72c.13 1 .37 1.98.72 2.91a2 2 0 0 1-.45 2.11L10 12a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.93.35 1.91.59 2.91.72A2 2 0 0 1 22 16.92z"/></svg>;
   const IcoChat  = <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>;
@@ -2981,47 +2933,6 @@ function BookingModal({ booking, onClose, onAction, settings, bookings }) {
               </div>
             </div>
           </div>
-
-          {/* Кнопка редагування ціни/тривалості */}
-          {!editOpen && (
-            <div style={{padding:"10px 16px 0"}}>
-              <button onClick={openEdit} style={{
-                width:"100%",padding:"10px",borderRadius:12,border:"none",cursor:"pointer",fontFamily:"inherit",
-                background:`${GREEN}1f`,color:GREEN,fontSize:13,fontWeight:800,
-                display:"flex",alignItems:"center",justifyContent:"center",gap:7,
-              }}>✎ Редагувати ціну і час</button>
-            </div>
-          )}
-
-          {/* Edit sheet: ціна/тривалість */}
-          {editOpen && (
-            <div style={{padding:"12px 16px",background:ink(0.03),borderBottom:`1px solid ${ink(0.06)}`}}>
-              <div style={{textAlign:"center",fontSize:10,fontWeight:700,color:GOLD,marginBottom:10}}>
-                Разом за день: {otherDayTotal + (parseInt(draftPrice,10)||0)}₴
-              </div>
-              <div style={{display:"flex",gap:10,marginBottom:8}}>
-                <div style={{flex:1}}>
-                  <div style={{fontSize:9,fontWeight:700,letterSpacing:1,color:TEXT_FAINT,textTransform:"uppercase",marginBottom:5,textAlign:"center"}}>Тривалість, хв</div>
-                  <input type="number" min={15} max={maxDurMin} step={5} value={draftDur}
-                    onChange={e=>onDurChange(e.target.value)}
-                    style={{width:"100%",textAlign:"center",padding:"9px 6px",borderRadius:10,border:`1px solid ${ink(0.1)}`,background:BG_DEEP,color:TEXT,fontSize:14,fontWeight:800,fontFamily:"inherit"}}/>
-                </div>
-                <div style={{flex:1}}>
-                  <div style={{fontSize:9,fontWeight:700,letterSpacing:1,color:TEXT_FAINT,textTransform:"uppercase",marginBottom:5,textAlign:"center"}}>Ціна, ₴</div>
-                  <input type="number" min={0} step={50} value={draftPrice}
-                    onChange={e=>setDraftPrice(e.target.value)}
-                    style={{width:"100%",textAlign:"center",padding:"9px 6px",borderRadius:10,border:`1px solid ${ink(0.1)}`,background:BG_DEEP,color:TEXT,fontSize:14,fontWeight:800,fontFamily:"inherit"}}/>
-                </div>
-              </div>
-              <div style={{fontSize:9,color:TEXT_FAINT,textAlign:"center",marginBottom:10}}>
-                Макс. тривалість зараз: {maxDurMin}хв · ціна перераховується автоматично при зміні тривалості
-              </div>
-              <div style={{display:"flex",gap:8}}>
-                <button onClick={()=>setEditOpen(false)} style={{flex:1,padding:"9px",borderRadius:11,border:"none",cursor:"pointer",fontFamily:"inherit",background:ink(0.06),color:TEXT_DIM,fontSize:12.5,fontWeight:700}}>Скасувати</button>
-                <button onClick={saveEdit} style={{flex:1,padding:"9px",borderRadius:11,border:"none",cursor:"pointer",fontFamily:"inherit",background:GREEN,color:"#0a0d0a",fontSize:12.5,fontWeight:800}}>Зберегти</button>
-              </div>
-            </div>
-          )}
 
           {/* Info grid */}
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:1,background:ink(0.04)}}>
@@ -3081,7 +2992,7 @@ function BookingModal({ booking, onClose, onAction, settings, bookings }) {
             <button onClick={() => onAction("call", booking)} style={{
               flex:1,display:"flex",alignItems:"center",justifyContent:"center",gap:7,
               padding:"11px",borderRadius:14,border:"none",cursor:"pointer",fontFamily:"inherit",
-              background:`${GREEN}1f`,color:GREEN,fontSize:13,fontWeight:800,
+              background:"rgba(52,211,153,0.12)",color:"#34d399",fontSize:13,fontWeight:800,
             }}>{IcoPhone} Дзвонити</button>
             <button onClick={() => onAction("chat", booking)} style={{
               flex:1,display:"flex",alignItems:"center",justifyContent:"center",gap:7,
@@ -3545,7 +3456,7 @@ function NewBookingModal({ data, onClose, onConfirm, settings, bookings = [] }) 
                       <div style={{fontSize:13,fontWeight:700,color:GREEN}}>Новий учень</div>
                     </div>
                   )}
-                  {filtered.map(s=>(
+                  {filtered.slice(0,6).map(s=>(
                     <div key={s.id} onClick={()=>{setSelStudent(s);setPhone(s.phone);setSearch("");if(s.tsc)setTsc(s.tsc);}}
                       style={{display:"flex",alignItems:"center",justifyContent:"space-between",
                         padding:"9px 13px",cursor:"pointer",borderBottom:`1px solid ${BORDER}`,background:BG_DEEP}}>
@@ -4407,7 +4318,6 @@ function TemplatesView() {
     booking_confirmed:"✅ Підтверд.", booking_cancelled:"❌ Скасування",
     lesson_reminder:"⏰ Нагадування", admin:"💬 Особистий",
     slot_free:"🚗 Вільний слот", queue_offer:"🎉 Черга",
-    admin_alert:"🔔 Адміну",
   };
 
   const inputSt = {
@@ -4494,11 +4404,6 @@ function TemplatesView() {
             <div style={{fontSize:11,color:DM,flexShrink:0,textAlign:"right"}}>
               {TYPE_LABELS[item.type]||item.type}
               {item.recipients>1 && <div style={{fontSize:10,color:FT}}>{item.recipients} учнів</div>}
-              {item.status && item.status!=="sent" && (
-                <div style={{fontSize:10,color:"#ef4444",fontWeight:700}}>
-                  ⚠ {item.status==="no_token" ? "немає токена" : "не надіслано"}
-                </div>
-              )}
             </div>
           </div>
         ))}
