@@ -1284,11 +1284,12 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
         if (mb.startMin !== undefined && mb.durMin) {
           const dateStr = mb.date || absDayToDateStr(mb.day);
           const upd = {};
-          for (let i = 0; i < mb.durMin; i += 60) {
+          for (let i = 0; i < mb.durMin; i += 30) {
             const sm = mb.startMin + i;
             const hh = String(Math.floor(sm/60)).padStart(2,'0'), mm = String(sm%60).padStart(2,'0');
-            upd[`timeslots/${dateStr}/slot${hh}${mm}/available`] = true;
-            upd[`timeslots/${dateStr}/slot${hh}${mm}/time`] = `${hh}:${mm}`;
+            const path = `timeslots/${dateStr}/slot${hh}${mm}`;
+            if (i % 60 === 0) { upd[`${path}/available`] = true; upd[`${path}/time`] = `${hh}:${mm}`; }
+            else { upd[path] = null; }
           }
           if (Object.keys(upd).length) update(ref(db,'/'), upd).catch(()=>{});
         }
