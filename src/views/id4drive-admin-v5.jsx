@@ -755,7 +755,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
     const lunchEnabled = ov?.lunchEnabled ?? ws.lunchEnabled ?? settings.lunchEnabled ?? true;
     const lunchStart   = ov?.lunchStart   ?? ws.lunchStart   ?? settings.lunchStart  ?? 12;
     const lunchEnd     = ov?.lunchEnd     ?? ws.lunchEnd     ?? settings.lunchEnd    ?? 13;
-    const step = 60;
+    const step = 30;
     const updates = {};
     for (let min = start * 60; min < end * 60; min += step) {
       if (lunchEnabled && min >= lunchStart * 60 && min < lunchEnd * 60) continue;
@@ -1288,8 +1288,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
             const sm = mb.startMin + i;
             const hh = String(Math.floor(sm/60)).padStart(2,'0'), mm = String(sm%60).padStart(2,'0');
             const path = `timeslots/${dateStr}/slot${hh}${mm}`;
-            if (i % 60 === 0) { upd[`${path}/available`] = true; upd[`${path}/time`] = `${hh}:${mm}`; }
-            else { upd[path] = null; }
+            upd[`${path}/available`] = true; upd[`${path}/time`] = `${hh}:${mm}`;
           }
           if (Object.keys(upd).length) update(ref(db,'/'), upd).catch(()=>{});
         }
@@ -1959,8 +1958,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                               const hh = String(Math.floor(slotMin/60)).padStart(2,'0');
                               const mm = String(slotMin%60).padStart(2,'0');
                               const path = `timeslots/${dateStr}/slot${hh}${mm}`;
-                              if (i % 60 === 0) { slotUpd[`${path}/available`]=true; slotUpd[`${path}/time`]=`${hh}:${mm}`; }
-                              else { slotUpd[path] = null; }
+                              slotUpd[`${path}/available`]=true; slotUpd[`${path}/time`]=`${hh}:${mm}`;
                             }
                             update(ref(db,'/'), slotUpd).catch(()=>{});
                           }
@@ -4647,8 +4645,7 @@ export default function App() {
             const sm = b.startMin + i;
             const hh = String(Math.floor(sm/60)).padStart(2,'0'), mm = String(sm%60).padStart(2,'0');
             const path = `timeslots/${b.date}/slot${hh}${mm}`;
-            if (i % 60 === 0) { upd[`${path}/available`] = true; upd[`${path}/time`] = `${hh}:${mm}`; }
-            else { upd[path] = null; }
+            upd[`${path}/available`] = true; upd[`${path}/time`] = `${hh}:${mm}`;
           }
           if (Object.keys(upd).length) update(ref(db,'/'), upd).catch(()=>{});
         }
