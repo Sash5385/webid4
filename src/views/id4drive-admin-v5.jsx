@@ -728,7 +728,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
           if (!slot.available) return;
           const [h, m] = time.split(":").map(Number);
           const sMin = h * 60 + m;
-          if (dayBk.some(b => b.startMin < sMin + 60 && b.startMin + b.durMin > sMin)) {
+          if (dayBk.some(b => b.startMin < sMin + (settings.snapMin || 30) && b.startMin + b.durMin > sMin)) {
             const hh = String(h).padStart(2, "0");
             const mm = String(m).padStart(2, "0");
             upd[`timeslots/${date}/slot${hh}${mm}/available`] = false;
