@@ -636,6 +636,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   const [openSlots, setOpenSlots] = useState({}); // { "2025-06-01": ["07:00","08:00",...] }
   const [viewingSlots, setViewingSlots] = useState({});
   const pendingSlotSnapRef = useRef(null);
+  const rawSlotsRef = useRef({}); // повний снапшот timeslots (з зайнятими слотами)
   const [genLoadingDays, setGenLoadingDays] = useState(new Set());
   const [isGeneratingAll, setIsGeneratingAll] = useState(false);
   const [genToast, setGenToast] = useState(null); // { absDay, free, blocked }
@@ -662,6 +663,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
     const r = ref(db, "timeslots");
     const unsub = onValue(r, snap => {
       const val = snap.val() || {};
+      rawSlotsRef.current = val;
       const slots = {};
       const viewing = {};
       const exists = {};
@@ -733,6 +735,27 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
             const mm = String(m).padStart(2, "0");
             upd[`timeslots/${date}/slot${hh}${mm}/available`] = false;
           }
+<<<<<<< HEAD
+=======
+        });
+      });
+      // Самолікування: старий safety net (+60) помилково блокував слот рівно
+      // за один крок до запису, що починається на :30 (напр. запис 18:30 →
+      // блок 18:00). Знімаємо цей залишковий блок, якщо слот реально не
+      // накритий жодним записом і не заблокований вручну. Точковий зворот бага.
+      const snap = settings.snapMin || 30;
+      Object.entries(bkByDate).forEach(([date, dayBk]) => {
+        const raw = rawSlotsRef.current[date] || {};
+        dayBk.forEach(b => {
+          const prevMin = b.startMin - snap;
+          if (prevMin < 0) return;
+          const ph = String(Math.floor(prevMin / 60)).padStart(2, "0");
+          const pm = String(prevMin % 60).padStart(2, "0");
+          const slot = raw[`slot${ph}${pm}`];
+          if (!slot || slot.available !== false || slot.adminBlocked) return;
+          const covered = dayBk.some(x => x.startMin < prevMin + snap && x.startMin + x.durMin > prevMin);
+          if (!covered) upd[`timeslots/${date}/slot${ph}${pm}/available`] = true;
+>>>>>>> claude/bold-hamilton-jacl32
         });
       });
       if (Object.keys(upd).length) update(ref(db, "/"), upd).catch(() => {});
