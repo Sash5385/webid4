@@ -725,14 +725,17 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
         const dayBk = bkByDate[date];
         if (!dayBk) return;
         Object.entries(slotMap).forEach(([time, slot]) => {
-          if (!slot.available) return;
           const [h, m] = time.split(":").map(Number);
           const sMin = h * 60 + m;
-          if (dayBk.some(b => b.startMin < sMin + (settings.snapMin || 30) && b.startMin + b.durMin > sMin)) {
-            const hh = String(h).padStart(2, "0");
-            const mm = String(m).padStart(2, "0");
-            upd[`timeslots/${date}/slot${hh}${mm}/available`] = false;
+          const snap = settings.snapMin || 30;
+          const covered = dayBk.some(b => b.startMin < sMin + snap && b.startMin + b.durMin > sMin);
+          const hh = String(h).padStart(2, "0");
+          const mm = String(m).padStart(2, "0");
+          if (!slot.available) {
+            if (!covered) upd[`timeslots/${date}/slot${hh}${mm}/available`] = true;
+            return;
           }
+          if (covered) upd[`timeslots/${date}/slot${hh}${mm}/available`] = false;
         });
       });
       if (Object.keys(upd).length) update(ref(db, "/"), upd).catch(() => {});
