@@ -735,8 +735,6 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
             const mm = String(m).padStart(2, "0");
             upd[`timeslots/${date}/slot${hh}${mm}/available`] = false;
           }
-<<<<<<< HEAD
-=======
         });
       });
       // Самолікування: старий safety net (+60) помилково блокував слот рівно
@@ -755,7 +753,6 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
           if (!slot || slot.available !== false || slot.adminBlocked) return;
           const covered = dayBk.some(x => x.startMin < prevMin + snap && x.startMin + x.durMin > prevMin);
           if (!covered) upd[`timeslots/${date}/slot${ph}${pm}/available`] = true;
->>>>>>> claude/bold-hamilton-jacl32
         });
       });
       if (Object.keys(upd).length) update(ref(db, "/"), upd).catch(() => {});
