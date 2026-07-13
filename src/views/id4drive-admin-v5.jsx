@@ -674,7 +674,8 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
           const m = slotKey.match(/^slot(\d{2})(\d{2})$/);
           const slotTime = slot.time || (m ? `${m[1]}:${m[2]}` : null);
           if (slotTime) {
-            slotSet.add(slotTime);
+            // phantom-вузли (створені лише під запис) не належать сітці дня
+            if (!slot.phantom) slotSet.add(slotTime);
             if (slot.available !== false || slot.adminBlocked || slot.vipOnly || slot.surcharge) {
               slotMap[slotTime] = { available: slot.available !== false, adminBlocked: !!slot.adminBlocked, vipOnly: !!slot.vipOnly, surcharge: slot.surcharge || null };
             }
@@ -776,6 +777,11 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
           const h = String(Math.floor(cur / 60)).padStart(2, "0");
           const m = String(cur % 60).padStart(2, "0");
           const id = `slot${h}${m}`;
+          // Слот поза згенерованою сіткою (запис за межами робочих годин) —
+          // phantom: після скасування видаляється, а не стає вільним.
+          if (!(`timeslots/${dateStr}/${id}/available` in updates)) {
+            updates[`timeslots/${dateStr}/${id}/phantom`] = true;
+          }
           updates[`timeslots/${dateStr}/${id}/available`] = false;
           updates[`timeslots/${dateStr}/${id}/time`] = `${h}:${m}`;
         }
@@ -1283,14 +1289,21 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
       const cancelOne = (mb) => {
         if (mb.startMin !== undefined && mb.durMin) {
           const dateStr = mb.date || absDayToDateStr(mb.day);
-          const upd = {};
-          for (let i = 0; i < mb.durMin; i += 30) {
-            const sm = mb.startMin + i;
-            const hh = String(Math.floor(sm/60)).padStart(2,'0'), mm = String(sm%60).padStart(2,'0');
-            const path = `timeslots/${dateStr}/slot${hh}${mm}`;
-            upd[`${path}/available`] = true; upd[`${path}/time`] = `${hh}:${mm}`;
-          }
-          if (Object.keys(upd).length) update(ref(db,'/'), upd).catch(()=>{});
+          // Відновлюємо лише слоти, що існують у сітці дня; phantom-вузли
+          // (створені лише під запис) видаляємо, щоб не спавнились вільні слоти.
+          get(ref(db, `timeslots/${dateStr}`)).then(s => {
+            const day = s.val() || {};
+            const upd = {};
+            for (let i = 0; i < mb.durMin; i += 30) {
+              const sm = mb.startMin + i;
+              const hh = String(Math.floor(sm/60)).padStart(2,'0'), mm = String(sm%60).padStart(2,'0');
+              const path = `timeslots/${dateStr}/slot${hh}${mm}`;
+              const node = day[`slot${hh}${mm}`];
+              if (!node || node.phantom) { upd[path] = null; continue; }
+              upd[`${path}/available`] = true; upd[`${path}/time`] = `${hh}:${mm}`;
+            }
+            if (Object.keys(upd).length) update(ref(db,'/'), upd).catch(()=>{});
+          }).catch(()=>{});
         }
         // Позначити cancelled у Firebase (обидва можливих ключі)
         if (mb.userId) {
@@ -1949,18 +1962,23 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                           e.stopPropagation();
                           xVisibleRef.current = false;
                           setQuickCancelId(null);
-                          // Відновити слоти одразу
+                          // Відновити слоти одразу (лише існуючі в сітці; phantom — видалити)
                           if (b.startMin !== undefined && b.durMin) {
                             const dateStr = b.date || absDayToDateStr(b.day);
-                            const slotUpd = {};
-                            for (let i = 0; i < b.durMin; i += 30) {
-                              const slotMin = b.startMin + i;
-                              const hh = String(Math.floor(slotMin/60)).padStart(2,'0');
-                              const mm = String(slotMin%60).padStart(2,'0');
-                              const path = `timeslots/${dateStr}/slot${hh}${mm}`;
-                              slotUpd[`${path}/available`]=true; slotUpd[`${path}/time`]=`${hh}:${mm}`;
-                            }
-                            update(ref(db,'/'), slotUpd).catch(()=>{});
+                            get(ref(db, `timeslots/${dateStr}`)).then(s => {
+                              const day = s.val() || {};
+                              const slotUpd = {};
+                              for (let i = 0; i < b.durMin; i += 30) {
+                                const slotMin = b.startMin + i;
+                                const hh = String(Math.floor(slotMin/60)).padStart(2,'0');
+                                const mm = String(slotMin%60).padStart(2,'0');
+                                const path = `timeslots/${dateStr}/slot${hh}${mm}`;
+                                const node = day[`slot${hh}${mm}`];
+                                if (!node || node.phantom) { slotUpd[path] = null; continue; }
+                                slotUpd[`${path}/available`]=true; slotUpd[`${path}/time`]=`${hh}:${mm}`;
+                              }
+                              if (Object.keys(slotUpd).length) update(ref(db,'/'), slotUpd).catch(()=>{});
+                            }).catch(()=>{});
                           }
                           // Прямий запис cancelled у Firebase одразу (не покладаємось на 2с-таймер)
                           const idsCancel = b._mergedIds || [b.id];
@@ -2630,15 +2648,21 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
           }
         }
         if (b.date && b.startMin !== undefined && b.durMin) {
-          const slotUpd = {};
-          for (let i = 0; i < b.durMin; i += 30) {
-            const slotMin = b.startMin + i;
-            const sh = String(Math.floor(slotMin / 60)).padStart(2, '0');
-            const sm = String(slotMin % 60).padStart(2, '0');
-            slotUpd[`timeslots/${b.date}/slot${sh}${sm}/available`] = false;
-            slotUpd[`timeslots/${b.date}/slot${sh}${sm}/time`] = `${sh}:${sm}`;
-          }
-          update(ref(db, '/'), slotUpd).catch(() => {});
+          // Вузли поза сіткою дня позначаємо phantom — при скасуванні видаляться
+          get(ref(db, `timeslots/${b.date}`)).then(s => {
+            const day = s.val() || {};
+            const slotUpd = {};
+            for (let i = 0; i < b.durMin; i += 30) {
+              const slotMin = b.startMin + i;
+              const sh = String(Math.floor(slotMin / 60)).padStart(2, '0');
+              const sm = String(slotMin % 60).padStart(2, '0');
+              const id = `slot${sh}${sm}`;
+              if (!day[id]) slotUpd[`timeslots/${b.date}/${id}/phantom`] = true;
+              slotUpd[`timeslots/${b.date}/${id}/available`] = false;
+              slotUpd[`timeslots/${b.date}/${id}/time`] = `${sh}:${sm}`;
+            }
+            update(ref(db, '/'), slotUpd).catch(() => {});
+          }).catch(() => {});
         }
         setFormData(null);
       }}
@@ -4640,14 +4664,20 @@ export default function App() {
     if (action === "cancel") {
       if (b.userId && b.id) {
         if (b.date && b.startMin !== undefined && b.durMin) {
-          const upd = {};
-          for (let i = 0; i < b.durMin; i += 30) {
-            const sm = b.startMin + i;
-            const hh = String(Math.floor(sm/60)).padStart(2,'0'), mm = String(sm%60).padStart(2,'0');
-            const path = `timeslots/${b.date}/slot${hh}${mm}`;
-            upd[`${path}/available`] = true; upd[`${path}/time`] = `${hh}:${mm}`;
-          }
-          if (Object.keys(upd).length) update(ref(db,'/'), upd).catch(()=>{});
+          // Відновлюємо лише слоти сітки; phantom-вузли видаляємо
+          get(ref(db, `timeslots/${b.date}`)).then(s => {
+            const day = s.val() || {};
+            const upd = {};
+            for (let i = 0; i < b.durMin; i += 30) {
+              const sm = b.startMin + i;
+              const hh = String(Math.floor(sm/60)).padStart(2,'0'), mm = String(sm%60).padStart(2,'0');
+              const path = `timeslots/${b.date}/slot${hh}${mm}`;
+              const node = day[`slot${hh}${mm}`];
+              if (!node || node.phantom) { upd[path] = null; continue; }
+              upd[`${path}/available`] = true; upd[`${path}/time`] = `${hh}:${mm}`;
+            }
+            if (Object.keys(upd).length) update(ref(db,'/'), upd).catch(()=>{});
+          }).catch(()=>{});
         }
         // Скасовуємо обидва можливі вузли (дубль міг з'явитись від старого коду)
         const keys = [...new Set([b._fbKey, b.id].filter(Boolean))];
@@ -4690,15 +4720,21 @@ export default function App() {
       }
     }
     if (b.date && b.startMin !== undefined && b.durMin) {
-      const slotUpd = {};
-      for (let i = 0; i < b.durMin; i += 30) {
-        const slotMin = b.startMin + i;
-        const sh = String(Math.floor(slotMin / 60)).padStart(2, '0');
-        const sm = String(slotMin % 60).padStart(2, '0');
-        slotUpd[`timeslots/${b.date}/slot${sh}${sm}/available`] = false;
-        slotUpd[`timeslots/${b.date}/slot${sh}${sm}/time`] = `${sh}:${sm}`;
-      }
-      update(ref(db, '/'), slotUpd).catch(() => {});
+      // Вузли поза сіткою дня позначаємо phantom — при скасуванні видаляться
+      get(ref(db, `timeslots/${b.date}`)).then(s => {
+        const day = s.val() || {};
+        const slotUpd = {};
+        for (let i = 0; i < b.durMin; i += 30) {
+          const slotMin = b.startMin + i;
+          const sh = String(Math.floor(slotMin / 60)).padStart(2, '0');
+          const sm = String(slotMin % 60).padStart(2, '0');
+          const id = `slot${sh}${sm}`;
+          if (!day[id]) slotUpd[`timeslots/${b.date}/${id}/phantom`] = true;
+          slotUpd[`timeslots/${b.date}/${id}/available`] = false;
+          slotUpd[`timeslots/${b.date}/${id}/time`] = `${sh}:${sm}`;
+        }
+        update(ref(db, '/'), slotUpd).catch(() => {});
+      }).catch(() => {});
     }
     // onValue listener will update setBookings automatically; skip local push to avoid duplicate
   };

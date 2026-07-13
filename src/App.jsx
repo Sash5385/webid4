@@ -769,6 +769,9 @@ const pendingDeletesRef = React.useRef(new Set());
           // перетягування «спавнить» вільні слоти в чужих днях.
           if (onlyExisting && !existsForDate?.has(`${h}:${m}`)) continue;
           const key = `timeslots/${date}/slot${h}${m}`;
+          // Вузол, якого нема в сітці дня, створюється лише під запис —
+          // позначаємо phantom, щоб при звільненні видалити, а не оживити.
+          if (!existsForDate?.has(`${h}:${m}`)) upd[`${key}/phantom`] = true;
           upd[`${key}/available`] = false;
           upd[`${key}/time`] = `${h}:${m}`;
           upd[`${key}/lastChangedBy`] = auditBy;
@@ -794,10 +797,11 @@ const pendingDeletesRef = React.useRef(new Set());
           const h = String(Math.floor(cur / 60)).padStart(2, "0");
           const m = String(cur % 60).padStart(2, "0");
           const key = `timeslots/${date}/slot${h}${m}`;
-          // Слот на власному старті запису (i=0, 60, 120...) — «канонічний»,
-          // відновлюємо available:true. Проміжний 30-хв слот — фантом,
-          // створений лише на час бронювання, видаляємо повністю.
-          if (i % 60 === 0 && existsForDate?.has(`${h}:${m}`)) {
+          // Слот, що належить сітці дня (:00 та :30 — обидва канонічні),
+          // відновлюємо available:true. Вузол поза сіткою (phantom, створений
+          // лише на час бронювання) — видаляємо повністю, щоб не спавнились
+          // випадкові вільні слоти.
+          if (existsForDate?.has(`${h}:${m}`)) {
             upd[`${key}/available`] = true;
             upd[`${key}/lastChangedBy`] = auditBy;
             upd[`${key}/lastChangedAt`] = now;
