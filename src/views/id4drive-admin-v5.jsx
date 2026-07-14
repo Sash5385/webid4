@@ -1541,7 +1541,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
             }}>
               {/* DATE HEADER — sticky top, moves with column horizontally */}
               <div
-                onClick={e=>{ e.stopPropagation(); if(scheduleLocked) return; if(dayLongFiredRef.current){dayLongFiredRef.current=false;return;} if(isPastDay || isLoadingCol || isClosedDay) return; hasAnySlotsCol ? clearDaySlots(absDay) : generateDaySlots(absDay); }}
+                onClick={e=>{ e.stopPropagation(); if(scheduleLocked) return; if(dayLongFiredRef.current){dayLongFiredRef.current=false;return;} if(isPastDay || isLoadingCol || isClosedDay) return; generateDaySlots(absDay); }}
                 onPointerDown={e=>{ if(scheduleLocked || isPastDay) return; clearTimeout(dayLongPressRef.current); dayLongFiredRef.current=false; dayLongPressRef.current=setTimeout(()=>{ dayLongFiredRef.current=true; toggleDayBlocked(dateStrCol); }, 600); }}
                 onPointerUp={()=>clearTimeout(dayLongPressRef.current)}
                 onPointerLeave={()=>clearTimeout(dayLongPressRef.current)}
