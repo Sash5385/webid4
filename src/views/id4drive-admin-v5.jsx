@@ -1608,26 +1608,11 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                   }
                 }}
                 onPointerUp={e=>{
-                  const pos = emptyHoldPosRef.current;
+                  // Короткий клік по порожній клітинці нічого не створює —
+                  // випадковий дотик (скрол/промах) не повинен спавнити слот.
+                  // Відкрити слот можна лише через довгий тап (меню з підтвердженням).
                   clearTimeout(emptyHoldTimerRef.current);
                   emptyHoldPosRef.current = null;
-                  // Короткий клік (hold не спрацював) → одразу створити вільний слот
-                  if (pos && !dragEndedRef.current) {
-                    const hasConflict = Object.keys(openSlots[pos.dateStr] || {}).some(t => {
-                      const [th, tm] = t.split(':').map(Number);
-                      const diff = Math.abs(th * 60 + tm - pos.startMin);
-                      return diff > 0 && diff < 60;
-                    });
-                    if (hasConflict) {
-                      navigator.vibrate?.(80);
-                    } else {
-                      const hh = String(Math.floor(pos.startMin/60)).padStart(2,'0');
-                      const mm = String(pos.startMin%60).padStart(2,'0');
-                      update(ref(db, `timeslots/${pos.dateStr}/slot${hh}${mm}`), {
-                        available: true, time: `${hh}:${mm}`
-                      }).catch(()=>{});
-                    }
-                  }
                 }}
                 onPointerCancel={()=>{ clearTimeout(emptyHoldTimerRef.current); emptyHoldPosRef.current = null; }}
                 onPointerLeave={()=>{ clearTimeout(emptyHoldTimerRef.current); emptyHoldPosRef.current = null; }}
