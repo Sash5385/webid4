@@ -756,7 +756,10 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
     const lunchEnabled = ov?.lunchEnabled ?? ws.lunchEnabled ?? settings.lunchEnabled ?? true;
     const lunchStart   = ov?.lunchStart   ?? ws.lunchStart   ?? settings.lunchStart  ?? 12;
     const lunchEnd     = ov?.lunchEnd     ?? ws.lunchEnd     ?? settings.lunchEnd    ?? 13;
-    const step = 30;
+    // Крок сітки — 1 година від старту робочого дня (мінімум годинний урок).
+    // Якщо день починається на :30 (напр. 17:30), слоти йдуть 17:30, 18:30...
+    // без проміжного 18:00 — тільки старти, розведені рівно на годину.
+    const step = 60;
     const updates = {};
     for (let min = start * 60; min < end * 60; min += step) {
       if (lunchEnabled && min >= lunchStart * 60 && min < lunchEnd * 60) continue;
