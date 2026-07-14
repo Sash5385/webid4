@@ -832,7 +832,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
       // Now compute and write fresh slots (pass {} — no existing adminBlocked to preserve)
       for (let d = 0; d <= limit; d++) {
         const dateStr = absDayToDateStr(d);
-        const result = computeDayUpdates(dateStr, {});
+        const result = computeDayUpdates(dateStr, {}, true);
         if (result) Object.assign(allUpdates, result.updates);
       }
       if (Object.keys(allUpdates).length) await update(ref(db, "/"), allUpdates);
