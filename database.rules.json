@@ -80,6 +80,10 @@
     "settings": {
       ".read": "auth != null",
       ".write": "auth != null"
+    },
+    "calendarSync": {
+      ".read": "auth != null && auth.uid === 'IjyqouYBDUg5KGzs3U27PUcs8Uj1'",
+      ".write": false
     }
   }
 }
