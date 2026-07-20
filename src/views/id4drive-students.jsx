@@ -25,6 +25,7 @@ const ICONS = {
   search:   Svg(<><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></>, 15, "#5a5c62"),
   trash:    Svg(<><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></>, 18, "white", 2),
   bell:     Svg(<><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></>),
+  history:  Svg(<><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 14"/></>),
 };
 
 // ─── ACTION BUTTON ───────────────────────────────────────────────
@@ -202,6 +203,24 @@ function StudentDetailSheet({ s, onClose, onUpdate, onDelete, onBlock }) {
   const [pushSending,  setPushSending] = useState(false);
   const [pushSent,     setPushSent]    = useState(false);
   const [pushError,    setPushError]   = useState(null);
+  const [historyOpen,    setHistoryOpen]    = useState(false);
+  const [history,        setHistory]        = useState(null); // null = ще не завантажено
+  const [historyLoading, setHistoryLoading] = useState(false);
+
+  const toggleHistory = () => {
+    if (historyOpen) { setHistoryOpen(false); return; }
+    setHistoryOpen(true);
+    if (history !== null) return;
+    setHistoryLoading(true);
+    get(ref(db, `bookings/${s.id}`)).then(snap => {
+      const data = snap.val() || {};
+      const list = Object.entries(data).map(([id, b]) => ({ id, ...b }))
+        .filter(b => b.date)
+        .sort((a, b) => b.date.localeCompare(a.date) || (b.time||'').localeCompare(a.time||''));
+      setHistory(list);
+    }).catch(() => setHistory([]))
+      .finally(() => setHistoryLoading(false));
+  };
 
   // Персональний пуш учню: пишемо запит у adminPush/{id}, cloud function onAdminPush
   // читає токен учня й шле FCM (плюс внутрішнє сповіщення в NotifTab).
@@ -373,6 +392,7 @@ function StudentDetailSheet({ s, onClose, onUpdate, onDelete, onBlock }) {
                   <ActBtn icon={ICONS.telegram} label="Телеграм"   onClick={()=>{window.open(`https://t.me/+${phone}`,"_blank");}}            color="#5b9bff"/>
                   <ActBtn icon={ICONS.chat}     label="Чат"        onClick={()=>{navTo("chats");_close();}}                                   color={BLUE}/>
                   <ActBtn icon={ICONS.bell}     label="Пуш"        onClick={()=>{setPushOpen(true);setPushSent(false);setPushError(null);}} color={GOLD}/>
+                  <ActBtn icon={ICONS.history}  label="Історія"    onClick={toggleHistory} color={BLUE}/>
                   <ActBtn icon={ICONS.edit}     label="Редагувати" onClick={()=>setEditMode(true)}/>
                   <ActBtn icon={s.blocked?ICONS.unban:ICONS.ban} label={s.blocked?"Розблок.":"Заблок."} onClick={()=>onBlock(s.id)} danger={!s.blocked}/>
                 </div>
@@ -413,23 +433,29 @@ function StudentDetailSheet({ s, onClose, onUpdate, onDelete, onBlock }) {
                 )}
 
                 {/* Booking history */}
-                {(s.bookings||[]).length > 0 && (
+                {historyOpen && (
                   <div>
                     <div style={{fontSize:9,color:FAINT,letterSpacing:1,textTransform:"uppercase",fontWeight:700,marginBottom:6}}>Історія записів</div>
-                    <div style={{display:"flex",flexDirection:"column",gap:5}}>
-                      {(s.bookings||[]).map((b,i)=>{
-                        const [c,bg] = b.status==="confirmed"?[GREEN,`${GREEN}1a`]:b.status==="noshow"?[RED,`${RED}1a`]:[ACCENT,`${ACCENT}1a`];
-                        const icon = b.status==="confirmed"?"✓":b.status==="noshow"?"✕":"⏳";
-                        return (
-                          <div key={i} style={{display:"flex",alignItems:"center",gap:8,background:`linear-gradient(135deg,${SURF_HI},${SURFACE})`,borderRadius:9,padding:"7px 11px",boxShadow:SO}}>
-                            <span style={{fontSize:11,color:DIM,fontWeight:700,minWidth:48}}>{fmtS(b.date)}</span>
-                            <span style={{fontSize:11,color:BLUE,fontWeight:700,minWidth:34}}>{b.time}</span>
-                            <span style={{flex:1,fontSize:11,color:TEXT,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{b.svc}</span>
-                            <span style={{fontSize:10,fontWeight:800,padding:"2px 7px",borderRadius:5,background:bg,color:c}}>{icon}</span>
-                          </div>
-                        );
-                      })}
-                    </div>
+                    {historyLoading ? (
+                      <div style={{textAlign:"center",padding:"12px 0",color:FAINT,fontSize:12}}>Завантаження…</div>
+                    ) : (history||[]).length > 0 ? (
+                      <div style={{display:"flex",flexDirection:"column",gap:5}}>
+                        {history.map((b,i)=>{
+                          const [c,bg] = b.status==="confirmed"?[GREEN,`${GREEN}1a`]:b.status==="cancelled"?[RED,`${RED}1a`]:b.status==="noshow"?[RED,`${RED}1a`]:[ACCENT,`${ACCENT}1a`];
+                          const icon = b.status==="confirmed"?"✓":b.status==="cancelled"?"✕":b.status==="noshow"?"⚠":"⏳";
+                          return (
+                            <div key={b.id||i} style={{display:"flex",alignItems:"center",gap:8,background:`linear-gradient(135deg,${SURF_HI},${SURFACE})`,borderRadius:9,padding:"7px 11px",boxShadow:SO}}>
+                              <span style={{fontSize:11,color:DIM,fontWeight:700,minWidth:48}}>{fmtS(b.date)}</span>
+                              <span style={{fontSize:11,color:BLUE,fontWeight:700,minWidth:34}}>{b.time}</span>
+                              <span style={{flex:1,fontSize:11,color:TEXT,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{b.serviceName||b.svc||"—"}</span>
+                              <span style={{fontSize:10,fontWeight:800,padding:"2px 7px",borderRadius:5,background:bg,color:c}}>{icon}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div style={{textAlign:"center",padding:"12px 0",color:FAINT,fontSize:12}}>Записів ще немає</div>
+                    )}
                   </div>
                 )}
 
