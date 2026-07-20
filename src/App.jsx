@@ -551,7 +551,7 @@ export default function App() {
         navigator.serviceWorker.ready.then(reg => {
           reg.showNotification(title, {
             body,
-            icon: "/favicon.svg",
+            icon: "/icon-192.png",
             tag: "admin-" + Date.now(),
             requireInteraction: true,
             data: payload.data || {},

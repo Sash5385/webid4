@@ -22,8 +22,8 @@ messaging.onBackgroundMessage((payload) => {
   const title = payload.data?.title || 'ID4Drive'
   const options = {
     body: payload.data?.body || '',
-    icon: '/favicon.svg',
-    badge: '/favicon.svg',
+    icon: '/icon-192.png',
+    badge: '/icon-192.png',
     tag: payload.data?.tag || 'admin',
     data: payload.data || {}
   }
