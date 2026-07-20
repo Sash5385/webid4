@@ -390,8 +390,8 @@ const DEFAULT_SETTINGS = {
 };
 
 // ─── VIEW RENDERER ───────────────────────────────────────────────
-function ViewRenderer({ tab, settings, setSettings, bookings, setBookings, onSlotClick, onEmptySlotClick, openInfos, toggleInfo, activeDragIds, navTo, slotExistsRef, openSlotsRef }) {
-  if (tab === "schedule")  return <ScheduleView settings={settings} setSettings={setSettings} bookings={bookings} setBookings={setBookings} onSlotClick={onSlotClick} onEmptySlotClick={onEmptySlotClick} activeDragIds={activeDragIds} navTo={navTo} slotExistsRef={slotExistsRef} openSlotsRef={openSlotsRef}/>;
+function ViewRenderer({ tab, settings, setSettings, bookings, setBookings, onSlotClick, onEmptySlotClick, openInfos, toggleInfo, activeDragIds, navTo, slotExistsRef, openSlotsRef, jumpTarget }) {
+  if (tab === "schedule")  return <ScheduleView settings={settings} setSettings={setSettings} bookings={bookings} setBookings={setBookings} onSlotClick={onSlotClick} onEmptySlotClick={onEmptySlotClick} activeDragIds={activeDragIds} navTo={navTo} slotExistsRef={slotExistsRef} openSlotsRef={openSlotsRef} jumpTarget={jumpTarget}/>;
   if (tab === "settings")  return <SettingsView settings={settings} setSettings={setSettings}/>;
   if (tab === "bookings")  return <BookingsView settings={settings}/>;
   if (tab === "queue")     return <QueueView settings={settings}/>;
@@ -423,7 +423,17 @@ function dayIdxToDate(dayIdx) {
 export default function App() {
   const adminUser = useAdminAuth();
   const { needRefresh, updateServiceWorker, isUpdating } = useAppUpdate()
-  const [tab,        setTab]      = useState(() => localStorage.getItem("admin_tab") || "schedule");
+  // Deep-link з push-сповіщення (?date=&time=&uid=&bookingId=) — одразу відкриваємо розклад на потрібній даті
+  const [jumpTarget, setJumpTarget] = useState(() => {
+    const p = new URLSearchParams(window.location.search);
+    const date = p.get("date");
+    if (!date) return null;
+    return { date, time: p.get("time") || null, uid: p.get("uid") || null, bookingId: p.get("bookingId") || null };
+  });
+  const [tab,        setTab]      = useState(() => (jumpTarget ? "schedule" : (localStorage.getItem("admin_tab") || "schedule")));
+  useEffect(() => {
+    if (jumpTarget) window.history.replaceState(null, "", window.location.pathname);
+  }, []);
   const [tabVisits,  setTabVisits]= useState({});
   const [openInfos,  setOpenInfos]= useState({});
   const [settings,   setSettings] = useState(DEFAULT_SETTINGS);
@@ -544,6 +554,7 @@ export default function App() {
             icon: "/favicon.svg",
             tag: "admin-" + Date.now(),
             requireInteraction: true,
+            data: payload.data || {},
           });
         });
       }
@@ -978,7 +989,7 @@ const pendingDeletesRef = React.useRef(new Set());
           background: theme.BG_IMAGE ? "#d4ba96" : "transparent",
         }}>
           <Suspense fallback={<Loader/>}>
-            <ViewRenderer tab={tab} settings={settings} setSettings={setSettings} bookings={bookings} setBookings={handleSetBookings} onSlotClick={setSelectedBooking} onEmptySlotClick={setNewBookingData} openInfos={openInfos} toggleInfo={toggleInfo} activeDragIds={activeDragIds} navTo={switchTab} slotExistsRef={slotExistsRef} openSlotsRef={openSlotsRef}/>
+            <ViewRenderer tab={tab} settings={settings} setSettings={setSettings} bookings={bookings} setBookings={handleSetBookings} onSlotClick={setSelectedBooking} onEmptySlotClick={setNewBookingData} openInfos={openInfos} toggleInfo={toggleInfo} activeDragIds={activeDragIds} navTo={switchTab} slotExistsRef={slotExistsRef} openSlotsRef={openSlotsRef} jumpTarget={jumpTarget}/>
           </Suspense>
         </div>
         <BottomNav active={tab} onChange={switchTab} settings={settings} chatUnread={chatUnread} journalUnread={journalUnread}/>
