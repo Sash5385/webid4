@@ -2919,8 +2919,13 @@ function BookingModal({ booking, onClose, onAction, settings, bookings }) {
   // не ламає — при звичайному закритті booking лишається до кінця анімації (onClose на animationEnd).
   if (!booking) return null;
 
-  const svc   = settings.services.find(s => s.id === booking.serviceId)
-             || settings.services.find(s => s.active && s.type===(booking.serviceType||booking.type) && Number(s.duration)===booking.durMin);
+  const bSvcs = settings.services || [];
+  const bType = booking.serviceType || booking.type;
+  const svc   = bSvcs.find(s => s.id === booking.serviceId)
+             || bSvcs.find(s => s.active && s.type===bType && Number(s.duration)===booking.durMin)
+             || bSvcs.find(s => s.type===bType && Number(s.duration)===booking.durMin)
+             || bSvcs.find(s => s.active && s.type===bType)
+             || bSvcs.find(s => s.type===bType);
   const c     = colorOf(svc?.colorId);
   const day = booking.date
     ? (() => { const d = new Date(booking.date + "T12:00:00"); const dow = (d.getDay()+6)%7; return { num:d.getDate(), month:_MLABELS[d.getMonth()], label:_DLABELS[dow], fullLabel:_DLABELS_FULL[dow], wk:dow>=5 }; })()
