@@ -214,8 +214,9 @@ function StudentDetailSheet({ s, onClose, onUpdate, onDelete, onBlock, autoOpenH
     setHistoryLoading(true);
     get(ref(db, `bookings/${s.id}`)).then(snap => {
       const data = snap.val() || {};
+      const today = new Date(new Date().toDateString());
       const list = Object.entries(data).map(([id, b]) => ({ id, ...b }))
-        .filter(b => b.date)
+        .filter(b => b.date && new Date(b.date) < today)
         .sort((a, b) => b.date.localeCompare(a.date) || (b.time||'').localeCompare(a.time||''));
       setHistory(list);
     }).catch(() => setHistory([]))
