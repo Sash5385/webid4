@@ -390,12 +390,12 @@ const DEFAULT_SETTINGS = {
 };
 
 // ─── VIEW RENDERER ───────────────────────────────────────────────
-function ViewRenderer({ tab, settings, setSettings, bookings, setBookings, onSlotClick, onEmptySlotClick, openInfos, toggleInfo, activeDragIds, navTo, slotExistsRef, openSlotsRef, jumpTarget }) {
-  if (tab === "schedule")  return <ScheduleView settings={settings} setSettings={setSettings} bookings={bookings} setBookings={setBookings} onSlotClick={onSlotClick} onEmptySlotClick={onEmptySlotClick} activeDragIds={activeDragIds} navTo={navTo} slotExistsRef={slotExistsRef} openSlotsRef={openSlotsRef} jumpTarget={jumpTarget}/>;
+function ViewRenderer({ tab, settings, setSettings, bookings, setBookings, onSlotClick, onEmptySlotClick, openInfos, toggleInfo, activeDragIds, navTo, slotExistsRef, openSlotsRef, jumpTarget, onViewStudent, studentJump, onStudentJumpHandled }) {
+  if (tab === "schedule")  return <ScheduleView settings={settings} setSettings={setSettings} bookings={bookings} setBookings={setBookings} onSlotClick={onSlotClick} onEmptySlotClick={onEmptySlotClick} activeDragIds={activeDragIds} navTo={navTo} slotExistsRef={slotExistsRef} openSlotsRef={openSlotsRef} jumpTarget={jumpTarget} onViewStudent={onViewStudent}/>;
   if (tab === "settings")  return <SettingsView settings={settings} setSettings={setSettings}/>;
   if (tab === "bookings")  return <BookingsView settings={settings}/>;
   if (tab === "queue")     return <QueueView settings={settings}/>;
-  if (tab === "students")  return <StudentsView/>;
+  if (tab === "students")  return <StudentsView studentJump={studentJump} onStudentJumpHandled={onStudentJumpHandled}/>;
   if (tab === "services")  return <ServicesView/>;
   if (tab === "chats")     return <ChatsView/>;
   if (tab === "templates") return <TemplatesView/>;
@@ -443,6 +443,7 @@ export default function App() {
   const [newBookingData,   setNewBookingData]    = useState(null);
   const [chatUnread,    setChatUnread]    = useState(0);
   const [journalUnread, setJournalUnread] = useState(0);
+  const [studentJump, setStudentJump] = useState(null);
   const usersMapRef = React.useRef({});
   const rawBookingsSnapRef = React.useRef(null);
 
@@ -456,6 +457,13 @@ export default function App() {
       if ('clearAppBadge' in navigator) navigator.clearAppBadge();
     }
     if (t === 'journal') setJournalUnread(0);
+  };
+
+  // Профіль/Історія з модалки запису → відкрити картку учня на вкладці "Учні"
+  const onViewStudent = (uid, openHistory) => {
+    if (!uid) return;
+    setStudentJump({ uid, openHistory: !!openHistory, ts: Date.now() });
+    switchTab("students");
   };
   const toggleInfo = key => setOpenInfos(s => ({...s, [key]: !s[key]}));
 
@@ -989,7 +997,7 @@ const pendingDeletesRef = React.useRef(new Set());
           background: theme.BG_IMAGE ? "#d4ba96" : "transparent",
         }}>
           <Suspense fallback={<Loader/>}>
-            <ViewRenderer tab={tab} settings={settings} setSettings={setSettings} bookings={bookings} setBookings={handleSetBookings} onSlotClick={setSelectedBooking} onEmptySlotClick={setNewBookingData} openInfos={openInfos} toggleInfo={toggleInfo} activeDragIds={activeDragIds} navTo={switchTab} slotExistsRef={slotExistsRef} openSlotsRef={openSlotsRef} jumpTarget={jumpTarget}/>
+            <ViewRenderer tab={tab} settings={settings} setSettings={setSettings} bookings={bookings} setBookings={handleSetBookings} onSlotClick={setSelectedBooking} onEmptySlotClick={setNewBookingData} openInfos={openInfos} toggleInfo={toggleInfo} activeDragIds={activeDragIds} navTo={switchTab} slotExistsRef={slotExistsRef} openSlotsRef={openSlotsRef} jumpTarget={jumpTarget} onViewStudent={onViewStudent} studentJump={studentJump} onStudentJumpHandled={()=>setStudentJump(null)}/>
           </Suspense>
         </div>
         <BottomNav active={tab} onChange={switchTab} settings={settings} chatUnread={chatUnread} journalUnread={journalUnread}/>

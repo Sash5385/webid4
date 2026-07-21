@@ -190,7 +190,7 @@ function StudentCard({ s, onSelect }) {
 }
 
 // ─── STUDENT DETAIL SHEET ────────────────────────────────────────
-function StudentDetailSheet({ s, onClose, onUpdate, onDelete, onBlock }) {
+function StudentDetailSheet({ s, onClose, onUpdate, onDelete, onBlock, autoOpenHistory }) {
   const { BG_DEEP, SURF_HI, SURFACE, BORDER, TEXT, DIM, FAINT, ACCENT, ACC_HI, GREEN, BLUE, GOLD, RED, SO, SI } = useContext(ThemeContext);
   const { shade, glow, ink } = useFX();
   const [closing,      setClosing]     = useState(false);
@@ -221,6 +221,12 @@ function StudentDetailSheet({ s, onClose, onUpdate, onDelete, onBlock }) {
     }).catch(() => setHistory([]))
       .finally(() => setHistoryLoading(false));
   };
+
+  // Перехід із модалки запису ("Історія") — розгорнути історію одразу при відкритті картки
+  useEffect(() => {
+    if (autoOpenHistory && s && !historyOpen) toggleHistory();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoOpenHistory, s?.id]);
 
   // Персональний пуш учню: пишемо запит у adminPush/{id}, cloud function onAdminPush
   // читає токен учня й шле FCM (плюс внутрішнє сповіщення в NotifTab).
@@ -486,7 +492,7 @@ function StudentDetailSheet({ s, onClose, onUpdate, onDelete, onBlock }) {
 }
 
 // ─── MAIN ────────────────────────────────────────────────────────
-export default function StudentsView() {
+export default function StudentsView({ studentJump, onStudentJumpHandled } = {}) {
   const { BG_DEEP, SURFACE, SURF_HI, BORDER, TEXT, DIM, FAINT, ACCENT, ACC_HI, GREEN, BLUE, SO, SI } = useContext(ThemeContext);
   const { ink } = useFX();
 
@@ -507,6 +513,18 @@ export default function StudentsView() {
   const [filterType,   setFilterType]   = useState("all");
   const [loading,      setLoading]      = useState(true);
   const [showNew,      setShowNew]      = useState(false);
+  const [autoOpenHistory, setAutoOpenHistory] = useState(false);
+
+  // Перехід із модалки запису в розкладі ("Профіль"/"Історія") — відкриваємо
+  // картку учня, щойно список учнів завантажений
+  useEffect(() => {
+    if (!studentJump) return;
+    const stu = students.find(x => x.id === studentJump.uid);
+    if (!stu) return;
+    setDetailStudent(stu);
+    setAutoOpenHistory(!!studentJump.openHistory);
+    onStudentJumpHandled?.();
+  }, [studentJump, students]);
 
   useEffect(() => {
     const unsub = onValue(ref(db, "users"), snap => {
@@ -662,6 +680,7 @@ export default function StudentsView() {
           onUpdate={updateStudent}
           onDelete={deleteStudent}
           onBlock={block}
+          autoOpenHistory={autoOpenHistory}
         />,
         document.body
       )}
