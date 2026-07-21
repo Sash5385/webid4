@@ -229,7 +229,7 @@ function StudentDetailSheet({ s, onClose, onUpdate, onDelete, onBlock, autoOpenH
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoOpenHistory, s?.id]);
 
-  // Персональний пуш учню: пишемо запит у adminPush/{id}, cloud function onAdminPush
+  // Персональне повідомлення учню: пишемо запит у adminPush/{id}, cloud function onAdminPush
   // читає токен учня й шле FCM (плюс внутрішнє сповіщення в NotifTab).
   const sendPushToStudent = async () => {
     if (!pushBody.trim() || pushSending) return;
@@ -338,7 +338,7 @@ function StudentDetailSheet({ s, onClose, onUpdate, onDelete, onBlock, autoOpenH
               </div>
             ) : pushOpen ? (
               <div style={{display:"flex",flexDirection:"column",gap:10}}>
-                <div style={{fontSize:13,fontWeight:800,color:GOLD}}>🔔 Пуш учню: {s.name}</div>
+                <div style={{fontSize:13,fontWeight:800,color:GOLD}}>📢 Повідомлення учню: {s.name}</div>
                 <input value={pushTitle} onChange={e=>{setPushTitle(e.target.value);setPushSent(false);}} placeholder="Заголовок"
                   style={{background:glow(0.04),border:`1px solid ${BORDER}`,outline:"none",color:TEXT,fontSize:13,padding:"9px 12px",borderRadius:10,boxShadow:SI,width:"100%",boxSizing:"border-box",fontFamily:"inherit"}}/>
                 <textarea value={pushBody} onChange={e=>{setPushBody(e.target.value);setPushSent(false);}} placeholder="Текст сповіщення" rows={3}
@@ -409,7 +409,7 @@ function StudentDetailSheet({ s, onClose, onUpdate, onDelete, onBlock, autoOpenH
                   <ActBtn icon={ICONS.viber}    label="Вайбер"     onClick={()=>{window.location.href=`viber://chat?number=%2B${phone}`;}}    color={BLUE}/>
                   <ActBtn icon={ICONS.telegram} label="Телеграм"   onClick={()=>{window.open(`https://t.me/+${phone}`,"_blank");}}            color="#5b9bff"/>
                   <ActBtn icon={ICONS.chat}     label="Чат"        onClick={()=>{navTo("chats");_close();}}                                   color={BLUE}/>
-                  <ActBtn icon={ICONS.bell}     label="Пуш"        onClick={()=>{setPushOpen(true);setPushSent(false);setPushError(null);}} color={GOLD}/>
+                  <ActBtn icon={ICONS.bell}     label="Повідомлення" onClick={()=>{setPushOpen(true);setPushSent(false);setPushError(null);}} color={GOLD}/>
                   <ActBtn icon={ICONS.history}  label="Історія"    onClick={toggleHistory} color={BLUE}/>
                   <ActBtn icon={ICONS.edit}     label="Редагувати" onClick={()=>setEditMode(true)}/>
                   <ActBtn icon={s.blocked?ICONS.unban:ICONS.ban} label={s.blocked?"Розблок.":"Заблок."} onClick={()=>onBlock(s.id)} danger={!s.blocked}/>
