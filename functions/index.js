@@ -1,7 +1,9 @@
 const { onSchedule } = require("firebase-functions/v2/scheduler");
 const { onValueCreated, onValueUpdated, onValueWritten } = require("firebase-functions/v2/database");
 const admin = require("firebase-admin");
-const { CALENDAR_SECRETS, getCalendarClient, buildEvent, isIgnorableCalendarError } = require("./googleCalendar");
+const {
+  CALENDAR_SECRETS, getCalendarClient, buildEvent, getBookingSchedule, fromCalendarEvent, isIgnorableCalendarError,
+} = require("./googleCalendar");
 
 admin.initializeApp();
 const db = admin.database();
@@ -647,6 +649,11 @@ exports.onPushTask = onValueCreated(
 // ─── Google Calendar sync (MVP, тільки особистий календар інструктора) ───
 
 const CALENDAR_SYNC_FIELDS = ["googleEventId", "calendarId", "lastSyncedByApp"];
+const ECHO_WINDOW_MS = 3 * 60 * 1000;
+
+function isRecentEcho(ts) {
+  return !!ts && Date.now() - ts < ECHO_WINDOW_MS;
+}
 
 // Якщо різниця before/after — тільки в полях, які пише сам sync (наше ж відлуння)
 function onlyCalendarFieldsChanged(before, after) {
@@ -658,6 +665,36 @@ function onlyCalendarFieldsChanged(before, after) {
   return true;
 }
 
+// Перевіряє чи діапазон [startMin, startMin+durMin) на дату date вільний
+// від інших активних бронювань і адмін-блокувань (для переносу з календаря)
+async function isRangeFreeForBooking(date, startMin, durMin, excludeUid, excludeBookingId) {
+  const endMin = startMin + durMin;
+
+  const bookingsSnap = await db.ref("bookings").get();
+  const bookingsData = bookingsSnap.val() || {};
+  for (const [uid, userBookings] of Object.entries(bookingsData)) {
+    if (!userBookings || typeof userBookings !== "object") continue;
+    for (const [bookingId, b] of Object.entries(userBookings)) {
+      if (uid === excludeUid && bookingId === excludeBookingId) continue;
+      if (!b || b.status === "cancelled" || b.date !== date) continue;
+      const sched = getBookingSchedule(b);
+      if (!sched) continue;
+      const bEnd = sched.startMin + sched.durMin;
+      if (startMin < bEnd && sched.startMin < endMin) return false;
+    }
+  }
+
+  const slotsSnap = await db.ref(`timeslots/${date}`).get();
+  const slotsData = slotsSnap.val() || {};
+  for (let cur = startMin; cur < endMin; cur += 30) {
+    const hh = String(Math.floor(cur / 60)).padStart(2, "0");
+    const mm = String(cur % 60).padStart(2, "0");
+    if (slotsData[`slot${hh}${mm}`]?.adminBlocked === true) return false;
+  }
+
+  return true;
+}
+
 // Брoнь створена/перенесена/скасована/видалена → відображаємо в Google Calendar
 exports.onBookingSyncToCalendar = onValueWritten(
   { ref: "bookings/{uid}/{bookingId}", region: "europe-west1", secrets: CALENDAR_SECRETS },
@@ -666,7 +703,13 @@ exports.onBookingSyncToCalendar = onValueWritten(
     const after = event.data.after.val();
     const { uid, bookingId } = event.params;
 
-    if (before && after && onlyCalendarFieldsChanged(before, after)) return;
+    if (before && after) {
+      const justSyncedFromCalendar =
+        after.lastSyncedFromCalendar &&
+        after.lastSyncedFromCalendar !== before.lastSyncedFromCalendar &&
+        isRecentEcho(after.lastSyncedFromCalendar);
+      if (onlyCalendarFieldsChanged(before, after) || justSyncedFromCalendar) return;
+    }
 
     let calendar;
     try {
@@ -785,7 +828,6 @@ exports.syncCalendarToApp = onSchedule(
     }
 
     for (const ev of events) {
-      if (ev.status !== "cancelled") continue;
       const priv = ev.extendedProperties?.private;
       if (!priv || priv.appSource !== "id4drive" || !priv.bookingId || !priv.uid) continue;
 
@@ -794,11 +836,52 @@ exports.syncCalendarToApp = onSchedule(
       const booking = bookingSnap.val();
       if (!booking || booking.status === "cancelled") continue;
 
-      // Наше ж недавнє видалення через onBookingSyncToCalendar — ігноруємо
-      if (booking.lastSyncedByApp && Date.now() - booking.lastSyncedByApp < 120000) continue;
+      if (ev.status === "cancelled") {
+        // Наше ж недавнє видалення через onBookingSyncToCalendar — ігноруємо
+        if (isRecentEcho(booking.lastSyncedByApp)) continue;
 
-      await bookingRef.update({ status: "cancelled", cancelledBy: "admin" }).catch(() => {});
-      console.log(`syncCalendarToApp: cancelled booking ${priv.bookingId} uid=${priv.uid} (deleted in Google Calendar)`);
+        await bookingRef.update({ status: "cancelled", cancelledBy: "admin" }).catch(() => {});
+        console.log(`syncCalendarToApp: cancelled booking ${priv.bookingId} uid=${priv.uid} (deleted in Google Calendar)`);
+        continue;
+      }
+
+      // Активна подія — перевіряємо чи не перенесена вручну в календарі
+      if (isRecentEcho(booking.lastSyncedByApp) || isRecentEcho(booking.lastSyncedFromCalendar)) continue;
+
+      const calSchedule = fromCalendarEvent(ev);
+      if (!calSchedule) continue; // all-day подія — не наш формат, ігноруємо
+
+      const appSchedule = getBookingSchedule(booking);
+      if (!appSchedule) continue;
+
+      const changed = calSchedule.date !== appSchedule.date ||
+        calSchedule.startMin !== appSchedule.startMin ||
+        calSchedule.durMin !== appSchedule.durMin;
+      if (!changed) continue;
+
+      const free = await isRangeFreeForBooking(
+        calSchedule.date, calSchedule.startMin, calSchedule.durMin, priv.uid, priv.bookingId
+      );
+      if (!free) {
+        console.warn(
+          `syncCalendarToApp: reschedule from calendar bookingId=${priv.bookingId} uid=${priv.uid} → ` +
+          `${calSchedule.date} ${calSchedule.time} conflicts with existing slot, skipped`
+        );
+        continue;
+      }
+
+      await bookingRef.update({
+        date: calSchedule.date,
+        time: calSchedule.time,
+        durMin: calSchedule.durMin,
+        startMin: null,
+        durationHours: null,
+        lastSyncedFromCalendar: Date.now(),
+      }).catch(() => {});
+      console.log(
+        `syncCalendarToApp: rescheduled booking ${priv.bookingId} uid=${priv.uid} → ` +
+        `${calSchedule.date} ${calSchedule.time} (moved in Google Calendar)`
+      );
     }
 
     if (newSyncToken) {

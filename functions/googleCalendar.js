@@ -19,7 +19,7 @@ function getCalendarClient() {
 }
 
 // Той самий розрахунок дати/тривалості, що й buildSlotUpdates в index.js
-function computeRange(booking) {
+function getBookingSchedule(booking) {
   const { date, time, durationHours, durMin, startMin } = booking || {};
   if (!date || (!time && startMin == null)) return null;
 
@@ -31,6 +31,16 @@ function computeRange(booking) {
     start = h * 60 + m;
   }
   const dur = durMin ?? ((durationHours || 1) * 60);
+  const hh = String(Math.floor(start / 60)).padStart(2, "0");
+  const mm = String(start % 60).padStart(2, "0");
+
+  return { date, time: `${hh}:${mm}`, startMin: start, durMin: dur };
+}
+
+function computeRange(booking) {
+  const sched = getBookingSchedule(booking);
+  if (!sched) return null;
+  const { date, startMin: start, durMin: dur } = sched;
   const end = start + dur;
 
   const toDateTime = (totalMin) => {
@@ -67,9 +77,37 @@ function isIgnorableCalendarError(err) {
   return status === 404 || status === 410;
 }
 
+function toKyivDateTimeParts(isoString) {
+  const d = new Date(isoString);
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: CALENDAR_TIMEZONE,
+    year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", hour12: false,
+  }).formatToParts(d);
+  const get = (type) => parts.find((p) => p.type === type).value;
+  return { date: `${get("year")}-${get("month")}-${get("day")}`, time: `${get("hour")}:${get("minute")}` };
+}
+
+// Обернена до buildEvent: подія з Google Calendar → {date, time, startMin, durMin}.
+// Повертає null для all-day подій (немає dateTime, тільки date).
+function fromCalendarEvent(event) {
+  const startIso = event?.start?.dateTime;
+  const endIso = event?.end?.dateTime;
+  if (!startIso || !endIso) return null;
+
+  const { date, time } = toKyivDateTimeParts(startIso);
+  const [h, m] = time.split(":").map(Number);
+  const startMin = h * 60 + m;
+  const durMin = Math.round((new Date(endIso) - new Date(startIso)) / 60000);
+
+  return { date, time, startMin, durMin };
+}
+
 module.exports = {
   CALENDAR_SECRETS,
   getCalendarClient,
   buildEvent,
+  getBookingSchedule,
+  fromCalendarEvent,
   isIgnorableCalendarError,
 };
