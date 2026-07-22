@@ -783,7 +783,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
           const m = String(cur % 60).padStart(2, "0");
           const id = `slot${h}${m}`;
           // Слот поза згенерованою сіткою (запис за межами робочих годин) —
-          // phantom: після скасування видаляється, а не стає вільним.
+          // позначаємо phantom для довідки; при скасуванні все одно стає вільним.
           if (!(`timeslots/${dateStr}/${id}/available` in updates)) {
             updates[`timeslots/${dateStr}/${id}/phantom`] = true;
           }
@@ -1314,21 +1314,17 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
       const cancelOne = (mb) => {
         if (mb.startMin !== undefined && mb.durMin) {
           const dateStr = mb.date || absDayToDateStr(mb.day);
-          // Відновлюємо лише слоти, що існують у сітці дня; phantom-вузли
-          // (створені лише під запис) видаляємо, щоб не спавнились вільні слоти.
-          get(ref(db, `timeslots/${dateStr}`)).then(s => {
-            const day = s.val() || {};
-            const upd = {};
-            for (let i = 0; i < mb.durMin; i += 30) {
-              const sm = mb.startMin + i;
-              const hh = String(Math.floor(sm/60)).padStart(2,'0'), mm = String(sm%60).padStart(2,'0');
-              const path = `timeslots/${dateStr}/slot${hh}${mm}`;
-              const node = day[`slot${hh}${mm}`];
-              if (!node || node.phantom) { upd[path] = null; continue; }
-              upd[`${path}/available`] = true; upd[`${path}/time`] = `${hh}:${mm}`;
-            }
-            if (Object.keys(upd).length) update(ref(db,'/'), upd).catch(()=>{});
-          }).catch(()=>{});
+          // Відновлюємо ВСІ слоти запису як вільні (включно з phantom — раніше
+          // такі видалялись, через що адмінка переставала показувати їх
+          // взагалі, хоча клієнт продовжував бачити цей час відкритим).
+          const upd = {};
+          for (let i = 0; i < mb.durMin; i += 30) {
+            const sm = mb.startMin + i;
+            const hh = String(Math.floor(sm/60)).padStart(2,'0'), mm = String(sm%60).padStart(2,'0');
+            const path = `timeslots/${dateStr}/slot${hh}${mm}`;
+            upd[`${path}/available`] = true; upd[`${path}/time`] = `${hh}:${mm}`; upd[`${path}/phantom`] = null;
+          }
+          update(ref(db,'/'), upd).catch(()=>{});
         }
         // Позначити cancelled у Firebase (обидва можливих ключі)
         if (mb.userId) {
@@ -1972,23 +1968,19 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                           e.stopPropagation();
                           xVisibleRef.current = false;
                           setQuickCancelId(null);
-                          // Відновити слоти одразу (лише існуючі в сітці; phantom — видалити)
+                          // Відновити слоти одразу як вільні (включно з phantom —
+                          // раніше видалялись, і адмінка "губила" цей час зовсім)
                           if (b.startMin !== undefined && b.durMin) {
                             const dateStr = b.date || absDayToDateStr(b.day);
-                            get(ref(db, `timeslots/${dateStr}`)).then(s => {
-                              const day = s.val() || {};
-                              const slotUpd = {};
-                              for (let i = 0; i < b.durMin; i += 30) {
-                                const slotMin = b.startMin + i;
-                                const hh = String(Math.floor(slotMin/60)).padStart(2,'0');
-                                const mm = String(slotMin%60).padStart(2,'0');
-                                const path = `timeslots/${dateStr}/slot${hh}${mm}`;
-                                const node = day[`slot${hh}${mm}`];
-                                if (!node || node.phantom) { slotUpd[path] = null; continue; }
-                                slotUpd[`${path}/available`]=true; slotUpd[`${path}/time`]=`${hh}:${mm}`;
-                              }
-                              if (Object.keys(slotUpd).length) update(ref(db,'/'), slotUpd).catch(()=>{});
-                            }).catch(()=>{});
+                            const slotUpd = {};
+                            for (let i = 0; i < b.durMin; i += 30) {
+                              const slotMin = b.startMin + i;
+                              const hh = String(Math.floor(slotMin/60)).padStart(2,'0');
+                              const mm = String(slotMin%60).padStart(2,'0');
+                              const path = `timeslots/${dateStr}/slot${hh}${mm}`;
+                              slotUpd[`${path}/available`]=true; slotUpd[`${path}/time`]=`${hh}:${mm}`; slotUpd[`${path}/phantom`]=null;
+                            }
+                            update(ref(db,'/'), slotUpd).catch(()=>{});
                           }
                           // Прямий запис cancelled у Firebase одразу (не покладаємось на 2с-таймер)
                           const idsCancel = b._mergedIds || [b.id];
