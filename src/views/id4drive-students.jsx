@@ -97,18 +97,6 @@ function StudentForm({ initial, onSave, onCancel, saveLabel="Зберегти" }
           </div>
         </div>
       </div>
-      {d.type==="school" && (
-        <div>
-          <div style={{fontSize:10,color:FAINT,letterSpacing:1,marginBottom:5}}>ТСЦ</div>
-          <div style={{display:"flex",gap:6}}>
-            {[["ТСЦ 8041","8041"],["ТСЦ 8042","8042"]].map(([val,lbl])=>(
-              <UIBtn key={val} variant={d.tsc===val?"primary":"ghost"} flex={1}
-                style={{padding:"7px 4px",borderRadius:8,fontSize:11}}
-                onClick={()=>upd("tsc",val)}>{lbl}</UIBtn>
-            ))}
-          </div>
-        </div>
-      )}
       <div onClick={()=>upd("isVip",!d.isVip)} style={{
         display:"flex",alignItems:"center",justifyContent:"space-between",
         padding:"10px 12px",borderRadius:10,cursor:"pointer",
@@ -174,7 +162,7 @@ function StudentCard({ s, onSelect }) {
           <div style={{fontSize:13,fontWeight:800,color:s.blocked?DIM:TEXT,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
             {s.name}{s.blocked && <span style={{fontSize:9,color:RED,fontWeight:700,marginLeft:6}}>🚫</span>}
           </div>
-          <div style={{fontSize:10,color:typeColor,fontWeight:700,marginTop:2}}>{typeLabel}{s.tsc ? ` · ${s.tsc}` : ""}</div>
+          <div style={{fontSize:10,color:typeColor,fontWeight:700,marginTop:2}}>{typeLabel}</div>
         </div>
         <button onClick={e=>{e.stopPropagation();navTo("chats");}} style={{background:"none",border:"none",cursor:"pointer",padding:0,flexShrink:0}}>
           <div className="icon3d" style={{width:26,height:26,background:"linear-gradient(145deg,rgba(91,155,255,.35),rgba(37,99,235,.2))",borderRadius:8,display:"flex",alignItems:"center",justifyContent:"center"}}>
@@ -309,7 +297,7 @@ function StudentDetailSheet({ s, onClose, onUpdate, onDelete, onBlock, autoOpenH
               <div style={{fontSize:15,fontWeight:800,color:s.blocked?DIM:TEXT,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
                 {s.name}{s.blocked && <span style={{fontSize:10,color:RED,marginLeft:6}}>🚫</span>}
               </div>
-              <div style={{fontSize:11,color:typeColor,fontWeight:700,marginTop:2}}>{typeLabel}{s.tsc ? ` · ${s.tsc}` : ""}</div>
+              <div style={{fontSize:11,color:typeColor,fontWeight:700,marginTop:2}}>{typeLabel}</div>
             </div>
             <div onClick={_close} style={{
               width:28,height:28,borderRadius:8,background:glow(0.07),
@@ -323,7 +311,7 @@ function StudentDetailSheet({ s, onClose, onUpdate, onDelete, onBlock, autoOpenH
 
             {editMode ? (
               <StudentForm
-                initial={{name:s.name,phone:s.phone,discount:s.discount??0,notes:s.notes||"",type:s.type,tsc:s.tsc||"",isVip:s.isVip||false,noIntervalLimit:s.noIntervalLimit||false}}
+                initial={{name:s.name,phone:s.phone,discount:s.discount??0,notes:s.notes||"",type:s.type,isVip:s.isVip||false,noIntervalLimit:s.noIntervalLimit||false}}
                 onSave={patch=>{onUpdate(s.id,patch);setEditMode(false);}}
                 onCancel={()=>setEditMode(false)}
               />
@@ -534,7 +522,7 @@ export default function StudentsView({ studentJump, onStudentJumpHandled } = {})
         const p = u.profile || {};
         return {
           id:uid, name:p.name||u.name||"Учень", phone:p.phone||u.phone||"",
-          type:p.type||u.type||"private", tsc:p.tsc||u.tsc||"",
+          type:p.type||u.type||"private",
           hours:u.hours||0, hoursOffset:u.hoursOffset||0,
           discount:u.discount||0, notes:u.notes||"", blocked:u.blocked||false, isVip:u.isVip||false,
           noIntervalLimit:u.noIntervalLimit||false,
@@ -556,15 +544,6 @@ export default function StudentsView({ studentJump, onStudentJumpHandled } = {})
   const updateStudent = (id,patch) => {
     setStudents(ss=>ss.map(x=>x.id===id?{...x,...patch}:x));
     update(ref(db,`users/${id}`),patch).catch(()=>{});
-    if (patch.tsc !== undefined) {
-      get(ref(db,`bookings/${id}`)).then(snap => {
-        const bkgs = snap.val();
-        if (!bkgs) return;
-        const updates = {};
-        Object.keys(bkgs).forEach(bkId => { updates[`bookings/${id}/${bkId}/tsc`] = patch.tsc; });
-        update(ref(db), updates).catch(()=>{});
-      }).catch(()=>{});
-    }
   };
   const deleteStudent = id => {
     setStudents(ss=>ss.filter(x=>x.id!==id));
@@ -575,7 +554,6 @@ export default function StudentsView({ studentJump, onStudentJumpHandled } = {})
       name:data.name.trim(), phone:data.phone.trim(), type:data.type,
       discount:Number(data.discount)||0, notes:data.notes.trim(), blocked:false,
       isVip:data.isVip||false, hours:0,
-      tsc:data.type==="school"?(data.tsc||""):"",
       createdAt:Date.now(),
     });
     setShowNew(false);
@@ -665,7 +643,7 @@ export default function StudentsView({ studentJump, onStudentJumpHandled } = {})
             <div style={{width:38,height:4,borderRadius:2,background:ink(0.12),margin:"0 auto 14px"}}/>
             <div style={{fontSize:14,fontWeight:800,color:TEXT,marginBottom:12}}>Новий учень</div>
             <StudentForm
-              initial={{name:"",phone:"+380",discount:0,notes:"",type:"private",isVip:false,noIntervalLimit:false,tsc:""}}
+              initial={{name:"",phone:"+380",discount:0,notes:"",type:"private",isVip:false,noIntervalLimit:false}}
               onSave={createStudent} onCancel={()=>setShowNew(false)} saveLabel="Додати"
             />
           </div>

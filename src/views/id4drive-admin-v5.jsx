@@ -1381,7 +1381,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   const handleBlock = ({ day, startMin }) => {
     setBookings(bs=>[...bs,{
       id:`block-${Date.now()}`, day, startMin, durMin:60,
-      name:"ЗАБЛОКОВАНО", phone:"", type:"block", tsc:"",
+      name:"ЗАБЛОКОВАНО", phone:"", type:"block",
       hoursDone:0, status:"blocked", serviceId:""
     }]);
   };
@@ -1894,10 +1894,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                         const si = a => `rgba(${INK === "255,255,255" ? "0,0,0" : INK},${a})`;
                         const priceColor = b.surcharge ? GOLD : si(0.9);
                         const priceText = price > 0 ? `${price}₴` : null;
-                        // TSC замінює "Автошкола" коли є — завжди 4 рядки
-                        const typeLabel = b.type==="school"
-                          ? (b.tsc || "Автошкола")
-                          : "Приватний";
+                        const typeLabel = b.type==="school" ? "Автошкола" : "Приватний";
                         const allLines = [
                           { text: fName,     w: 800, c: si(0.95) },
                           ...(lName          ? [{ text: lName,     w: 700, c: si(0.80) }] : []),
@@ -2630,7 +2627,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
             startMin: b.startMin, durMin: b.durMin, durationHours: b.durMin / 60,
             studentName: b.name, name: b.name, phone: b.phone,
             serviceId: b.serviceId, serviceType: b.type, type: b.type,
-            status: b.status, tsc: b.tsc || "", hours: b.hoursDone || 0,
+            status: b.status, hours: b.hoursDone || 0,
             createdAt: Date.now(), createdBy: "admin",
             ...(b.note && { note: b.note }),
           };
@@ -3359,7 +3356,6 @@ function PersonalEventModal({ data, onClose, onConfirm }) {
                   note: note.trim(),
                   type: "personal",
                   status: "personal",
-                  tsc: "",
                   wasAdminBlocked: !!data.slot?.adminBlocked,
                   createdAt: Date.now(),
                   createdBy: "admin",
@@ -3410,7 +3406,6 @@ function NewBookingModal({ data, onClose, onConfirm, settings, bookings = [] }) 
   const [timeVal,    setTimeVal]    = useState(null);
   const [svcId,      setSvcId]      = useState(null);
   const [note,       setNote]       = useState("");
-  const [tsc,        setTsc]        = useState("");
   const [students,   setStudents]   = useState([]);
   const [closing,    setClosing]    = useState(false);
 
@@ -3420,7 +3415,7 @@ function NewBookingModal({ data, onClose, onConfirm, settings, bookings = [] }) 
       const d = snap.val() || {};
       setStudents(Object.entries(d).map(([uid, u]) => {
         const p = u.profile || {};
-        return { id:uid, name:p.name||u.name||"Учень", phone:p.phone||u.phone||"", tsc:p.tsc||u.tsc||"" };
+        return { id:uid, name:p.name||u.name||"Учень", phone:p.phone||u.phone||"" };
       }).filter(s=>s.name!=="Учень"||s.phone));
     });
     return () => off(r, "value", handler);
@@ -3432,7 +3427,7 @@ function NewBookingModal({ data, onClose, onConfirm, settings, bookings = [] }) 
       setTimeVal(snapped?.value ?? timeItems[0]?.value ?? null);
       setDateOffset(Math.max(0, data.day??0));
       setSearch(""); setSelStudent(null); setPhone("");
-      setNewName(""); setNewPhone(""); setNote(""); setTsc("");
+      setNewName(""); setNewPhone(""); setNote("");
       setSvcId(null);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -3485,7 +3480,7 @@ function NewBookingModal({ data, onClose, onConfirm, settings, bookings = [] }) 
       day:dateOffset, date:dateStr, startMin:timeVal, durMin:selSvc.duration,
       name:finalName, phone:finalPhone, serviceId:selSvc.id,
       type:selSvc.type||"private", status:"confirmed",
-      tsc: selSvc?.type==="school" ? tsc.trim() : "", hoursDone:0, categoryId:null, isVipOnly:false,
+      hoursDone:0, categoryId:null, isVipOnly:false,
       userId: (!isNewStudent && selStudent?.id) ? selStudent.id : null,
       ...(note.trim() && { note:note.trim() }),
     });
@@ -3591,7 +3586,7 @@ function NewBookingModal({ data, onClose, onConfirm, settings, bookings = [] }) 
                     </div>
                   )}
                   {filtered.map(s=>(
-                    <div key={s.id} onClick={()=>{setSelStudent(s);setPhone(s.phone);setSearch("");if(s.tsc)setTsc(s.tsc);}}
+                    <div key={s.id} onClick={()=>{setSelStudent(s);setPhone(s.phone);setSearch("");}}
                       style={{display:"flex",alignItems:"center",justifyContent:"space-between",
                         padding:"9px 13px",cursor:"pointer",borderBottom:`1px solid ${BORDER}`,background:BG_DEEP}}>
                       <div style={{fontSize:13,fontWeight:700,color:TEXT}}>{s.name}</div>
@@ -3687,25 +3682,6 @@ function NewBookingModal({ data, onClose, onConfirm, settings, bookings = [] }) 
               })}
             </div>
           </div>
-
-          {/* ТСЦ — тільки для послуг автошколи */}
-          {selSvc?.type === "school" && (
-            <div>
-              <SL>ТСЦ (центр)</SL>
-              <input
-                type="text"
-                placeholder="Наприклад: ТСЦ Оболонь"
-                value={tsc}
-                onChange={e=>setTsc(e.target.value)}
-                style={{
-                  width:"100%", padding:"10px 13px", borderRadius:12,
-                  border:`1.5px solid ${BORDER}`,
-                  background:SURFACE_LO, color:TEXT, fontSize:13,
-                  outline:"none", boxSizing:"border-box", fontFamily:"inherit",
-                }}
-              />
-            </div>
-          )}
 
           {/* ЦІНА PREVIEW */}
           {selSvc && (

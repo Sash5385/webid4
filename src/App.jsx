@@ -444,8 +444,6 @@ export default function App() {
   const [chatUnread,    setChatUnread]    = useState(0);
   const [journalUnread, setJournalUnread] = useState(0);
   const [studentJump, setStudentJump] = useState(null);
-  const usersMapRef = React.useRef({});
-  const rawBookingsSnapRef = React.useRef(null);
 
   const switchTab = t => {
     setTab(t);
@@ -670,8 +668,6 @@ export default function App() {
       if (!userBkgs || typeof userBkgs !== 'object') return;
       Object.entries(userBkgs).forEach(([key, b]) => {
         if (b.status === 'cancelled') return;
-        const umap = usersMapRef.current[uid] || {};
-        const tsc = b.tsc || umap.profile?.tsc || umap.tsc || "";
         all.push({
           ...b,
           id:        b.id || key,
@@ -682,7 +678,6 @@ export default function App() {
           durMin:    b.durMin   ?? (b.durationHours ? b.durationHours*60 : 60),
           name:      b.studentName || b.name || "Без імені",
           type:      b.serviceType || b.type || "private",
-          tsc,
         });
       });
     });
@@ -708,15 +703,6 @@ export default function App() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Keep users map fresh — reprocess bookings when it updates so TSC is always current
-  useEffect(() => {
-    if (!adminUser) return;
-    return onValue(ref(db, "users"), snap => {
-      usersMapRef.current = snap.val() || {};
-      if (rawBookingsSnapRef.current) processBookingsSnap(rawBookingsSnapRef.current);
-    });
-  }, [adminUser, processBookingsSnap]);
-
   useEffect(() => {
     if (!adminUser) {
       Object.values(moveSaveTimers.current).forEach(clearTimeout);
@@ -725,7 +711,6 @@ export default function App() {
     }
     return onValue(ref(db, "bookings"), snap => {
       const data = snap.val();
-      rawBookingsSnapRef.current = data;
       processBookingsSnap(data);
       const readAt = parseInt(localStorage.getItem("journal_read_at") || "0", 10);
       if (readAt && data) {
