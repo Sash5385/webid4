@@ -224,6 +224,21 @@ exports.onBookingChanged = onValueWritten(
   }
 );
 
+// Новий учень зареєструвався (заповнив анкету) — сповіщаємо адміна
+exports.onNewStudentRegistered = onValueCreated(
+  { ref: "users/{uid}/profile", region: "europe-west1" },
+  async (event) => {
+    const profile = event.data.val();
+    const { uid } = event.params;
+    const name  = profile?.name  || "Новий учень";
+    const phone = profile?.phone || "";
+    console.log(`onNewStudentRegistered: uid=${uid} name="${name}"`);
+    await pushAdmin("🎉 Новий учень", phone ? `${name} · ${phone}` : name, {
+      url: buildAdminLink("https://admin.id4drive.pro", { uid }),
+    });
+  }
+);
+
 // Кнопка "Запросити": записує offeredTo/{uid} і пушить студента
 exports.onQueueInvite = onValueUpdated(
   { ref: "queue/{slotKey}/entries/{uid}", region: "europe-west1" },
