@@ -1750,11 +1750,8 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                   borderRadius:8, pointerEvents:"none",
                   display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:3,
                 }}>
-                  <svg viewBox="0 0 100 90" style={{width:Math.min(24,(colLunch.end-colLunch.start)*60*PX_PER_MIN*0.45),opacity:0.9,marginTop:6}} fill={GOLD}>
-                    <path d="M8,42 C8,15 28,8 50,8 C72,8 92,15 92,42 Z" stroke="rgba(0,0,0,0.85)" strokeWidth="6" paintOrder="stroke"/>
-                    <path d="M8,48 Q16,56 24,48 Q32,56 40,48 Q48,56 56,48 Q64,56 72,48 Q80,56 88,48 L88,54 Q80,62 72,54 Q64,62 56,54 Q48,62 40,54 Q32,62 24,54 Q16,62 8,54 Z" stroke="rgba(0,0,0,0.85)" strokeWidth="6" paintOrder="stroke"/>
-                    <rect x="8" y="58" width="84" height="12" rx="4" stroke="rgba(0,0,0,0.85)" strokeWidth="6" paintOrder="stroke"/>
-                    <path d="M10,72 L90,72 Q90,82 80,82 L20,82 Q10,82 10,72 Z" stroke="rgba(0,0,0,0.85)" strokeWidth="6" paintOrder="stroke"/>
+                  <svg viewBox="0 0 272.7 238.5" style={{width:Math.min(24,(colLunch.end-colLunch.start)*60*PX_PER_MIN*0.45),opacity:0.9,marginTop:6}} fill="#FFC72C">
+                    <path d="m195.8 17.933c23.3 0 42.2 98.3 42.2 219.7h34c0-130.7-34.3-236.5-76.3-236.5-24 0-45.2 31.7-59.2 81.5-14-49.8-35.2-81.5-59-81.5-42 0-76.2 105.7-76.2 236.4h34c0-121.4 18.7-219.6 42-219.6s42.2 90.8 42.2 202.8h33.8c0-112 19-202.8 42.3-202.8" stroke="rgba(0,0,0,0.85)" strokeWidth="16" paintOrder="stroke"/>
                   </svg>
                   <span style={{fontSize:7,fontWeight:700,color:TEXT_FAINT,letterSpacing:0.5,textTransform:"uppercase"}}>обід</span>
                 </div>
