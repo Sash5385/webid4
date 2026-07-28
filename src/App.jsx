@@ -909,8 +909,17 @@ const pendingDeletesRef = React.useRef(new Set());
               const sm = String(slotMin % 60).padStart(2, "0");
               newSurcharge += newSlotsForDate[`${sh}:${sm}`]?.surcharge || 0;
             }
-            const oldSurcharge = b.surcharge || 0;
             const discountFactor = 1 - (b.discountPct || 0) / 100;
+            // Базова ціна за послугою (як у розкладі/деталях запису) — а не
+            // дельта від старої b.price, якої може не бути (записи, створені
+            // вручну через NewBookingModal, price/surcharge не зберігають).
+            const svc = (settings.services || []).find(s => s.id === b.serviceId)
+                     || (settings.services || []).find(s => s.active && s.type === (b.serviceType || b.type) && Number(s.duration) === b.durMin);
+            const basePrice = svc
+              ? Math.round((svc.price / svc.duration) * b.durMin)
+              : b.price && b.durationHours
+                ? Math.round((b.price / (b.durationHours * 60)) * b.durMin)
+                : (b.price || 0);
             // Атомарність: звільнення старих слотів + блокування нових + оновлення
             // запису одним update(). Якщо Firebase відхилить — не запишеться нічого,
             // тож не буде стану «слот вільний, але запис уже там» чи навпаки.
@@ -932,11 +941,20 @@ const pendingDeletesRef = React.useRef(new Set());
             upd[`${bp}/date`]          = newDate;
             upd[`${bp}/time`]          = `${hh}:${mm}`;
             upd[`${bp}/rescheduledAt`] = Date.now();
-            if (b.price != null) {
-              upd[`${bp}/price`] = b.price + Math.round((newSurcharge - oldSurcharge) * discountFactor);
-              if (newSurcharge) upd[`${bp}/surcharge`] = newSurcharge;
-            }
-            update(ref(db, "/"), upd).catch(() => {
+            // Завжди перераховуємо ціну під нову позицію (навіть якщо price
+            // раніше не зберігався) і надбавку саме нового слоту (0, якщо
+            // новий слот без надбавки, — стара надбавка не має «прилипати»).
+            const newPrice = Math.round((basePrice + newSurcharge) * discountFactor);
+            upd[`${bp}/price`] = newPrice;
+            upd[`${bp}/surcharge`] = newSurcharge || null;
+            update(ref(db, "/"), upd).then(() => {
+              // Мержимо нову ціну/надбавку в локальний стан одразу — не чекаючи
+              // наступного onValue з Firebase (без цього UI показував старе,
+              // поки сторінку не перезавантажиш).
+              setBookings(bs => bs.map(x => x.id === b.id
+                ? { ...x, price: newPrice, surcharge: newSurcharge || null }
+                : x));
+            }).catch(() => {
               // Відкат: атомарний запис не пройшов, тож у Firebase нічого не
               // змінилось. Повертаємо картку на старе місце, щоб UI не розходився з БД.
               if (orig) {

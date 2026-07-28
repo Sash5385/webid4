@@ -832,9 +832,12 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
       }
       await update(ref(db, "/"), clearUpdates);
       // Now compute and write fresh slots (pass {} — no existing adminBlocked to preserve)
+      // force НЕ передаємо: масова регенерація має поважати weekSchedule.enabled
+      // (дні вихідного за тижневим шаблоном лишаються закритими). force=true —
+      // тільки для generateDaySlots (явний клік по конкретному дню = ручний override).
       for (let d = 0; d <= limit; d++) {
         const dateStr = absDayToDateStr(d);
-        const result = computeDayUpdates(dateStr, {}, true);
+        const result = computeDayUpdates(dateStr, {});
         if (result) Object.assign(allUpdates, result.updates);
       }
       if (Object.keys(allUpdates).length) await update(ref(db, "/"), allUpdates);
@@ -1316,7 +1319,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   };
 
   const handleAction = (action, b) => {
-    if (action === "confirm") setBookings(bs=>bs.map(x=>x.id===b.id?{...x,status:"confirmed"}:x));
+    if (action === "confirm") { setBookings(bs=>bs.map(x=>x.id===b.id?{...x,status:"confirmed"}:x)); return; }
     if (action === "cancel") {
       // Відновити timeslots
       const cancelOne = (mb) => {
@@ -1353,8 +1356,9 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
         setBookings(bs=>bs.filter(x=>!idsC.includes(x.id)));
         delete cancelTimers.current[b.id];
       }, 2000);
+      return;
     }
-    if (action === "noshow")  setBookings(bs=>bs.map(x=>x.id===b.id?{...x,status:"noshow"}:x));
+    if (action === "noshow")  { setBookings(bs=>bs.map(x=>x.id===b.id?{...x,status:"noshow"}:x)); return; }
     if (action === "delete")  setBookings(bs=>bs.filter(x=>x.id!==b.id));
     if (action === "repeat")  setBookings(bs=>[...bs,{...b, id:`b-${Date.now()}`, day:b.day+7, status:"confirmed"}]);
     if (action === "chat")     { navTo?.("chats"); return; }
@@ -1581,7 +1585,9 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                   alignItems:"center", justifyContent:"space-between",
                   padding:"3px 2px 3px", borderRadius:10, cursor: isPastDay ? "default" : "pointer",
                   opacity: isPastDay ? 0.35 : 1, overflow:"visible",
-                  background: isClosedDay ? `rgba(220,60,60,0.13)` : isToday ? `rgba(247,201,72,0.18)` : isOpenCol ? (isLight ? `rgba(58,140,30,0.12)` : `rgba(99,211,120,0.13)`) : (isLight ? `rgba(0,0,0,0.07)` : `rgba(0,0,0,0.18)`),
+                  // Непрозорий фон (color-mix замість rgba) — інакше цей sticky-заголовок
+                  // просвічує і контент, що скролиться під ним, "наїжджає" на напис.
+                  background: isClosedDay ? `color-mix(in srgb, #dc3c3c 13%, ${BG_DEEP})` : isToday ? `color-mix(in srgb, ${GOLD} 18%, ${BG_DEEP})` : isOpenCol ? (isLight ? `color-mix(in srgb, #3a8c1e 12%, ${BG_DEEP})` : `color-mix(in srgb, #63d378 13%, ${BG_DEEP})`) : (isLight ? `color-mix(in srgb, #000000 7%, ${BG_DEEP})` : `color-mix(in srgb, #000000 18%, ${BG_DEEP})`),
                   boxShadow: isClosedDay ? `inset 0 0 0 1.5px rgba(220,60,60,0.7)` : isToday ? `inset 0 0 0 1.5px rgba(247,201,72,0.55)` : isOpenCol ? (isLight ? `inset 0 0 0 1px rgba(58,140,30,0.5)` : `inset 0 0 0 1px rgba(99,211,120,0.35)`) : "none",
                 }}>
                 <div style={{fontSize:9, fontWeight:700, lineHeight:1.2,
@@ -1744,8 +1750,11 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                   borderRadius:8, pointerEvents:"none",
                   display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:3,
                 }}>
-                  <svg viewBox="0 0 272.7 238.5" style={{width:Math.min(24,(colLunch.end-colLunch.start)*60*PX_PER_MIN*0.45),opacity:0.9,marginTop:6}} fill="#FFC72C">
-                    <path d="m195.8 17.933c23.3 0 42.2 98.3 42.2 219.7h34c0-130.7-34.3-236.5-76.3-236.5-24 0-45.2 31.7-59.2 81.5-14-49.8-35.2-81.5-59-81.5-42 0-76.2 105.7-76.2 236.4h34c0-121.4 18.7-219.6 42-219.6s42.2 90.8 42.2 202.8h33.8c0-112 19-202.8 42.3-202.8" stroke="rgba(0,0,0,0.85)" strokeWidth="16" paintOrder="stroke"/>
+                  <svg viewBox="0 0 100 90" style={{width:Math.min(24,(colLunch.end-colLunch.start)*60*PX_PER_MIN*0.45),opacity:0.9,marginTop:6}} fill={GOLD}>
+                    <path d="M8,42 C8,15 28,8 50,8 C72,8 92,15 92,42 Z" stroke="rgba(0,0,0,0.85)" strokeWidth="6" paintOrder="stroke"/>
+                    <path d="M8,48 Q16,56 24,48 Q32,56 40,48 Q48,56 56,48 Q64,56 72,48 Q80,56 88,48 L88,54 Q80,62 72,54 Q64,62 56,54 Q48,62 40,54 Q32,62 24,54 Q16,62 8,54 Z" stroke="rgba(0,0,0,0.85)" strokeWidth="6" paintOrder="stroke"/>
+                    <rect x="8" y="58" width="84" height="12" rx="4" stroke="rgba(0,0,0,0.85)" strokeWidth="6" paintOrder="stroke"/>
+                    <path d="M10,72 L90,72 Q90,82 80,82 L20,82 Q10,82 10,72 Z" stroke="rgba(0,0,0,0.85)" strokeWidth="6" paintOrder="stroke"/>
                   </svg>
                   <span style={{fontSize:7,fontWeight:700,color:TEXT_FAINT,letterSpacing:0.5,textTransform:"uppercase"}}>обід</span>
                 </div>
@@ -1840,7 +1849,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                         background:"rgba(45,212,191,0.12)",
                         border:"1.5px solid rgba(45,212,191,0.4)",
                         display:"flex", flexDirection:"column",
-                        alignItems:"flex-start", justifyContent:"center",
+                        alignItems:"center", justifyContent:"center",
                         padding:"0 7px", overflow:"hidden",
                       } : isBlock ? {
                         position:"relative", width:"100%", height:"100%",
@@ -1871,14 +1880,14 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                         return (
                           <div style={{
                             position:"absolute", top:2, left:4, right:2, bottom:2,
-                            display:"flex", flexDirection:"column", justifyContent:"center",
-                            gap:1, overflow:"hidden",
+                            display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
+                            gap:1, overflow:"hidden", textAlign:"center",
                           }}>
                             <span style={{fontSize:Math.min(fs+1,11), lineHeight:1}}>📌</span>
                             {nameLines.slice(0,2).map((word,i)=>(
                               <div key={i} style={{
                                 fontSize:fs, fontWeight:700, color:"#2dd4bf",
-                                lineHeight:1.2, whiteSpace:"normal",
+                                lineHeight:1.2, whiteSpace:"normal", textAlign:"center",
                                 wordBreak:"break-word", overflowWrap:"anywhere",
                                 textShadow:"none",
                               }}>{word}</div>
@@ -1907,7 +1916,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                           { text: fName,     w: 800, c: si(0.95) },
                           ...(lName          ? [{ text: lName,     w: 700, c: si(0.80) }] : []),
                           { text: typeLabel, w: 600, c: si(0.58) },
-                          ...(priceText      ? [{ text: priceText, w: 900, c: priceColor }] : []),
+                          ...(priceText      ? [{ text: priceText, w: 900, c: priceColor, shadow: !!b.surcharge }] : []),
                         ];
                         const availH = height - 6;
                         const availW = COL_W - 8;
@@ -1934,7 +1943,9 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                                 lineHeight: 1.2, textAlign:"center",
                                 whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis",
                                 width:"100%",
-                                textShadow:"none",
+                                // Надбавка (GOLD) інакше зливається з жовтим кольором слоту —
+                                // темна обводка тримає контраст на будь-якому фоні картки.
+                                textShadow: ln.shadow ? "0 0 3px rgba(0,0,0,0.85), 0 1px 2px rgba(0,0,0,0.7)" : "none",
                               }}>{ln.text}</div>
                             ))}
                           </div>
@@ -2975,6 +2986,8 @@ function BookingModal({ booking, onClose, onAction, settings, bookings, onViewSt
         @keyframes _bm-down{from{transform:translateY(0);opacity:1}to{transform:translateY(100%);opacity:0}}
         @keyframes _bm-bg-in{from{opacity:0}to{opacity:1}}
         @keyframes _bm-bg-out{from{opacity:1}to{opacity:0}}
+        ._bm-press{transition:transform .12s ease,opacity .12s ease}
+        ._bm-press:active{transform:scale(0.94);opacity:0.85}
       `}</style>
       <div onClick={closing ? undefined : _close} style={{
         position:"fixed",inset:0,zIndex:200,
@@ -3461,7 +3474,9 @@ function NewBookingModal({ data, onClose, onConfirm, settings, bookings = [] }) 
   const selSvc    = activeServices.find(s=>s.id===svcId) ?? null;
   const finalName = isNewStudent ? newName.trim() : selStudent ? selStudent.name : search.trim();
   const finalPhone= isNewStudent ? newPhone.trim() : phone || (selStudent?.phone ?? "");
-  const canConfirm= finalName.length > 1 && !!selSvc && timeVal != null;
+  const readyToConfirm = finalName.length > 1 && !!selSvc && timeVal != null;
+  const canConfirm  = readyToConfirm && !!finalPhone;
+  const missingPhone = readyToConfirm && !finalPhone;
 
   const dayChips = Array.from({length:14},(_,i)=>{
     const info = getDayInfo(i);
@@ -3721,6 +3736,12 @@ function NewBookingModal({ data, onClose, onConfirm, settings, bookings = [] }) 
               background:SURFACE_LO,color:TEXT,fontSize:13,outline:"none",
             }}
           />
+
+          {missingPhone && (
+            <div style={{fontSize:12,color:ACCENT,textAlign:"center",marginTop:-4}}>
+              Вкажіть телефон учня, щоб зберегти запис
+            </div>
+          )}
 
           {/* Кнопка підтвердження */}
           <button disabled={!canConfirm} onClick={handleConfirm} style={{
