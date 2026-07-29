@@ -533,8 +533,13 @@ exports.onStudentMessage = onValueCreated(
     if (!msg || msg.from !== "student") return;
 
     const { uid } = event.params;
-    const profileSnap = await db.ref(`users/${uid}/profile`).get();
-    const name = profileSnap.val()?.name || "Студент";
+    // Загальний чат (uid="general") кладе ім'я прямо в повідомлення —
+    // users/general/profile не існує, тож інакше завжди був би "Студент".
+    let name = msg.name;
+    if (!name) {
+      const profileSnap = await db.ref(`users/${uid}/profile`).get();
+      name = profileSnap.val()?.name || "Студент";
+    }
 
     const text = msg.text || "";
     await pushAdmin(`💬 ${name}`, text.length > 100 ? text.slice(0, 100) + "…" : text);
