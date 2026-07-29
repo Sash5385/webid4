@@ -401,6 +401,9 @@ exports.onSlotFreed = onValueWritten(
     if (before?.available === true) return; // вже був вільний — не дублюємо
     if (!after || after.available !== true) return;
 
+    const enabledSnap = await db.ref("admin_settings/slotFreedPushEnabled").get();
+    if (enabledSnap.exists() && enabledSnap.val() === false) return;
+
     const { date, slotId } = event.params;
 
     // Тільки найближчі 10 днів
