@@ -22,7 +22,7 @@ async function saveNotification(uid, title, body, type = "system") {
 async function pushStudent(uid, title, body, data = {}) {
   const snap = await db.ref(`users/${uid}/fcmTokens/web/token`).get();
   const token = snap.val();
-  if (!token) return;
+  if (!token) return false;
   const link = data.url || "https://id4drive.pro/cabinet";
   try {
     // Data-only push — title/body/url у data (клієнт читає payload.data),
@@ -34,11 +34,18 @@ async function pushStudent(uid, title, body, data = {}) {
         fcmOptions: { link },
       },
     });
+    return true;
   } catch (e) {
     if (e.code === "messaging/registration-token-not-registered" ||
         e.code === "messaging/invalid-registration-token") {
+      // Чистимо ОБИДВІ копії токена — studentTokens це окремий індекс для
+      // broadcast-розсилок (flushSlotFreedQueue, unlockVipSlots), і якщо його
+      // не чистити тут, студент назавжди лишається у списку розсилки, хоча
+      // реальний токен вже видалено — пуш мовчки не відправляється щоразу.
       await db.ref(`users/${uid}/fcmTokens/web/token`).remove().catch(() => {});
+      await db.ref(`studentTokens/${uid}`).remove().catch(() => {});
     }
+    return false;
   }
 }
 
@@ -482,7 +489,8 @@ exports.flushSlotFreedQueue = onSchedule(
 
       for (const uid of notifyUids) {
         if (lastNotifData[uid] && now - lastNotifData[uid] < RATE_LIMIT_MS) continue;
-        await pushStudent(uid, title, body, { url, date, time }).catch(() => {});
+        const sent = await pushStudent(uid, title, body, { url, date, time }).catch(() => false);
+        if (!sent) continue; // токен мертвий/не знайдено — не займаємо rate-limit слот даремно
         await saveNotification(uid, title, body, "slot_freed").catch(() => {});
         lastNotifData[uid] = now; // локально щоб не спамити кілька слотів за один запуск
         await db.ref(`lastSlotNotif/${uid}`).set(now).catch(() => {});
