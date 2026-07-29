@@ -25,8 +25,5 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Delete legacy Cloud Functions (one-time cleanup)
-        run: npx firebase-tools functions:delete getGoogleReviews lessonReminder onAdminPush onBookingStatusChanged onInstructorMessage onNewBooking processPushTasks --region europe-west1 --force --token "${{ secrets.FIREBASE_TOKEN }}"
-
       - name: Deploy to Firebase Hosting, Database Rules and Functions
         run: npx firebase-tools deploy --only hosting:admin,database,functions --token "${{ secrets.FIREBASE_TOKEN }}"
