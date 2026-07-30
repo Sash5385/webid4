@@ -2666,34 +2666,28 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
           if (b.userId) {
             update(ref(db, `bookings/${b.userId}/${b.id}`), fbData).catch(()=>{});
           } else {
+            // Клієнт без акаунту (гість) — пишемо в той самий bookings/ дерево під
+            // синтетичним guest_<телефон> uid, а не в окремий bookings_by_phone.
+            // Інакше запис невидимий для власного розкладу/списків адмінки і не
+            // отримує жодної логіки з onBookingChanged (блокування слоту, синк
+            // з Google Calendar, звільнення черги тощо).
             const phone = (b.phone || '').replace(/\D/g, '');
             if (phone) {
-              update(ref(db, `bookings_by_phone/${phone}/${b.id}`), fbData).catch(()=>{});
-              for (let i = 0; i < b.durMin; i += 30) {
-                const slotMin = b.startMin + i;
-                const sh = String(Math.floor(slotMin / 60)).padStart(2, '0');
-                const sm = String(slotMin % 60).padStart(2, '0');
-                update(ref(db, `slotBookings/${b.date}/slot${sh}${sm}`), {phone, bookingId: b.id}).catch(()=>{});
-              }
+              update(ref(db, `bookings/guest_${phone}/${b.id}`), fbData).catch(()=>{});
             }
           }
         }
         if (b.date && b.startMin !== undefined && b.durMin) {
-          // Вузли поза сіткою дня позначаємо phantom — при скасуванні видаляться
-          get(ref(db, `timeslots/${b.date}`)).then(s => {
-            const day = s.val() || {};
-            const slotUpd = {};
-            for (let i = 0; i < b.durMin; i += 30) {
-              const slotMin = b.startMin + i;
-              const sh = String(Math.floor(slotMin / 60)).padStart(2, '0');
-              const sm = String(slotMin % 60).padStart(2, '0');
-              const id = `slot${sh}${sm}`;
-              if (!day[id]) slotUpd[`timeslots/${b.date}/${id}/phantom`] = true;
-              slotUpd[`timeslots/${b.date}/${id}/available`] = false;
-              slotUpd[`timeslots/${b.date}/${id}/time`] = `${sh}:${sm}`;
-            }
-            update(ref(db, '/'), slotUpd).catch(() => {});
-          }).catch(() => {});
+          // Миттєво блокуємо слоти в UI, не чекаючи round-trip через onBookingChanged.
+          const slotUpd = {};
+          for (let i = 0; i < b.durMin; i += 30) {
+            const slotMin = b.startMin + i;
+            const sh = String(Math.floor(slotMin / 60)).padStart(2, '0');
+            const sm = String(slotMin % 60).padStart(2, '0');
+            slotUpd[`timeslots/${b.date}/slot${sh}${sm}/available`] = false;
+            slotUpd[`timeslots/${b.date}/slot${sh}${sm}/time`] = `${sh}:${sm}`;
+          }
+          update(ref(db, '/'), slotUpd).catch(() => {});
         }
         setFormData(null);
       }}
