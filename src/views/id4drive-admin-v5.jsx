@@ -2674,6 +2674,20 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
             const phone = (b.phone || '').replace(/\D/g, '');
             if (phone) {
               update(ref(db, `bookings/guest_${phone}/${b.id}`), fbData).catch(()=>{});
+              // Дзеркалимо у users/, звідки читається вкладка "Учні" — інакше
+              // гість видно тільки в розкладі/бронюваннях, а не в списку учнів.
+              const studentRef = ref(db, `users/guest_${phone}`);
+              get(studentRef).then(s => {
+                if (s.exists()) {
+                  update(studentRef, { name: b.name, phone: b.phone }).catch(()=>{});
+                } else {
+                  update(studentRef, {
+                    name: b.name, phone: b.phone, type: b.type || "private",
+                    discount: 0, notes: "", blocked: false, isVip: false, hours: 0,
+                    createdAt: Date.now(),
+                  }).catch(()=>{});
+                }
+              }).catch(()=>{});
             }
           }
         }
