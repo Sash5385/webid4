@@ -247,29 +247,33 @@ export default function JournalView() {
         ))}
       </div>
 
-      {/* Type filter chips */}
-      <div style={{ display:"flex", gap:6, alignItems:"center", marginBottom:12, flexWrap:"wrap" }}>
+      {/* Type filter — stat tiles */}
+      <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:6 }}>
+        <span style={{fontSize:10,color:FAINT}}>{bySection.length} {noun(bySection.length)}</span>
+      </div>
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:6, marginBottom:12 }}>
         {[
-          ["all",        "Всі",         DIM         ],
-          ["new",        "✓ Новий",     theme.GREEN ],
-          ["cancel",     "✕ Скасовано", theme.RED   ],
-          ["reschedule", "↻ Перенос",   theme.GOLD  ],
+          ["new",        "✓ НОВИЙ",     theme.GREEN],
+          ["cancel",     "✕ СКАСОВАНО", theme.RED  ],
+          ["reschedule", "↻ ПЕРЕНОС",   theme.GOLD ],
         ].map(([id, lbl, color]) => {
           const active = typeFilter === id;
+          const count  = bySection.filter(e => e.type === id).length;
           return (
-            <button key={id} onClick={() => setTypeFilter(id)} style={{
-              padding:"5px 11px",borderRadius:12,
-              border:`1.5px solid ${active ? color : "transparent"}`,
-              cursor:"pointer",fontSize:11,fontWeight:700,fontFamily:"inherit",
-              background: active ? `${color}22` : `linear-gradient(145deg,${SURF_HI},${SURFACE})`,
-              color: active ? color : DIM,
-              boxShadow: SO,
+            <button key={id} onClick={() => setTypeFilter(active ? "all" : id)} style={{
+              border: active ? `1px solid color-mix(in srgb,${color} 45%,transparent)` : "1px solid transparent",
+              cursor:"pointer",borderRadius:11,padding:"8px 6px",textAlign:"center",fontFamily:"inherit",
+              background: active
+                ? `linear-gradient(155deg,color-mix(in srgb,${color} 40%,${BG_DEEP}) 0%,color-mix(in srgb,${color} 14%,${BG_DEEP}) 100%)`
+                : `linear-gradient(145deg,${SURF_HI},${SURFACE})`,
+              boxShadow: active ? "none" : SO,
               transition:"all .15s",
-            }}>{lbl}</button>
+            }}>
+              <div style={{fontSize:15,fontWeight:800,color: active ? "#fff" : color}}>{count}</div>
+              <div style={{fontSize:9,fontWeight:700,letterSpacing:0.5,marginTop:2,color: active ? "rgba(255,255,255,0.8)" : FAINT}}>{lbl}</div>
+            </button>
           );
         })}
-        <div style={{flex:1}}/>
-        <span style={{fontSize:10,color:FAINT}}>{filtered.length} {noun(filtered.length)}</span>
       </div>
 
       {/* Empty state */}
