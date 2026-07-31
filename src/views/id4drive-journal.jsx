@@ -191,7 +191,7 @@ function InfoRow({ label, value, theme, valueStyle = {} }) {
 
 export default function JournalView() {
   const theme = useContext(ThemeContext);
-  const { BG_DEEP, SURF_HI, SURFACE, BORDER, TEXT, DIM, FAINT, ACCENT, ACC_HI, SI, SO } = theme;
+  const { BG_DEEP, SURF_HI, SURFACE, BORDER, DIM, FAINT, ACCENT, ACC_HI, SO } = theme;
   const shade = a => `rgba(${theme.SHADE},${a})`;
   const glow  = a => `rgba(${theme.GLOW},${a})`;
 
@@ -291,62 +291,53 @@ export default function JournalView() {
             <span style={{fontSize:9,color:FAINT,flexShrink:0}}>{group.evs.length} {noun(group.evs.length)}</span>
           </div>
 
-          {/* Group panel */}
-          <div style={{
-            background:`linear-gradient(155deg,${SURF_HI},${SURFACE})`,borderRadius:16,
-            border:`1px solid ${BORDER}`,overflow:"hidden",
-            boxShadow:SI,
-          }}>
-            {group.evs.map((ev, i) => {
-              const meta    = EVENT_TYPES[ev.type] || { label: ev.type, color: ACCENT };
-              const isNew   = ev.ts > prevReadAt;
-              const byLabel = BY_LABEL[ev.by] || ev.by;
-              const prefix  = TYPE_PREFIX[ev.type] || "•";
+          {/* Events — tinted cards, big time on the left */}
+          {group.evs.map(ev => {
+            const meta    = EVENT_TYPES[ev.type] || { label: ev.type, color: ACCENT };
+            const isNew   = ev.ts > prevReadAt;
+            const byLabel = BY_LABEL[ev.by] || ev.by;
+            const prefix  = TYPE_PREFIX[ev.type] || "•";
 
-              return (
-                <div
-                  key={ev.id}
-                  className="jrow"
-                  onClick={() => setDetail(ev)}
-                  style={{
-                    display:"flex",alignItems:"center",gap:10,padding:"10px 14px",
-                    borderBottom: i < group.evs.length-1 ? `1px solid rgba(255,255,255,0.04)` : "none",
-                  }}
-                >
-                  {/* Colored dot */}
-                  <div style={{
-                    width:8,height:8,borderRadius:"50%",flexShrink:0,
-                    background:meta.color,
-                    boxShadow:`0 0 6px ${meta.color}77`,
-                  }}/>
-
-                  {/* Info */}
-                  <div style={{flex:1,minWidth:0}}>
-                    <div style={{display:"flex",alignItems:"center",gap:5}}>
-                      <span style={{
-                        fontSize:12,fontWeight:isNew?800:700,color:TEXT,
-                        overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",
-                      }}>{ev.name}</span>
-                      {isNew && <div style={{width:5,height:5,borderRadius:"50%",flexShrink:0,background:meta.color,boxShadow:`0 0 4px ${meta.color}`}}/>}
-                    </div>
-                    <div style={{fontSize:10,marginTop:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
-                      <span style={{color:meta.color,fontWeight:700}}>{prefix} {meta.label}</span>
-                      {ev.slot && <span style={{color:FAINT}}> · {ev.slot}</span>}
-                      {byLabel && <span style={{color:FAINT}}> · {byLabel}</span>}
-                    </div>
-                  </div>
-
-                  {/* Time */}
-                  <span style={{fontSize:10,color:FAINT,flexShrink:0}}>{formatTime(ev.ts)}</span>
-
-                  {/* Chevron */}
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke={FAINT} strokeWidth="2.5" strokeLinecap="round" style={{flexShrink:0}}>
-                    <polyline points="9 18 15 12 9 6"/>
-                  </svg>
+            return (
+              <div
+                key={ev.id}
+                className="jrow"
+                onClick={() => setDetail(ev)}
+                style={{
+                  display:"flex",alignItems:"center",gap:10,padding:"10px 12px",
+                  borderRadius:13,marginBottom:6,
+                  background:`linear-gradient(155deg,color-mix(in srgb,${meta.color} 45%,${BG_DEEP}) 0%,color-mix(in srgb,${meta.color} 15%,${BG_DEEP}) 100%)`,
+                  border:`1px solid color-mix(in srgb,${meta.color} 40%,transparent)`,
+                }}
+              >
+                {/* Time */}
+                <div style={{fontSize:16,fontWeight:800,color:"#fff",width:52,textAlign:"center",flexShrink:0,fontVariantNumeric:"tabular-nums"}}>
+                  {formatTime(ev.ts)}
                 </div>
-              );
-            })}
-          </div>
+
+                {/* Info */}
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{display:"flex",alignItems:"center",gap:5}}>
+                    <span style={{
+                      fontSize:12.5,fontWeight:isNew?800:700,color:"#fff",
+                      overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",
+                    }}>{ev.name}</span>
+                    {isNew && <div style={{width:5,height:5,borderRadius:"50%",flexShrink:0,background:"#fff",boxShadow:"0 0 4px #fff"}}/>}
+                  </div>
+                  <div style={{fontSize:10.5,marginTop:2,fontWeight:700,color:"rgba(255,255,255,0.8)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                    {prefix} {meta.label}
+                    {ev.slot && <span> · {ev.slot}</span>}
+                    {byLabel && <span> · {byLabel}</span>}
+                  </div>
+                </div>
+
+                {/* Chevron */}
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.6)" strokeWidth="2.5" strokeLinecap="round" style={{flexShrink:0}}>
+                  <polyline points="9 18 15 12 9 6"/>
+                </svg>
+              </div>
+            );
+          })}
         </div>
       ))}
 
