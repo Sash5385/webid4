@@ -2,6 +2,7 @@ import React, { useState, useEffect, useContext } from "react";
 import { ref, onValue } from "firebase/database";
 import { db } from "../firebase";
 import { ThemeContext } from "../theme.js";
+import { useBackClose } from "../ui";
 
 export const JOURNAL_READ_KEY = "journal_read_at";
 
@@ -102,6 +103,7 @@ function EventDetailSheet({ ev, meta, onClose, theme }) {
   const glow  = a => `rgba(${theme.GLOW},${a})`;
   const byLabel = BY_LABEL[ev.by] || ev.by;
   const _close = () => setClosing(true);
+  useBackClose(true, _close);
 
   return (
     <>

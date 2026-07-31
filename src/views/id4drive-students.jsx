@@ -4,7 +4,7 @@ import { ref, onValue, update, push, remove, get } from "firebase/database";
 import { db } from "../firebase";
 
 import { ThemeContext } from "../theme.js";
-import { UICss, Field, Btn as UIBtn, useFX } from "../ui";
+import { UICss, Field, Btn as UIBtn, useFX, useBackClose } from "../ui";
 
 const M = ["","Січ","Лют","Бер","Кві","Тра","Чер","Лип","Сер","Вер","Жов","Лис","Гру"];
 const fmtS = d => { if(!d) return "—"; const [,m,day]=d.split("-"); return `${parseInt(day)} ${M[parseInt(m)]}`; };
@@ -248,6 +248,7 @@ function StudentDetailSheet({ s, onClose, onUpdate, onDelete, onBlock, autoOpenH
   const barColor  = s.blocked ? RED : typeColor;
 
   const _close = () => setClosing(true);
+  useBackClose(true, _close);
 
   return (
     <>
@@ -507,6 +508,7 @@ export default function StudentsView({ studentJump, onStudentJumpHandled } = {})
   const [loading,      setLoading]      = useState(true);
   const [showNew,      setShowNew]      = useState(false);
   const [autoOpenHistory, setAutoOpenHistory] = useState(false);
+  useBackClose(showNew, () => setShowNew(false));
 
   // Перехід із модалки запису в розкладі ("Профіль"/"Історія") — відкриваємо
   // картку учня, щойно список учнів завантажений
