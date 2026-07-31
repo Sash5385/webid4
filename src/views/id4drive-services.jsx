@@ -330,55 +330,55 @@ function ServiceRow({ svc, onEdit, onToggle, onDelete, dragHandleProps, isDraggi
   const c = PALETTE.find(p=>p.id===svc.colorId)?.color || theme.GREEN;
   const hasInstructions = svc.instructions && svc.instructions.trim();
   const dimmed = !svc.active || svc.archived;
+  const stop = e => e.stopPropagation();
   return (
-    <div className={`drag-item color-card ${isDragging?"dragging":""}`} style={{
-      position:"relative",overflow:"hidden",borderRadius:16,marginBottom:10,padding:"12px 13px 10px",
+    <div className={`drag-item color-card ${isDragging?"dragging":""}`} onClick={()=>onEdit(svc)} style={{
+      position:"relative",overflow:"hidden",borderRadius:14,marginBottom:8,padding:"9px 11px 8px",cursor:"pointer",
       background:`linear-gradient(155deg,color-mix(in srgb,${c} 50%,${BG_DEEP}) 0%,color-mix(in srgb,${c} 18%,${BG_DEEP}) 100%)`,
       border:`1px solid color-mix(in srgb,${c} 45%,transparent)`,
-      boxShadow:`-2px 6px 16px ${shade(0.45)},inset 1px 1px 0 ${glow(0.15)}`,
+      boxShadow:`-2px 5px 13px ${shade(0.45)},inset 1px 1px 0 ${glow(0.15)}`,
       opacity:dimmed?0.55:1,
     }}>
       <div style={{position:"absolute",pointerEvents:"none",top:0,right:"6%",width:"55%",height:"45%",zIndex:1,
         background:"radial-gradient(ellipse at top right,rgba(255,255,255,0.18) 0%,transparent 65%)"}}/>
 
-      <div style={{position:"relative",zIndex:2,display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
-        <div style={{display:"flex",alignItems:"center",gap:8,minWidth:0,flex:1}}>
-          <div {...dragHandleProps} style={{cursor:"grab",touchAction:"none",opacity:0.6,flexShrink:0}}>{Ic.drag(20)}</div>
+      <button onClick={e=>{stop(e);onDelete(svc);}} style={{
+        position:"absolute",top:6,right:6,zIndex:3,width:20,height:20,borderRadius:"50%",border:"none",cursor:"pointer",
+        background:theme.RED,color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",
+        boxShadow:`0 2px 6px ${shade(0.4)}`,
+      }}>
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+
+      <div style={{position:"relative",zIndex:2,display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8,paddingRight:22}}>
+        <div style={{display:"flex",alignItems:"center",gap:7,minWidth:0,flex:1}}>
+          <div onClick={stop} {...dragHandleProps} style={{cursor:"grab",touchAction:"none",opacity:0.6,flexShrink:0}}>{Ic.drag(18)}</div>
           <div style={{minWidth:0}}>
-            <div style={{fontSize:14.5,fontWeight:800,color:"#fff",textShadow:`0 1px 3px ${shade(0.5)}`,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{svc.name}</div>
-            <div style={{fontSize:10.5,color:"rgba(255,255,255,0.78)",fontWeight:700,marginTop:2,display:"flex",gap:5,alignItems:"center",flexWrap:"wrap"}}>
+            <div style={{fontSize:13.5,fontWeight:800,color:"#fff",textShadow:`0 1px 3px ${shade(0.5)}`,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{svc.name}</div>
+            <div style={{fontSize:10,color:"rgba(255,255,255,0.78)",fontWeight:700,marginTop:1,display:"flex",gap:5,alignItems:"center",flexWrap:"wrap"}}>
               <span>{svc.type==="school"?"🏫 Автошкола":"🚗 Приватний"}</span>
               {svc.archived && <Pill label="Архів" color="#fff" bg="rgba(0,0,0,0.28)"/>}
               {!svc.active && !svc.archived && <Pill label="Вимкнена" color="#fff" bg="rgba(0,0,0,0.28)"/>}
             </div>
           </div>
         </div>
-        <div style={{fontSize:17,fontWeight:800,color:"#fff",textShadow:`0 1px 3px ${shade(0.5)}`,flexShrink:0,whiteSpace:"nowrap"}}>{svc.price} ₴</div>
+        <div style={{fontSize:15,fontWeight:800,color:"#fff",textShadow:`0 1px 3px ${shade(0.5)}`,flexShrink:0,whiteSpace:"nowrap"}}>{svc.price} ₴</div>
       </div>
 
-      <div style={{position:"relative",zIndex:2,display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:10}}>
-        <div style={{fontSize:11.5,color:"rgba(255,255,255,0.85)",fontWeight:700}}>{fmtDur(svc.duration)} · {svc.lessons} уроків</div>
-        <Toggle on={svc.active&&!svc.archived} onChange={v=>onToggle(svc.id,v)}/>
+      <div style={{position:"relative",zIndex:2,display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:6}}>
+        <div style={{fontSize:10.5,color:"rgba(255,255,255,0.85)",fontWeight:700}}>{fmtDur(svc.duration)} · {svc.lessons} уроків</div>
+        <div onClick={stop}><Toggle on={svc.active&&!svc.archived} onChange={v=>onToggle(svc.id,v)}/></div>
       </div>
 
       {hasInstructions && (
-        <button onClick={()=>setOpen(v=>!v)} style={{position:"relative",zIndex:2,background:"rgba(0,0,0,0.22)",border:"none",borderRadius:8,cursor:"pointer",marginTop:8,padding:"5px 8px",color:"rgba(255,255,255,0.85)",fontSize:10.5,fontWeight:700,display:"flex",alignItems:"center",gap:5,fontFamily:"inherit"}}>
+        <button onClick={e=>{stop(e);setOpen(v=>!v);}} style={{position:"relative",zIndex:2,background:"rgba(0,0,0,0.22)",border:"none",borderRadius:7,cursor:"pointer",marginTop:6,padding:"4px 7px",color:"rgba(255,255,255,0.85)",fontSize:10,fontWeight:700,display:"flex",alignItems:"center",gap:5,fontFamily:"inherit"}}>
           📋 Інструкція
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" style={{transform:open?"rotate(180deg)":"none",transition:"transform .2s"}}><polyline points="6 9 12 15 18 9"/></svg>
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" style={{transform:open?"rotate(180deg)":"none",transition:"transform .2s"}}><polyline points="6 9 12 15 18 9"/></svg>
         </button>
       )}
       {open && hasInstructions && (
-        <div style={{position:"relative",zIndex:2,marginTop:6,padding:"8px 10px",borderRadius:10,background:"rgba(0,0,0,0.22)",fontSize:11.5,color:"rgba(255,255,255,0.9)",lineHeight:1.5}}>{svc.instructions}</div>
+        <div onClick={stop} style={{position:"relative",zIndex:2,marginTop:5,padding:"7px 9px",borderRadius:9,background:"rgba(0,0,0,0.22)",fontSize:11,color:"rgba(255,255,255,0.9)",lineHeight:1.5}}>{svc.instructions}</div>
       )}
-
-      <div style={{position:"relative",zIndex:2,display:"flex",gap:8,marginTop:10}}>
-        <button onClick={()=>onEdit(svc)} style={{flex:1,padding:"8px 0",border:"none",borderRadius:9,cursor:"pointer",background:"rgba(0,0,0,0.22)",color:"#fff",fontSize:11.5,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",gap:6,fontFamily:"inherit"}}>
-          {Ic.edit(18)} Редагувати
-        </button>
-        <button onClick={()=>onDelete(svc)} style={{flex:1,padding:"8px 0",border:"none",borderRadius:9,cursor:"pointer",background:"rgba(0,0,0,0.22)",color:"#fff",fontSize:11.5,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",gap:6,fontFamily:"inherit"}}>
-          {Ic.trash(18)} Видалити
-        </button>
-      </div>
     </div>
   );
 }
