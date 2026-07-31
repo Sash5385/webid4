@@ -30,14 +30,15 @@ const ICONS = {
 
 // ─── ACTION BUTTON ───────────────────────────────────────────────
 function ActBtn({ icon, label, onClick, color, danger }) {
-  const { SURFACE, SURF_HI, DIM, SO } = useContext(ThemeContext);
-  const bg = danger
-    ? "linear-gradient(145deg,rgba(239,68,68,.2),rgba(185,28,28,.12))"
-    : color ? `linear-gradient(145deg,${color}22,${color}11)` : `linear-gradient(145deg,${SURF_HI},${SURFACE})`;
+  const { SURFACE, SURF_HI, BG_DEEP, DIM, SO } = useContext(ThemeContext);
+  const tint = danger ? "#ef4444" : color;
+  const bg = tint
+    ? `linear-gradient(155deg,color-mix(in srgb,${tint} 45%,${BG_DEEP}) 0%,${BG_DEEP} 100%)`
+    : `linear-gradient(145deg,${SURF_HI},${SURFACE})`;
   return (
     <button className="act-btn" onClick={onClick} style={{background:bg,boxShadow:SO}}>
       {icon}
-      <span style={{color:danger?"#fca5a5":color||DIM}}>{label}</span>
+      <span style={{color:tint?"#fff":DIM}}>{label}</span>
     </button>
   );
 }
@@ -273,7 +274,8 @@ function StudentDetailSheet({ s, onClose, onUpdate, onDelete, onBlock, autoOpenH
             onClose();
           } : undefined}
           style={{
-            width:"100%",maxWidth:480,background:BG_DEEP,
+            width:"100%",maxWidth:480,
+            background:`linear-gradient(165deg,color-mix(in srgb,${barColor} 24%,${BG_DEEP}) 0%,${BG_DEEP} 60%)`,
             borderRadius:"24px 24px 0 0",
             boxShadow:`0 -2px 0 ${glow(0.08)},0 -16px 60px ${shade(0.8)}`,
             display:"flex",flexDirection:"column",
@@ -360,7 +362,7 @@ function StudentDetailSheet({ s, onClose, onUpdate, onDelete, onBlock, autoOpenH
                 {s.createdAt && (() => {
                   const d = new Date(s.createdAt);
                   return (
-                    <div style={{fontSize:11,color:FAINT,display:"flex",alignItems:"center",gap:5,padding:"0 2px"}}>
+                    <div style={{fontSize:11,color:"rgba(255,255,255,0.6)",display:"flex",alignItems:"center",gap:5,padding:"0 2px"}}>
                       <span>📅</span>
                       <span>Реєстрація: {d.getDate()} {M[d.getMonth()+1]} {d.getFullYear()}</span>
                     </div>
