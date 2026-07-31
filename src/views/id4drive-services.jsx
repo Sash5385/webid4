@@ -79,7 +79,6 @@ function ServiceFormModal({ svc, onSave, onClose }) {
   const theme = useContext(ThemeContext);
   const { SURF_HI, SURFACE, BG_DEEP, TEXT, DIM, FAINT, ACCENT, ACC_HI, GOLD, SO } = theme;
   const PALETTE = makePalette(theme);
-  const CATEGORIES = makeCategories(theme);
   const { glow, shade } = useFX();
   const isNew = !svc;
   const [form, setForm] = useState(svc || {
@@ -88,7 +87,6 @@ function ServiceFormModal({ svc, onSave, onClose }) {
     accessCats:["cat-all"],lessons:0,income:0,
   });
   const upd = (k,v) => setForm(f=>({...f,[k]:v}));
-  const toggleCat = id => setForm(f=>({...f,accessCats:f.accessCats.includes(id)?f.accessCats.filter(c=>c!==id):[...f.accessCats,id]}));
   const valid = form.name.trim() && form.accessCats.length > 0;
   const accentColor = PALETTE.find(p=>p.id===form.colorId)?.color || theme.GREEN;
 
@@ -203,26 +201,6 @@ function ServiceFormModal({ svc, onSave, onClose }) {
             }}/>
           ))}
         </div>
-      </div>
-
-      {/* description */}
-      <div style={{marginBottom:14}}>
-        <div style={{fontSize:10,color:FAINT,letterSpacing:1,marginBottom:6}}>ОПИС</div>
-        <Inset style={{padding:"10px 14px"}}>
-          <textarea value={form.description} onChange={e=>upd("description",e.target.value)} placeholder="Короткий опис послуги..." rows={2}
-            style={{width:"100%",background:"transparent",border:"none",outline:"none",color:TEXT,fontSize:13,resize:"none",fontFamily:"inherit"}}/>
-        </Inset>
-      </div>
-
-      {/* access cats */}
-      <div style={{marginBottom:0}}>
-        <div style={{fontSize:10,color:FAINT,letterSpacing:1,marginBottom:8}}>ДОСТУП (для яких категорій учнів)</div>
-        <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-          {Object.entries(CATEGORIES).map(([id,c])=>(
-            <Chip key={id} active={form.accessCats.includes(id)} color={c.color} onClick={()=>toggleCat(id)}>{c.name}</Chip>
-          ))}
-        </div>
-        {form.accessCats.length===0 && <div style={{fontSize:11,color:ACCENT,marginTop:6}}>⚠ Вибери хоча б одну категорію</div>}
       </div>
       </div>
     </Modal>
