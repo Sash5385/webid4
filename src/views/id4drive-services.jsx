@@ -77,7 +77,7 @@ function Inset({ children, style={} }) {
 // ─── SERVICE FORM MODAL ──────────────────────────────────────────
 function ServiceFormModal({ svc, onSave, onClose }) {
   const theme = useContext(ThemeContext);
-  const { SURF_HI, SURFACE, TEXT, DIM, FAINT, ACCENT, ACC_HI, GOLD, SO } = theme;
+  const { SURF_HI, SURFACE, BG_DEEP, TEXT, DIM, FAINT, ACCENT, ACC_HI, GOLD, SO } = theme;
   const PALETTE = makePalette(theme);
   const CATEGORIES = makeCategories(theme);
   const { glow, shade } = useFX();
@@ -90,6 +90,7 @@ function ServiceFormModal({ svc, onSave, onClose }) {
   const upd = (k,v) => setForm(f=>({...f,[k]:v}));
   const toggleCat = id => setForm(f=>({...f,accessCats:f.accessCats.includes(id)?f.accessCats.filter(c=>c!==id):[...f.accessCats,id]}));
   const valid = form.name.trim() && form.accessCats.length > 0;
+  const accentColor = PALETTE.find(p=>p.id===form.colorId)?.color || theme.GREEN;
 
   return (
     <Modal open onClose={onClose} sheet size="lg" title={isNew?"Нова послуга":"Редагування послуги"}
@@ -99,6 +100,10 @@ function ServiceFormModal({ svc, onSave, onClose }) {
           {isNew?"Створити послугу":"Зберегти зміни"}
         </Btn>
       </>}>
+      <div style={{
+        margin:"-14px -20px 0",padding:"16px 20px 20px",transition:"background .2s",
+        background:`linear-gradient(165deg,color-mix(in srgb,${accentColor} 26%,${BG_DEEP}) 0%,${BG_DEEP} 65%)`,
+      }}>
       {/* slot preview */}
       <div style={{marginBottom:16}}>
         <div style={{fontSize:10,color:FAINT,letterSpacing:1.5,textTransform:"uppercase",marginBottom:8}}>ПОПЕРЕДНІЙ ПЕРЕГЛЯД СЛОТУ</div>
@@ -187,14 +192,14 @@ function ServiceFormModal({ svc, onSave, onClose }) {
       {/* color */}
       <div style={{marginBottom:14}}>
         <div style={{fontSize:10,color:FAINT,letterSpacing:1,marginBottom:8}}>КОЛІР СЛОТУ</div>
-        <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:8}}>
           {PALETTE.map(p=>(
             <button key={p.id} title={p.name} onClick={()=>upd("colorId",p.id)} style={{
-              width:34,height:34,borderRadius:10,cursor:"pointer",
+              width:"100%",aspectRatio:"1",borderRadius:10,cursor:"pointer",
               background:`linear-gradient(155deg,${p.color}bb,${p.color}44)`,
               border:form.colorId===p.id?`2.5px solid #fff`:"2px solid transparent",
               boxShadow:form.colorId===p.id?`0 0 12px ${p.color}88,inset 1px 1px 0 ${glow(0.4)}`:`inset 1px 1px 0 ${glow(0.2)},0 2px 6px ${shade(0.3)}`,
-              transform:form.colorId===p.id?"scale(1.12)":"scale(1)",transition:"transform .12s,box-shadow .12s",
+              transform:form.colorId===p.id?"scale(1.06)":"scale(1)",transition:"transform .12s,box-shadow .12s",
             }}/>
           ))}
         </div>
@@ -218,6 +223,7 @@ function ServiceFormModal({ svc, onSave, onClose }) {
           ))}
         </div>
         {form.accessCats.length===0 && <div style={{fontSize:11,color:ACCENT,marginTop:6}}>⚠ Вибери хоча б одну категорію</div>}
+      </div>
       </div>
     </Modal>
   );
