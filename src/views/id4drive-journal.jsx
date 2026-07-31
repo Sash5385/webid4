@@ -286,7 +286,7 @@ export default function JournalView() {
           {/* Day header */}
           <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6,paddingLeft:2}}>
             <div style={{width:28,height:3,borderRadius:2,background:glow(0.10),flexShrink:0}}/>
-            <span style={{fontSize:10,fontWeight:800,color:FAINT,letterSpacing:1,textTransform:"uppercase",flexShrink:0}}>{group.label}</span>
+            <span style={{fontSize:13,fontWeight:800,color:"#fff",letterSpacing:1,textTransform:"uppercase",flexShrink:0}}>{group.label}</span>
             <div style={{flex:1,height:1,background:BORDER}}/>
             <span style={{fontSize:9,color:FAINT,flexShrink:0}}>{group.evs.length} {noun(group.evs.length)}</span>
           </div>
