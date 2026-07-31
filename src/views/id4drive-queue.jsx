@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo, useContext } from "react";
 import { ref, onValue, update, push, remove } from "firebase/database";
 import { db } from "../firebase";
 import { ThemeContext } from "../theme.js";
-import { UICss, Card, Bar, Modal, Field, Chip, Btn, StatTile, Section } from "../ui";
+import { UICss, Card, Bar, Modal, Field, Chip, Btn, Section } from "../ui";
 
 const SERVICES = {
   sv1:{ name:"Автошкола 1г", color:"#7ed957"  },
@@ -230,7 +230,7 @@ function QueueRow({ item, pos, onInvite, onBooked, onArchive, onDelete, dragHand
 
 // ─── MAIN ────────────────────────────────────────────────────────
 export default function QueueView({ settings }) {
-  const { DIM, FAINT, GOLD, GREEN, PURPLE, BLUE, ACCENT, TEAL } = useContext(ThemeContext);
+  const { DIM, FAINT, GOLD, GREEN, PURPLE, BLUE, ACCENT, TEAL, BG_DEEP } = useContext(ThemeContext);
   const [all,       setAll]       = useState([]);
   const [showAdd,   setShowAdd]   = useState(false);
 
@@ -301,9 +301,20 @@ export default function QueueView({ settings }) {
 
         {/* ── STATS ── */}
         <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8}}>
-          <StatTile value={waiting}  label="Очікують"  color={PURPLE}/>
-          <StatTile value={offered}  label="Запрошено" color={GOLD}/>
-          <StatTile value={booked_c} label="Записані"  color={GREEN}/>
+          {[
+            {value:waiting,  label:"Очікують",  color:PURPLE},
+            {value:offered,  label:"Запрошено", color:GOLD},
+            {value:booked_c, label:"Записані",  color:GREEN},
+          ].map((s,i)=>(
+            <div key={i} style={{
+              borderRadius:11, padding:"10px 6px", textAlign:"center",
+              background:`linear-gradient(155deg,color-mix(in srgb,${s.color} 22%,${BG_DEEP}),color-mix(in srgb,${s.color} 6%,${BG_DEEP}))`,
+              border:`1px solid color-mix(in srgb,${s.color} 32%,transparent)`,
+            }}>
+              <div style={{fontSize:18,fontWeight:900,color:"#fff"}}>{s.value}</div>
+              <div style={{fontSize:9,color:"rgba(255,255,255,0.6)",marginTop:2,letterSpacing:0.5}}>{s.label.toUpperCase()}</div>
+            </div>
+          ))}
         </div>
 
         {/* ── MODE BADGE ── */}
