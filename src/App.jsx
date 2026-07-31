@@ -993,10 +993,20 @@ const pendingDeletesRef = React.useRef(new Set());
     <LangContext.Provider value={lang}>
     <>
       <style>{css}</style>
+      {!theme.BG_IMAGE && (
+        <div style={{
+          position:"fixed", inset:0, zIndex:0, pointerEvents:"none",
+          background:
+            `radial-gradient(circle at 10% 5%, ${theme.ACCENT}2e, transparent 45%),`+
+            `radial-gradient(circle at 95% 30%, ${theme.PURPLE}29, transparent 45%),`+
+            `radial-gradient(circle at 20% 95%, ${theme.TEAL}24, transparent 45%)`,
+        }}/>
+      )}
       <div style={{
         height:"100dvh",background:"transparent",color:theme.TEXT,
         fontFamily:"ui-sans-serif,-apple-system,BlinkMacSystemFont,system-ui,sans-serif",
-        display:"flex",flexDirection:"column"
+        display:"flex",flexDirection:"column",
+        position:"relative", zIndex:1,
       }}>
         <TopBar tab={tab} onChange={switchTab} settings={settings} setSettings={setSettings}/>
         <div className="tab-anim" key={`${tab}-${tabVisits[tab]||0}`} style={{
