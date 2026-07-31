@@ -77,7 +77,7 @@ function Inset({ children, style={} }) {
 // ─── SERVICE FORM MODAL ──────────────────────────────────────────
 function ServiceFormModal({ svc, onSave, onClose }) {
   const theme = useContext(ThemeContext);
-  const { SURF_HI, SURFACE, BG_DEEP, TEXT, DIM, FAINT, ACCENT, ACC_HI, GOLD, SO } = theme;
+  const { SURF_HI, SURFACE, BG_DEEP, TEXT, DIM, ACCENT, ACC_HI, GOLD, SO } = theme;
   const PALETTE = makePalette(theme);
   const { glow, shade } = useFX();
   const isNew = !svc;
@@ -104,17 +104,17 @@ function ServiceFormModal({ svc, onSave, onClose }) {
       }}>
       {/* slot preview */}
       <div style={{marginBottom:16}}>
-        <div style={{fontSize:10,color:FAINT,letterSpacing:1.5,textTransform:"uppercase",marginBottom:8}}>ПОПЕРЕДНІЙ ПЕРЕГЛЯД СЛОТУ</div>
+        <div style={{fontSize:10,color:"rgba(255,255,255,0.55)",letterSpacing:1.5,textTransform:"uppercase",marginBottom:8}}>ПОПЕРЕДНІЙ ПЕРЕГЛЯД СЛОТУ</div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
           <SlotPreview svc={form} height={72}/>
           <SlotPreview svc={{...form,duration:form.duration*2}} height={72}/>
         </div>
-        <div style={{fontSize:10,color:FAINT,marginTop:4,textAlign:"center"}}>1 слот · 2 слоти (подвійний)</div>
+        <div style={{fontSize:10,color:"rgba(255,255,255,0.55)",marginTop:4,textAlign:"center"}}>1 слот · 2 слоти (подвійний)</div>
       </div>
 
       {/* name */}
       <div style={{marginBottom:14}}>
-        <div style={{fontSize:10,color:FAINT,letterSpacing:1,marginBottom:6}}>НАЗВА</div>
+        <div style={{fontSize:10,color:"rgba(255,255,255,0.55)",letterSpacing:1,marginBottom:6}}>НАЗВА</div>
         <Inset style={{padding:"4px 14px"}}>
           <input value={form.name} onChange={e=>upd("name",e.target.value)} placeholder="Назва послуги..."
             style={{width:"100%",background:"transparent",border:"none",outline:"none",color:TEXT,fontSize:15,fontWeight:800,padding:"10px 0",fontFamily:"inherit"}}/>
@@ -123,8 +123,8 @@ function ServiceFormModal({ svc, onSave, onClose }) {
 
       {/* type */}
       <div style={{marginBottom:14}}>
-        <div style={{fontSize:10,color:FAINT,letterSpacing:1,marginBottom:8}}>ТИП</div>
-        <div style={{display:"flex",gap:8}}>
+        <div style={{fontSize:10,color:"rgba(255,255,255,0.55)",letterSpacing:1,marginBottom:8}}>ТИП</div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
           <Chip active={form.type==="school"}  color={theme.GREEN} onClick={()=>upd("type","school")}>🏫 Автошкола</Chip>
           <Chip active={form.type==="private"} color={GOLD}        onClick={()=>upd("type","private")}>🚗 Приватний</Chip>
         </div>
@@ -133,7 +133,7 @@ function ServiceFormModal({ svc, onSave, onClose }) {
       {/* duration + price */}
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
         <div>
-          <div style={{fontSize:10,color:FAINT,letterSpacing:1,marginBottom:6}}>ТРИВАЛІСТЬ (хв)</div>
+          <div style={{fontSize:10,color:"rgba(255,255,255,0.55)",letterSpacing:1,marginBottom:6}}>ТРИВАЛІСТЬ (хв)</div>
           <Inset style={{padding:"10px 14px",display:"flex",alignItems:"center",gap:6}}>
             <input type="number" value={form.duration} min={5} max={480} onChange={e=>upd("duration",+e.target.value)}
               style={{flex:1,background:"transparent",border:"none",outline:"none",color:TEXT,fontSize:18,fontWeight:800,width:60,fontFamily:"inherit"}}/>
@@ -150,7 +150,7 @@ function ServiceFormModal({ svc, onSave, onClose }) {
           </div>
         </div>
         <div>
-          <div style={{fontSize:10,color:FAINT,letterSpacing:1,marginBottom:6}}>ЦІНА (₴)</div>
+          <div style={{fontSize:10,color:"rgba(255,255,255,0.55)",letterSpacing:1,marginBottom:6}}>ЦІНА (₴)</div>
           <Inset style={{padding:"10px 14px",display:"flex",alignItems:"center",gap:6}}>
             <input type="number" value={form.price} min={0} onChange={e=>upd("price",+e.target.value)}
               style={{flex:1,background:"transparent",border:"none",outline:"none",color:GOLD,fontSize:18,fontWeight:800,width:80,fontFamily:"inherit"}}/>
@@ -161,7 +161,7 @@ function ServiceFormModal({ svc, onSave, onClose }) {
 
       {/* scheduled price change */}
       <div style={{marginBottom:14}}>
-        <div style={{fontSize:10,color:FAINT,letterSpacing:1,marginBottom:6}}>ЗАПЛАНОВАНА ЗМІНА ЦІНИ (опційно)</div>
+        <div style={{fontSize:10,color:"rgba(255,255,255,0.55)",letterSpacing:1,marginBottom:6}}>ЗАПЛАНОВАНА ЗМІНА ЦІНИ (опційно)</div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr auto",gap:10,alignItems:"center"}}>
           <Inset style={{padding:"8px 12px"}}>
             <input type="date" value={form.nextPriceFrom||""} onChange={e=>upd("nextPriceFrom", e.target.value||null)}
@@ -181,7 +181,7 @@ function ServiceFormModal({ svc, onSave, onClose }) {
           )}
         </div>
         {form.nextPrice != null && form.nextPriceFrom && (
-          <div style={{fontSize:10,color:FAINT,marginTop:6}}>
+          <div style={{fontSize:10,color:"rgba(255,255,255,0.55)",marginTop:6}}>
             З {form.nextPriceFrom} ціна автоматично стане {form.nextPrice}₴ для записів на уроки з цією датою й пізніше.
           </div>
         )}
@@ -189,7 +189,7 @@ function ServiceFormModal({ svc, onSave, onClose }) {
 
       {/* color */}
       <div style={{marginBottom:14}}>
-        <div style={{fontSize:10,color:FAINT,letterSpacing:1,marginBottom:8}}>КОЛІР СЛОТУ</div>
+        <div style={{fontSize:10,color:"rgba(255,255,255,0.55)",letterSpacing:1,marginBottom:8}}>КОЛІР СЛОТУ</div>
         <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:8}}>
           {PALETTE.map(p=>(
             <button key={p.id} title={p.name} onClick={()=>upd("colorId",p.id)} style={{
