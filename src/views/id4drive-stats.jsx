@@ -472,9 +472,13 @@ export default function StatsView() {
             {label:"Заповненість", value:`${occupancy}%`,               sub:occupancySub,                        color:occupancy<50?RED:occupancy<80?GOLD:GREEN, trend:0},
             {label:"Прогноз",      value:forecast!=null?fmtK(forecast):"—", sub:forecastSub,                      color:PURPLE,                                   trend:0},
           ].map((k, i) => (
-            <Card key={i} className="fu" style={{padding:"12px 13px"}}>
+            <Card key={i} className="fu" style={{
+              padding:"12px 13px",
+              background:`linear-gradient(155deg,color-mix(in srgb,${k.color} 20%,${BG_DEEP}),color-mix(in srgb,${k.color} 6%,${BG_DEEP}))`,
+              border:`1px solid color-mix(in srgb,${k.color} 30%,transparent)`,
+            }}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:6}}>
-                <div style={{fontSize:9,color:FAINT,letterSpacing:1,textTransform:"uppercase",fontWeight:700}}>{k.label}</div>
+                <div style={{fontSize:9,color:"rgba(255,255,255,0.6)",letterSpacing:1,textTransform:"uppercase",fontWeight:700}}>{k.label}</div>
                 {k.trend !== 0 && (
                   <span style={{
                     fontSize:9, fontWeight:800, padding:"2px 6px", borderRadius:6,
@@ -483,8 +487,8 @@ export default function StatsView() {
                   }}>{k.trend>=0?"+":""}{k.trend}%</span>
                 )}
               </div>
-              <div style={{fontSize:22,fontWeight:900,color:k.color,letterSpacing:-0.5,marginBottom:2}}>{k.value}</div>
-              <div style={{fontSize:10,color:FAINT}}>{k.sub}</div>
+              <div style={{fontSize:22,fontWeight:900,color:"#fff",letterSpacing:-0.5,marginBottom:2}}>{k.value}</div>
+              <div style={{fontSize:10,color:"rgba(255,255,255,0.5)"}}>{k.sub}</div>
             </Card>
           ))}
         </div>
