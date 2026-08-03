@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useLayoutEffect, useMemo, useContext } from "react";
-import { ref, update, get, onValue, off, remove, push as fbPush } from "firebase/database";
+import { ref, update, get, onValue, off, remove, push as fbPush, increment } from "firebase/database";
 import { db, auth } from "../firebase";
 
 import { ThemeContext, GREEN, BLUE, PURPLE, GOLD, RED, TEAL, ACCENT, ACC_HI, SURFACE, SURF_HI, TEXT } from "../theme.js";
@@ -3271,6 +3271,8 @@ function BookingModal({ booking, onClose, onAction, settings, bookings, onViewSt
   const [draftPrice, setDraftPrice] = useState("");
   const [draftDur, setDraftDur] = useState("");
   const [editRate, setEditRate] = useState(0);
+  const [maneuverState, setManeuverState] = useState({});
+  const [maneuverCounts, setManeuverCounts] = useState({});
   useEffect(() => {
     if (!booking) return;
     setClosing(false);
@@ -3293,6 +3295,24 @@ function BookingModal({ booking, onClose, onAction, settings, bookings, onViewSt
     });
     return () => unsub();
   }, [booking]);
+
+  // Маневри: залипаюча відмітка "відпрацьовано в цьому уроці" (на бронюванні) +
+  // накопичувальний лічильник за весь час (на профілі учня).
+  useEffect(() => {
+    if (!booking) return;
+    setManeuverState(booking.maneuvers || {});
+    if (!booking.userId) { setManeuverCounts({}); return; }
+    const r = ref(db, `users/${booking.userId}/maneuverCounts`);
+    const unsub = onValue(r, snap => setManeuverCounts(snap.val() || {}));
+    return () => unsub();
+  }, [booking]);
+
+  const toggleManeuver = (key) => {
+    if (!booking || maneuverState[key]) return;
+    setManeuverState(s => ({ ...s, [key]: true }));
+    update(ref(db, `bookings/${booking.userId}/${booking.id}/maneuvers`), { [key]: true }).catch(()=>{});
+    update(ref(db, `users/${booking.userId}/maneuverCounts`), { [key]: increment(1) }).catch(()=>{});
+  };
 
   // booking може стати null синхронно (напр. cancel обнуляє вибір), поки closing=true.
   // Guard "!booking && !closing" пропускав такий кадр далі й падав на booking.serviceId
@@ -3470,6 +3490,44 @@ function BookingModal({ booking, onClose, onAction, settings, bookings, onViewSt
                 <div style={{fontSize:9,color: gold ? `${GOLD}99` : TEXT_FAINT,marginTop:3,fontWeight:600}}>{sub}</div>
               </div>
             ))}
+          </div>
+
+          {/* Маневри */}
+          <div style={{padding:"10px 14px 0"}}>
+            <div style={{fontSize:9,fontWeight:700,letterSpacing:1,color:TEXT_FAINT,textTransform:"uppercase",marginBottom:6}}>
+              🚗 Маневри
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8}}>
+              {[
+                { key:"rozvorot",   label:"Розворот" },
+                { key:"parking90",  label:"Паркування 90" },
+                { key:"parking45",  label:"Паркування 45" },
+              ].map(m => {
+                const active = !!maneuverState[m.key];
+                const count = maneuverCounts[m.key] || 0;
+                return (
+                  <button key={m.key} onClick={() => toggleManeuver(m.key)} disabled={active} style={{
+                    position:"relative", fontFamily:"inherit",
+                    background: active ? `linear-gradient(155deg,${PURPLE},color-mix(in srgb,${PURPLE} 55%,#000))` : BG_DEEP,
+                    border:`1.5px solid ${active ? PURPLE : ink(0.1)}`,
+                    borderRadius:12, padding:"10px 4px",
+                    textAlign:"center", fontSize:10.5, fontWeight:700,
+                    color: active ? "#fff" : TEXT_DIM,
+                    cursor: active ? "default" : "pointer",
+                    boxShadow: active ? `0 3px 12px ${PURPLE}66` : "none",
+                  }}>
+                    {m.label}
+                    <div style={{
+                      position:"absolute", top:-7, right:-6,
+                      background:GOLD, color:"#1a1200", fontSize:9, fontWeight:900,
+                      width:18, height:18, borderRadius:"50%",
+                      display:"flex", alignItems:"center", justifyContent:"center",
+                      border:`2px solid ${BG_DEEP}`,
+                    }}>{count}</div>
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           {/* Queue */}
