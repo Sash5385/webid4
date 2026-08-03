@@ -471,7 +471,19 @@ select{color-scheme:${isKava?"light":"dark"}}
 
       case "surcharges": return (
         <div>
-          <div style={{fontSize:12,color:FAINT,marginBottom:12,marginTop:4}}>
+          <Row color={secColor} label="Картка для оплати" hint="Показується учням у «Моїх записах» з кнопкою копіювання">
+            <input
+              value={settings.paymentCard || ""}
+              onChange={e=>upd("paymentCard", e.target.value)}
+              placeholder="0000 0000 0000 0000"
+              style={{
+                background:`linear-gradient(145deg,${BG_DEEP},${SURF_LO})`,
+                border:"none",outline:"none",color:TEXT,fontSize:13,fontWeight:700,
+                padding:"8px 12px",borderRadius:10,boxShadow:SI,width:170,textAlign:"right",
+                fontFamily:"inherit",
+              }}/>
+          </Row>
+          <div style={{fontSize:12,color:FAINT,marginBottom:12,marginTop:12}}>
             Суми відображаються в меню слота при виборі надбавки.
           </div>
           {(settings.surcharges || []).map((amt, i) => (
