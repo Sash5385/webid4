@@ -663,6 +663,7 @@ export default function App() {
         stickyTimeEnabled:    settings.stickyTimeEnabled    ?? true,
         minBookingIntervalDays: settings.minBookingIntervalDays ?? 0,
         slotFreedPushEnabled: settings.slotFreedPushEnabled ?? true,
+        paymentCard:     settings.paymentCard      ?? "",
       }).catch(() => {});
     }, 800);
   // eslint-disable-next-line react-hooks/exhaustive-deps
