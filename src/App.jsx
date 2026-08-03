@@ -1027,7 +1027,7 @@ const pendingDeletesRef = React.useRef(new Set());
         <div className={`update-banner${isUpdating ? ' update-banner--loading' : ''}`} onClick={updateServiceWorker}>
           {isUpdating
             ? <><span className="update-spinner" /> Оновлення...</>
-            : 'Доступне оновлення — натисніть щоб оновити'
+            : <>Доступне оновлення {APP_VERSION} — натисніть щоб оновити</>
           }
         </div>
       )}
