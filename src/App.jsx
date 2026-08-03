@@ -662,6 +662,7 @@ export default function App() {
         showCompleteBtn:      settings.showCompleteBtn      ?? true,
         stickyTimeEnabled:    settings.stickyTimeEnabled    ?? true,
         minBookingIntervalDays: settings.minBookingIntervalDays ?? 0,
+        paymentCard:     settings.paymentCard      ?? "",
       }).catch(() => {});
     }, 800);
   // eslint-disable-next-line react-hooks/exhaustive-deps
