@@ -1,11 +1,9 @@
 import { useState, useContext } from "react";
-import { ref, get } from "firebase/database";
 import { LangContext } from "../App";
 import { APP_VERSION } from "../version.js";
 import { ThemeContext } from "../theme.js";
 import { UICss, useFX } from "../ui";
 import { createT } from "../lang";
-import { db, registerAdminFCM } from "../firebase";
 
 const ALL_TABS = [
   { id:"schedule",  lk:"nav.schedule"  },
@@ -602,25 +600,6 @@ select{color-scheme:${isKava?"light":"dark"}}
 function PushDiag() {
   const { BG_DEEP, SURF_HI, SURFACE, BORDER, TEXT, DIM, FAINT, GREEN, RED, GOLD, BLUE, SO, SI } = useContext(ThemeContext);
   const [status, setStatus] = useState(null);
-  const [busy,   setBusy]   = useState(false);
-
-  async function reRegister() {
-    setBusy(true); setStatus(null);
-    try {
-      const perm = Notification.permission;
-      if (perm === "denied") { setStatus({ ok: false, msg: "Нотифікації заблоковано в браузері. Дозволь в налаштуваннях сайту." }); return; }
-      await registerAdminFCM();
-      const snap = await get(ref(db, "admin/fcmToken"));
-      const tok  = snap.val();
-      setStatus(tok
-        ? { ok: true,  msg: `Токен збережено (${tok.slice(0,16)}…)` }
-        : { ok: false, msg: "Токен не збережено — перевір дозвіл у браузері" }
-      );
-    } catch(e) {
-      setStatus({ ok: false, msg: e.message });
-    } finally {
-      setBusy(false); }
-  }
 
   async function testLocal() {
     try {
@@ -652,11 +631,6 @@ function PushDiag() {
         <span style={{fontSize:12,fontWeight:800,color:permColor}}>{permLabel}</span>
       </div>
       <div style={{display:"flex",gap:7}}>
-        <button onClick={reRegister} disabled={busy} style={{
-          flex:1,padding:"10px 8px",borderRadius:10,border:"none",cursor:"pointer",
-          background:`linear-gradient(145deg,${SURF_HI},${SURFACE})`,
-          color:DIM,fontSize:12,fontWeight:700,boxShadow:SO,opacity:busy?.6:1,
-        }}>{busy?"…":"🔄 Оновити токен"}</button>
         <button onClick={testLocal} style={{
           flex:1,padding:"10px 8px",borderRadius:10,border:"none",cursor:"pointer",
           background:`linear-gradient(145deg,rgba(126,217,87,0.18),rgba(126,217,87,0.06))`,
