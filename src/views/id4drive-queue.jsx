@@ -97,7 +97,7 @@ function getHours(item, svc) {
 }
 
 function QueueRow({ item, pos, onInvite, onBooked, onArchive, onDelete, dragHandleProps, isDragging, svcMap }) {
-  const { FAINT, GOLD, GREEN, PURPLE, BG_DEEP, SO } = useContext(ThemeContext);
+  const { BORDER, FAINT, GOLD, GREEN, PURPLE, RED, BG_DEEP, SO } = useContext(ThemeContext);
 
   const STATUS_CFG = {
     waiting:  { label:"Очікує",    color:PURPLE },
@@ -110,35 +110,49 @@ function QueueRow({ item, pos, onInvite, onBooked, onArchive, onDelete, dragHand
   const st  = STATUS_CFG[item.status] || STATUS_CFG.waiting;
   const hrs = getHours(item, svc);
   const svcLabel = svc.name || (item.studentType && (item.studentType==="school"?"Автошкола":"Приватний"));
+  const initials = (item.name||"?").split(" ").map(w=>w[0]).slice(0,2).join("").toUpperCase();
 
   return (
     <div className={`drag-item fade-in ${isDragging?"dragging":""}`} style={{
-      position:"relative", overflow:"hidden", borderRadius:13, marginBottom:8, boxShadow:SO,
-      background:`linear-gradient(155deg,color-mix(in srgb,${st.color} 42%,${BG_DEEP}) 0%,color-mix(in srgb,${st.color} 15%,${BG_DEEP}) 100%)`,
-      border:`1px solid color-mix(in srgb,${st.color} 42%,transparent)`,
+      borderRadius:13, marginBottom:8, boxShadow:SO, overflow:"hidden",
+      background:`color-mix(in srgb,${st.color} 8%,${BG_DEEP})`,
+      border:`1px solid color-mix(in srgb,${st.color} 24%,transparent)`,
     }}>
-      <div style={{position:"absolute",pointerEvents:"none",top:0,right:"6%",width:"55%",height:"45%",zIndex:1,
-        background:"radial-gradient(ellipse at top right,rgba(255,255,255,0.18) 0%,transparent 65%)"}}/>
-
-      {/* compact info row */}
-      <div {...dragHandleProps} style={{display:"flex",alignItems:"center",gap:7,padding:"7px 10px",cursor:"grab",touchAction:"none",position:"relative",zIndex:2}}>
-        <div style={{fontSize:10,fontWeight:900,color:"#fff",opacity:0.85,flexShrink:0,minWidth:14,textAlign:"center"}}>{pos}</div>
+      {/* avatar info row */}
+      <div {...dragHandleProps} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 11px",cursor:"grab",touchAction:"none"}}>
+        <div style={{position:"relative",flexShrink:0}}>
+          <div style={{
+            width:36,height:36,borderRadius:11,
+            background:`linear-gradient(155deg,${st.color},color-mix(in srgb,${st.color} 40%,#000))`,
+            display:"flex",alignItems:"center",justifyContent:"center",
+            fontSize:13,fontWeight:900,color:"#fff",
+            boxShadow:`-2px 3px 8px color-mix(in srgb,${st.color} 40%,transparent)`,
+          }}>{initials}</div>
+          <div style={{
+            position:"absolute",top:-5,left:-5,width:15,height:15,borderRadius:5,
+            background:BG_DEEP,color:st.color,fontSize:8.5,fontWeight:900,
+            display:"flex",alignItems:"center",justifyContent:"center",
+            border:`1px solid color-mix(in srgb,${st.color} 45%,transparent)`,
+          }}>{pos}</div>
+        </div>
         <div style={{flex:1,minWidth:0}}>
-          <div style={{fontSize:12,fontWeight:800,color:"#fff",textShadow:"0 1px 2px rgba(0,0,0,0.5)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{item.name}</div>
-          <div style={{fontSize:9.5,color:"rgba(255,255,255,0.78)",fontWeight:700,marginTop:1,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>
+          <div style={{fontSize:13,fontWeight:800,color:"#fff",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{item.name}</div>
+          <div style={{fontSize:10,color:FAINT,marginTop:2,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>
             {item.phone}
             {svcLabel && ` · ${svcLabel}${hrs ? ` ${hrs}г` : ""}`}
-            {` · ${fmtWait(item.addedAt)}`}
           </div>
         </div>
-        <div style={{fontSize:9,fontWeight:800,padding:"2px 7px",borderRadius:6,background:"rgba(0,0,0,0.28)",color:"#fff",flexShrink:0,whiteSpace:"nowrap"}}>{st.label}</div>
+        <div style={{textAlign:"right",flexShrink:0}}>
+          <div style={{fontSize:9.5,fontWeight:800,color:st.color}}>{st.label}</div>
+          <div style={{fontSize:9.5,color:FAINT,marginTop:2}}>{fmtWait(item.addedAt)}</div>
+        </div>
       </div>
 
       {/* actions row */}
       {item.status !== "archived" && (
-        <div style={{display:"grid",gridTemplateColumns:`repeat(${item.status==="waiting"?4:item.status==="offered"?3:2},1fr)`,borderTop:"1px solid rgba(0,0,0,0.28)",position:"relative",zIndex:2,background:"rgba(0,0,0,0.15)"}}>
+        <div style={{display:"grid",gridTemplateColumns:`repeat(${item.status==="waiting"?4:item.status==="offered"?3:2},1fr)`,borderTop:`1px solid ${BORDER}`}}>
           {item.status === "waiting" && (
-            <button onClick={onInvite} style={{padding:"8px 0",border:"none",borderRight:"1px solid rgba(0,0,0,0.28)",cursor:"pointer",background:"transparent",color:"#fff",fontSize:11,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",gap:5}}>
+            <button onClick={onInvite} style={{padding:"8px 0",border:"none",borderRight:`1px solid ${BORDER}`,cursor:"pointer",background:"transparent",color:PURPLE,fontSize:11,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",gap:5}}>
               <div className="icon3d" style={{width:22,height:22,background:"linear-gradient(165deg,#c084fc,#7c3aed)",borderRadius:7}}>
                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" style={{position:"relative",zIndex:1}}><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
               </div>
@@ -146,20 +160,20 @@ function QueueRow({ item, pos, onInvite, onBooked, onArchive, onDelete, dragHand
             </button>
           )}
           {(item.status === "waiting" || item.status === "offered") && (
-            <button onClick={onBooked} style={{padding:"8px 0",border:"none",borderRight:"1px solid rgba(0,0,0,0.28)",cursor:"pointer",background:"transparent",color:"#fff",fontSize:11,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",gap:5}}>
+            <button onClick={onBooked} style={{padding:"8px 0",border:"none",borderRight:`1px solid ${BORDER}`,cursor:"pointer",background:"transparent",color:GREEN,fontSize:11,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",gap:5}}>
               <div className="icon3d" style={{width:22,height:22,background:"linear-gradient(165deg,#9ee07a,#5fb83d)",borderRadius:7}}>
                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" style={{position:"relative",zIndex:1}}><polyline points="5 12 10 17 19 8"/></svg>
               </div>
               Записаний
             </button>
           )}
-          <button onClick={onArchive} style={{padding:"8px 0",border:"none",borderRight:"1px solid rgba(0,0,0,0.28)",cursor:"pointer",background:"transparent",color:"#fff",fontSize:11,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",gap:5}}>
+          <button onClick={onArchive} style={{padding:"8px 0",border:"none",borderRight:`1px solid ${BORDER}`,cursor:"pointer",background:"transparent",color:FAINT,fontSize:11,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",gap:5}}>
             <div className="icon3d" style={{width:22,height:22,background:`linear-gradient(165deg,#5a5e66,#3a3e44)`,borderRadius:7}}>
               <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" style={{position:"relative",zIndex:1}}><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
             </div>
             Архів
           </button>
-          <button onClick={onDelete} style={{padding:"8px 0",border:"none",cursor:"pointer",background:"transparent",color:"#fff",fontSize:11,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",gap:5}}>
+          <button onClick={onDelete} style={{padding:"8px 0",border:"none",cursor:"pointer",background:"transparent",color:`${RED}cc`,fontSize:11,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",gap:5}}>
             <div className="icon3d" style={{width:22,height:22,background:`linear-gradient(165deg,#f87171,#dc2626)`,borderRadius:7}}>
               <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" style={{position:"relative",zIndex:1}}><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
             </div>
@@ -168,8 +182,8 @@ function QueueRow({ item, pos, onInvite, onBooked, onArchive, onDelete, dragHand
         </div>
       )}
       {item.status === "archived" && (
-        <div style={{display:"flex",justifyContent:"flex-end",padding:"4px 10px 7px",position:"relative",zIndex:2}}>
-          <button onClick={onDelete} style={{background:"none",border:"none",cursor:"pointer",color:"#fff",fontSize:11,fontWeight:700}}>🗑 Видалити</button>
+        <div style={{display:"flex",justifyContent:"flex-end",padding:"4px 10px 7px",borderTop:`1px solid ${BORDER}`}}>
+          <button onClick={onDelete} style={{background:"none",border:"none",cursor:"pointer",color:RED,fontSize:11,fontWeight:700}}>🗑 Видалити</button>
         </div>
       )}
     </div>
