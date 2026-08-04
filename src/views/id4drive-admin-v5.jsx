@@ -847,7 +847,7 @@ function MonthCalendarSheet({ bookings, onClose, onPickDate }) {
 // SCHEDULE VIEW with drag/resize + pinch-to-zoom + day-count
 // ═══════════════════════════════════════════════════════════════
 function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bookings, setBookings, activeDragIds, navTo, slotExistsRef, openSlotsRef, jumpTarget, setJumpTarget, onViewStudent }) {
-  const { BG, BG_DEEP, SURFACE, SURF_HI, SURF_LO, BORDER, TEXT, DIM, FAINT, ACCENT, ACC_HI, SO, SI, STRIPE_A, STRIPE_B, GLOW, SHADE, INK } = useContext(ThemeContext);
+  const { BG, BG_DEEP, SURFACE, SURF_HI, SURF_LO, BORDER, TEXT, DIM, FAINT, ACCENT, ACC_HI, BLUE, GREEN, RED, SO, SI, STRIPE_A, STRIPE_B, GLOW, SHADE, INK } = useContext(ThemeContext);
   const isLight = BG !== "#1c1d21";
   const { glow, shade, ink } = useFX();
   const GRID_H      = isLight ? "rgba(0,0,0,0.09)"        : "rgba(255,255,255,0.07)";
@@ -1758,12 +1758,13 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
               onClick={()=>setShowMonthCal(true)}
               title="Місячний календар"
               style={{
-                width:32, height:32, borderRadius:9, border:"none", cursor:"pointer",
-                background:"rgba(91,155,255,0.18)",
+                width:32, height:32, borderRadius:11, cursor:"pointer",
+                background:`linear-gradient(135deg,color-mix(in srgb,${BLUE} 45%,${BG_DEEP}) 0%,${BG_DEEP} 100%)`,
+                border:`1px solid color-mix(in srgb,${BLUE} 35%,transparent)`,
                 display:"flex", alignItems:"center", justifyContent:"center",
                 transition:"background .15s", flexShrink:0,
               }}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="rgba(91,155,255,0.9)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M3 10h18M8 2v4M16 2v4"/></svg>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M3 10h18M8 2v4M16 2v4"/></svg>
             </button>
           </div>
           <div style={{overflow:"hidden", flex:1, position:"relative"}}>
@@ -1807,23 +1808,34 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
             onPointerCancel={handleLockUp}
             onContextMenu={e=>e.preventDefault()}
             style={{
-              height:30, flexShrink:0, marginBottom:10,
+              height:36, flexShrink:0, marginBottom:10,
               display:"flex", alignItems:"center", justifyContent:"center",
               WebkitUserSelect:"none", userSelect:"none", touchAction:"none", cursor:"pointer",
             }}
           >
-            {scheduleLocked ? (
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(239,68,68,0.95)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-                style={{filter:"drop-shadow(0 0 5px rgba(239,68,68,0.5))"}}>
-                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-                <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-              </svg>
-            ) : (
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(99,211,120,0.85)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-                <path d="M7 11V7a5 5 0 0 1 9.9-1"/>
-              </svg>
-            )}
+            <div style={{
+              width:32, height:32, borderRadius:11, display:"flex", alignItems:"center", justifyContent:"center",
+              background: scheduleLocked
+                ? `linear-gradient(135deg,color-mix(in srgb,${RED} 48%,${BG_DEEP}) 0%,${BG_DEEP} 100%)`
+                : `linear-gradient(135deg,color-mix(in srgb,${GREEN} 42%,${BG_DEEP}) 0%,${BG_DEEP} 100%)`,
+              border: scheduleLocked
+                ? `1px solid color-mix(in srgb,${RED} 40%,transparent)`
+                : `1px solid color-mix(in srgb,${GREEN} 35%,transparent)`,
+              transition:"background .15s",
+            }}>
+              {scheduleLocked ? (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                  style={{filter:"drop-shadow(0 0 4px rgba(239,68,68,0.6))"}}>
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                </svg>
+              ) : (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                  <path d="M7 11V7a5 5 0 0 1 9.9-1"/>
+                </svg>
+              )}
+            </div>
           </div>
         </div>
 
