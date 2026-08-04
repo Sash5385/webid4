@@ -315,10 +315,8 @@ function TopBar({ tab, onChange, settings, setSettings }) {
               })}
             </div>
 
-            {/* Center: logo */}
-            <div style={{flex:"0 0 auto",display:"flex",justifyContent:"center",alignItems:"center",padding:"0 6px"}}>
-              <img src="/icon-192.png" alt="ID4Drive" style={{width:26,height:26,borderRadius:"50%",flexShrink:0,boxShadow:"-2px 3px 8px rgba(0,0,0,0.45)"}}/>
-            </div>
+            {/* Center: портал для кнопки «Ключик» (рендериться з ScheduleView через createPortal) */}
+            <div id="topbar-key-portal" style={{flex:"0 0 auto",display:"flex",justifyContent:"center",alignItems:"center",padding:"0 6px",minWidth:36}}/>
 
             {/* Right: діб buttons */}
             <div style={{flex:1,display:"flex",gap:3,alignItems:"center"}}>
