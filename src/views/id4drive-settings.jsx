@@ -92,20 +92,20 @@ function Radio({ on, onChange }) {
 }
 
 function Row({ label, hint, children, last, color }) {
-  const { TEXT, FAINT, ACCENT } = useContext(ThemeContext);
+  const { BG_DEEP, ACCENT } = useContext(ThemeContext);
   const c = color || ACCENT;
   return (
     <div style={{
       display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,
-      padding:"7px 10px",
-      borderRadius:10,
-      background:`linear-gradient(145deg,${c}2e,${c}12)`,
-      border:`1px solid ${c}3a`,
-      marginBottom: last ? 0 : 5,
+      padding:"9px 12px",
+      borderRadius:11,
+      background:`linear-gradient(135deg,color-mix(in srgb,${c} 42%,${BG_DEEP}) 0%,${BG_DEEP} 100%)`,
+      border:`1px solid color-mix(in srgb,${c} 35%,transparent)`,
+      marginBottom: last ? 0 : 6,
     }}>
       <div style={{flex:1,minWidth:0}}>
-        <div style={{fontSize:13,fontWeight:600,color:TEXT}}>{label}</div>
-        {hint && <div style={{fontSize:10,color:FAINT,marginTop:2}}>{hint}</div>}
+        <div style={{fontSize:13,fontWeight:700,color:"#fff"}}>{label}</div>
+        {hint && <div style={{fontSize:10,color:"rgba(255,255,255,0.6)",marginTop:2}}>{hint}</div>}
       </div>
       <div style={{flexShrink:0}}>{children}</div>
     </div>
