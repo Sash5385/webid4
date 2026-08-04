@@ -862,6 +862,16 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   const [showMonthCal, setShowMonthCal] = useState(false);
   const [keyPortalEl, setKeyPortalEl] = useState(null);
   useEffect(() => { setKeyPortalEl(document.getElementById('topbar-key-portal')); }, []);
+
+  // Лінія поточного часу в сітці розкладу (тільки в колонці сьогодні) — оновлюємо раз на хвилину
+  const [nowMin, setNowMin] = useState(() => { const n = new Date(); return n.getHours()*60 + n.getMinutes(); });
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const n = new Date();
+      setNowMin(n.getHours()*60 + n.getMinutes());
+    }, 60000);
+    return () => clearInterval(timer);
+  }, []);
   const [dragId, setDragId] = useState(null);
   const [holdId, setHoldId] = useState(null);
   const [quickCancelId, setQuickCancelId] = useState(null);
@@ -1778,6 +1788,16 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                   }}>{h}:30</div>
                 );
               })}
+              {nowMin >= effectiveWorkStart*60 && nowMin <= effectiveWorkEnd*60 && (
+                <div style={{
+                  position:"absolute", left:2, right:2, top:minToPx(nowMin),
+                  transform:"translateY(-50%)",
+                  background:"#ef4444", color:"#fff",
+                  fontSize:9, fontWeight:900, lineHeight:1,
+                  borderRadius:6, padding:"3px 0", textAlign:"center",
+                  boxShadow:"0 2px 8px rgba(239,68,68,0.5)",
+                }}>{String(Math.floor(nowMin/60)).padStart(2,"0")}:{String(nowMin%60).padStart(2,"0")}</div>
+              )}
             </div>
           </div>
           {/* Замок — в нижній частині стовпця часу, вирівняний із сум-рядком */}
@@ -1956,6 +1976,15 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                   userSelect:"none", WebkitUserSelect:"none", WebkitTouchCallout:"none",
                   opacity: isPastDay ? 0.38 : 1,
                 }}>
+
+              {/* Лінія поточного часу — тільки в колонці сьогодні */}
+              {isToday && nowMin >= effectiveWorkStart*60 && nowMin <= effectiveWorkEnd*60 && (
+                <div style={{
+                  position:"absolute", left:0, right:0, top:minToPx(nowMin),
+                  height:3, zIndex:5, pointerEvents:"none",
+                  background:"#ef4444", boxShadow:"0 2px 6px rgba(239,68,68,0.6)",
+                }}/>
+              )}
 
               {/* Open/blocked/surcharge/VIP slot indicators */}
               {!isClosedDay && (()=>{
