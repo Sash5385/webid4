@@ -217,12 +217,13 @@ select{color-scheme:${isKava?"light":"dark"}}
 
   function renderSection(id) {
     const secColor = SECTIONS.find(s=>s.id===id)?.color || ACCENT;
+    const svColor = (on) => on ? GREEN : RED;
     switch(id) {
 
       case "schedule": return (
         <div>
           {showHint && <Info color={BLUE} title={t('set.schedule.info_t')} text={t('set.schedule.info')}/>}
-          <Row color={secColor} label={t('set.schedule.start')} hint={t('set.schedule.hint_s')}>
+          <Row label={t('set.schedule.start')} hint={t('set.schedule.hint_s')}>
             <NumInput value={settings.workStart} onChange={v=>{
               const clamped = Math.min(v, settings.workEnd - 1);
               const updated = weekSchedule.map(d => ({...d, start: d.start === settings.workStart ? clamped : d.start}));
@@ -230,7 +231,7 @@ select{color-scheme:${isKava?"light":"dark"}}
               upd("weekSchedule", updated);
             }} min={0} max={23} suffix=":00"/>
           </Row>
-          <Row color={secColor} label={t('set.schedule.end')} hint={t('set.schedule.hint_e')}>
+          <Row label={t('set.schedule.end')} hint={t('set.schedule.hint_e')}>
             <NumInput value={settings.workEnd} onChange={v=>{
               const clamped = Math.max(v, settings.workStart + 1);
               const updated = weekSchedule.map(d => ({...d, end: d.end === settings.workEnd ? clamped : d.end}));
@@ -238,7 +239,7 @@ select{color-scheme:${isKava?"light":"dark"}}
               upd("weekSchedule", updated);
             }} min={1} max={24} suffix=":00"/>
           </Row>
-          <Row color={secColor} label={t('set.schedule.days')} last>
+          <Row label={t('set.schedule.days')} last>
             <NumInput value={settings.daysShown} onChange={v=>upd("daysShown",v)} min={1} max={30} suffix={` ${t('days')}`}/>
           </Row>
           <div style={{paddingTop:8}}>
@@ -249,20 +250,19 @@ select{color-scheme:${isKava?"light":"dark"}}
                 return (
                   <div key={i} style={{
                     borderRadius:8,padding:"5px 8px",
-                    background:day.enabled?`linear-gradient(135deg,color-mix(in srgb,${secColor} 38%,${BG_DEEP}) 0%,${BG_DEEP} 100%)`:`linear-gradient(145deg,${BG_DEEP},${SURF_LO})`,
-                    border:day.enabled?`1px solid color-mix(in srgb,${secColor} 32%,transparent)`:"none",
-                    boxShadow:day.enabled?"none":SI,
+                    background:day.enabled?`linear-gradient(135deg,color-mix(in srgb,${GREEN} 38%,${BG_DEEP}) 0%,${BG_DEEP} 100%)`:`linear-gradient(135deg,color-mix(in srgb,${RED} 22%,${BG_DEEP}) 0%,${BG_DEEP} 100%)`,
+                    border:day.enabled?`1px solid color-mix(in srgb,${GREEN} 32%,transparent)`:`1px solid color-mix(in srgb,${RED} 25%,transparent)`,
                   }}>
                     <div style={{display:"flex",alignItems:"center",gap:6}}>
                       <span style={{width:20,fontSize:11,fontWeight:800,color:day.enabled?"#fff":FAINT,flexShrink:0}}>{dayName}</span>
-                      <SmallToggle color={secColor} on={day.enabled} onChange={v=>updDay(i,{enabled:v})}/>
+                      <SmallToggle color={svColor(day.enabled)} on={day.enabled} onChange={v=>updDay(i,{enabled:v})}/>
                       {day.enabled ? (<>
                         <span style={{flex:1}}/>
                         <TimeInput compact value={day.start} onChange={v=>updDay(i,{start:Math.min(v,day.end-0.5)})} min={0} max={23}/>
                         <span style={{fontSize:9,color:FAINT,margin:"0 2px"}}>—</span>
                         <TimeInput compact value={day.end} onChange={v=>updDay(i,{end:Math.max(v,day.start+0.5)})} min={0.5} max={24}/>
                         <span style={{fontSize:12,flexShrink:0,marginLeft:4}}>🍽</span>
-                        <SmallToggle color={secColor} on={!!day.lunchEnabled} onChange={v=>updDay(i,{lunchEnabled:v})}/>
+                        <SmallToggle color={svColor(!!day.lunchEnabled)} on={!!day.lunchEnabled} onChange={v=>updDay(i,{lunchEnabled:v})}/>
                       </>) : (
                         <span style={{fontSize:10,color:FAINT,marginLeft:4}}>Вихідний</span>
                       )}
@@ -286,7 +286,7 @@ select{color-scheme:${isKava?"light":"dark"}}
       case "snap": return (
         <div>
           {showHint && <Info color={TEAL} title={t('set.snap.info_t')} text={t('set.snap.info')}/>}
-          <div style={{borderRadius:10,padding:"10px",marginBottom:5,background:`linear-gradient(145deg,${secColor}2e,${secColor}12)`,border:`1px solid ${secColor}3a`}}>
+          <div style={{borderRadius:10,padding:"10px",marginBottom:5,background:`linear-gradient(145deg,${SURF_HI},${SURFACE})`,boxShadow:SO}}>
             <div style={{display:"flex",justifyContent:"space-between",marginBottom:8}}>
               <span style={{fontSize:12,color:DIM}}>{t('set.snap.label')}</span>
               <span style={{fontSize:13,fontWeight:800,color:ACCENT}}>{settings.snapMin} {t('min')}</span>
@@ -298,7 +298,7 @@ select{color-scheme:${isKava?"light":"dark"}}
               ))}
             </div>
           </div>
-          <div style={{borderRadius:10,padding:"10px",background:`linear-gradient(145deg,${secColor}2e,${secColor}12)`,border:`1px solid ${secColor}3a`}}>
+          <div style={{borderRadius:10,padding:"10px",background:`linear-gradient(145deg,${SURF_HI},${SURFACE})`,boxShadow:SO}}>
             <div style={{display:"flex",justifyContent:"space-between",marginBottom:8}}>
               <span style={{fontSize:12,color:DIM}}>Крок слота (довгий тап)</span>
               <span style={{fontSize:13,fontWeight:800,color:TEAL}}>{settings.slotCreateStep ?? 30} хв</span>
@@ -315,19 +315,19 @@ select{color-scheme:${isKava?"light":"dark"}}
       case "restr": return (
         <div>
           {showHint && <Info color={RED} title={t('set.restr.info_t')} text={t('set.restr.info')}/>}
-          <Row color={secColor} label={t('set.restr.reschedule')}>
-            <Toggle color={secColor} on={settings.studentCanReschedule} onChange={v=>upd("studentCanReschedule",v)}/>
+          <Row color={svColor(settings.studentCanReschedule)} label={t('set.restr.reschedule')}>
+            <Toggle color={svColor(settings.studentCanReschedule)} on={settings.studentCanReschedule} onChange={v=>upd("studentCanReschedule",v)}/>
           </Row>
-          <Row color={secColor} label={t('set.restr.cancel')}>
-            <Toggle color={secColor} on={settings.studentCanCancel} onChange={v=>upd("studentCanCancel",v)}/>
+          <Row color={svColor(settings.studentCanCancel)} label={t('set.restr.cancel')}>
+            <Toggle color={svColor(settings.studentCanCancel)} on={settings.studentCanCancel} onChange={v=>upd("studentCanCancel",v)}/>
           </Row>
-          <Row color={secColor} label={t('set.restr.cutoff')} hint={t('set.restr.cutoff_h')}>
+          <Row label={t('set.restr.cutoff')} hint={t('set.restr.cutoff_h')}>
             <NumInput value={settings.bookCutoffHours} onChange={v=>upd("bookCutoffHours",v)} min={0} max={48} suffix={` ${t('hr')}`}/>
           </Row>
-          <Row color={secColor} label={t('set.restr.calendar')} hint={t('set.restr.calendar_h')}>
+          <Row label={t('set.restr.calendar')} hint={t('set.restr.calendar_h')}>
             <NumInput value={settings.calendarOpenDays} onChange={v=>upd("calendarOpenDays",v)} min={1} max={365} suffix={` ${t('days')}`}/>
           </Row>
-          <Row color={secColor} label={lang==="en"?"Min interval between bookings":"Мінімальний інтервал між записами"} hint={lang==="en"?"Minimum days between any two bookings for one student. 0 — disabled.":"Мінімум днів між будь-якими двома записами учня. 0 — без обмеження."} last>
+          <Row label={lang==="en"?"Min interval between bookings":"Мінімальний інтервал між записами"} hint={lang==="en"?"Minimum days between any two bookings for one student. 0 — disabled.":"Мінімум днів між будь-якими двома записами учня. 0 — без обмеження."} last>
             <NumInput value={settings.minBookingIntervalDays ?? 0} onChange={v=>upd("minBookingIntervalDays",v)} min={0} max={30} suffix={` ${t('days')}`}/>
           </Row>
         </div>
@@ -343,7 +343,7 @@ select{color-scheme:${isKava?"light":"dark"}}
               {k:"broadcast", label:t('set.queue.bc'),     hint:t('set.queue.bc_h')     },
               {k:"manual",    label:t('set.queue.manual'), hint:t('set.queue.manual_h') },
             ].map((o,i,arr)=>(
-              <Row color={secColor} key={o.k} label={o.label} hint={o.hint} last={i===arr.length-1}>
+              <Row color={svColor(queueMode===o.k)} key={o.k} label={o.label} hint={o.hint} last={i===arr.length-1}>
                 <Radio on={queueMode===o.k} onChange={()=>setQueueMode(o.k)}/>
               </Row>
             ))}
@@ -354,8 +354,8 @@ select{color-scheme:${isKava?"light":"dark"}}
       case "sticky": return (
         <div>
           {showHint && <Info color={BLUE} title={t('set.sticky.info_t')} text={t('set.sticky.info')}/>}
-          <Row color={secColor} label={lang==="en"?"Enable feature":"Увімкнути"} hint={lang==="en"?"When off — all adjacent free slots are shown":"Вимкнено — всі вільні слоти видно завжди"}>
-            <Toggle color={secColor} on={settings.stickyTimeEnabled !== false} onChange={v=>upd("stickyTimeEnabled",v)}/>
+          <Row color={svColor(settings.stickyTimeEnabled !== false)} label={lang==="en"?"Enable feature":"Увімкнути"} hint={lang==="en"?"When off — all adjacent free slots are shown":"Вимкнено — всі вільні слоти видно завжди"}>
+            <Toggle color={svColor(settings.stickyTimeEnabled !== false)} on={settings.stickyTimeEnabled !== false} onChange={v=>upd("stickyTimeEnabled",v)}/>
           </Row>
           {settings.stickyTimeEnabled !== false && (
             <div>
@@ -364,7 +364,7 @@ select{color-scheme:${isKava?"light":"dark"}}
                 {v:"after",  l:t('set.sticky.after') },
                 {v:"both",   l:t('set.sticky.both')  },
               ].map((o,i,arr)=>(
-                <Row color={secColor} key={o.v} label={o.l} last={i===arr.length-1}>
+                <Row color={svColor(settings.stickyTime===o.v)} key={o.v} label={o.l} last={i===arr.length-1}>
                   <Radio on={settings.stickyTime===o.v} onChange={()=>upd("stickyTime",o.v)}/>
                 </Row>
               ))}
@@ -381,12 +381,11 @@ select{color-scheme:${isKava?"light":"dark"}}
             {reminders.map((r,i)=>(
               <div key={i} style={{
                 display:"flex",alignItems:"center",gap:8,
-                background:`linear-gradient(145deg,${secColor}2e,${secColor}12)`,
-                border:`1px solid ${secColor}3a`,
+                background:`linear-gradient(135deg,color-mix(in srgb,${svColor(r.enabled)} ${r.enabled?38:22}%,${BG_DEEP}) 0%,${BG_DEEP} 100%)`,
+                border:`1px solid color-mix(in srgb,${svColor(r.enabled)} ${r.enabled?35:25}%,transparent)`,
                 borderRadius:10,padding:"7px 10px",
-                opacity:r.enabled?1:0.55,
               }}>
-                <SmallToggle color={secColor} on={r.enabled} onChange={v=>updReminder(i,{enabled:v})}/>
+                <SmallToggle color={svColor(r.enabled)} on={r.enabled} onChange={v=>updReminder(i,{enabled:v})}/>
                 <span style={{fontSize:12,color:DIM,flex:1}}>
                   {lang==="en"?"Reminder":"Нагадування"} #{i+1}
                 </span>
@@ -395,11 +394,11 @@ select{color-scheme:${isKava?"light":"dark"}}
               </div>
             ))}
           </div>
-          <Row color={secColor} label={t('set.auto.cancel')}>
-            <Toggle color={secColor} on={!!settings.autoCancel?.enabled} onChange={v=>setSettings(s=>({...s,autoCancel:{...(s.autoCancel||{}),enabled:v}}))}/>
+          <Row color={svColor(!!settings.autoCancel?.enabled)} label={t('set.auto.cancel')}>
+            <Toggle color={svColor(!!settings.autoCancel?.enabled)} on={!!settings.autoCancel?.enabled} onChange={v=>setSettings(s=>({...s,autoCancel:{...(s.autoCancel||{}),enabled:v}}))}/>
           </Row>
-          <Row color={secColor} label={t('set.auto.queue')} last>
-            <Toggle color={secColor} on={!!settings.autoQueueOffer?.enabled} onChange={v=>setSettings(s=>({...s,autoQueueOffer:{...(s.autoQueueOffer||{}),enabled:v}}))}/>
+          <Row color={svColor(!!settings.autoQueueOffer?.enabled)} label={t('set.auto.queue')} last>
+            <Toggle color={svColor(!!settings.autoQueueOffer?.enabled)} on={!!settings.autoQueueOffer?.enabled} onChange={v=>setSettings(s=>({...s,autoQueueOffer:{...(s.autoQueueOffer||{}),enabled:v}}))}/>
           </Row>
         </div>
       );
@@ -422,15 +421,15 @@ select{color-scheme:${isKava?"light":"dark"}}
                   display:"flex",alignItems:"center",justifyContent:"space-between",
                   padding:"9px 14px",borderRadius:22,
                   cursor:isFixed?"default":"pointer",userSelect:"none",
-                  background:isOn?`linear-gradient(135deg,color-mix(in srgb,${secColor} 40%,${BG_DEEP}) 0%,${BG_DEEP} 100%)`:`linear-gradient(145deg,${BG_DEEP},${SURF_LO})`,
-                  border:isOn?`1px solid color-mix(in srgb,${secColor} 32%,transparent)`:"none",
-                  boxShadow:isOn?"none":SI,opacity:isFixed?0.65:1,
+                  background:`linear-gradient(135deg,color-mix(in srgb,${svColor(isOn)} ${isOn?40:22}%,${BG_DEEP}) 0%,${BG_DEEP} 100%)`,
+                  border:`1px solid color-mix(in srgb,${svColor(isOn)} ${isOn?32:24}%,transparent)`,
+                  opacity:isFixed?0.65:1,
                 }}>
                   <span style={{fontSize:12,fontWeight:700,color:isOn?"#fff":FAINT}}>{t(tab.lk)}</span>
                   <div style={{
                     width:40,height:22,borderRadius:11,position:"relative",flexShrink:0,
-                    background:isOn?`linear-gradient(145deg,color-mix(in srgb,${secColor} 85%,#fff),${secColor})`:`linear-gradient(145deg,${SURF_LO},${BG_DEEP})`,
-                    boxShadow:isOn?`0 0 6px ${secColor}44`:SI,
+                    background:isOn?`linear-gradient(145deg,color-mix(in srgb,${GREEN} 85%,#fff),${GREEN})`:`linear-gradient(145deg,${SURF_LO},${BG_DEEP})`,
+                    boxShadow:isOn?`0 0 6px ${GREEN}44`:SI,
                   }}>
                     <div style={{
                       position:"absolute",top:2,left:isOn?20:2,width:18,height:18,borderRadius:9,
@@ -448,14 +447,14 @@ select{color-scheme:${isKava?"light":"dark"}}
       case "look": return (
         <div>
           {showHint && <Info color={PURPLE} title={t('set.look.info_t')} text={t('set.look.info')}/>}
-          <Row color={secColor} label={t('set.look.theme')}>
+          <Row label={t('set.look.theme')}>
             <div style={{display:"flex",gap:6}}>
               {[["dark","🌙 Темна"],["light","☕ Кава"]].map(([k,l])=>(
                 <Chip key={k} label={l} active={settings.theme===k} onClick={()=>upd("theme",k)}/>
               ))}
             </div>
           </Row>
-          <Row color={secColor} label={t('set.look.lang')} last>
+          <Row label={t('set.look.lang')} last>
             <div style={{display:"flex",gap:6}}>
               {[["uk","🇺🇦 УКР"],["en","🇬🇧 ENG"]].map(([k,l])=>(
                 <Chip key={k} label={l} active={settings.language===k} onClick={()=>upd("language",k)}/>
@@ -467,7 +466,7 @@ select{color-scheme:${isKava?"light":"dark"}}
 
       case "surcharges": return (
         <div>
-          <Row color={secColor} label="Картка для оплати" hint="Показується учням у «Моїх записах» з кнопкою копіювання">
+          <Row label="Картка для оплати" hint="Показується учням у «Моїх записах» з кнопкою копіювання">
             <input
               value={settings.paymentCard || ""}
               onChange={e=>upd("paymentCard", e.target.value)}
@@ -486,8 +485,7 @@ select{color-scheme:${isKava?"light":"dark"}}
             <div key={i} style={{
               display:"flex",alignItems:"center",gap:10,marginBottom:5,
               padding:"10px 12px",borderRadius:10,
-              background:`linear-gradient(145deg,${secColor}2e,${secColor}12)`,
-              border:`1px solid ${secColor}3a`,
+              background:`linear-gradient(145deg,${SURF_HI},${SURFACE})`,boxShadow:SO,
             }}>
               <span style={{fontSize:13,color:GOLD,fontWeight:700,flex:1}}>Надбавка {i+1}</span>
               <NumInput
@@ -510,8 +508,8 @@ select{color-scheme:${isKava?"light":"dark"}}
 
       case "push": return (
         <div>
-          <Row color={secColor} label={lang==="en"?"Notify on freed slot":"Пуш при звільненні слоту"} hint={lang==="en"?"Push to all students when a slot within the next 10 days becomes free":"Пуш усім учням, коли в найближчі 10 днів звільняється слот"} last>
-            <Toggle color={secColor} on={settings.slotFreedPushEnabled !== false} onChange={v=>upd("slotFreedPushEnabled",v)}/>
+          <Row color={svColor(settings.slotFreedPushEnabled !== false)} label={lang==="en"?"Notify on freed slot":"Пуш при звільненні слоту"} hint={lang==="en"?"Push to all students when a slot within the next 10 days becomes free":"Пуш усім учням, коли в найближчі 10 днів звільняється слот"} last>
+            <Toggle color={svColor(settings.slotFreedPushEnabled !== false)} on={settings.slotFreedPushEnabled !== false} onChange={v=>upd("slotFreedPushEnabled",v)}/>
           </Row>
           <PushDiag />
         </div>
