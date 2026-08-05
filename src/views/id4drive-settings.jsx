@@ -211,7 +211,7 @@ select{color-scheme:${isKava?"light":"dark"}}
     { id:"auto",       icon:"📨", color:GOLD,   title:t('set.auto.title'),     label:uk?"Авто":"Auto"    },
     { id:"nav",        icon:"📱", color:ACCENT, title:t('set.nav.title'),      label:uk?"Навіг.":"Nav"   },
     { id:"surcharges", icon:"💰", color:GOLD,   title:"Надбавки",              label:uk?"Збори":"Fees"   },
-    { id:"push",       icon:"🔔", color:GREEN,  title:"Push-сповіщення",       label:"Push"              },
+    { id:"push",       icon:"🔔", color:GREEN,  title:"Сповіщення",            label:"Сповіщення"        },
   ];
 
   function renderSection(id) {
@@ -487,7 +487,7 @@ select{color-scheme:${isKava?"light":"dark"}}
 
       case "push": return (
         <div>
-          <Row color={svColor(settings.slotFreedPushEnabled !== false)} label={lang==="en"?"Notify on freed slot":"Пуш при звільненні слоту"} hint={lang==="en"?"Push to all students when a slot within the next 10 days becomes free":"Пуш усім учням, коли в найближчі 10 днів звільняється слот"} last>
+          <Row color={svColor(settings.slotFreedPushEnabled !== false)} label={lang==="en"?"Notify on freed slot":"Сповіщення при звільненні слоту"} hint={lang==="en"?"Notify all students when a slot within the next 10 days becomes free":"Сповіщення усім учням, коли в найближчі 10 днів звільняється слот"} last>
             <Toggle color={svColor(settings.slotFreedPushEnabled !== false)} on={settings.slotFreedPushEnabled !== false} onChange={v=>upd("slotFreedPushEnabled",v)}/>
           </Row>
           <PushDiag />
@@ -598,7 +598,7 @@ function PushDiag() {
         return;
       }
       const reg = await navigator.serviceWorker.ready;
-      await reg.showNotification("🔔 ID4Drive тест", { body: "Push-нотифікації працюють!", icon: "/favicon.svg" });
+      await reg.showNotification("🔔 ID4Drive тест", { body: "Сповіщення працюють!", icon: "/favicon.svg" });
       setStatus({ ok: true, msg: "Нотифікація відправлена — перевір системний трей" });
     } catch (e) {
       setStatus({ ok: false, msg: `Помилка: ${e.message}` });
