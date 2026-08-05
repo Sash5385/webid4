@@ -242,7 +242,7 @@ select{color-scheme:${isKava?"light":"dark"}}
             <NumInput value={settings.daysShown} onChange={v=>upd("daysShown",v)} min={1} max={30} suffix={` ${t('days')}`}/>
           </Row>
           <div style={{paddingTop:8}}>
-            <div style={{fontSize:9,color:FAINT,letterSpacing:1,textTransform:"uppercase",marginBottom:6}}>Тижневий шаблон</div>
+            <div style={{fontSize:9,color:"#fff",letterSpacing:1,textTransform:"uppercase",marginBottom:6,textAlign:"center"}}>Тижневий шаблон</div>
             <div style={{display:"flex",flexDirection:"column",gap:3}}>
               {DAY_NAMES.map((dayName, i) => {
                 const day = weekSchedule[i];
@@ -376,7 +376,7 @@ select{color-scheme:${isKava?"light":"dark"}}
         <div>
           {showHint && <Info color={GOLD} title={t('set.auto.info_t')} text={t('set.auto.info')}/>}
           <div style={{paddingTop:10,display:"flex",flexDirection:"column",gap:5}}>
-            <div style={{fontSize:9,color:FAINT,letterSpacing:1,textTransform:"uppercase",marginBottom:2}}>{t('set.auto.reminder')}</div>
+            <div style={{fontSize:9,color:"#fff",letterSpacing:1,textTransform:"uppercase",marginBottom:2,textAlign:"center"}}>{t('set.auto.reminder')}</div>
             {reminders.map((r,i)=>(
               <div key={i} style={{
                 display:"flex",alignItems:"center",gap:8,
