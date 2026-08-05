@@ -214,6 +214,16 @@ function StudentDetailSheet({ s, onClose, onUpdate, onDelete, onBlock, autoOpenH
       .finally(() => setHistoryLoading(false));
   };
 
+  const fmtHours = min => {
+    const h = (min || 60) / 60;
+    return (Number.isInteger(h) ? h : h.toFixed(1)) + " год";
+  };
+  const historyStats = (() => {
+    const attended = (history || []).filter(b => b.status === "confirmed");
+    const totalMin = attended.reduce((sum, b) => sum + (b.durMin || 60), 0);
+    return { count: attended.length, hours: totalMin / 60 };
+  })();
+
   // Перехід із модалки запису ("Історія") — розгорнути історію одразу при відкритті картки
   useEffect(() => {
     if (autoOpenHistory && s && !historyOpen) toggleHistory();
@@ -443,33 +453,6 @@ function StudentDetailSheet({ s, onClose, onUpdate, onDelete, onBlock, autoOpenH
                   <div style={{background:glow(0.04),borderRadius:10,padding:"9px 12px",border:`1px solid ${BORDER}`,fontSize:12,color:DIM,lineHeight:1.5}}>📝 {s.notes}</div>
                 )}
 
-                {/* Booking history */}
-                {historyOpen && (
-                  <div>
-                    <div style={{fontSize:9,color:FAINT,letterSpacing:1,textTransform:"uppercase",fontWeight:700,marginBottom:6}}>Історія записів</div>
-                    {historyLoading ? (
-                      <div style={{textAlign:"center",padding:"12px 0",color:FAINT,fontSize:12}}>Завантаження…</div>
-                    ) : (history||[]).length > 0 ? (
-                      <div style={{display:"flex",flexDirection:"column",gap:5}}>
-                        {history.map((b,i)=>{
-                          const [c,bg] = b.status==="confirmed"?[GREEN,`${GREEN}1a`]:b.status==="cancelled"?[RED,`${RED}1a`]:b.status==="noshow"?[RED,`${RED}1a`]:[ACCENT,`${ACCENT}1a`];
-                          const icon = b.status==="confirmed"?"✓":b.status==="cancelled"?"✕":b.status==="noshow"?"⚠":"⏳";
-                          return (
-                            <div key={b.id||i} style={{display:"flex",alignItems:"center",gap:8,background:`linear-gradient(135deg,${SURF_HI},${SURFACE})`,borderRadius:9,padding:"7px 11px",boxShadow:SO}}>
-                              <span style={{fontSize:11,color:DIM,fontWeight:700,minWidth:48}}>{fmtS(b.date)}</span>
-                              <span style={{fontSize:11,color:BLUE,fontWeight:700,minWidth:34}}>{b.time}</span>
-                              <span style={{flex:1,fontSize:11,color:TEXT,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{b.serviceName||b.svc||"—"}</span>
-                              <span style={{fontSize:10,fontWeight:800,padding:"2px 7px",borderRadius:5,background:bg,color:c}}>{icon}</span>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <div style={{textAlign:"center",padding:"12px 0",color:FAINT,fontSize:12}}>Записів ще немає</div>
-                    )}
-                  </div>
-                )}
-
                 {/* Delete */}
                 <button onClick={()=>setConfirmDel(true)} style={{
                   width:"100%",padding:"11px",borderRadius:11,border:"1px solid rgba(239,68,68,0.25)",
@@ -481,6 +464,75 @@ function StudentDetailSheet({ s, onClose, onUpdate, onDelete, onBlock, autoOpenH
           </div>
         </div>
       </div>
+
+      {/* Історія занять — окрема модалка (таймлайн з тривалістю і сумою годин) */}
+      {historyOpen && createPortal(
+        <div onClick={()=>setHistoryOpen(false)} style={{
+          position:"fixed",inset:0,zIndex:260,
+          background:shade(0.55),backdropFilter:"blur(8px)",
+          display:"flex",alignItems:"flex-end",justifyContent:"center",
+        }}>
+          <div className="sheet" onClick={e=>e.stopPropagation()} style={{
+            width:"100%",maxWidth:480,
+            background:BG_DEEP,
+            borderRadius:"24px 24px 0 0",
+            boxShadow:`0 -2px 0 ${glow(0.08)},0 -16px 60px ${shade(0.8)}`,
+            maxHeight:"85vh",overflowY:"auto",
+            padding:"12px 16px calc(20px + env(safe-area-inset-bottom))",
+            boxSizing:"border-box",
+          }}>
+            <div style={{width:36,height:4,borderRadius:2,background:glow(0.15),margin:"0 auto 14px"}}/>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14}}>
+              <div style={{fontSize:14,fontWeight:800,color:TEXT}}>Історія занять</div>
+              <div onClick={()=>setHistoryOpen(false)} style={{
+                width:26,height:26,borderRadius:8,background:"rgba(239,68,68,0.18)",
+                display:"flex",alignItems:"center",justifyContent:"center",
+                cursor:"pointer",color:"#ef4444",fontSize:13,fontWeight:800,flexShrink:0,
+              }}>✕</div>
+            </div>
+
+            {historyLoading ? (
+              <div style={{textAlign:"center",padding:"30px 0",color:FAINT,fontSize:12}}>Завантаження…</div>
+            ) : (history||[]).length > 0 ? (
+              <>
+                <div style={{display:"flex",gap:8,marginBottom:16}}>
+                  <div style={{flex:1,borderRadius:12,padding:"10px 8px",textAlign:"center",background:`linear-gradient(155deg,color-mix(in srgb,${GREEN} 30%,${BG_DEEP}),${BG_DEEP})`}}>
+                    <div style={{fontSize:19,fontWeight:900,color:GREEN}}>{Number.isInteger(historyStats.hours)?historyStats.hours:historyStats.hours.toFixed(1)}</div>
+                    <div style={{fontSize:8.5,color:DIM,fontWeight:700,marginTop:2}}>годин пройдено</div>
+                  </div>
+                  <div style={{flex:1,borderRadius:12,padding:"10px 8px",textAlign:"center",background:`linear-gradient(155deg,color-mix(in srgb,${BLUE} 30%,${BG_DEEP}),${BG_DEEP})`}}>
+                    <div style={{fontSize:19,fontWeight:900,color:BLUE}}>{historyStats.count}</div>
+                    <div style={{fontSize:8.5,color:DIM,fontWeight:700,marginTop:2}}>занять відвідано</div>
+                  </div>
+                </div>
+
+                <div style={{position:"relative",paddingLeft:20}}>
+                  <div style={{position:"absolute",left:5,top:4,bottom:4,width:2,background:`linear-gradient(${GREEN},${GREEN} 75%,${RED})`}}/>
+                  {history.map((b,i)=>{
+                    const attended = b.status==="confirmed";
+                    const cancelled = b.status==="cancelled"||b.status==="noshow";
+                    const dotColor = attended?GREEN:cancelled?RED:ACCENT;
+                    const statusLabel = attended?"відвідано":b.status==="cancelled"?"скасовано":b.status==="noshow"?"неявка":"очікує";
+                    return (
+                      <div key={b.id||i} style={{position:"relative",paddingBottom:i===history.length-1?0:16}}>
+                        <div style={{position:"absolute",left:-20,top:2,width:11,height:11,borderRadius:"50%",background:dotColor,boxShadow:`0 0 0 3px ${BG_DEEP}`}}/>
+                        <div style={{display:"flex",alignItems:"baseline",justifyContent:"space-between",gap:8}}>
+                          <span style={{fontSize:12,fontWeight:800,color:TEXT}}>{fmtS(b.date)}{b.time?`, ${b.time}`:""}</span>
+                          <span style={{fontSize:9.5,fontWeight:800,padding:"2px 8px",borderRadius:20,flexShrink:0,background:`${dotColor}22`,color:dotColor}}>{fmtHours(b.durMin)}</span>
+                        </div>
+                        <div style={{fontSize:10.5,color:DIM,marginTop:2}}>{b.serviceName||b.svc||"—"} · {statusLabel}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            ) : (
+              <div style={{textAlign:"center",padding:"30px 0",color:FAINT,fontSize:12}}>Записів ще немає</div>
+            )}
+          </div>
+        </div>,
+        document.body
+      )}
     </>
   );
 }
