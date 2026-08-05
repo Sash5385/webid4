@@ -214,13 +214,14 @@ function StudentDetailSheet({ s, onClose, onUpdate, onDelete, onBlock, autoOpenH
       .finally(() => setHistoryLoading(false));
   };
 
+  const getDurMin = b => b.durMin ?? (b.durationHours ? b.durationHours * 60 : 60);
   const fmtHours = min => {
     const h = (min || 60) / 60;
     return (Number.isInteger(h) ? h : h.toFixed(1)) + " год";
   };
   const historyStats = (() => {
     const attended = (history || []).filter(b => b.status === "confirmed");
-    const totalMin = attended.reduce((sum, b) => sum + (b.durMin || 60), 0);
+    const totalMin = attended.reduce((sum, b) => sum + getDurMin(b), 0);
     return { count: attended.length, hours: totalMin / 60 };
   })();
 
@@ -518,7 +519,7 @@ function StudentDetailSheet({ s, onClose, onUpdate, onDelete, onBlock, autoOpenH
                         <div style={{position:"absolute",left:-20,top:2,width:11,height:11,borderRadius:"50%",background:dotColor,boxShadow:`0 0 0 3px ${BG_DEEP}`}}/>
                         <div style={{display:"flex",alignItems:"baseline",justifyContent:"space-between",gap:8}}>
                           <span style={{fontSize:12,fontWeight:800,color:TEXT}}>{fmtS(b.date)}{b.time?`, ${b.time}`:""}</span>
-                          <span style={{fontSize:9.5,fontWeight:800,padding:"2px 8px",borderRadius:20,flexShrink:0,background:`${dotColor}22`,color:dotColor}}>{fmtHours(b.durMin)}</span>
+                          <span style={{fontSize:9.5,fontWeight:800,padding:"2px 8px",borderRadius:20,flexShrink:0,background:`${dotColor}22`,color:dotColor}}>{fmtHours(getDurMin(b))}</span>
                         </div>
                         <div style={{fontSize:10.5,color:DIM,marginTop:2}}>{b.serviceName||b.svc||"—"} · {statusLabel}</div>
                       </div>
