@@ -21,14 +21,15 @@ const DAY_NAMES = ["Пн","Вт","Ср","Чт","Пт","Сб","Нд"];
 
 // ─── MODULE-LEVEL ATOMS (stable references → no remount on settings change) ───
 
-function Toggle({ on, onChange }) {
+function Toggle({ on, onChange, color }) {
   const { ACC_HI, ACCENT, SURF_LO, BG_DEEP, SI } = useContext(ThemeContext);
   const { shade } = useFX();
+  const c = color || ACCENT;
   return (
     <div onClick={()=>onChange(!on)} style={{
       width:44,height:24,borderRadius:12,cursor:"pointer",position:"relative",
-      background:on?`linear-gradient(145deg,${ACC_HI},${ACCENT})`:`linear-gradient(145deg,${SURF_LO},${BG_DEEP})`,
-      boxShadow:on?`0 0 8px ${ACCENT}44`:SI,transition:"background .2s",flexShrink:0,
+      background:on?`linear-gradient(145deg,color-mix(in srgb,${c} 85%,#fff),${c})`:`linear-gradient(145deg,${SURF_LO},${BG_DEEP})`,
+      boxShadow:on?`0 0 8px ${c}44`:SI,transition:"background .2s",flexShrink:0,
     }}>
       <div style={{
         position:"absolute",top:3,left:on?21:3,width:18,height:18,borderRadius:9,
@@ -39,14 +40,15 @@ function Toggle({ on, onChange }) {
   );
 }
 
-function SmallToggle({ on, onChange }) {
+function SmallToggle({ on, onChange, color }) {
   const { ACC_HI, ACCENT, SURF_LO, BG_DEEP, SI } = useContext(ThemeContext);
   const { shade } = useFX();
+  const c = color || ACCENT;
   return (
     <div onClick={()=>onChange(!on)} style={{
       width:32,height:18,borderRadius:9,cursor:"pointer",position:"relative",
-      background:on?`linear-gradient(145deg,${ACC_HI},${ACCENT})`:`linear-gradient(145deg,${SURF_LO},${BG_DEEP})`,
-      boxShadow:on?`0 0 6px ${ACCENT}44`:SI,transition:"background .2s",flexShrink:0,
+      background:on?`linear-gradient(145deg,color-mix(in srgb,${c} 85%,#fff),${c})`:`linear-gradient(145deg,${SURF_LO},${BG_DEEP})`,
+      boxShadow:on?`0 0 6px ${c}44`:SI,transition:"background .2s",flexShrink:0,
     }}>
       <div style={{
         position:"absolute",top:2,left:on?16:2,width:14,height:14,borderRadius:7,
@@ -252,14 +254,14 @@ select{color-scheme:${isKava?"light":"dark"}}
                   }}>
                     <div style={{display:"flex",alignItems:"center",gap:6}}>
                       <span style={{width:20,fontSize:11,fontWeight:800,color:day.enabled?TEXT:FAINT,flexShrink:0}}>{dayName}</span>
-                      <SmallToggle on={day.enabled} onChange={v=>updDay(i,{enabled:v})}/>
+                      <SmallToggle color={secColor} on={day.enabled} onChange={v=>updDay(i,{enabled:v})}/>
                       {day.enabled ? (<>
                         <span style={{flex:1}}/>
                         <TimeInput compact value={day.start} onChange={v=>updDay(i,{start:Math.min(v,day.end-0.5)})} min={0} max={23}/>
                         <span style={{fontSize:9,color:FAINT,margin:"0 2px"}}>—</span>
                         <TimeInput compact value={day.end} onChange={v=>updDay(i,{end:Math.max(v,day.start+0.5)})} min={0.5} max={24}/>
                         <span style={{fontSize:12,flexShrink:0,marginLeft:4}}>🍽</span>
-                        <SmallToggle on={!!day.lunchEnabled} onChange={v=>updDay(i,{lunchEnabled:v})}/>
+                        <SmallToggle color={secColor} on={!!day.lunchEnabled} onChange={v=>updDay(i,{lunchEnabled:v})}/>
                       </>) : (
                         <span style={{fontSize:10,color:FAINT,marginLeft:4}}>Вихідний</span>
                       )}
@@ -313,10 +315,10 @@ select{color-scheme:${isKava?"light":"dark"}}
         <div>
           {showHint && <Info color={RED} title={t('set.restr.info_t')} text={t('set.restr.info')}/>}
           <Row color={secColor} label={t('set.restr.reschedule')}>
-            <Toggle on={settings.studentCanReschedule} onChange={v=>upd("studentCanReschedule",v)}/>
+            <Toggle color={secColor} on={settings.studentCanReschedule} onChange={v=>upd("studentCanReschedule",v)}/>
           </Row>
           <Row color={secColor} label={t('set.restr.cancel')}>
-            <Toggle on={settings.studentCanCancel} onChange={v=>upd("studentCanCancel",v)}/>
+            <Toggle color={secColor} on={settings.studentCanCancel} onChange={v=>upd("studentCanCancel",v)}/>
           </Row>
           <Row color={secColor} label={t('set.restr.cutoff')} hint={t('set.restr.cutoff_h')}>
             <NumInput value={settings.bookCutoffHours} onChange={v=>upd("bookCutoffHours",v)} min={0} max={48} suffix={` ${t('hr')}`}/>
@@ -334,10 +336,10 @@ select{color-scheme:${isKava?"light":"dark"}}
         <div>
           {showHint && <Info color={GREEN} title={t('set.queue.info_t')} text={t('set.queue.info')}/>}
           <Row color={secColor} label={t('set.queue.require')} hint={t('set.queue.require_h')}>
-            <Toggle on={settings.pendingEnabled} onChange={v=>upd("pendingEnabled",v)}/>
+            <Toggle color={secColor} on={settings.pendingEnabled} onChange={v=>upd("pendingEnabled",v)}/>
           </Row>
           <Row color={secColor} label={lang==="en"?"Show «Complete» button":"Кнопка «Завершити»"} hint={lang==="en"?"Show a Complete button on confirmed bookings":"Показувати кнопку «Завершити» на підтверджених записах"} last>
-            <Toggle on={settings.showCompleteBtn !== false} onChange={v=>upd("showCompleteBtn",v)}/>
+            <Toggle color={secColor} on={settings.showCompleteBtn !== false} onChange={v=>upd("showCompleteBtn",v)}/>
           </Row>
           <div style={{paddingTop:10}}>
             <div style={{fontSize:9,color:FAINT,letterSpacing:1,textTransform:"uppercase",marginBottom:8}}>{t('set.queue.mode')}</div>
@@ -358,7 +360,7 @@ select{color-scheme:${isKava?"light":"dark"}}
         <div>
           {showHint && <Info color={BLUE} title={t('set.sticky.info_t')} text={t('set.sticky.info')}/>}
           <Row color={secColor} label={lang==="en"?"Enable feature":"Увімкнути"} hint={lang==="en"?"When off — all adjacent free slots are shown":"Вимкнено — всі вільні слоти видно завжди"}>
-            <Toggle on={settings.stickyTimeEnabled !== false} onChange={v=>upd("stickyTimeEnabled",v)}/>
+            <Toggle color={secColor} on={settings.stickyTimeEnabled !== false} onChange={v=>upd("stickyTimeEnabled",v)}/>
           </Row>
           {settings.stickyTimeEnabled !== false && (
             <div>
@@ -389,7 +391,7 @@ select{color-scheme:${isKava?"light":"dark"}}
                 borderRadius:10,padding:"7px 10px",
                 opacity:r.enabled?1:0.55,
               }}>
-                <SmallToggle on={r.enabled} onChange={v=>updReminder(i,{enabled:v})}/>
+                <SmallToggle color={secColor} on={r.enabled} onChange={v=>updReminder(i,{enabled:v})}/>
                 <span style={{fontSize:12,color:DIM,flex:1}}>
                   {lang==="en"?"Reminder":"Нагадування"} #{i+1}
                 </span>
@@ -399,13 +401,13 @@ select{color-scheme:${isKava?"light":"dark"}}
             ))}
           </div>
           <Row color={secColor} label={t('set.auto.confirm')}>
-            <Toggle on={!!settings.autoConfirm?.enabled} onChange={v=>setSettings(s=>({...s,autoConfirm:{...(s.autoConfirm||{}),enabled:v}}))}/>
+            <Toggle color={secColor} on={!!settings.autoConfirm?.enabled} onChange={v=>setSettings(s=>({...s,autoConfirm:{...(s.autoConfirm||{}),enabled:v}}))}/>
           </Row>
           <Row color={secColor} label={t('set.auto.cancel')}>
-            <Toggle on={!!settings.autoCancel?.enabled} onChange={v=>setSettings(s=>({...s,autoCancel:{...(s.autoCancel||{}),enabled:v}}))}/>
+            <Toggle color={secColor} on={!!settings.autoCancel?.enabled} onChange={v=>setSettings(s=>({...s,autoCancel:{...(s.autoCancel||{}),enabled:v}}))}/>
           </Row>
           <Row color={secColor} label={t('set.auto.queue')} last>
-            <Toggle on={!!settings.autoQueueOffer?.enabled} onChange={v=>setSettings(s=>({...s,autoQueueOffer:{...(s.autoQueueOffer||{}),enabled:v}}))}/>
+            <Toggle color={secColor} on={!!settings.autoQueueOffer?.enabled} onChange={v=>setSettings(s=>({...s,autoQueueOffer:{...(s.autoQueueOffer||{}),enabled:v}}))}/>
           </Row>
         </div>
       );
@@ -514,8 +516,8 @@ select{color-scheme:${isKava?"light":"dark"}}
 
       case "push": return (
         <div>
-          <Row label={lang==="en"?"Notify on freed slot":"Пуш при звільненні слоту"} hint={lang==="en"?"Push to all students when a slot within the next 10 days becomes free":"Пуш усім учням, коли в найближчі 10 днів звільняється слот"} last>
-            <Toggle on={settings.slotFreedPushEnabled !== false} onChange={v=>upd("slotFreedPushEnabled",v)}/>
+          <Row color={secColor} label={lang==="en"?"Notify on freed slot":"Пуш при звільненні слоту"} hint={lang==="en"?"Push to all students when a slot within the next 10 days becomes free":"Пуш усім учням, коли в найближчі 10 днів звільняється слот"} last>
+            <Toggle color={secColor} on={settings.slotFreedPushEnabled !== false} onChange={v=>upd("slotFreedPushEnabled",v)}/>
           </Row>
           <PushDiag />
         </div>
