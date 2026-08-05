@@ -878,6 +878,25 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   const quickCancelRef = useRef(null);
   const [cancellingSet, setCancellingSet] = useState(new Set());
   const cancelTimers = useRef({});
+  // Кумулятивні години учня на момент кожного уроку (для кружечка № уроку в слоті)
+  const cumulativeHoursMap = useMemo(() => {
+    const byUser = {};
+    for (const b of bookings) {
+      if (b.type === "block" || b.type === "vip-slot" || b.type === "personal") continue;
+      if (!b.userId) continue;
+      (byUser[b.userId] ||= []).push(b);
+    }
+    const map = {};
+    Object.values(byUser).forEach(list => {
+      list.sort((a, b2) => a.day - b2.day || a.startMin - b2.startMin);
+      let sum = 0;
+      for (const b of list) {
+        sum += (b.durMin || 60) / 60;
+        map[b.id] = Math.round(sum);
+      }
+    });
+    return map;
+  }, [bookings]);
   const [windowW, setWindowW] = useState(window.innerWidth);
   const [windowH, setWindowH] = useState(window.innerHeight);
   const PAST_DAYS = 30;
@@ -2285,6 +2304,18 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                           </div>
                         );
                       })()}
+                      {/* № уроку — кумулятивні години учня на момент цього уроку */}
+                      {!isBlock && !isVipSlot && !isPersonal && cumulativeHoursMap[b.id] != null && height >= 14 && (
+                        <div style={{
+                          position:"absolute", top:2, left:2, zIndex:4,
+                          width:14, height:14, borderRadius:"50%",
+                          background:"#fff", color:"#1a1b20",
+                          fontSize:8, fontWeight:900, lineHeight:1,
+                          display:"flex", alignItems:"center", justifyContent:"center",
+                          boxShadow:"0 1px 3px rgba(0,0,0,0.4)",
+                          pointerEvents:"none",
+                        }}>{cumulativeHoursMap[b.id]}</div>
+                      )}
                       {/* VIP crown badge for regular bookings marked as VIP */}
                       {b.isVipOnly && !isVipSlot && height >= 14 && (
                         <div style={{
