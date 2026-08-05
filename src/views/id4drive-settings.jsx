@@ -210,7 +210,6 @@ select{color-scheme:${isKava?"light":"dark"}}
     { id:"sticky",     icon:"📌", color:PURPLE, title:t('set.sticky.title'),   label:uk?"Слоти":"Slots"  },
     { id:"auto",       icon:"📨", color:GOLD,   title:t('set.auto.title'),     label:uk?"Авто":"Auto"    },
     { id:"nav",        icon:"📱", color:ACCENT, title:t('set.nav.title'),      label:uk?"Навіг.":"Nav"   },
-    { id:"look",       icon:"🎨", color:PURPLE, title:t('set.look.title'),     label:uk?"Тема":"Theme"   },
     { id:"surcharges", icon:"💰", color:GOLD,   title:"Надбавки",              label:uk?"Збори":"Fees"   },
     { id:"push",       icon:"🔔", color:GREEN,  title:"Push-сповіщення",       label:"Push"              },
   ];
@@ -441,26 +440,6 @@ select{color-scheme:${isKava?"light":"dark"}}
               );
             })}
           </div>
-        </div>
-      );
-
-      case "look": return (
-        <div>
-          {showHint && <Info color={PURPLE} title={t('set.look.info_t')} text={t('set.look.info')}/>}
-          <Row label={t('set.look.theme')}>
-            <div style={{display:"flex",gap:6}}>
-              {[["dark","🌙 Темна"],["light","☕ Кава"]].map(([k,l])=>(
-                <Chip key={k} label={l} active={settings.theme===k} onClick={()=>upd("theme",k)}/>
-              ))}
-            </div>
-          </Row>
-          <Row label={t('set.look.lang')} last>
-            <div style={{display:"flex",gap:6}}>
-              {[["uk","🇺🇦 УКР"],["en","🇬🇧 ENG"]].map(([k,l])=>(
-                <Chip key={k} label={l} active={settings.language===k} onClick={()=>upd("language",k)}/>
-              ))}
-            </div>
-          </Row>
         </div>
       );
 
