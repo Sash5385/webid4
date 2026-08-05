@@ -335,14 +335,8 @@ select{color-scheme:${isKava?"light":"dark"}}
       case "queue": return (
         <div>
           {showHint && <Info color={GREEN} title={t('set.queue.info_t')} text={t('set.queue.info')}/>}
-          <Row color={secColor} label={t('set.queue.require')} hint={t('set.queue.require_h')}>
-            <Toggle color={secColor} on={settings.pendingEnabled} onChange={v=>upd("pendingEnabled",v)}/>
-          </Row>
-          <Row color={secColor} label={lang==="en"?"Show «Complete» button":"Кнопка «Завершити»"} hint={lang==="en"?"Show a Complete button on confirmed bookings":"Показувати кнопку «Завершити» на підтверджених записах"} last>
-            <Toggle color={secColor} on={settings.showCompleteBtn !== false} onChange={v=>upd("showCompleteBtn",v)}/>
-          </Row>
-          <div style={{paddingTop:10}}>
-            <div style={{fontSize:9,color:FAINT,letterSpacing:1,textTransform:"uppercase",marginBottom:8}}>{t('set.queue.mode')}</div>
+          <div style={{paddingTop:2}}>
+            <div style={{fontSize:9,color:"#fff",letterSpacing:1,textTransform:"uppercase",marginBottom:8,textAlign:"center"}}>{t('set.queue.mode')}</div>
             {[
               {k:"fifo",      label:t('set.queue.fifo'),   hint:t('set.queue.fifo_h')   },
               {k:"broadcast", label:t('set.queue.bc'),     hint:t('set.queue.bc_h')     },
