@@ -3360,6 +3360,13 @@ function BookingModal({ booking, onClose, onAction, settings, bookings, onViewSt
   const [editRate, setEditRate] = useState(0);
   const [maneuverState, setManeuverState] = useState({});
   const [maneuverCounts, setManeuverCounts] = useState({});
+  const [filmingConsent, setFilmingConsent] = useState(null);
+  useEffect(() => {
+    if (!booking || !booking.userId) { setFilmingConsent(null); return; }
+    const r = ref(db, `users/${booking.userId}/profile/filmingConsent`);
+    const unsub = onValue(r, snap => setFilmingConsent(snap.exists() ? snap.val() : null));
+    return () => unsub();
+  }, [booking]);
   useEffect(() => {
     if (!booking) return;
     setClosing(false);
@@ -3516,6 +3523,20 @@ function BookingModal({ booking, onClose, onAction, settings, bookings, onViewSt
                 <div style={{fontSize:15,fontWeight:800,color:TEXT,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{booking.name}</div>
                 <div style={{fontSize:10,color:c,fontWeight:700,marginTop:1}}>{typeLabel}</div>
               </div>
+              {filmingConsent != null && (
+                <span title={filmingConsent ? "Дозвіл на зйомку" : "Зйомка заборонена"} style={{
+                  width:22, height:22, borderRadius:7, flexShrink:0,
+                  background: filmingConsent ? GREEN : RED,
+                  display:"flex", alignItems:"center", justifyContent:"center",
+                  boxShadow:`0 0 0 1px ${filmingConsent ? GREEN : RED}55`,
+                }}>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={filmingConsent ? "#0b1210" : "#210b0b"} strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M3 8a2 2 0 0 1 2-2h2l1.5-2h7L17 6h2a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/>
+                    <circle cx="12" cy="13" r="3.2"/>
+                    {!filmingConsent && <line x1="2" y1="2" x2="22" y2="22"/>}
+                  </svg>
+                </span>
+              )}
             </div>
           </div>
 
