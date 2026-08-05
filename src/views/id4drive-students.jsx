@@ -220,7 +220,7 @@ function StudentDetailSheet({ s, onClose, onUpdate, onDelete, onBlock, autoOpenH
     return (Number.isInteger(h) ? h : h.toFixed(1)) + " год";
   };
   const historyStats = (() => {
-    const attended = (history || []).filter(b => b.status === "confirmed");
+    const attended = (history || []).filter(b => b.status !== "cancelled" && b.status !== "noshow");
     const totalMin = attended.reduce((sum, b) => sum + getDurMin(b), 0);
     return { count: attended.length, hours: totalMin / 60 };
   })();
@@ -510,10 +510,9 @@ function StudentDetailSheet({ s, onClose, onUpdate, onDelete, onBlock, autoOpenH
                 <div style={{position:"relative",paddingLeft:20}}>
                   <div style={{position:"absolute",left:5,top:4,bottom:4,width:2,background:`linear-gradient(${GREEN},${GREEN} 75%,${RED})`}}/>
                   {history.map((b,i)=>{
-                    const attended = b.status==="confirmed";
                     const cancelled = b.status==="cancelled"||b.status==="noshow";
-                    const dotColor = attended?GREEN:cancelled?RED:ACCENT;
-                    const statusLabel = attended?"відвідано":b.status==="cancelled"?"скасовано":b.status==="noshow"?"неявка":"очікує";
+                    const dotColor = cancelled?RED:GREEN;
+                    const statusLabel = b.status==="cancelled"?"скасовано":b.status==="noshow"?"неявка":"відвідано";
                     return (
                       <div key={b.id||i} style={{position:"relative",paddingBottom:i===history.length-1?0:16}}>
                         <div style={{position:"absolute",left:-20,top:2,width:11,height:11,borderRadius:"50%",background:dotColor,boxShadow:`0 0 0 3px ${BG_DEEP}`}}/>
