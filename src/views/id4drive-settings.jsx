@@ -395,9 +395,6 @@ select{color-scheme:${isKava?"light":"dark"}}
               </div>
             ))}
           </div>
-          <Row color={secColor} label={t('set.auto.confirm')}>
-            <Toggle color={secColor} on={!!settings.autoConfirm?.enabled} onChange={v=>setSettings(s=>({...s,autoConfirm:{...(s.autoConfirm||{}),enabled:v}}))}/>
-          </Row>
           <Row color={secColor} label={t('set.auto.cancel')}>
             <Toggle color={secColor} on={!!settings.autoCancel?.enabled} onChange={v=>setSettings(s=>({...s,autoCancel:{...(s.autoCancel||{}),enabled:v}}))}/>
           </Row>
