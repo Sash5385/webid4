@@ -2308,10 +2308,10 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                       {!isBlock && !isVipSlot && !isPersonal && cumulativeHoursMap[b.id] != null && height >= 14 && (
                         <div style={{
                           position:"absolute", top:2, left:2, zIndex:4,
-                          width:14, height:14, borderRadius:"50%",
+                          width:7, height:7, borderRadius:"50%",
                           background:"rgba(20,20,24,0.85)", color:"rgba(255,255,255,0.75)",
                           border:"1px solid rgba(255,255,255,0.2)",
-                          fontSize:8, fontWeight:900, lineHeight:1,
+                          fontSize:4, fontWeight:900, lineHeight:1,
                           display:"flex", alignItems:"center", justifyContent:"center",
                           pointerEvents:"none",
                         }}>{cumulativeHoursMap[b.id]}</div>
