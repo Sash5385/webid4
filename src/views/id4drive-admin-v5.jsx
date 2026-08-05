@@ -60,17 +60,15 @@ body, html, #root { margin:0; padding:0; }
   background: linear-gradient(155deg, var(--c) 0%, color-mix(in srgb, var(--c) 68%, #000000) 100%);
   border: 1.5px solid color-mix(in srgb, var(--c) 88%, #000000);
   box-shadow:
-    -1px 2px 4px rgba(${SHADE},0.4),
-    -2px 12px 22px color-mix(in srgb, var(--c) 38%, transparent),
-    inset 0 1.5px 0 rgba(${GLOW},0.4),
-    inset -1px -1px 0 rgba(${SHADE},0.20);
+    inset 3px 3px 7px rgba(${SHADE},0.55),
+    inset -3px -3px 7px rgba(${GLOW},0.28);
 }
 .slot-pending-ring {
   animation: pulse-ring 2s infinite;
 }
 @keyframes pulse-ring {
-  0%,100% { box-shadow: -2px 5px 14px rgba(${SHADE},0.5), inset 1px 1px 0 rgba(${GLOW},0.18), inset -1px -1px 0 rgba(${SHADE},0.25), 0 0 0 0 rgba(255,90,60,0.6); }
-  50%     { box-shadow: -2px 5px 14px rgba(${SHADE},0.5), inset 1px 1px 0 rgba(${GLOW},0.18), inset -1px -1px 0 rgba(${SHADE},0.25), 0 0 0 6px rgba(255,90,60,0); }
+  0%,100% { box-shadow: inset 3px 3px 7px rgba(${SHADE},0.55), inset -3px -3px 7px rgba(${GLOW},0.28), 0 0 0 0 rgba(255,90,60,0.6); }
+  50%     { box-shadow: inset 3px 3px 7px rgba(${SHADE},0.55), inset -3px -3px 7px rgba(${GLOW},0.28), 0 0 0 6px rgba(255,90,60,0); }
 }
 
 /* resize handles — invisible hit area, no visual bar */
