@@ -249,11 +249,12 @@ select{color-scheme:${isKava?"light":"dark"}}
                 return (
                   <div key={i} style={{
                     borderRadius:8,padding:"5px 8px",
-                    background:day.enabled?`linear-gradient(145deg,${SURF_HI},${SURFACE})`:`linear-gradient(145deg,${BG_DEEP},${SURF_LO})`,
-                    boxShadow:day.enabled?SO:SI,
+                    background:day.enabled?`linear-gradient(135deg,color-mix(in srgb,${secColor} 38%,${BG_DEEP}) 0%,${BG_DEEP} 100%)`:`linear-gradient(145deg,${BG_DEEP},${SURF_LO})`,
+                    border:day.enabled?`1px solid color-mix(in srgb,${secColor} 32%,transparent)`:"none",
+                    boxShadow:day.enabled?"none":SI,
                   }}>
                     <div style={{display:"flex",alignItems:"center",gap:6}}>
-                      <span style={{width:20,fontSize:11,fontWeight:800,color:day.enabled?TEXT:FAINT,flexShrink:0}}>{dayName}</span>
+                      <span style={{width:20,fontSize:11,fontWeight:800,color:day.enabled?"#fff":FAINT,flexShrink:0}}>{dayName}</span>
                       <SmallToggle color={secColor} on={day.enabled} onChange={v=>updDay(i,{enabled:v})}/>
                       {day.enabled ? (<>
                         <span style={{flex:1}}/>
