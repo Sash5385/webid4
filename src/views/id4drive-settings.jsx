@@ -407,7 +407,7 @@ select{color-scheme:${isKava?"light":"dark"}}
       case "nav": return (
         <div>
           {showHint && <Info color={BLUE} title={t('set.nav.info_t')} text={t('set.nav.info')}/>}
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6,paddingTop:4}}>
+          <div style={{display:"flex",flexDirection:"column",gap:5,paddingTop:4}}>
             {ALL_TABS.map((tab)=>{
               const isOn = settings.navTabs?.includes(tab.id) ?? true;
               const isFixed = tab.id === "settings";
@@ -419,19 +419,21 @@ select{color-scheme:${isKava?"light":"dark"}}
               };
               return (
                 <div key={tab.id} onClick={toggle} style={{
-                  borderRadius:9,padding:"8px 6px",textAlign:"center",
+                  display:"flex",alignItems:"center",justifyContent:"space-between",
+                  padding:"9px 14px",borderRadius:22,
                   cursor:isFixed?"default":"pointer",userSelect:"none",
-                  background:isOn?`linear-gradient(145deg,${SURF_HI},${SURFACE})`:`linear-gradient(145deg,${BG_DEEP},${SURF_LO})`,
-                  boxShadow:isOn?SO:SI,opacity:isFixed?0.65:1,
+                  background:isOn?`linear-gradient(135deg,color-mix(in srgb,${secColor} 40%,${BG_DEEP}) 0%,${BG_DEEP} 100%)`:`linear-gradient(145deg,${BG_DEEP},${SURF_LO})`,
+                  border:isOn?`1px solid color-mix(in srgb,${secColor} 32%,transparent)`:"none",
+                  boxShadow:isOn?"none":SI,opacity:isFixed?0.65:1,
                 }}>
-                  <div style={{fontSize:10,fontWeight:700,color:isOn?TEXT:FAINT,marginBottom:5,lineHeight:1.2}}>{t(tab.lk)}</div>
+                  <span style={{fontSize:12,fontWeight:700,color:isOn?"#fff":FAINT}}>{t(tab.lk)}</span>
                   <div style={{
-                    width:28,height:16,borderRadius:8,margin:"0 auto",position:"relative",
-                    background:isOn?`linear-gradient(145deg,${ACC_HI},${ACCENT})`:`linear-gradient(145deg,${SURF_LO},${BG_DEEP})`,
-                    boxShadow:isOn?`0 0 5px ${ACCENT}44`:SI,
+                    width:40,height:22,borderRadius:11,position:"relative",flexShrink:0,
+                    background:isOn?`linear-gradient(145deg,color-mix(in srgb,${secColor} 85%,#fff),${secColor})`:`linear-gradient(145deg,${SURF_LO},${BG_DEEP})`,
+                    boxShadow:isOn?`0 0 6px ${secColor}44`:SI,
                   }}>
                     <div style={{
-                      position:"absolute",top:2,left:isOn?12:2,width:12,height:12,borderRadius:6,
+                      position:"absolute",top:2,left:isOn?20:2,width:18,height:18,borderRadius:9,
                       background:"linear-gradient(135deg,#fff,#ddd)",transition:"left .2s",
                       boxShadow:"0 1px 3px rgba(0,0,0,0.3)",
                     }}/>
