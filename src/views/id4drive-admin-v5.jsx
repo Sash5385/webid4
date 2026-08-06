@@ -1969,6 +1969,11 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   for (let h = settings.workStart; h <= settings.workEnd; h++) hours.push(h);
 
   const slotColor = (b) => {
+    // Колір запису залежить від тривалості: 1год=зелений, 1.5год=фіолетовий, 2год=м'ятний.
+    if (b.durMin === 60) return GREEN;
+    if (b.durMin === 90) return PURPLE;
+    if (b.durMin === 120) return colorOf("teal");
+    // Інші тривалості — за кольором послуги (як раніше).
     // Записи із самозапису клієнта (анкета) не мають serviceId — лише serviceType+durationHours.
     // Тому після точного збігу (id, потім тип+тривалість) додаємо запасний пошук просто за типом,
     // інакше колір послуги не застосовувався й картка падала в дефолтний GREEN.
