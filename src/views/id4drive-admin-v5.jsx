@@ -1920,8 +1920,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
       const fr = freeResizeRef.current;
       if (!fr) return;
       freeResizeRef.current = null;
-      setFreeResizePreview(null);
-      if (!fr.moved || fr.newDur === fr.startDur) return;
+      if (!fr.moved || fr.newDur === fr.startDur) { setFreeResizePreview(null); return; }
       const [hh, mm] = fr.time.split(":").map(Number);
       const startMin = hh * 60 + mm;
       const newEnd = startMin + fr.newDur;
@@ -1930,14 +1929,31 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
       // Ріст поглинає наступні вільні слоти, у які «в’їхав» новий розмір, —
       // прибираємо їхні окремі документи, щоб не лишалось «розрізаних» дублікатів.
       const daySlots = (openSlotsRef?.current || {})[fr.dateStr] || {};
+      const absorbedTimes = [];
       Object.keys(daySlots).forEach(t => {
         if (t === fr.time) return;
         const [h2, m2] = t.split(":").map(Number);
         const tm = h2 * 60 + m2;
         if (tm > startMin && tm < newEnd) {
           updates[`timeslots/${fr.dateStr}/slot${t.replace(":", "")}`] = null;
+          absorbedTimes.push(t);
         }
       });
+      // Оптимістично оновлюємо локальний стан одразу — інакше слот на мить
+      // «стрибає» назад до старої висоти, поки Firebase не підтвердить запис.
+      setOpenSlots(prev => {
+        const day = { ...(prev[fr.dateStr] || {}) };
+        if (day[fr.time]) day[fr.time] = { ...day[fr.time], durMin: fr.newDur };
+        absorbedTimes.forEach(t => delete day[t]);
+        return { ...prev, [fr.dateStr]: day };
+      });
+      if (openSlotsRef) {
+        const day = { ...(openSlotsRef.current[fr.dateStr] || {}) };
+        if (day[fr.time]) day[fr.time] = { ...day[fr.time], durMin: fr.newDur };
+        absorbedTimes.forEach(t => delete day[t]);
+        openSlotsRef.current = { ...openSlotsRef.current, [fr.dateStr]: day };
+      }
+      setFreeResizePreview(null);
       update(ref(db, "/"), updates).catch(() => {});
       navigator.vibrate?.(20);
     };
@@ -2470,6 +2486,14 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                         padding:"1px 5px", borderRadius:5, lineHeight:1.3, whiteSpace:"nowrap", pointerEvents:"none",
                       }}>
                         {displayHeightMin % 60 === 0 ? `${displayHeightMin/60} год` : displayHeightMin < 60 ? `${displayHeightMin} хв` : `${Math.floor(displayHeightMin/60)}г ${displayHeightMin%60}хв`}
+                      </span>
+                    )}
+                    {isPlainFree && (
+                      <span style={{
+                        fontSize:9, fontWeight:800, color, lineHeight:1.3, whiteSpace:"nowrap", pointerEvents:"none",
+                        textShadow: isLight ? "none" : "0 1px 2px rgba(0,0,0,0.4)",
+                      }}>
+                        {_fmtHM(displayStartMin)}–{_fmtHM(displayStartMin + displayHeightMin)}
                       </span>
                     )}
                     {isPlainFree && !isPastDay && !isClosedDay && (
