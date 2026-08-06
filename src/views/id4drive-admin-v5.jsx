@@ -1419,7 +1419,25 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
       }
       if (pendingDragRef.current) {
         const pd = pendingDragRef.current;
-        const moved = Math.hypot(e.clientY - pd.startClientY, e.clientX - pd.startClientX);
+        const dxTotal = e.clientX - pd.startClientX;
+        const dyTotal = e.clientY - pd.startClientY;
+        const moved = Math.hypot(dyTotal, dxTotal);
+        // Явно горизонтальний свайп (гортання дня свайпом) — завжди перемикаємось на ручний
+        // скрол сітки, незалежно від того, чи почався дотик на записі/блоці/ручці ресайзу.
+        // Раніше блоки й ручки ресайзу взагалі не мали шляху до скролу — свайп по них
+        // одразу активував drag/resize навіть при суто горизонтальному русі.
+        if (moved > 10 && Math.abs(dxTotal) > Math.abs(dyTotal) * 1.7) {
+          clearTimeout(holdTimerRef.current);
+          holdTimerRef.current = null;
+          pendingDragRef.current = null;
+          resizeReadyRef.current = null;
+          quickCancelRef.current = null;
+          xVisibleRef.current = false;
+          setQuickCancelId(null);
+          setHoldId(null);
+          if (swipeRef.current) swipeRef.current.manualScroll = true;
+          return;
+        }
         if (pd.mode === "top" || pd.mode === "bottom" || pd.isBlock) {
           if ((pd.mode === "top" || pd.mode === "bottom") && resizeReadyRef.current !== pd.id) {
             // Hold не спрацював — скасовуємо resize якщо палець рухається (scroll wins)
