@@ -2301,7 +2301,8 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                   padding:"2px 4px", borderRadius:10, cursor: isPastDay ? "default" : "pointer",
                   opacity: isPastDay ? 0.35 : 1, overflow:"visible",
                   // Будні — зелені, вихідні — червоні (day.wk = субота/неділя).
-                  background: `linear-gradient(155deg, color-mix(in srgb, ${day.wk ? RED : GREEN} 22%, ${BG_DEEP}) 0%, ${BG_DEEP} 100%)`,
+                  background: `linear-gradient(155deg, color-mix(in srgb, color-mix(in srgb, ${day.wk ? RED : GREEN} 22%, ${BG_DEEP}) 78%, transparent) 0%, color-mix(in srgb, ${BG_DEEP} 78%, transparent) 100%)`,
+                  backdropFilter:"blur(10px)", WebkitBackdropFilter:"blur(10px)",
                   boxShadow: `3px 3px 7px rgba(${SHADE},0.4), -2px -2px 6px rgba(${GLOW},0.06)${isToday ? `, inset 0 0 0 1.5px ${GOLD}99` : isClosedDay ? `, inset 0 0 0 1.5px rgba(220,60,60,0.8)` : ""}`,
                 }}>
                 <div style={{fontSize:8.5, fontWeight:700, lineHeight:1.2,
@@ -2857,7 +2858,8 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                   <div style={{
                     position:"sticky", bottom:0, zIndex:11,
                     flexShrink:0, marginTop:4,
-                    background:`linear-gradient(180deg,${SURF_HI},${SURFACE})`,
+                    background:`linear-gradient(180deg, color-mix(in srgb, ${SURF_HI} 78%, transparent), color-mix(in srgb, ${SURFACE} 78%, transparent))`,
+                    backdropFilter:"blur(10px)", WebkitBackdropFilter:"blur(10px)",
                     borderRadius:7,
                     border:`1px solid ${ink(0.08)}`,
                     boxShadow:`0 2px 6px ${shade(0.35)}`,
