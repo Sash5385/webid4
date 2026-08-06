@@ -2452,12 +2452,18 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                         }}
                         onClick={e=>e.stopPropagation()}
                         style={{
-                          position:"absolute", bottom:-5, left:"50%", transform:"translateX(-50%)",
-                          width:26, height:8, borderRadius:5,
-                          background: borderColor, boxShadow:"0 2px 4px rgba(0,0,0,0.4)",
+                          // Хіт-зона лишається ВСЕРЕДИНІ меж слота (bottom:0) — слоти йдуть впритул
+                          // один до одного, і зона, що стирчить за межі власного div, потрапляє під
+                          // сусідній слот у DOM-порядку та стає непроклацуваною. Пігулка (pointer-events:none)
+                          // може візуально стирчати нижче — на перехоплення подій це вже не впливає.
+                          position:"absolute", bottom:0, left:"50%", transform:"translateX(-50%)",
+                          width:44, height:22,
+                          display:"flex", alignItems:"flex-end", justifyContent:"center",
                           cursor:"ns-resize", touchAction:"none", zIndex:7,
                         }}
-                      />
+                      >
+                        <div style={{width:26, height:8, borderRadius:5, background:borderColor, boxShadow:"0 2px 4px rgba(0,0,0,0.4)", pointerEvents:"none", transform:"translateY(5px)"}}/>
+                      </div>
                     )}
                   </div>
                 );
