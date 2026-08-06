@@ -922,6 +922,8 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   const [shineId, setShineId] = useState(null);
   const slotHoldTimerRef = useRef(null);
   const slotHoldFiredRef = useRef(false);
+  const freeDragRef = useRef(null); // { dateStr, time, startClientY, startMin, moved, newStart }
+  const [freeDragPreview, setFreeDragPreview] = useState(null); // { dateStr, time, newStart }
   const [openSlots, setOpenSlots] = useState({}); // { "2025-06-01": ["07:00","08:00",...] }
   const [viewingSlots, setViewingSlots] = useState({});
   const pendingSlotSnapRef = useRef(null);
@@ -1616,6 +1618,59 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
     }
   };
 
+  // Перетягування вільних (зелених) слотів вгору/вниз по колонці дня — крок з Кроку часу (snapMin).
+  // Заблоковані/VIP/з надбавкою слоти не рухаємо (freeDragRef активується лише для звичайних вільних).
+  useEffect(() => {
+    const onMove = (e) => {
+      const fd = freeDragRef.current;
+      if (!fd) return;
+      const dy = e.clientY - fd.startClientY;
+      if (!fd.moved && Math.abs(dy) > 6) {
+        fd.moved = true;
+        clearTimeout(slotHoldTimerRef.current);
+        navigator.vibrate?.(15);
+      }
+      if (!fd.moved) return;
+      const { PX_PER_MIN, snapMin, workStart, workEnd } = calcRef.current;
+      const deltaMin = dy / PX_PER_MIN;
+      let ns = Math.round((fd.startMin + deltaMin) / snapMin) * snapMin;
+      ns = Math.max(workStart * 60, Math.min(ns, workEnd * 60 - 60));
+      fd.newStart = ns;
+      setFreeDragPreview({ dateStr: fd.dateStr, time: fd.time, newStart: ns });
+    };
+    const onUp = () => {
+      const fd = freeDragRef.current;
+      if (!fd) return;
+      freeDragRef.current = null;
+      setFreeDragPreview(null);
+      if (!fd.moved) return;
+      slotHoldFiredRef.current = true; // не даємо onClick одразу перемкнути слот після drag
+      setTimeout(() => { slotHoldFiredRef.current = false; }, 60);
+      const h = String(Math.floor(fd.newStart / 60)).padStart(2, "0");
+      const m = String(fd.newStart % 60).padStart(2, "0");
+      const newTime = `${h}:${m}`;
+      if (newTime === fd.time) return;
+      const bks = bookingsRef.current || [];
+      const occupiedByBooking = bks.some(b => b.date === fd.dateStr && b.startMin < fd.newStart + 60 && b.startMin + b.durMin > fd.newStart);
+      const occupiedBySlot = !!((openSlotsRef?.current || {})[fd.dateStr] || {})[newTime];
+      if (occupiedByBooking || occupiedBySlot) { navigator.vibrate?.([10,10,10]); return; }
+      const oldSlotId = `slot${fd.time.replace(":", "")}`;
+      const newSlotId = `slot${h}${m}`;
+      const updates = {};
+      updates[`timeslots/${fd.dateStr}/${oldSlotId}`] = null;
+      updates[`timeslots/${fd.dateStr}/${newSlotId}/available`] = true;
+      updates[`timeslots/${fd.dateStr}/${newSlotId}/time`] = newTime;
+      update(ref(db, "/"), updates).catch(() => {});
+      navigator.vibrate?.(20);
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    return () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+    };
+  }, []);
+
   const hours = [];
   for (let h = settings.workStart; h <= settings.workEnd; h++) hours.push(h);
 
@@ -2039,6 +2094,9 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                 const emptyShadow = isLight
                   ? "inset 2px 2px 5px rgba(0,0,0,0.16), inset -2px -2px 5px rgba(255,255,255,0.55)"
                   : "inset 2px 2px 5px rgba(0,0,0,0.45), inset -2px -2px 5px rgba(255,255,255,0.10)";
+                const isPlainFree = slot.available && !isVip && !isBlocked && !hasSurcharge;
+                const isBeingDragged = freeDragPreview && freeDragPreview.dateStr===dateStrCol && freeDragPreview.time===time;
+                const displayStartMin = isBeingDragged ? freeDragPreview.newStart : startMin;
                 return (
                   <div key={`os-${time}`}
                     onPointerDown={e=>{
@@ -2050,6 +2108,9 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                         navigator.vibrate?.(40);
                         setSlotOptions({ dateStr: dateStrCol, time, startTime: time, slot });
                       }, 600);
+                      if (isPlainFree) {
+                        freeDragRef.current = { dateStr: dateStrCol, time, startClientY: e.clientY, startMin, moved: false, newStart: startMin };
+                      }
                     }}
                     onPointerUp={()=>clearTimeout(slotHoldTimerRef.current)}
                     onPointerCancel={()=>clearTimeout(slotHoldTimerRef.current)}
@@ -2060,16 +2121,17 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                     }}
                     style={{
                       position:"absolute", left:0, right:0,
-                      top: minToPx(startMin) + 1,
+                      top: minToPx(displayStartMin) + 1,
                       height: slotHeightMin * PX_PER_MIN - 2,
-                      opacity: isSticky ? 0.90 : 0.82,
+                      opacity: isBeingDragged ? 0.95 : isSticky ? 0.90 : 0.82,
                       background: bg,
                       border: `1.5px solid ${borderColor}`,
-                      boxShadow: emptyShadow,
-                      borderRadius:8, cursor:"pointer", zIndex:1,
+                      boxShadow: isBeingDragged ? `0 4px 14px rgba(0,0,0,0.35)` : emptyShadow,
+                      borderRadius:8, cursor: isPlainFree ? "grab" : "pointer", zIndex: isBeingDragged ? 6 : 1,
                       display:"flex", flexDirection:"column",
                       alignItems:"center", justifyContent:"center",
                       padding:0,
+                      transition: isBeingDragged ? "none" : undefined,
                     }}>
                     {hasSurcharge && <span style={{position:"absolute", top:3, left:4, fontSize:9, fontWeight:800, color:"rgba(247,201,72,0.95)", lineHeight:1}}>+{slot.surcharge}₴</span>}
                     {(isVip || slot.vipOnly) && <span style={{position:"absolute", top:3, right:4, fontSize:10, lineHeight:1}}>👑</span>}
