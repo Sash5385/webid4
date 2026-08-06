@@ -1969,6 +1969,8 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   for (let h = settings.workStart; h <= settings.workEnd; h++) hours.push(h);
 
   const slotColor = (b) => {
+    // Приватні уроки — завжди фіолетові, незалежно від тривалості.
+    if ((b.serviceType || b.type) === "private") return PURPLE;
     // Колір запису залежить від тривалості: 1год=зелений, 1.5год=фіолетовий, 2год=м'ятний.
     if (b.durMin === 60) return GREEN;
     if (b.durMin === 90) return PURPLE;
