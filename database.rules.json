@@ -113,6 +113,10 @@
       "$uid": {
         ".write": "auth != null && auth.uid === $uid"
       }
+    },
+    "dayNotes": {
+      ".read": "auth != null",
+      ".write": "auth != null && auth.uid === 'IjyqouYBDUg5KGzs3U27PUcs8Uj1'"
     }
   }
 }

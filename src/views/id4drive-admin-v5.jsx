@@ -843,6 +843,119 @@ function MonthCalendarSheet({ bookings, onClose, onPickDate }) {
 }
 
 // ═══════════════════════════════════════════════════════════════
+// DAY NOTES MODAL — нотатка дня: вибір годин + текст
+// ═══════════════════════════════════════════════════════════════
+function DayNotesModal({ dateStr, dayLabel, dayNum, dayMonth, note, settings, onClose }) {
+  const { BG_DEEP, SURFACE, SURF_HI, SURF_LO, BORDER, TEXT, DIM, SO, SI } = useContext(ThemeContext);
+  const { glow, shade } = useFX();
+  const [selHours, setSelHours] = useState(note?.hours || []);
+  const [text, setText] = useState(note?.text || "");
+  const [closing, setClosing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const _close = () => setClosing(true);
+
+  const hours = [];
+  for (let h = settings.workStart; h < settings.workEnd; h++) hours.push(h);
+
+  const toggleHour = (h) => setSelHours(hs => hs.includes(h) ? hs.filter(x=>x!==h) : [...hs, h].sort((a,b)=>a-b));
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      if (!text.trim() && !selHours.length) {
+        await remove(ref(db, `dayNotes/${dateStr}`));
+      } else {
+        await update(ref(db, `dayNotes/${dateStr}`), { hours: selHours, text: text.trim(), updatedAt: Date.now() });
+      }
+      _close();
+    } catch (e) { /* ignore */ } finally { setSaving(false); }
+  };
+
+  const handleDelete = async () => {
+    setSaving(true);
+    try { await remove(ref(db, `dayNotes/${dateStr}`)); _close(); }
+    catch (e) { /* ignore */ } finally { setSaving(false); }
+  };
+
+  return (
+    <>
+      <style>{`
+        @keyframes _dn-up{from{transform:translateY(100%)}to{transform:translateY(0)}}
+        @keyframes _dn-down{from{transform:translateY(0);opacity:1}to{transform:translateY(100%);opacity:0}}
+        @keyframes _dn-bg-in{from{opacity:0}to{opacity:1}}
+        @keyframes _dn-bg-out{from{opacity:1}to{opacity:0}}
+      `}</style>
+      <div onClick={closing ? undefined : _close} style={{
+        position:"fixed", inset:0, zIndex:9999,
+        background:shade(0.55), backdropFilter:"blur(8px)",
+        display:"flex", alignItems:"flex-end", justifyContent:"center",
+        animation: closing ? `_dn-bg-out 0.26s ease-in forwards` : `_dn-bg-in 0.2s ease-out`,
+      }}>
+        <div onClick={e=>e.stopPropagation()}
+          onAnimationEnd={closing ? ()=>{ setClosing(false); onClose(); } : undefined}
+          style={{
+            width:"100%", maxWidth:480, background:BG_DEEP,
+            borderRadius:"24px 24px 0 0",
+            boxShadow:`0 -2px 0 ${GOLD}33, 0 -16px 60px ${shade(0.6)}`,
+            maxHeight:"85vh", overflowY:"auto",
+            padding:"12px 16px calc(20px + env(safe-area-inset-bottom))",
+            boxSizing:"border-box",
+            animation: closing ? `_dn-down 0.26s ease-in forwards` : `_dn-up 0.38s cubic-bezier(0.34,1.56,0.64,1)`,
+          }}>
+          <div style={{width:36,height:4,borderRadius:2,background:glow(0.15),margin:"0 auto 12px"}}/>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14}}>
+            <div style={{fontSize:14,fontWeight:800,color:TEXT}}>📝 Нотатка — {dayLabel}, {dayNum} {dayMonth}</div>
+            <div onClick={_close} style={{
+              width:26,height:26,borderRadius:8,background:"rgba(239,68,68,0.18)",
+              display:"flex",alignItems:"center",justifyContent:"center",
+              cursor:"pointer",color:"#ef4444",fontSize:13,fontWeight:800,flexShrink:0,
+            }}>✕</div>
+          </div>
+
+          <div style={{fontSize:10,color:DIM,fontWeight:700,marginBottom:6,letterSpacing:0.3,textTransform:"uppercase"}}>Години (необов'язково)</div>
+          <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:14}}>
+            {hours.map(h=>(
+              <button key={h} onClick={()=>toggleHour(h)} style={{
+                padding:"6px 10px", borderRadius:9, border:"none", cursor:"pointer", fontFamily:"inherit",
+                fontSize:12, fontWeight:700,
+                background: selHours.includes(h) ? `linear-gradient(145deg,${GOLD}cc,${GOLD}88)` : `linear-gradient(145deg,${SURF_HI},${SURFACE})`,
+                color: selHours.includes(h) ? "#1a1a1a" : DIM,
+                boxShadow:SO,
+              }}>{h}:00</button>
+            ))}
+          </div>
+
+          <div style={{fontSize:10,color:DIM,fontWeight:700,marginBottom:6,letterSpacing:0.3,textTransform:"uppercase"}}>Текст нотатки</div>
+          <textarea value={text} onChange={e=>setText(e.target.value)} rows={4} placeholder="Наприклад: клієнт просив передзвонити..."
+            style={{
+              width:"100%", boxSizing:"border-box",
+              background:`linear-gradient(135deg,${BG_DEEP},${SURF_LO})`,
+              border:`1px solid ${BORDER}`, outline:"none", color:TEXT, fontSize:13,
+              padding:"10px 12px", borderRadius:10, boxShadow:SI, resize:"vertical",
+              fontFamily:"inherit", marginBottom:14,
+            }}/>
+
+          <div style={{display:"flex",gap:8}}>
+            {note && (
+              <button onClick={handleDelete} disabled={saving} style={{
+                flex:1, padding:"11px", borderRadius:12, border:"1px solid rgba(239,68,68,0.25)",
+                cursor:"pointer", background:"rgba(239,68,68,0.08)", color:"#fca5a5",
+                fontSize:13, fontWeight:700, fontFamily:"inherit",
+              }}>Видалити</button>
+            )}
+            <button onClick={handleSave} disabled={saving} style={{
+              flex:2, padding:"11px", borderRadius:12, border:"none", cursor:"pointer",
+              background:`linear-gradient(145deg,${GOLD}cc,${GOLD}88)`, color:"#1a1a1a",
+              fontSize:13, fontWeight:800, fontFamily:"inherit", boxShadow:SO,
+            }}>{saving ? "Збереження…" : "Зберегти"}</button>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
 // SCHEDULE VIEW with drag/resize + pinch-to-zoom + day-count
 // ═══════════════════════════════════════════════════════════════
 function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bookings, setBookings, activeDragIds, navTo, slotExistsRef, openSlotsRef, jumpTarget, setJumpTarget, onViewStudent }) {
@@ -947,6 +1060,12 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
       });
       setQueueMap(map);
     });
+    return () => unsub();
+  }, []);
+
+  useEffect(() => {
+    const r = ref(db, "dayNotes");
+    const unsub = onValue(r, snap => setDayNotes(snap.val() || {}));
     return () => unsub();
   }, []);
 
@@ -1258,6 +1377,10 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   const emptyHoldPosRef   = useRef(null);
   const dayLongPressRef   = useRef(null);
   const dayLongFiredRef   = useRef(false);
+  const dayClickTimerRef  = useRef(null);
+  const dayLastClickRef   = useRef(null); // { absDay, time } — для розпізнавання подвійного тапу
+  const [dayNotesModal, setDayNotesModal] = useState(null); // { dateStr, dayLabel, dayNum, dayMonth }
+  const [dayNotes, setDayNotes] = useState({}); // { "YYYY-MM-DD": { hours:[9,10], text:"...", updatedAt } }
   const [scheduleLocked, setScheduleLocked] = useState(() => localStorage.getItem("scheduleLocked") === "1");
   const lockHoldTimerRef  = useRef(null);
   const lockHoldFiredRef  = useRef(false);
@@ -2009,8 +2132,29 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
             }}>
               {/* DATE HEADER — sticky top, moves with column horizontally */}
               <div
-                onClick={e=>{ e.stopPropagation(); if(scheduleLocked) return; if(dayLongFiredRef.current){dayLongFiredRef.current=false;return;} if(isPastDay || isLoadingCol || isClosedDay) return; hasAnySlotsCol ? clearDaySlots(absDay) : generateDaySlots(absDay); }}
-                onPointerDown={e=>{ if(scheduleLocked || isPastDay) return; clearTimeout(dayLongPressRef.current); dayLongFiredRef.current=false; dayLongPressRef.current=setTimeout(()=>{ dayLongFiredRef.current=true; toggleDayBlocked(dateStrCol); }, 600); }}
+                onClick={e=>{
+                  e.stopPropagation();
+                  if(scheduleLocked) return;
+                  if(dayLongFiredRef.current){dayLongFiredRef.current=false;return;}
+                  if(isPastDay || isLoadingCol) return;
+                  const now = Date.now();
+                  if (dayLastClickRef.current && dayLastClickRef.current.absDay === absDay && now - dayLastClickRef.current.time < 350) {
+                    // Подвійний тап — закрити/відкрити день
+                    clearTimeout(dayClickTimerRef.current);
+                    dayLastClickRef.current = null;
+                    navigator.vibrate?.([20,20,20]);
+                    toggleDayBlocked(dateStrCol);
+                    return;
+                  }
+                  dayLastClickRef.current = { absDay, time: now };
+                  clearTimeout(dayClickTimerRef.current);
+                  dayClickTimerRef.current = setTimeout(()=>{
+                    dayLastClickRef.current = null;
+                    if (isClosedDay) return;
+                    hasAnySlotsCol ? clearDaySlots(absDay) : generateDaySlots(absDay);
+                  }, 300);
+                }}
+                onPointerDown={e=>{ if(scheduleLocked || isPastDay) return; clearTimeout(dayLongPressRef.current); dayLongFiredRef.current=false; dayLongPressRef.current=setTimeout(()=>{ dayLongFiredRef.current=true; navigator.vibrate?.(30); setDayNotesModal({ dateStr: dateStrCol, dayLabel: day.fullLabel, dayNum: day.num, dayMonth: day.monthFull }); }, 600); }}
                 onPointerUp={()=>clearTimeout(dayLongPressRef.current)}
                 onPointerLeave={()=>clearTimeout(dayLongPressRef.current)}
                 style={{
@@ -2037,6 +2181,9 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                 <div style={{position:"absolute", top:3, right:4, fontSize:8, lineHeight:1, opacity: isClosedDay ? 1 : 0.75,
                   color: isClosedDay ? RED : isLoadingCol ? FAINT : isOpenCol ? GREEN : FAINT,
                 }}>{isPastDay ? "" : isClosedDay ? "🔒" : isLoadingCol ? "…" : isOpenCol ? "✓" : "＋"}</div>
+                {dayNotes[dateStrCol] && (
+                  <div style={{position:"absolute", top:3, left:4, fontSize:8, lineHeight:1, color:GOLD}}>📝</div>
+                )}
                 {genToast?.absDay === absDay && (
                   <div style={{position:"absolute", bottom:-18, left:"50%", transform:"translateX(-50%)",
                     background: genToast.free > 0 ? "rgba(99,211,120,0.92)" : "rgba(220,80,80,0.92)",
@@ -3290,6 +3437,17 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
       </div>
     )}
     {broadcastInit && <BroadcastModal initialDate={broadcastInit.date} initialSlot={broadcastInit.slot} onClose={() => setBroadcastInit(null)}/>}
+    {dayNotesModal && (
+      <DayNotesModal
+        dateStr={dayNotesModal.dateStr}
+        dayLabel={dayNotesModal.dayLabel}
+        dayNum={dayNotesModal.dayNum}
+        dayMonth={dayNotesModal.dayMonth}
+        note={dayNotes[dayNotesModal.dateStr]}
+        settings={settings}
+        onClose={() => setDayNotesModal(null)}
+      />
+    )}
     </>
   );
 }
