@@ -1175,10 +1175,11 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   };
 
   // Клік: вільний ↔ зайнятий (2 стани)
+  // Цикл тапів по вільному слоту: вільний (зелений) → заблокований (червоний) → прибрати повністю.
   const toggleSlotFree = (dateStr, time, slot) => {
     const slotId = `slot${time.replace(":", "")}`;
     if (slot.adminBlocked) {
-      update(ref(db, `timeslots/${dateStr}/${slotId}`), { available: true, adminBlocked: false, time }).catch(() => {});
+      remove(ref(db, `timeslots/${dateStr}/${slotId}`)).catch(() => {});
     } else {
       update(ref(db, `timeslots/${dateStr}/${slotId}`), { available: false, adminBlocked: true, vipOnly: false, surcharge: null, time }).catch(() => {});
     }
@@ -2132,6 +2133,8 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                       alignItems:"center", justifyContent:"center",
                       padding:0,
                       transition: isBeingDragged ? "none" : undefined,
+                      touchAction: isPlainFree ? "none" : "manipulation",
+                      WebkitUserSelect:"none", userSelect:"none",
                     }}>
                     {hasSurcharge && <span style={{position:"absolute", top:3, left:4, fontSize:9, fontWeight:800, color:"rgba(247,201,72,0.95)", lineHeight:1}}>+{slot.surcharge}₴</span>}
                     {(isVip || slot.vipOnly) && <span style={{position:"absolute", top:3, right:4, fontSize:10, lineHeight:1}}>👑</span>}
