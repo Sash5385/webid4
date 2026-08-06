@@ -1355,7 +1355,13 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   const minToPx = (m) => (m - effectiveWorkStart*60) * PX_PER_MIN;
 
   const onPointerDown = (e, b, mode) => {
-    if (scheduleLocked) return;
+    if (scheduleLocked) {
+      // Замочок закритий — редагування заборонене, але дотик на записі/блоці все одно
+      // мусить дозволяти свайп-гортання розкладу (не лише порожні ділянки сітки).
+      e.stopPropagation();
+      pendingDragRef.current = { id:b.id, startClientY:e.clientY, startClientX:e.clientX, locked:true };
+      return;
+    }
     e.preventDefault(); e.stopPropagation();
     clearTimeout(holdTimerRef.current);
     holdTimerRef.current = null;
@@ -1422,6 +1428,15 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
         const dxTotal = e.clientX - pd.startClientX;
         const dyTotal = e.clientY - pd.startClientY;
         const moved = Math.hypot(dyTotal, dxTotal);
+        // Замочок закритий — жодного drag/resize, дозволяємо лише гортання свайпом
+        // (у будь-якому напрямку, бо конкуруючого "редагування" тут немає).
+        if (pd.locked) {
+          if (moved > 8) {
+            pendingDragRef.current = null;
+            if (swipeRef.current) swipeRef.current.manualScroll = true;
+          }
+          return;
+        }
         // Явно горизонтальний свайп (гортання дня свайпом) — завжди перемикаємось на ручний
         // скрол сітки, незалежно від того, чи почався дотик на записі/блоці/ручці ресайзу.
         // Раніше блоки й ручки ресайзу взагалі не мали шляху до скролу — свайп по них
