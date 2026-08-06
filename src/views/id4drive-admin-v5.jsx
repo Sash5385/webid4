@@ -2397,7 +2397,9 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                 if (startMin < effectiveWorkStart * 60 || startMin >= effectiveWorkEnd * 60) return null;
                 // Вільний/доступний слот, накритий записом (хоча б частково), не показуємо.
                 if (slot.available && slotCovered(startMin)) return null;
-                const nextMin = sortedMins.find(t => t > startMin) ?? (startMin + 60);
+                // Якщо після цього слота більше немає документів (наприклад, усі поглинуті
+                // розтягуванням) — межею є кінець робочого дня, а не штучні +60 хв.
+                const nextMin = sortedMins.find(t => t > startMin) ?? (effectiveWorkEnd * 60);
                 const slotDurMin = slot.durMin || 60;
                 const slotHeightMin = Math.min(slotDurMin, nextMin - startMin, effectiveWorkEnd * 60 - startMin);
                 const isVip = slot.vipOnly;
