@@ -308,11 +308,12 @@ const initialBookings = [];
 const _DLABELS = ["Пн","Вт","Ср","Чт","Пт","Сб","Нд"];
 const _DLABELS_FULL = ["Понеділок","Вівторок","Середа","Четвер","П'ятниця","Субота","Неділя"];
 const _MLABELS = ["січ","лют","бер","кві","тра","чер","лип","сер","вер","жов","лис","гру"];
+const _MLABELS_FULL = ["січня","лютого","березня","квітня","травня","червня","липня","серпня","вересня","жовтня","листопада","грудня"];
 const getDayInfo = (offsetFromToday) => {
   const d = new Date();
   d.setDate(d.getDate() + offsetFromToday);
   const dow = (d.getDay() + 6) % 7; // Mon=0..Sun=6
-  return { num: d.getDate(), month: _MLABELS[d.getMonth()], year: d.getFullYear(), label: _DLABELS[dow], fullLabel: _DLABELS_FULL[dow], wk: dow >= 5 };
+  return { num: d.getDate(), month: _MLABELS[d.getMonth()], monthFull: _MLABELS_FULL[d.getMonth()], year: d.getFullYear(), label: _DLABELS[dow], fullLabel: _DLABELS_FULL[dow], wk: dow >= 5 };
 };
 
 
@@ -1329,7 +1330,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   }, [jumpTarget]);
 
   const TIME_COL_W = 44;
-  const HEADER_H = 64;
+  const HEADER_H = 42;
   const currentYear = new Date().getFullYear();
   const N_DAYS = PAST_DAYS + 365;
   const COL_W = Math.max(40, Math.floor((windowW - 16 - TIME_COL_W - (settings.daysShown - 1) * 4) / Math.max(1, settings.daysShown)));
@@ -2015,28 +2016,25 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                 style={{
                   position:"sticky", top:0, zIndex:12,
                   height:HEADER_H, flexShrink:0, marginBottom:4,
-                  display:"flex", flexDirection:"column",
-                  alignItems:"center", justifyContent:"space-between",
-                  padding:"3px 2px 3px", borderRadius:10, cursor: isPastDay ? "default" : "pointer",
+                  display:"flex", flexDirection:"column", gap:1,
+                  alignItems:"center", justifyContent:"center",
+                  padding:"2px 4px", borderRadius:10, cursor: isPastDay ? "default" : "pointer",
                   opacity: isPastDay ? 0.35 : 1, overflow:"visible",
-                  // Непрозорий фон (color-mix замість rgba) — інакше цей sticky-заголовок
-                  // просвічує і контент, що скролиться під ним, "наїжджає" на напис.
-                  background: isClosedDay ? `color-mix(in srgb, #dc3c3c 13%, ${BG_DEEP})` : isToday ? `color-mix(in srgb, ${GOLD} 18%, ${BG_DEEP})` : isOpenCol ? (isLight ? `color-mix(in srgb, #3a8c1e 12%, ${BG_DEEP})` : `color-mix(in srgb, #63d378 13%, ${BG_DEEP})`) : (isLight ? `color-mix(in srgb, #000000 7%, ${BG_DEEP})` : `color-mix(in srgb, #000000 18%, ${BG_DEEP})`),
-                  boxShadow: isClosedDay ? `inset 0 0 0 1.5px rgba(220,60,60,0.7)` : isToday ? `inset 0 0 0 1.5px rgba(247,201,72,0.55)` : isOpenCol ? (isLight ? `inset 0 0 0 1px rgba(58,140,30,0.5)` : `inset 0 0 0 1px rgba(99,211,120,0.35)`) : "none",
+                  // Будні — зелені, вихідні — червоні (day.wk = субота/неділя).
+                  background: `linear-gradient(155deg, color-mix(in srgb, ${day.wk ? RED : GREEN} 22%, ${BG_DEEP}) 0%, ${BG_DEEP} 100%)`,
+                  boxShadow: `3px 3px 7px rgba(${SHADE},0.4), -2px -2px 6px rgba(${GLOW},0.06)${isToday ? `, inset 0 0 0 1.5px ${GOLD}99` : isClosedDay ? `, inset 0 0 0 1.5px rgba(220,60,60,0.8)` : ""}`,
                 }}>
-                <div style={{fontSize:9, fontWeight:700, lineHeight:1.2,
-                  color: isClosedDay ? RED : isToday ? GOLD : isOpenCol ? GREEN : TEXT_FAINT,
+                <div style={{fontSize:8.5, fontWeight:700, lineHeight:1.2,
+                  color: day.wk ? RED : GREEN,
                   letterSpacing:0.3, overflow:"hidden", whiteSpace:"nowrap",
                   maxWidth:"100%", textOverflow:"ellipsis",
                 }}>{day.fullLabel}</div>
-                <div style={{fontSize:14, fontWeight:800, lineHeight:1.2,
-                  color: isClosedDay ? RED : isToday ? GOLD : isOpenCol ? GREEN : DIM,
-                }}>{day.num}</div>
-                <div style={{fontSize:8, fontWeight:700, lineHeight:1,
-                  color: isClosedDay ? RED : isToday ? GOLD : isOpenCol ? GREEN : FAINT,
-                  letterSpacing:0.2,
-                }}>{day.month}{day.year !== currentYear ? ` ${day.year}` : ""}</div>
-                <div style={{fontSize:9, lineHeight:1, opacity: isClosedDay ? 1 : 0.7,
+                <div style={{fontSize:10.5, fontWeight:800, lineHeight:1.2, color:TEXT,
+                  overflow:"hidden", whiteSpace:"nowrap", maxWidth:"100%", textOverflow:"ellipsis",
+                }}>
+                  {day.num} {day.monthFull}{day.year !== currentYear ? ` ${day.year}` : ""}
+                </div>
+                <div style={{position:"absolute", top:3, right:4, fontSize:8, lineHeight:1, opacity: isClosedDay ? 1 : 0.75,
                   color: isClosedDay ? RED : isLoadingCol ? FAINT : isOpenCol ? GREEN : FAINT,
                 }}>{isPastDay ? "" : isClosedDay ? "🔒" : isLoadingCol ? "…" : isOpenCol ? "✓" : "＋"}</div>
                 {genToast?.absDay === absDay && (
