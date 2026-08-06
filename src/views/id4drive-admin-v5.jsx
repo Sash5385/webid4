@@ -846,7 +846,6 @@ function MonthCalendarSheet({ bookings, onClose, onPickDate }) {
 // DAY NOTES MODAL — нотатка дня: вибір годин + текст
 // ═══════════════════════════════════════════════════════════════
 const _fmtHM = (min) => `${String(Math.floor(min/60)).padStart(2,"0")}:${String(min%60).padStart(2,"0")}`;
-const _parseHM = (str) => { const [h,m] = str.split(":").map(Number); return h*60+m; };
 
 function DayNotesModal({ dateStr, dayLabel, dayNum, dayMonth, note, settings, onClose }) {
   const { BG_DEEP, SURFACE, SURF_HI, SURF_LO, BORDER, TEXT, DIM, FAINT, SO, SI } = useContext(ThemeContext);
@@ -864,11 +863,12 @@ function DayNotesModal({ dateStr, dayLabel, dayNum, dayMonth, note, settings, on
     const init = {};
     hours.forEach(h => {
       const s = saved[h];
-      init[h] = s ? { startMin: s.startMin, endMin: s.endMin, text: s.text || "", notify: !!s.notify } : { startMin: h*60, endMin: h*60+60, text: "", notify: false };
+      init[h] = s ? { startMin: s.startMin, text: s.text || "", notify: !!s.notify } : { startMin: h*60, text: "", notify: false };
     });
     return init;
   });
 
+  const clampMin = (m) => Math.max(settings.workStart*60, Math.min(settings.workEnd*60 - 1, m));
   const setRow = (h, patch) => setRows(rs => ({ ...rs, [h]: { ...rs[h], ...patch } }));
 
   const handleSave = async () => {
@@ -878,7 +878,7 @@ function DayNotesModal({ dateStr, dayLabel, dayNum, dayMonth, note, settings, on
       hours.forEach(h => {
         const r = rows[h];
         if (r.text.trim() || r.notify) {
-          notesOut[h] = { startMin: r.startMin, endMin: r.endMin, text: r.text.trim(), notify: r.notify };
+          notesOut[h] = { startMin: r.startMin, text: r.text.trim(), notify: r.notify };
         }
       });
       if (!Object.keys(notesOut).length) {
@@ -943,22 +943,44 @@ function DayNotesModal({ dateStr, dayLabel, dayNum, dayMonth, note, settings, on
               return (
                 <div key={h} style={{display:"flex",alignItems:"center",gap:8}}>
                   {isEditing ? (
-                    <div style={{display:"flex",alignItems:"center",gap:4,flexShrink:0}}>
-                      <input type="time" value={_fmtHM(r.startMin)} onChange={e=>setRow(h,{startMin:_parseHM(e.target.value)})}
-                        style={{width:66,background:BG_DEEP,border:`1px solid ${GOLD}55`,borderRadius:7,color:TEXT,fontSize:10.5,padding:"4px 3px",fontFamily:"inherit",outline:"none",colorScheme:"dark"}}/>
-                      <span style={{color:FAINT,fontSize:10}}>–</span>
-                      <input type="time" value={_fmtHM(r.endMin)} onChange={e=>setRow(h,{endMin:_parseHM(e.target.value)})}
-                        style={{width:66,background:BG_DEEP,border:`1px solid ${GOLD}55`,borderRadius:7,color:TEXT,fontSize:10.5,padding:"4px 3px",fontFamily:"inherit",outline:"none",colorScheme:"dark"}}/>
+                    <div style={{display:"flex",alignItems:"center",gap:3,flexShrink:0}}>
+                      <button onClick={()=>setRow(h,{startMin:clampMin(r.startMin-60)})} style={{
+                        width:18,height:22,borderRadius:5,border:"none",cursor:"pointer",fontFamily:"inherit",
+                        background:`linear-gradient(145deg,${SURF_HI},${SURFACE})`,color:DIM,fontSize:12,fontWeight:800,
+                        display:"flex",alignItems:"center",justifyContent:"center",padding:0,
+                      }}>−</button>
+                      <div style={{width:24,textAlign:"center",fontSize:11,fontWeight:800,color:TEXT,fontVariantNumeric:"tabular-nums"}}>
+                        {String(Math.floor(r.startMin/60)).padStart(2,"0")}
+                      </div>
+                      <button onClick={()=>setRow(h,{startMin:clampMin(r.startMin+60)})} style={{
+                        width:18,height:22,borderRadius:5,border:"none",cursor:"pointer",fontFamily:"inherit",
+                        background:`linear-gradient(145deg,${SURF_HI},${SURFACE})`,color:DIM,fontSize:12,fontWeight:800,
+                        display:"flex",alignItems:"center",justifyContent:"center",padding:0,
+                      }}>+</button>
+                      <span style={{color:FAINT,fontSize:10}}>:</span>
+                      <button onClick={()=>setRow(h,{startMin:clampMin(r.startMin-1)})} style={{
+                        width:18,height:22,borderRadius:5,border:"none",cursor:"pointer",fontFamily:"inherit",
+                        background:`linear-gradient(145deg,${SURF_HI},${SURFACE})`,color:DIM,fontSize:12,fontWeight:800,
+                        display:"flex",alignItems:"center",justifyContent:"center",padding:0,
+                      }}>−</button>
+                      <div style={{width:24,textAlign:"center",fontSize:11,fontWeight:800,color:TEXT,fontVariantNumeric:"tabular-nums"}}>
+                        {String(r.startMin%60).padStart(2,"0")}
+                      </div>
+                      <button onClick={()=>setRow(h,{startMin:clampMin(r.startMin+1)})} style={{
+                        width:18,height:22,borderRadius:5,border:"none",cursor:"pointer",fontFamily:"inherit",
+                        background:`linear-gradient(145deg,${SURF_HI},${SURFACE})`,color:DIM,fontSize:12,fontWeight:800,
+                        display:"flex",alignItems:"center",justifyContent:"center",padding:0,
+                      }}>+</button>
                       <div onClick={()=>setEditingHour(null)} style={{
                         width:22,height:22,borderRadius:6,background:`${GOLD}33`,color:GOLD,
-                        display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",fontSize:11,fontWeight:800,flexShrink:0,
+                        display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",fontSize:11,fontWeight:800,flexShrink:0,marginLeft:2,
                       }}>✓</div>
                     </div>
                   ) : (
                     <div onClick={()=>setEditingHour(h)} style={{
-                      width:76, flexShrink:0, cursor:"pointer", fontSize:10.5, fontWeight:800, color:GOLD,
+                      width:44, flexShrink:0, cursor:"pointer", fontSize:10.5, fontWeight:800, color:GOLD,
                       fontVariantNumeric:"tabular-nums", overflow:"hidden", whiteSpace:"nowrap", textOverflow:"ellipsis",
-                    }}>{_fmtHM(r.startMin)}–{_fmtHM(r.endMin)}</div>
+                    }}>{_fmtHM(r.startMin)}</div>
                   )}
                   <input value={r.text} onChange={e=>setRow(h,{text:e.target.value})} placeholder="—"
                     style={{
