@@ -1922,8 +1922,23 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
       freeResizeRef.current = null;
       setFreeResizePreview(null);
       if (!fr.moved || fr.newDur === fr.startDur) return;
+      const [hh, mm] = fr.time.split(":").map(Number);
+      const startMin = hh * 60 + mm;
+      const newEnd = startMin + fr.newDur;
       const slotId = `slot${fr.time.replace(":", "")}`;
-      update(ref(db, `timeslots/${fr.dateStr}/${slotId}`), { durMin: fr.newDur }).catch(() => {});
+      const updates = { [`timeslots/${fr.dateStr}/${slotId}/durMin`]: fr.newDur };
+      // Ріст поглинає наступні вільні слоти, у які «в’їхав» новий розмір, —
+      // прибираємо їхні окремі документи, щоб не лишалось «розрізаних» дублікатів.
+      const daySlots = (openSlotsRef?.current || {})[fr.dateStr] || {};
+      Object.keys(daySlots).forEach(t => {
+        if (t === fr.time) return;
+        const [h2, m2] = t.split(":").map(Number);
+        const tm = h2 * 60 + m2;
+        if (tm > startMin && tm < newEnd) {
+          updates[`timeslots/${fr.dateStr}/slot${t.replace(":", "")}`] = null;
+        }
+      });
+      update(ref(db, "/"), updates).catch(() => {});
       navigator.vibrate?.(20);
     };
     window.addEventListener("pointermove", onMove);
@@ -2356,10 +2371,11 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
 
               {/* Open/blocked/surcharge/VIP slot indicators */}
               {!isClosedDay && (()=>{
-                const sortedMins = Object.keys(openSlots[dateStrCol] || {})
+                const daySlots = openSlots[dateStrCol] || {};
+                const sortedMins = Object.keys(daySlots)
                   .map(t => { const [hh, mm] = t.split(':').map(Number); return hh*60+mm; })
                   .sort((a, b) => a - b);
-                return Object.entries(openSlots[dateStrCol] || {}).map(([time, slot]) => {
+                return Object.entries(daySlots).map(([time, slot]) => {
                 const [h, m] = time.split(":").map(Number);
                 const startMin = h * 60 + m;
                 if (startMin < effectiveWorkStart * 60 || startMin >= effectiveWorkEnd * 60) return null;
@@ -2382,7 +2398,21 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                 const isPlainFree = slot.available && !isVip && !isBlocked && !hasSurcharge;
                 const isBeingDragged = freeDragPreview && freeDragPreview.dateStr===dateStrCol && freeDragPreview.time===time;
                 const displayStartMin = isBeingDragged ? freeDragPreview.newStart : startMin;
-                const maxDurMin = Math.max(settings.snapMin || 30, Math.min(nextMin - startMin, effectiveWorkEnd * 60 - startMin));
+                // Розтягування вниз може поглинати наступні вільні слоти підряд (без запису,
+                // блокування, VIP чи надбавки) — межа росту не обмежена одним нижнім слотом,
+                // а йде до першого «непоглинаючого» слота/запису або кінця робочого дня.
+                let resizeLimitMin = effectiveWorkEnd * 60;
+                if (isPlainFree) {
+                  for (const t of sortedMins) {
+                    if (t <= startMin) continue;
+                    const hh2 = String(Math.floor(t / 60)).padStart(2, "0");
+                    const mm2 = String(t % 60).padStart(2, "0");
+                    const s2 = daySlots[`${hh2}:${mm2}`];
+                    const s2Free = s2 && s2.available && !s2.vipOnly && !s2.adminBlocked && !s2.surcharge;
+                    if (!s2Free || slotCovered(t)) { resizeLimitMin = t; break; }
+                  }
+                }
+                const maxDurMin = Math.max(settings.snapMin || 30, Math.min(resizeLimitMin - startMin, effectiveWorkEnd * 60 - startMin));
                 const isBeingResized = freeResizePreview && freeResizePreview.dateStr===dateStrCol && freeResizePreview.time===time;
                 const displayHeightMin = isBeingResized ? freeResizePreview.newDur : slotHeightMin;
                 return (
