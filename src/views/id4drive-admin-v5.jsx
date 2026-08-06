@@ -1328,7 +1328,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
     }
   }, [jumpTarget]);
 
-  const TIME_COL_W = 51;
+  const TIME_COL_W = 44;
   const HEADER_H = 64;
   const currentYear = new Date().getFullYear();
   const N_DAYS = PAST_DAYS + 365;
