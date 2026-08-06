@@ -1103,6 +1103,8 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   const slotHoldFiredRef = useRef(false);
   const freeDragRef = useRef(null); // { dateStr, time, startClientY, startMin, moved, newStart }
   const [freeDragPreview, setFreeDragPreview] = useState(null); // { dateStr, time, newStart }
+  const freeResizeRef = useRef(null); // { dateStr, time, startClientY, startDur, maxDur, moved, newDur }
+  const [freeResizePreview, setFreeResizePreview] = useState(null); // { dateStr, time, newDur }
   const [openSlots, setOpenSlots] = useState({}); // { "2025-06-01": ["07:00","08:00",...] }
   const [viewingSlots, setViewingSlots] = useState({});
   const pendingSlotSnapRef = useRef(null);
@@ -1153,7 +1155,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
             // phantom-вузли (створені лише під запис) не належать сітці дня
             if (!slot.phantom) slotSet.add(slotTime);
             if (slot.available !== false || slot.adminBlocked || slot.vipOnly || slot.surcharge) {
-              slotMap[slotTime] = { available: slot.available !== false, adminBlocked: !!slot.adminBlocked, vipOnly: !!slot.vipOnly, surcharge: slot.surcharge || null };
+              slotMap[slotTime] = { available: slot.available !== false, adminBlocked: !!slot.adminBlocked, vipOnly: !!slot.vipOnly, surcharge: slot.surcharge || null, durMin: slot.durMin || 60 };
             }
           }
           if (slot.viewing && Object.keys(slot.viewing).length > 0) viewTimes.push(slotTime);
@@ -1874,7 +1876,8 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
       const newTime = `${h}:${m}`;
       if (newTime === fd.time) return;
       const bks = bookingsRef.current || [];
-      const occupiedByBooking = bks.some(b => b.date === fd.dateStr && b.startMin < fd.newStart + 60 && b.startMin + b.durMin > fd.newStart);
+      const durMin = fd.durMin || 60;
+      const occupiedByBooking = bks.some(b => b.date === fd.dateStr && b.startMin < fd.newStart + durMin && b.startMin + b.durMin > fd.newStart);
       const occupiedBySlot = !!((openSlotsRef?.current || {})[fd.dateStr] || {})[newTime];
       if (occupiedByBooking || occupiedBySlot) { navigator.vibrate?.([10,10,10]); return; }
       const oldSlotId = `slot${fd.time.replace(":", "")}`;
@@ -1883,7 +1886,44 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
       updates[`timeslots/${fd.dateStr}/${oldSlotId}`] = null;
       updates[`timeslots/${fd.dateStr}/${newSlotId}/available`] = true;
       updates[`timeslots/${fd.dateStr}/${newSlotId}/time`] = newTime;
+      updates[`timeslots/${fd.dateStr}/${newSlotId}/durMin`] = durMin;
       update(ref(db, "/"), updates).catch(() => {});
+      navigator.vibrate?.(20);
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    return () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+    };
+  }, []);
+
+  // Розтягування вільного слота (зміна тривалості) — ручка знизу, крок з Кроку часу (snapMin).
+  useEffect(() => {
+    const onMove = (e) => {
+      const fr = freeResizeRef.current;
+      if (!fr) return;
+      const dy = e.clientY - fr.startClientY;
+      if (!fr.moved && Math.abs(dy) > 6) {
+        fr.moved = true;
+        navigator.vibrate?.(15);
+      }
+      if (!fr.moved) return;
+      const { PX_PER_MIN, snapMin } = calcRef.current;
+      const deltaMin = dy / PX_PER_MIN;
+      let nd = Math.round((fr.startDur + deltaMin) / snapMin) * snapMin;
+      nd = Math.max(snapMin, Math.min(nd, fr.maxDur));
+      fr.newDur = nd;
+      setFreeResizePreview({ dateStr: fr.dateStr, time: fr.time, newDur: nd });
+    };
+    const onUp = () => {
+      const fr = freeResizeRef.current;
+      if (!fr) return;
+      freeResizeRef.current = null;
+      setFreeResizePreview(null);
+      if (!fr.moved || fr.newDur === fr.startDur) return;
+      const slotId = `slot${fr.time.replace(":", "")}`;
+      update(ref(db, `timeslots/${fr.dateStr}/${slotId}`), { durMin: fr.newDur }).catch(() => {});
       navigator.vibrate?.(20);
     };
     window.addEventListener("pointermove", onMove);
@@ -2326,7 +2366,8 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                 // Вільний/доступний слот, накритий записом (хоча б частково), не показуємо.
                 if (slot.available && slotCovered(startMin)) return null;
                 const nextMin = sortedMins.find(t => t > startMin) ?? (startMin + 60);
-                const slotHeightMin = Math.min(60, nextMin - startMin, effectiveWorkEnd * 60 - startMin);
+                const slotDurMin = slot.durMin || 60;
+                const slotHeightMin = Math.min(slotDurMin, nextMin - startMin, effectiveWorkEnd * 60 - startMin);
                 const isVip = slot.vipOnly;
                 const isBlocked = slot.adminBlocked;
                 const hasSurcharge = !!slot.surcharge;
@@ -2341,6 +2382,9 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                 const isPlainFree = slot.available && !isVip && !isBlocked && !hasSurcharge;
                 const isBeingDragged = freeDragPreview && freeDragPreview.dateStr===dateStrCol && freeDragPreview.time===time;
                 const displayStartMin = isBeingDragged ? freeDragPreview.newStart : startMin;
+                const maxDurMin = Math.max(settings.snapMin || 30, Math.min(nextMin - startMin, effectiveWorkEnd * 60 - startMin));
+                const isBeingResized = freeResizePreview && freeResizePreview.dateStr===dateStrCol && freeResizePreview.time===time;
+                const displayHeightMin = isBeingResized ? freeResizePreview.newDur : slotHeightMin;
                 return (
                   <div key={`os-${time}`}
                     onPointerDown={e=>{
@@ -2353,7 +2397,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                         setSlotOptions({ dateStr: dateStrCol, time, startTime: time, slot });
                       }, 600);
                       if (isPlainFree) {
-                        freeDragRef.current = { dateStr: dateStrCol, time, startClientY: e.clientY, startMin, moved: false, newStart: startMin };
+                        freeDragRef.current = { dateStr: dateStrCol, time, startClientY: e.clientY, startMin, durMin: slotDurMin, moved: false, newStart: startMin };
                       }
                     }}
                     onPointerUp={()=>clearTimeout(slotHoldTimerRef.current)}
@@ -2366,16 +2410,16 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                     style={{
                       position:"absolute", left:0, right:0,
                       top: minToPx(displayStartMin) + 1,
-                      height: slotHeightMin * PX_PER_MIN - 2,
-                      opacity: isBeingDragged ? 0.95 : isSticky ? 0.90 : 0.82,
+                      height: displayHeightMin * PX_PER_MIN - 2,
+                      opacity: isBeingDragged || isBeingResized ? 0.95 : isSticky ? 0.90 : 0.82,
                       background: bg,
                       border: `1.5px solid ${borderColor}`,
-                      boxShadow: isBeingDragged ? `0 4px 14px rgba(0,0,0,0.35)` : emptyShadow,
-                      borderRadius:8, cursor: isPlainFree ? "grab" : "pointer", zIndex: isBeingDragged ? 6 : 1,
+                      boxShadow: isBeingDragged || isBeingResized ? `0 4px 14px rgba(0,0,0,0.35)` : emptyShadow,
+                      borderRadius:8, cursor: isPlainFree ? "grab" : "pointer", zIndex: isBeingDragged || isBeingResized ? 6 : 1,
                       display:"flex", flexDirection:"column",
                       alignItems:"center", justifyContent:"center",
                       padding:0,
-                      transition: isBeingDragged ? "none" : undefined,
+                      transition: isBeingDragged || isBeingResized ? "none" : undefined,
                       touchAction: isPlainFree ? "none" : "manipulation",
                       WebkitUserSelect:"none", userSelect:"none",
                     }}>
@@ -2389,6 +2433,32 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                         <span style={{fontSize:7, fontWeight:800, color:GOLD, lineHeight:1}}>{qc}</span>
                       </div>
                     ) : null; })()}
+                    {isPlainFree && (displayHeightMin !== 60 || isBeingResized) && (
+                      <span style={{
+                        position:"absolute", top:3, left:"50%", transform:"translateX(-50%)",
+                        fontSize:8, fontWeight:800, color, background:"rgba(0,0,0,0.25)",
+                        padding:"1px 5px", borderRadius:5, lineHeight:1.3, whiteSpace:"nowrap", pointerEvents:"none",
+                      }}>
+                        {displayHeightMin % 60 === 0 ? `${displayHeightMin/60} год` : displayHeightMin < 60 ? `${displayHeightMin} хв` : `${Math.floor(displayHeightMin/60)}г ${displayHeightMin%60}хв`}
+                      </span>
+                    )}
+                    {isPlainFree && !isPastDay && !isClosedDay && (
+                      <div
+                        onPointerDown={e=>{
+                          if (scheduleLocked) return;
+                          e.stopPropagation(); e.preventDefault();
+                          clearTimeout(slotHoldTimerRef.current);
+                          freeResizeRef.current = { dateStr: dateStrCol, time, startClientY: e.clientY, startDur: slotDurMin, maxDur: maxDurMin, moved: false, newDur: slotDurMin };
+                        }}
+                        onClick={e=>e.stopPropagation()}
+                        style={{
+                          position:"absolute", bottom:-5, left:"50%", transform:"translateX(-50%)",
+                          width:26, height:8, borderRadius:5,
+                          background: borderColor, boxShadow:"0 2px 4px rgba(0,0,0,0.4)",
+                          cursor:"ns-resize", touchAction:"none", zIndex:7,
+                        }}
+                      />
+                    )}
                   </div>
                 );
               });
