@@ -920,3 +920,30 @@ exports.syncCalendarToApp = onSchedule(
     }
   }
 );
+
+// Кожну хвилину: пуш-нагадування по нотатках дня з увімкненим дзвіночком (notify:true).
+// Спрацьовує один раз, рівно в хвилину початку інтервалу (startMin), за київським часом.
+exports.flushDayNoteReminders = onSchedule(
+  { schedule: "every 1 minutes", region: "europe-west1" },
+  async () => {
+    const now = new Date();
+    const kyivParts = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Europe/Kiev", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false,
+    }).formatToParts(now).reduce((acc, p) => { acc[p.type] = p.value; return acc; }, {});
+    const dateStr = `${kyivParts.year}-${kyivParts.month}-${kyivParts.day}`;
+    const nowMin = parseInt(kyivParts.hour, 10) * 60 + parseInt(kyivParts.minute, 10);
+
+    const snap = await db.ref(`dayNotes/${dateStr}/notes`).get();
+    if (!snap.exists()) return;
+    const notes = snap.val();
+
+    for (const [key, note] of Object.entries(notes)) {
+      if (!note.notify || note.notified) continue;
+      if (note.startMin !== nowMin) continue;
+      const title = "🔔 Нагадування";
+      const body = note.text || `Нотатка на ${dateStr}`;
+      await pushAdmin(title, body, { url: `https://admin.id4drive.pro/?date=${dateStr}` });
+      await db.ref(`dayNotes/${dateStr}/notes/${key}/notified`).set(true).catch(() => {});
+    }
+  }
+);

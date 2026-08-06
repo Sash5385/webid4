@@ -845,27 +845,46 @@ function MonthCalendarSheet({ bookings, onClose, onPickDate }) {
 // ═══════════════════════════════════════════════════════════════
 // DAY NOTES MODAL — нотатка дня: вибір годин + текст
 // ═══════════════════════════════════════════════════════════════
+const _fmtHM = (min) => `${String(Math.floor(min/60)).padStart(2,"0")}:${String(min%60).padStart(2,"0")}`;
+const _parseHM = (str) => { const [h,m] = str.split(":").map(Number); return h*60+m; };
+
 function DayNotesModal({ dateStr, dayLabel, dayNum, dayMonth, note, settings, onClose }) {
-  const { BG_DEEP, SURFACE, SURF_HI, SURF_LO, BORDER, TEXT, DIM, SO, SI } = useContext(ThemeContext);
+  const { BG_DEEP, SURFACE, SURF_HI, SURF_LO, BORDER, TEXT, DIM, FAINT, SO, SI } = useContext(ThemeContext);
   const { glow, shade } = useFX();
-  const [selHours, setSelHours] = useState(note?.hours || []);
-  const [text, setText] = useState(note?.text || "");
   const [closing, setClosing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [editingHour, setEditingHour] = useState(null);
   const _close = () => setClosing(true);
 
   const hours = [];
   for (let h = settings.workStart; h < settings.workEnd; h++) hours.push(h);
 
-  const toggleHour = (h) => setSelHours(hs => hs.includes(h) ? hs.filter(x=>x!==h) : [...hs, h].sort((a,b)=>a-b));
+  const [rows, setRows] = useState(() => {
+    const saved = note?.notes || {};
+    const init = {};
+    hours.forEach(h => {
+      const s = saved[h];
+      init[h] = s ? { startMin: s.startMin, endMin: s.endMin, text: s.text || "", notify: !!s.notify } : { startMin: h*60, endMin: h*60+60, text: "", notify: false };
+    });
+    return init;
+  });
+
+  const setRow = (h, patch) => setRows(rs => ({ ...rs, [h]: { ...rs[h], ...patch } }));
 
   const handleSave = async () => {
     setSaving(true);
     try {
-      if (!text.trim() && !selHours.length) {
+      const notesOut = {};
+      hours.forEach(h => {
+        const r = rows[h];
+        if (r.text.trim() || r.notify) {
+          notesOut[h] = { startMin: r.startMin, endMin: r.endMin, text: r.text.trim(), notify: r.notify };
+        }
+      });
+      if (!Object.keys(notesOut).length) {
         await remove(ref(db, `dayNotes/${dateStr}`));
       } else {
-        await update(ref(db, `dayNotes/${dateStr}`), { hours: selHours, text: text.trim(), updatedAt: Date.now() });
+        await update(ref(db, `dayNotes/${dateStr}`), { notes: notesOut, updatedAt: Date.now() });
       }
       _close();
     } catch (e) { /* ignore */ } finally { setSaving(false); }
@@ -876,6 +895,8 @@ function DayNotesModal({ dateStr, dayLabel, dayNum, dayMonth, note, settings, on
     try { await remove(ref(db, `dayNotes/${dateStr}`)); _close(); }
     catch (e) { /* ignore */ } finally { setSaving(false); }
   };
+
+  const hasAnyNote = !!note;
 
   return (
     <>
@@ -903,45 +924,67 @@ function DayNotesModal({ dateStr, dayLabel, dayNum, dayMonth, note, settings, on
             animation: closing ? `_dn-down 0.26s ease-in forwards` : `_dn-up 0.38s cubic-bezier(0.34,1.56,0.64,1)`,
           }}>
           <div style={{width:36,height:4,borderRadius:2,background:glow(0.15),margin:"0 auto 12px"}}/>
-          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14}}>
-            <div style={{fontSize:14,fontWeight:800,color:TEXT}}>📝 Нотатка — {dayLabel}, {dayNum} {dayMonth}</div>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
+            <div style={{fontSize:14,fontWeight:800,color:TEXT}}>📝 Нотатки — {dayLabel}, {dayNum} {dayMonth}</div>
             <div onClick={_close} style={{
               width:26,height:26,borderRadius:8,background:"rgba(239,68,68,0.18)",
               display:"flex",alignItems:"center",justifyContent:"center",
               cursor:"pointer",color:"#ef4444",fontSize:13,fontWeight:800,flexShrink:0,
             }}>✕</div>
           </div>
-
-          <div style={{fontSize:10,color:DIM,fontWeight:700,marginBottom:6,letterSpacing:0.3,textTransform:"uppercase"}}>Години (необов'язково)</div>
-          <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:14}}>
-            {hours.map(h=>(
-              <button key={h} onClick={()=>toggleHour(h)} style={{
-                padding:"6px 10px", borderRadius:9, border:"none", cursor:"pointer", fontFamily:"inherit",
-                fontSize:12, fontWeight:700,
-                background: selHours.includes(h) ? `linear-gradient(145deg,${GOLD}cc,${GOLD}88)` : `linear-gradient(145deg,${SURF_HI},${SURFACE})`,
-                color: selHours.includes(h) ? "#1a1a1a" : DIM,
-                boxShadow:SO,
-              }}>{h}:00</button>
-            ))}
+          <div style={{fontSize:10.5,color:DIM,marginBottom:12,lineHeight:1.4}}>
+            Тап на час — обрати точний інтервал у межах години. Дзвіночок — увімкнути пуш-нагадування.
           </div>
 
-          <div style={{fontSize:10,color:DIM,fontWeight:700,marginBottom:6,letterSpacing:0.3,textTransform:"uppercase"}}>Текст нотатки</div>
-          <textarea value={text} onChange={e=>setText(e.target.value)} rows={4} placeholder="Наприклад: клієнт просив передзвонити..."
-            style={{
-              width:"100%", boxSizing:"border-box",
-              background:`linear-gradient(135deg,${BG_DEEP},${SURF_LO})`,
-              border:`1px solid ${BORDER}`, outline:"none", color:TEXT, fontSize:13,
-              padding:"10px 12px", borderRadius:10, boxShadow:SI, resize:"vertical",
-              fontFamily:"inherit", marginBottom:14,
-            }}/>
+          <div style={{display:"flex",flexDirection:"column",gap:7,marginBottom:16}}>
+            {hours.map(h=>{
+              const r = rows[h];
+              const isEditing = editingHour === h;
+              return (
+                <div key={h} style={{display:"flex",alignItems:"center",gap:8}}>
+                  {isEditing ? (
+                    <div style={{display:"flex",alignItems:"center",gap:4,flexShrink:0}}>
+                      <input type="time" value={_fmtHM(r.startMin)} onChange={e=>setRow(h,{startMin:_parseHM(e.target.value)})}
+                        style={{width:66,background:BG_DEEP,border:`1px solid ${GOLD}55`,borderRadius:7,color:TEXT,fontSize:10.5,padding:"4px 3px",fontFamily:"inherit",outline:"none",colorScheme:"dark"}}/>
+                      <span style={{color:FAINT,fontSize:10}}>–</span>
+                      <input type="time" value={_fmtHM(r.endMin)} onChange={e=>setRow(h,{endMin:_parseHM(e.target.value)})}
+                        style={{width:66,background:BG_DEEP,border:`1px solid ${GOLD}55`,borderRadius:7,color:TEXT,fontSize:10.5,padding:"4px 3px",fontFamily:"inherit",outline:"none",colorScheme:"dark"}}/>
+                      <div onClick={()=>setEditingHour(null)} style={{
+                        width:22,height:22,borderRadius:6,background:`${GOLD}33`,color:GOLD,
+                        display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",fontSize:11,fontWeight:800,flexShrink:0,
+                      }}>✓</div>
+                    </div>
+                  ) : (
+                    <div onClick={()=>setEditingHour(h)} style={{
+                      width:76, flexShrink:0, cursor:"pointer", fontSize:10.5, fontWeight:800, color:GOLD,
+                      fontVariantNumeric:"tabular-nums", overflow:"hidden", whiteSpace:"nowrap", textOverflow:"ellipsis",
+                    }}>{_fmtHM(r.startMin)}–{_fmtHM(r.endMin)}</div>
+                  )}
+                  <input value={r.text} onChange={e=>setRow(h,{text:e.target.value})} placeholder="—"
+                    style={{
+                      flex:1, minWidth:0, boxSizing:"border-box",
+                      background:`linear-gradient(135deg,${BG_DEEP},${SURF_LO})`,
+                      border:`1px solid ${BORDER}`, outline:"none", color:TEXT, fontSize:12,
+                      padding:"7px 9px", borderRadius:8, boxShadow:SI, fontFamily:"inherit",
+                    }}/>
+                  <div onClick={()=>setRow(h,{notify:!r.notify})} title={r.notify?"Нагадування увімкнено":"Нагадування вимкнено"} style={{
+                    width:26, height:26, borderRadius:8, flexShrink:0, cursor:"pointer",
+                    background: r.notify ? `${GOLD}2a` : `linear-gradient(145deg,${SURF_HI},${SURFACE})`,
+                    display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,
+                    boxShadow: r.notify ? "none" : SO,
+                  }}>{r.notify ? "🔔" : "🔕"}</div>
+                </div>
+              );
+            })}
+          </div>
 
           <div style={{display:"flex",gap:8}}>
-            {note && (
+            {hasAnyNote && (
               <button onClick={handleDelete} disabled={saving} style={{
                 flex:1, padding:"11px", borderRadius:12, border:"1px solid rgba(239,68,68,0.25)",
                 cursor:"pointer", background:"rgba(239,68,68,0.08)", color:"#fca5a5",
                 fontSize:13, fontWeight:700, fontFamily:"inherit",
-              }}>Видалити</button>
+              }}>Видалити всі</button>
             )}
             <button onClick={handleSave} disabled={saving} style={{
               flex:2, padding:"11px", borderRadius:12, border:"none", cursor:"pointer",
