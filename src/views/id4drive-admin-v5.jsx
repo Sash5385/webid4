@@ -1610,7 +1610,11 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
     // раніше, ніж треба, — і рівно стільки ж відрізало знизу.
     const HEADER_OFFSET = 2 + HEADER_H + 10;
     const y = HEADER_OFFSET + (targetMin - effectiveWorkStart * 60) * PX_PER_MIN;
-    el.scrollTop = Math.max(0, y - 8);
+    // Шапка дати "плаває" (position:sticky) поверх контенту під час скролу —
+    // верхні HEADER_H px видимої області завжди перекриті нею. Тому відступ
+    // зверху має бути не просто "трохи" (8px), а щонайменше HEADER_H, інакше
+    // перший запис ховається під шапкою.
+    el.scrollTop = Math.max(0, y - HEADER_H - 8);
   }, [settings.hourHeightPx]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const minToPx = (m) => (m - effectiveWorkStart*60) * PX_PER_MIN;
