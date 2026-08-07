@@ -130,16 +130,15 @@ function BottomNav({ active, onChange, settings, chatUnread, journalUnread }) {
   const tabIcons = isKava ? makeTabIcons(INACTIVE_KAVA) : TabIcons;
   const visible = TAB_IDS.filter(t => settings?.navTabs?.includes(t.id) ?? true);
 
-  const navBg = isKava
-    ? `linear-gradient(180deg,#d9c4a0,#ccb48c)`
-    : "linear-gradient(180deg,#3a3b40,#2e2f34)";
-  const navBorder = isKava
-    ? `1px solid ${theme.BORDER}`
-    : "1px solid rgba(255,255,255,0.08)";
+  // "Щільний ряд скляних чипів" (обраний варіант дизайну) — компактні чипи в
+  // напівпрозорій рамці; активна вкладка підсвічується зеленим (theme.GREEN),
+  // іконки лишають власний фірмовий колір із tabIcons (не чіпаємо).
+  const navBg = isKava ? "rgba(255,255,255,0.5)" : "rgba(255,255,255,0.04)";
   const navShadow = isKava
-    ? `0 8px 32px rgba(92,42,26,0.18), 0 2px 8px rgba(92,42,26,0.12)`
-    : "0 12px 40px rgba(0,0,0,0.65), 0 4px 16px rgba(0,0,0,0.4), 0 -1px 0 rgba(255,255,255,0.05)";
+    ? "0 8px 24px rgba(92,42,26,0.14)"
+    : "0 8px 24px rgba(0,0,0,0.45)";
   const labelInactive = isKava ? theme.DIM : FAINT;
+  const activeBg = `color-mix(in srgb, ${theme.GREEN} 18%, transparent)`;
 
   return (
     <div style={{
@@ -151,45 +150,38 @@ function BottomNav({ active, onChange, settings, chatUnread, journalUnread }) {
     }}>
       <div style={{
         background:navBg,
-        borderRadius:26,
-        border:navBorder,
+        borderRadius:16,
+        border:`1px solid ${theme.BORDER}`,
         boxShadow:navShadow,
-        display:"flex", overflow:"hidden",
+        display:"flex", gap:2, padding:3,
         pointerEvents:"auto",
       }}>
-        {visible.map(t=>(
+        {visible.map(t=>{
+          const isActive = active===t.id;
+          const badgeCount = t.id === 'chats' ? chatUnread : t.id === 'journal' ? journalUnread : t.badge;
+          return (
           <button key={t.id} onClick={()=>onChange(t.id)} style={{
-            flex:"1 1 0",minWidth:0,padding:"13px 4px 11px",
-            background:"transparent",border:"none",cursor:"pointer",
-            display:"flex",flexDirection:"column",alignItems:"center",gap:5,
+            flex:"1 1 0",minWidth:0,padding:"8px 2px 7px",
+            background: isActive ? activeBg : "transparent",
+            border:"none",cursor:"pointer",borderRadius:11,
+            display:"flex",flexDirection:"column",alignItems:"center",gap:4,
             position:"relative"
           }}>
-            <div style={{
-              transform:active===t.id?"scale(1.1)":"scale(0.94)",
-              transition:"transform .15s",
-              opacity:active===t.id?1:0.52,
-              position:"relative"
-            }}>
-              {tabIcons[t.id]?.(34,active===t.id)}
-              {(t.id === 'chats' ? chatUnread : t.id === 'journal' ? journalUnread : t.badge) > 0 && (
+            <div style={{position:"relative"}}>
+              {tabIcons[t.id]?.(34,isActive)}
+              {badgeCount > 0 && (
                 <div style={{
                   position:"absolute",top:-4,right:-4,
                   background:theme.ACCENT,color:"#fff",borderRadius:10,
                   padding:"1px 5px",fontSize:9,fontWeight:800,
                   boxShadow:`0 0 8px ${theme.ACCENT}88`,lineHeight:1.4
-                }}>{t.id === 'chats' ? chatUnread : t.id === 'journal' ? journalUnread : t.badge}</div>
+                }}>{badgeCount}</div>
               )}
             </div>
-            <span style={{fontSize:9,fontWeight:700,color:active===t.id?theme.ACCENT:labelInactive,whiteSpace:"nowrap"}}>{tl(t.lk)}</span>
-            {active===t.id && (
-              <div style={{
-                position:"absolute",bottom:5,left:"50%",transform:"translateX(-50%)",
-                width:28,height:3,borderRadius:2,
-                background:theme.ACCENT,boxShadow:`0 0 10px ${theme.ACCENT}99`
-              }}/>
-            )}
+            <span style={{fontSize:9,fontWeight:700,color:isActive?theme.GREEN:labelInactive,whiteSpace:"nowrap"}}>{tl(t.lk)}</span>
           </button>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
