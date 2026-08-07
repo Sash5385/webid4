@@ -1581,9 +1581,15 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
     // з фактичним контейнером (адресний рядок браузера, safe-area тощо), через
     // що записи то знизу, то зверху вилазили за межі екрана. Тому висоту рядка
     // рахуємо від РЕАЛЬНО виміряного el.clientHeight, а не від оцінки.
-    const HEADER_OFFSET = 2 + HEADER_H + 10; // paddingTop колонок + шапка дня + її відступ
+    // Реально виміряний offset до верху сітки годин (замість оцінкових
+    // paddingTop+HEADER_H+marginBottom — на практиці лишався залишковий
+    // здвиг у кілька px, накопичувався в помітну похибку).
+    const timeCol = timeColRef.current;
+    const headerOffsetReal = timeCol
+      ? timeCol.getBoundingClientRect().top - el.getBoundingClientRect().top + el.scrollTop
+      : (2 + HEADER_H + 10);
     const BOTTOM_BUFFER = 40; // місце під плашку суми дня знизу
-    const usableH = Math.max(200, el.clientHeight - HEADER_OFFSET - BOTTOM_BUFFER);
+    const usableH = Math.max(200, el.clientHeight - headerOffsetReal - BOTTOM_BUFFER);
     const autoPxPerMinBase = availGridH / totalMin; // той самий множник, що й у реальному PX_PER_MIN
     const targetHpx = Math.max(60, Math.round(usableH / (n * autoPxPerMinBase)));
     // Мета "Авто" — бачити ВСІ записи одразу, без ручного скролу (не просто
@@ -1608,12 +1614,17 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
     const el = gridRef.current;
     if (!el) return;
     // minToPx рахує позицію ВІДНОСНО "SLOT CONTENT" (сітки годин), а
-    // scrollTop — відносно всього скрольованого контейнера, де вище ще
-    // сидять paddingTop колонок (2) + шапка дня (HEADER_H=42) + її
-    // marginBottom (10). Без цього офсету скрол зупинявся на ~54px
-    // раніше, ніж треба, — і рівно стільки ж відрізало знизу.
-    const HEADER_OFFSET = 2 + HEADER_H + 10;
-    const y = HEADER_OFFSET + (targetMin - effectiveWorkStart * 60) * PX_PER_MIN;
+    // scrollTop — відносно всього скрольованого контейнера. Раніше офсет
+    // між ними рахувався константами (paddingTop колонок + HEADER_H +
+    // marginBottom) — теоретично правильно, але на практиці лишався
+    // залишковий здвиг у кілька-кільканадцять px (сабпіксельні заокруглення,
+    // тіні/бордери шапки тощо). Тому міряємо offset НАПРЯМУ з DOM: timeColRef
+    // — це якраз елемент з top:0 у точці, де minToPx()=0.
+    const timeCol = timeColRef.current;
+    const gridOffsetTop = timeCol
+      ? timeCol.getBoundingClientRect().top - el.getBoundingClientRect().top + el.scrollTop
+      : (2 + HEADER_H + 10); // резервне значення, якщо ref ще не змонтований
+    const y = gridOffsetTop + (targetMin - effectiveWorkStart * 60) * PX_PER_MIN;
     // Шапка дати "плаває" (position:sticky) поверх контенту під час скролу —
     // верхні HEADER_H px видимої області завжди перекриті нею. Тому відступ
     // зверху має бути не просто "трохи" (8px), а щонайменше HEADER_H, інакше
