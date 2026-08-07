@@ -1096,6 +1096,9 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   // Реально видимий діапазон днів (без буфера VBUF) — для авто-висоти годин.
   const visDayRangeRef = useRef({ s: PAST_DAYS, e: PAST_DAYS + 30 });
   const [visDayRange, setVisDayRange] = useState(visDayRangeRef.current);
+  // Час першого запису, до якого треба проскролити після перерахунку
+  // авто-висоти — щоб усі записи були видно одразу, без ручного скролу.
+  const autoScrollToMinRef = useRef(null);
   const xVisibleRef = useRef(false);
   const xJustShownRef = useRef(false);
   const snapTimerRef = useRef(null);
@@ -1579,9 +1582,30 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
     // ховаються під нижньою навігацією/панеллю (баг лише в режимі "Авто").
     const totalWorkMin = (effectiveWorkEnd - effectiveWorkStart) * 60;
     const targetHpx = Math.max(60, Math.round(totalWorkMin / n));
-    setSettings(s => (Math.abs((s.hourHeightPx || 60) - targetHpx) < 1 ? s : { ...s, hourHeightPx: targetHpx }));
+    // Мета "Авто" — бачити ВСІ записи одразу, без ручного скролу (не просто
+    // підібрати висоту рядка). Тому разом зі зміною hourHeightPx запам'ятовуємо
+    // час першого запису — окремий ефект нижче проскролить до нього, коли
+    // DOM вже перерахує розмітку під нову висоту.
+    setSettings(s => {
+      if (Math.abs((s.hourHeightPx || 60) - targetHpx) < 1) return s;
+      autoScrollToMinRef.current = minStart;
+      return { ...s, hourHeightPx: targetHpx };
+    });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visDayRange.s, visDayRange.e, settings.autoHourHeight]);
+
+  // Прокрутка до першого запису — спрацьовує тільки після авто-перерахунку
+  // висоти (autoScrollToMinRef виставляється лише вище), не після ручного
+  // pinch-zoom чи кнопок 8/9/10/12.
+  useLayoutEffect(() => {
+    const targetMin = autoScrollToMinRef.current;
+    if (targetMin == null) return;
+    autoScrollToMinRef.current = null;
+    const el = gridRef.current;
+    if (!el) return;
+    const y = (targetMin - effectiveWorkStart * 60) * PX_PER_MIN;
+    el.scrollTop = Math.max(0, y - 8);
+  }, [settings.hourHeightPx]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const minToPx = (m) => (m - effectiveWorkStart*60) * PX_PER_MIN;
 
