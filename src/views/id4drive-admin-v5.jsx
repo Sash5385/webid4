@@ -1574,14 +1574,18 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
     if (minStart === Infinity) return; // немає записів у видимому діапазоні — висоту не чіпаємо
     const spanHours = Math.ceil((maxEnd - minStart) / 60);
     const n = Math.max(6, Math.min(16, spanHours));
-    // totalWorkMin — той самий effectiveWorkStart/End, що й реальний PX_PER_MIN
-    // нижче (не settings.workStart/workEnd — вони можуть бути вужчі за
-    // weekSchedule-перекриття конкретного дня). Плюс floor у 60 — щоб
-    // hourHeightPx ніколи не опускався нижче базового масштабу: інакше
-    // висота розкладу стає меншою за видиму область екрана і нижні записи
-    // ховаються під нижньою навігацією/панеллю (баг лише в режимі "Авто").
-    const totalWorkMin = (effectiveWorkEnd - effectiveWorkStart) * 60;
-    const targetHpx = Math.max(60, Math.round(totalWorkMin / n));
+    const el = gridRef.current;
+    if (!el) return;
+    // availGridH (windowH - 156 - HEADER_H - 4) — лише ОЦІНКА видимої висоти
+    // за розміром вікна; на реальному пристрої вона не завжди точно збігається
+    // з фактичним контейнером (адресний рядок браузера, safe-area тощо), через
+    // що записи то знизу, то зверху вилазили за межі екрана. Тому висоту рядка
+    // рахуємо від РЕАЛЬНО виміряного el.clientHeight, а не від оцінки.
+    const HEADER_OFFSET = 2 + HEADER_H + 10; // paddingTop колонок + шапка дня + її відступ
+    const BOTTOM_BUFFER = 40; // місце під плашку суми дня знизу
+    const usableH = Math.max(200, el.clientHeight - HEADER_OFFSET - BOTTOM_BUFFER);
+    const autoPxPerMinBase = availGridH / totalMin; // той самий множник, що й у реальному PX_PER_MIN
+    const targetHpx = Math.max(60, Math.round(usableH / (n * autoPxPerMinBase)));
     // Мета "Авто" — бачити ВСІ записи одразу, без ручного скролу (не просто
     // підібрати висоту рядка). Тому разом зі зміною hourHeightPx запам'ятовуємо
     // час першого запису — окремий ефект нижче проскролить до нього, коли
