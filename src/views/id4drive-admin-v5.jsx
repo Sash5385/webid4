@@ -1603,7 +1603,13 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
     autoScrollToMinRef.current = null;
     const el = gridRef.current;
     if (!el) return;
-    const y = (targetMin - effectiveWorkStart * 60) * PX_PER_MIN;
+    // minToPx рахує позицію ВІДНОСНО "SLOT CONTENT" (сітки годин), а
+    // scrollTop — відносно всього скрольованого контейнера, де вище ще
+    // сидять paddingTop колонок (2) + шапка дня (HEADER_H=42) + її
+    // marginBottom (10). Без цього офсету скрол зупинявся на ~54px
+    // раніше, ніж треба, — і рівно стільки ж відрізало знизу.
+    const HEADER_OFFSET = 2 + HEADER_H + 10;
+    const y = HEADER_OFFSET + (targetMin - effectiveWorkStart * 60) * PX_PER_MIN;
     el.scrollTop = Math.max(0, y - 8);
   }, [settings.hourHeightPx]); // eslint-disable-line react-hooks/exhaustive-deps
 
