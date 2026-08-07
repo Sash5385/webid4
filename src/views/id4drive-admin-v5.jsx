@@ -1571,7 +1571,14 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
     if (minStart === Infinity) return; // немає записів у видимому діапазоні — висоту не чіпаємо
     const spanHours = Math.ceil((maxEnd - minStart) / 60);
     const n = Math.max(6, Math.min(16, spanHours));
-    const targetHpx = Math.round((settings.workEnd - settings.workStart) * 60 / n);
+    // totalWorkMin — той самий effectiveWorkStart/End, що й реальний PX_PER_MIN
+    // нижче (не settings.workStart/workEnd — вони можуть бути вужчі за
+    // weekSchedule-перекриття конкретного дня). Плюс floor у 60 — щоб
+    // hourHeightPx ніколи не опускався нижче базового масштабу: інакше
+    // висота розкладу стає меншою за видиму область екрана і нижні записи
+    // ховаються під нижньою навігацією/панеллю (баг лише в режимі "Авто").
+    const totalWorkMin = (effectiveWorkEnd - effectiveWorkStart) * 60;
+    const targetHpx = Math.max(60, Math.round(totalWorkMin / n));
     setSettings(s => (Math.abs((s.hourHeightPx || 60) - targetHpx) < 1 ? s : { ...s, hourHeightPx: targetHpx }));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visDayRange.s, visDayRange.e, settings.autoHourHeight]);
