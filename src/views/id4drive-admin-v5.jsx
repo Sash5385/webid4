@@ -2222,9 +2222,13 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
             <div ref={timeColRef} style={{position:"absolute", top:0, left:0, right:0, height:gridHeight}}>
               {Array.from({length:(effectiveWorkEnd-effectiveWorkStart)*2+1},(_,i)=>{
                 const totalMins = i*30;
-                const h = effectiveWorkStart + Math.floor(totalMins/60);
-                const m = totalMins % 60;
-                if (h > effectiveWorkEnd) return null;
+                // absMin — абсолютна хвилина від півночі: effectiveWorkStart тепер
+                // може бути дробовим (напр. 8.5 = 8:30), тож просте "workStart+h"
+                // давало биту мітку типу "8.5:00" замість "09:00".
+                const absMin = effectiveWorkStart*60 + totalMins;
+                const h = Math.floor(absMin/60);
+                const m = absMin % 60;
+                if (absMin > effectiveWorkEnd*60) return null;
                 return m === 0 ? (
                   <div key={i} style={{
                     position:"absolute", top:Math.max(2, totalMins*PX_PER_MIN - 5),
