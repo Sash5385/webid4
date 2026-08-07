@@ -2896,7 +2896,10 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                 if (daySum<=0) return null;
                 return (
                   <div style={{
-                    position:"sticky", bottom:0, zIndex:11,
+                    // zIndex нижче за картки запису (zIndex:2, рядок ~2653) — щоб
+                    // плашка суми лежала ПІД записами, а не ховала їх текст/ціну
+                    // при скролі вниз, і показувалась лише над порожнім фоном.
+                    position:"sticky", bottom:0, zIndex:1,
                     flexShrink:0, marginTop:4,
                     background:`linear-gradient(180deg, color-mix(in srgb, ${SURF_HI} 78%, transparent), color-mix(in srgb, ${SURFACE} 78%, transparent))`,
                     backdropFilter:"blur(10px)", WebkitBackdropFilter:"blur(10px)",
