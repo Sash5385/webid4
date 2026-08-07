@@ -267,9 +267,7 @@ function TopBar({ tab, onChange, settings, setSettings }) {
 
   const theme = useContext(ThemeContext);
   const isKava = settings?.theme === "light";
-  const topBgEnd = isKava
-    ? `${theme.BG}ee`
-    : "rgba(28,29,33,0.9)";
+  const navBg = isKava ? "rgba(255,255,255,0.5)" : "rgba(255,255,255,0.04)";
   const btnInactive = isKava
     ? `rgba(92,42,26,0.12)`
     : `rgba(255,255,255,0.08)`;
@@ -280,7 +278,7 @@ function TopBar({ tab, onChange, settings, setSettings }) {
       <div style={{
         padding:`calc(4px + env(safe-area-inset-top, 0px)) 8px 4px`,
         display:"flex",alignItems:"center",
-        background:`linear-gradient(180deg,${theme.BG} 60%,${topBgEnd})`,
+        background:navBg,
         backdropFilter:"blur(20px)",
         borderBottom:`1px solid ${showInfo ? "transparent" : theme.BORDER}`,
         minHeight:42,
@@ -347,7 +345,7 @@ function TopBar({ tab, onChange, settings, setSettings }) {
       {showInfo && instruction && (
         <div style={{
           padding:"8px 14px 10px",
-          background:`linear-gradient(180deg,${theme.BG},${topBgEnd})`,
+          background:navBg,
           backdropFilter:"blur(20px)",
           borderBottom:`1px solid ${theme.BORDER}`,
           fontSize:12,color:theme.DIM,lineHeight:1.55,
