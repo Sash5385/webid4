@@ -1093,6 +1093,9 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   const gridWrapRef = useRef(null);
   const vRangeRef   = useRef({ s: Math.max(0, PAST_DAYS - VBUF), e: PAST_DAYS + 30 });
   const [vRange, setVRange] = useState({ s: Math.max(0, PAST_DAYS - VBUF), e: PAST_DAYS + 30 });
+  // Реально видимий діапазон днів (без буфера VBUF) — для авто-висоти годин.
+  const visDayRangeRef = useRef({ s: PAST_DAYS, e: PAST_DAYS + 30 });
+  const [visDayRange, setVisDayRange] = useState(visDayRangeRef.current);
   const xVisibleRef = useRef(false);
   const xJustShownRef = useRef(false);
   const snapTimerRef = useRef(null);
@@ -1421,6 +1424,12 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
       vRangeRef.current = { s, e };
       setVRange({ s, e });
     }
+    const vs = Math.max(0, firstVis);
+    const ve = Math.min(nd - 1, lastVis);
+    if (vs !== visDayRangeRef.current.s || ve !== visDayRangeRef.current.e) {
+      visDayRangeRef.current = { s: vs, e: ve };
+      setVisDayRange({ s: vs, e: ve });
+    }
   };
 
   // Скролимо до сьогодні при зміні daysShown (включаючи завантаження settings з Firebase)
@@ -1542,6 +1551,30 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
 
   // Keep calc values fresh for always-on window listeners (avoids stale closure)
   calcRef.current = { PX_PER_MIN, snapMin: settings.snapMin, workStart: effectiveWorkStart, workEnd: effectiveWorkEnd, COL_W, dayOffset, daysShown: settings.daysShown, N_DAYS };
+
+  // Авто-висота годин ("Авто" замість фіксованих 6/8/9/10/12): підлаштовуємо
+  // hourHeightPx під діапазон "перший запис — останній запис" видимих днів
+  // (6..16 годин). Рахуємо тільки при зміні видимого діапазону днів (скрол),
+  // а не на кожен новий/змінений запис — інакше висота "стрибала" б під час
+  // звичайної роботи з розкладом.
+  useEffect(() => {
+    if (!settings.autoHourHeight) return;
+    const dayFrom = dayOffset + visDayRange.s;
+    const dayTo   = dayOffset + visDayRange.e;
+    let minStart = Infinity, maxEnd = -Infinity;
+    bookings.forEach(b => {
+      if (b.status === "cancelled") return;
+      if (b.day < dayFrom || b.day > dayTo) return;
+      minStart = Math.min(minStart, b.startMin);
+      maxEnd   = Math.max(maxEnd, b.startMin + b.durMin);
+    });
+    if (minStart === Infinity) return; // немає записів у видимому діапазоні — висоту не чіпаємо
+    const spanHours = Math.ceil((maxEnd - minStart) / 60);
+    const n = Math.max(6, Math.min(16, spanHours));
+    const targetHpx = Math.round((settings.workEnd - settings.workStart) * 60 / n);
+    setSettings(s => (Math.abs((s.hourHeightPx || 60) - targetHpx) < 1 ? s : { ...s, hourHeightPx: targetHpx }));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visDayRange.s, visDayRange.e, settings.autoHourHeight]);
 
   const minToPx = (m) => (m - effectiveWorkStart*60) * PX_PER_MIN;
 

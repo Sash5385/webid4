@@ -297,12 +297,21 @@ function TopBar({ tab, onChange, settings, setSettings }) {
           <>
             {/* Left: годин buttons */}
             <div style={{flex:1,display:"flex",gap:3,alignItems:"center"}}>
-              {[6,8,9,10,12].map(n=>{
+              <button key="hauto" onClick={()=>setSettings(s=>({...s,autoHourHeight:true}))} style={{
+                ...btnBase,
+                background:settings.autoHourHeight?`linear-gradient(165deg,#5b9bff,#2563eb)`:btnInactive,
+                color:settings.autoHourHeight?"#fff":btnInactiveColor,
+                boxShadow:settings.autoHourHeight?`0 3px 8px rgba(91,155,255,0.5)`:"none",
+              }}>
+                <span style={{fontSize:11,fontWeight:800}}>Авто</span>
+                <span style={{fontSize:8,fontWeight:600,opacity:0.8}}>годин</span>
+              </button>
+              {[8,9,10,12].map(n=>{
                 const totalH = (settings.workEnd - settings.workStart) * 60;
                 const targetHpx = Math.round(totalH / n);
-                const active = Math.abs(settings.hourHeightPx - targetHpx) < 5;
+                const active = !settings.autoHourHeight && Math.abs(settings.hourHeightPx - targetHpx) < 5;
                 return (
-                  <button key={`h${n}`} onClick={()=>setSettings(s=>({...s,hourHeightPx:Math.round((s.workEnd-s.workStart)*60/n)}))} style={{
+                  <button key={`h${n}`} onClick={()=>setSettings(s=>({...s,autoHourHeight:false,hourHeightPx:Math.round((s.workEnd-s.workStart)*60/n)}))} style={{
                     ...btnBase,
                     background:active?`linear-gradient(165deg,#5b9bff,#2563eb)`:btnInactive,
                     color:active?"#fff":btnInactiveColor,
@@ -362,7 +371,7 @@ const INITIAL_BOOKINGS = [];
 
 const DEFAULT_SETTINGS = {
   profile: { name:"Олександр", phone:"+380989225442", address:"Київ", experience:8, photo:null },
-  workStart:7, workEnd:20, weekends:[6], daysShown:6, snapMin:30, slotCreateStep:30, hourHeightPx:60,
+  workStart:7, workEnd:20, weekends:[6], daysShown:6, snapMin:30, slotCreateStep:30, hourHeightPx:60, autoHourHeight:false,
   lunchEnabled:true, lunchStart:12, lunchEnd:13, customBlocks:[], pendingEnabled:false,
   theme:"dark", language:"uk", queueAutoFifo:true, queueBroadcast:false, queueManual:false,
   studentCanReschedule:true, studentCanCancel:true, bookCutoffHours:2, calendarOpenDays:30,
@@ -641,6 +650,7 @@ export default function App() {
         weekends:        settings.weekends        ?? [],
         daysShown:       settings.daysShown       ?? 6,
         hourHeightPx:    settings.hourHeightPx    ?? 60,
+        autoHourHeight:  settings.autoHourHeight   ?? false,
         pendingEnabled:  settings.pendingEnabled  ?? false,
         studentCanReschedule: settings.studentCanReschedule ?? true,
         studentCanCancel:     settings.studentCanCancel     ?? true,
