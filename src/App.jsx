@@ -281,6 +281,7 @@ function TopBar({ tab, onChange, settings, setSettings }) {
         background:navBg,
         backdropFilter:"blur(20px)",
         borderBottom:`1px solid ${showInfo ? "transparent" : theme.BORDER}`,
+        borderRadius: showInfo ? 0 : "0 0 16px 16px",
         minHeight:42,
       }}>
         {tab==="schedule" && settings && setSettings ? (
@@ -348,6 +349,7 @@ function TopBar({ tab, onChange, settings, setSettings }) {
           background:navBg,
           backdropFilter:"blur(20px)",
           borderBottom:`1px solid ${theme.BORDER}`,
+          borderRadius:"0 0 16px 16px",
           fontSize:12,color:theme.DIM,lineHeight:1.55,
         }}>
           <span style={{color:theme.GOLD,fontWeight:700,marginRight:6}}>💡</span>{instruction}
