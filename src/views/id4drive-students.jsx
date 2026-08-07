@@ -149,7 +149,7 @@ function StudentCard({ s, onSelect }) {
       onClick={() => onSelect(s)}
       style={{
         position:"relative",overflow:"hidden",borderRadius:13,cursor:"pointer",
-        padding:"9px 11px",display:"flex",alignItems:"center",gap:9,
+        padding:"22px 11px 21px",display:"flex",alignItems:"center",gap:9,
         background:`linear-gradient(155deg,color-mix(in srgb,${barColor} 48%,${BG_DEEP}) 0%,color-mix(in srgb,${barColor} 16%,${BG_DEEP}) 100%)`,
         border:`1px solid color-mix(in srgb,${barColor} 42%,transparent)`,
         boxShadow:`-2px 5px 13px ${shade(0.4)},inset 1px 1px 0 ${glow(0.15)}`,
