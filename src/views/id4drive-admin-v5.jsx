@@ -1571,7 +1571,20 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
       minStart = Math.min(minStart, b.startMin);
       maxEnd   = Math.max(maxEnd, b.startMin + b.durMin);
     });
-    if (minStart === Infinity) return; // немає записів у видимому діапазоні — висоту не чіпаємо
+    // Порожні (вільні, ще не заброньовані) слоти теж входять у діапазон —
+    // "Авто" має показувати не лише зайняті години, а й доступні для запису.
+    for (let d = dayFrom; d <= dayTo; d++) {
+      const daySlots = openSlots[absDayToDateStr(d)];
+      if (!daySlots) continue;
+      Object.entries(daySlots).forEach(([time, slot]) => {
+        if (!slot.available) return;
+        const [hh, mm] = time.split(':').map(Number);
+        const sMin = hh * 60 + mm;
+        minStart = Math.min(minStart, sMin);
+        maxEnd   = Math.max(maxEnd, sMin + (slot.durMin || 60));
+      });
+    }
+    if (minStart === Infinity) return; // немає ні записів, ні слотів у видимому діапазоні — висоту не чіпаємо
     const spanHours = Math.ceil((maxEnd - minStart) / 60);
     const n = Math.max(6, Math.min(16, spanHours));
     const el = gridRef.current;
