@@ -2232,20 +2232,39 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
           display:"flex", flexDirection:"column",
           borderRight:`1px solid ${ink(0.07)}`,
         }}>
-          {/* Кнопка «📅 Місячний календар» — сам ключик перенесено в шапку (по центру), рендериться нижче через портал */}
+          {/* Кнопка «Ключик» — генерувати/зняти всі слоти (перенесено з шапки, календар — тепер у шапці) */}
           <div style={{height:HEADER_H + 4, flexShrink:0, display:"flex", alignItems:"center", justifyContent:"center"}}>
-            <button
-              onClick={()=>setShowMonthCal(true)}
-              title="Місячний календар"
-              style={{
-                width:32, height:32, borderRadius:11, cursor:"pointer",
-                background:`linear-gradient(135deg,color-mix(in srgb,${BLUE} 45%,${BG_DEEP}) 0%,${BG_DEEP} 100%)`,
-                border:`1px solid color-mix(in srgb,${BLUE} 35%,transparent)`,
-                display:"flex", alignItems:"center", justifyContent:"center",
-                transition:"background .15s", flexShrink:0,
-              }}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M3 10h18M8 2v4M16 2v4"/></svg>
-            </button>
+            {(() => {
+              const slotsOn = hasAnyGeneratedSlots();
+              const c = slotsOn ? "rgba(220,60,60,0.9)" : "rgba(99,211,120,0.9)";
+              const cBg = slotsOn ? "rgba(220,60,60,0.18)" : "rgba(99,211,120,0.18)";
+              const cPulse = slotsOn ? "rgba(220,60,60,1)" : "rgba(99,211,120,1)";
+              return (
+                <>
+                  <style>{`
+                    @keyframes _key-pulse{0%{transform:scale(0.8);opacity:0.35}100%{transform:scale(1.7);opacity:0}}
+                  `}</style>
+                  <button
+                    onClick={isGeneratingAll ? undefined : (slotsOn ? clearAllSlots : generateAllSlots)}
+                    title={slotsOn
+                      ? `Зняти всі слоти (${settings.calendarOpenDays||30} днів)`
+                      : `Згенерувати слоти на ${settings.calendarOpenDays||30} днів за графіком`}
+                    style={{
+                      position:"relative", width:32, height:32, border:"none", cursor: isGeneratingAll?"default":"pointer",
+                      background:"transparent", display:"flex", alignItems:"center", justifyContent:"center",
+                      flexShrink:0,
+                    }}>
+                    <div style={{position:"absolute", inset:0, borderRadius:"50%", background:cPulse, opacity:0.25, animation:"_key-pulse 1.6s ease-out infinite"}}/>
+                    <div style={{position:"relative", width:32, height:32, borderRadius:"50%", background:cBg, display:"flex", alignItems:"center", justifyContent:"center", transition:"background .15s"}}>
+                      {isGeneratingAll
+                        ? <div style={{width:14,height:14,borderRadius:"50%",border:`2px solid ${slotsOn?"rgba(220,60,60,0.3)":"rgba(99,211,120,0.3)"}`,borderTopColor:c,animation:"spin .7s linear infinite"}}/>
+                        : <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
+                      }
+                    </div>
+                  </button>
+                </>
+              );
+            })()}
           </div>
           <div style={{overflow:"hidden", flex:1, position:"relative"}}>
             <div ref={timeColRef} style={{position:"absolute", top:0, left:0, right:0, height:gridHeight}}>
@@ -3037,38 +3056,21 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
 
     </Card>
 
-    {/* Кнопка «Ключик» — генерувати/зняти всі слоти. Портується в шапку (по центру, замість лого) */}
-    {keyPortalEl && createPortal((() => {
-      const slotsOn = hasAnyGeneratedSlots();
-      const c = slotsOn ? "rgba(220,60,60,0.9)" : "rgba(99,211,120,0.9)";
-      const cBg = slotsOn ? "rgba(220,60,60,0.18)" : "rgba(99,211,120,0.18)";
-      const cPulse = slotsOn ? "rgba(220,60,60,1)" : "rgba(99,211,120,1)";
-      return (
-        <>
-          <style>{`
-            @keyframes _key-pulse{0%{transform:scale(0.8);opacity:0.35}100%{transform:scale(1.7);opacity:0}}
-          `}</style>
-          <button
-            onClick={isGeneratingAll ? undefined : (slotsOn ? clearAllSlots : generateAllSlots)}
-            title={slotsOn
-              ? `Зняти всі слоти (${settings.calendarOpenDays||30} днів)`
-              : `Згенерувати слоти на ${settings.calendarOpenDays||30} днів за графіком`}
-            style={{
-              position:"relative", width:32, height:32, border:"none", cursor: isGeneratingAll?"default":"pointer",
-              background:"transparent", display:"flex", alignItems:"center", justifyContent:"center",
-              flexShrink:0,
-            }}>
-            <div style={{position:"absolute", inset:0, borderRadius:"50%", background:cPulse, opacity:0.25, animation:"_key-pulse 1.6s ease-out infinite"}}/>
-            <div style={{position:"relative", width:32, height:32, borderRadius:"50%", background:cBg, display:"flex", alignItems:"center", justifyContent:"center", transition:"background .15s"}}>
-              {isGeneratingAll
-                ? <div style={{width:14,height:14,borderRadius:"50%",border:`2px solid ${slotsOn?"rgba(220,60,60,0.3)":"rgba(99,211,120,0.3)"}`,borderTopColor:c,animation:"spin .7s linear infinite"}}/>
-                : <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
-              }
-            </div>
-          </button>
-        </>
-      );
-    })(), keyPortalEl)}
+    {/* Кнопка «📅 Місячний календар» — портується в шапку (по центру, замість лого; ключик — тепер у стовпці часу) */}
+    {keyPortalEl && createPortal(
+      <button
+        onClick={()=>setShowMonthCal(true)}
+        title="Місячний календар"
+        style={{
+          width:32, height:32, borderRadius:11, cursor:"pointer",
+          background:`linear-gradient(135deg,color-mix(in srgb,${BLUE} 45%,${BG_DEEP}) 0%,${BG_DEEP} 100%)`,
+          border:`1px solid color-mix(in srgb,${BLUE} 35%,transparent)`,
+          display:"flex", alignItems:"center", justifyContent:"center",
+          transition:"background .15s", flexShrink:0,
+        }}>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M3 10h18M8 2v4M16 2v4"/></svg>
+      </button>
+    , keyPortalEl)}
 
     {showMonthCal && (
       <MonthCalendarSheet
