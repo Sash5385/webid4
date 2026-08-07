@@ -2224,6 +2224,31 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
       background: isLight ? "rgba(255,255,255,0.5)" : "rgba(255,255,255,0.04)",
       boxShadow: isLight ? "0 8px 24px rgba(92,42,26,0.14)" : "0 8px 24px rgba(0,0,0,0.45)",
     }}>
+      {/* СТРІЧКА ЧИСЕЛ ДАТ — компактна навігація: тап по числу скролить сітку до дня */}
+      <div className="drum-scroll" style={{display:"flex", gap:3, overflowX:"auto", padding:"2px 6px 6px", flexShrink:0, scrollbarWidth:"none"}}>
+        {Array.from({length: Math.min(N_DAYS-1, visDayRange.e+12) - Math.max(0, visDayRange.s-6) + 1}, (_, i) => {
+          const colIdx = Math.max(0, visDayRange.s-6) + i;
+          const absDay = dayOffset + colIdx;
+          const info = getDayInfo(absDay);
+          const isVisible = colIdx >= visDayRange.s && colIdx <= visDayRange.e;
+          return (
+            <div
+              key={colIdx}
+              onClick={()=>{
+                const cw = calcRef.current.COL_W;
+                if (!gridRef.current || !cw) return;
+                gridRef.current.scrollTo({ left: Math.max(0, colIdx*(cw+4)), behavior:"smooth" });
+              }}
+              style={{
+                flexShrink:0, minWidth:22, textAlign:"center", padding:"4px 6px", borderRadius:8,
+                fontSize:11, fontWeight:700, cursor:"pointer",
+                background: isVisible ? `color-mix(in srgb,${ACCENT} 20%,transparent)` : "transparent",
+                color: isVisible ? ACCENT : DIM,
+              }}
+            >{info.num}</div>
+          );
+        })}
+      </div>
       <div style={{display:"flex", flex:1, minHeight:0, overflow:"hidden", position:"relative"}}>
 
         {/* TIME COLUMN — fixed left, never scrolls */}
