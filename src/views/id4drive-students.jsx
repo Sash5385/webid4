@@ -1,4 +1,4 @@
-import { useState, useEffect, useContext } from "react";
+import { useState, useEffect, useContext, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { ref, onValue, update, push, remove, get } from "firebase/database";
 import { db } from "../firebase";
@@ -538,7 +538,7 @@ function StudentDetailSheet({ s, onClose, onUpdate, onDelete, onBlock, autoOpenH
 }
 
 // ─── MAIN ────────────────────────────────────────────────────────
-export default function StudentsView({ studentJump, onStudentJumpHandled } = {}) {
+export default function StudentsView({ studentJump, onStudentJumpHandled, bookings=[] } = {}) {
   const { BG_DEEP, SURFACE, SURF_HI, BORDER, TEXT, DIM, FAINT, ACCENT, ACC_HI, GREEN, BLUE, SO, SI } = useContext(ThemeContext);
   const { ink } = useFX();
 
@@ -557,6 +557,7 @@ export default function StudentsView({ studentJump, onStudentJumpHandled } = {})
   const [detailStudent,setDetailStudent] = useState(null);
   const [search,       setSearch]       = useState("");
   const [filterType,   setFilterType]   = useState("all");
+  const [sortMode,     setSortMode]     = useState("name");
   const [loading,      setLoading]      = useState(true);
   const [showNew,      setShowNew]      = useState(false);
   const [autoOpenHistory, setAutoOpenHistory] = useState(false);
@@ -617,10 +618,36 @@ export default function StudentsView({ studentJump, onStudentJumpHandled } = {})
     setShowNew(false);
   };
 
+  const studentStats = useMemo(() => {
+    const map = {};
+    (bookings || []).forEach(b => {
+      if (b.status === "cancelled" || !b.userId) return;
+      const cur = map[b.userId] || { lastKey: "", lessons: 0 };
+      cur.lessons += 1;
+      const key = `${b.date || ""} ${b.time || ""}`;
+      if (key > cur.lastKey) cur.lastKey = key;
+      map[b.userId] = cur;
+    });
+    return map;
+  }, [bookings]);
+
   const q    = search.toLowerCase();
   const list = students
     .filter(s=>(!q||(s.name||"").toLowerCase().includes(q)||(s.phone||"").includes(q))&&(filterType==="all"||s.type===filterType))
-    .sort((a,b)=>(a.name||"").localeCompare(b.name||""));
+    .sort((a,b)=>{
+      if (sortMode === "lastBooking") {
+        const ka = studentStats[a.id]?.lastKey || "";
+        const kb = studentStats[b.id]?.lastKey || "";
+        return kb.localeCompare(ka);
+      }
+      if (sortMode === "createdAt") return (b.createdAt||0) - (a.createdAt||0);
+      if (sortMode === "lessons") {
+        const la = studentStats[a.id]?.lessons || 0;
+        const lb = studentStats[b.id]?.lessons || 0;
+        return lb - la;
+      }
+      return (a.name||"").localeCompare(b.name||"");
+    });
 
   const liveDetail = detailStudent ? students.find(x=>x.id===detailStudent.id) : null;
 
@@ -647,6 +674,16 @@ export default function StudentsView({ studentJump, onStudentJumpHandled } = {})
               flex:1,padding:"9px 4px",borderRadius:11,border:"none",cursor:"pointer",fontSize:11,fontWeight:700,fontFamily:"inherit",
               background:filterType===k?`linear-gradient(145deg,${ACC_HI},${ACCENT})`:`linear-gradient(145deg,${SURF_HI},${SURFACE})`,
               color:filterType===k?"#fff":DIM,boxShadow:SO,
+            }}>{l}</button>
+          ))}
+        </div>
+
+        <div style={{display:"flex",gap:6,overflowX:"auto",paddingBottom:2}}>
+          {[["name","Алфавіт"],["lastBooking","Останні записи"],["createdAt","Реєстрація"],["lessons","К-сть уроків"]].map(([k,l])=>(
+            <button key={k} onClick={()=>setSortMode(k)} style={{
+              flexShrink:0,padding:"8px 12px",borderRadius:11,border:"none",cursor:"pointer",fontSize:11,fontWeight:700,fontFamily:"inherit",whiteSpace:"nowrap",
+              background:sortMode===k?`linear-gradient(145deg,${ACC_HI},${ACCENT})`:`linear-gradient(145deg,${SURF_HI},${SURFACE})`,
+              color:sortMode===k?"#fff":DIM,boxShadow:SO,
             }}>{l}</button>
           ))}
         </div>

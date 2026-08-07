@@ -394,7 +394,7 @@ function ViewRenderer({ tab, settings, setSettings, bookings, setBookings, onSlo
   if (tab === "settings")  return <SettingsView settings={settings} setSettings={setSettings}/>;
   if (tab === "bookings")  return <BookingsView settings={settings}/>;
   if (tab === "queue")     return <QueueView settings={settings}/>;
-  if (tab === "students")  return <StudentsView studentJump={studentJump} onStudentJumpHandled={onStudentJumpHandled}/>;
+  if (tab === "students")  return <StudentsView studentJump={studentJump} onStudentJumpHandled={onStudentJumpHandled} bookings={bookings}/>;
   if (tab === "services")  return <ServicesView/>;
   if (tab === "chats")     return <ChatsView/>;
   if (tab === "templates") return <TemplatesView/>;
