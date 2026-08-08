@@ -3153,7 +3153,12 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
     )}
 
     <BookingModal booking={localSelectedBooking} onClose={()=>setLocalSelectedBooking(null)}
-      onAction={handleAction} settings={settings} bookings={bookings} onViewStudent={onViewStudent}/>
+      onAction={handleAction} settings={settings} bookings={bookings} onViewStudent={onViewStudent}
+      mergeInfo={(() => {
+        const mi = localSelectedBooking && mergeInfoMap[localSelectedBooking.id];
+        if (!mi?.mergedIds?.length) return null;
+        return { durMin: mi.mergedDurMin, price: mi.mergedPrice, count: mi.mergedIds.length + 1 };
+      })()}/>
 
     {/* ── Модалка блокування ── */}
     {(blockModal || blockModalClosing) && (() => {
@@ -4000,7 +4005,7 @@ function computeBookingPrice(b, services) {
   return base + (b.surcharge || 0);
 }
 
-function BookingModal({ booking, onClose, onAction, settings, bookings, onViewStudent }) {
+function BookingModal({ booking, onClose, onAction, settings, bookings, onViewStudent, mergeInfo }) {
   const { BG, BG_DEEP, SURFACE, SURF_HI, SURF_LO, BORDER, TEXT, DIM, FAINT, ACCENT, ACC_HI, SO, SI , GLOW, SHADE, INK } = useContext(ThemeContext);
   const glow=a=>`rgba(${GLOW},${a})`,shade=a=>`rgba(${SHADE},${a})`,ink=a=>`rgba(${INK},${a})`;
   const SURFACE_HI = SURF_HI, SURFACE_LO = SURF_LO, TEXT_DIM = DIM, TEXT_FAINT = FAINT, ACCENT_HI = ACC_HI, SHADOW_OUT = SO, SHADOW_IN = SI;
@@ -4077,7 +4082,11 @@ function BookingModal({ booking, onClose, onAction, settings, bookings, onViewSt
   const day = booking.date
     ? (() => { const d = new Date(booking.date + "T12:00:00"); const dow = (d.getDay()+6)%7; return { num:d.getDate(), month:_MLABELS[d.getMonth()], label:_DLABELS[dow], fullLabel:_DLABELS_FULL[dow], wk:dow>=5 }; })()
     : getDayInfo(booking.day);
-  const price = computeBookingPrice(booking, settings.services);
+  // Сусідні записи цього учня об'єднані на картці розкладу — тут показуємо
+  // сумарну ціну й тривалість (booking сам лишається одним "чесним" записом
+  // для дій: скасувати/неявка/повтор/редагування діють лише на нього).
+  const durMinDisplay = mergeInfo ? mergeInfo.durMin : booking.durMin;
+  const price = mergeInfo ? mergeInfo.price : computeBookingPrice(booking, settings.services);
   const ini   = booking.name.trim().split(" ").slice(0, 2).map(w => w[0]).join("");
   const typeLabel = booking.type === "school" ? "🎓 Автошкола" : "🚗 Приватний";
 
@@ -4092,9 +4101,12 @@ function BookingModal({ booking, onClose, onAction, settings, bookings, onViewSt
   const maxDurMin = nextStart === Infinity ? 360 : Math.max(15, nextStart - booking.startMin);
 
   const openEdit = () => {
-    setDraftPrice(String(price));
+    // Редагування завжди діє лише на цей окремий запис — навіть якщо картка
+    // об'єднана, стартуємо від його власної (не сумарної) ціни.
+    const ownPrice = mergeInfo ? computeBookingPrice(booking, settings.services) : price;
+    setDraftPrice(String(ownPrice));
     setDraftDur(String(booking.durMin));
-    setEditRate(booking.durMin > 0 ? price / booking.durMin : 0);
+    setEditRate(booking.durMin > 0 ? ownPrice / booking.durMin : 0);
     setEditOpen(true);
   };
   const onDurChange = (v) => {
@@ -4238,8 +4250,8 @@ function BookingModal({ booking, onClose, onAction, settings, bookings, onViewSt
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:1,background:ink(0.04)}}>
             {[
               { label:"Дата",  val:`${day.num} ${day.month}`, sub:day.label },
-              { label:"Час",   val:`${fmtTime(booking.startMin)}`, sub:`–${fmtTime(booking.startMin+booking.durMin)}` },
-              { label:"Ціна",  val:`${price}₴`, sub: booking.surcharge ? `+${booking.surcharge}₴` : (svc ? `${svc.duration}хв` : "—"), gold: !!booking.surcharge },
+              { label:"Час",   val:`${fmtTime(booking.startMin)}`, sub:`–${fmtTime(booking.startMin+durMinDisplay)}` },
+              { label:"Ціна",  val:`${price}₴`, sub: mergeInfo ? `${mergeInfo.count} записи, ${durMinDisplay}хв` : booking.surcharge ? `+${booking.surcharge}₴` : (svc ? `${svc.duration}хв` : "—"), gold: !!booking.surcharge && !mergeInfo },
             ].map(({ label, val, sub, gold }, i) => (
               <div key={i} style={{
                 padding:"11px 6px",background:BG_DEEP,
