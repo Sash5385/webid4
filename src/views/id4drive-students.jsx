@@ -5,6 +5,7 @@ import { db } from "../firebase";
 
 import { ThemeContext } from "../theme.js";
 import { UICss, Field, Btn as UIBtn, useFX, useBackClose } from "../ui";
+import { makePalette } from "./id4drive-services";
 
 const M = ["","Січ","Лют","Бер","Кві","Тра","Чер","Лип","Сер","Вер","Жов","Лис","Гру"];
 const fmtS = d => { if(!d) return "—"; const [,m,day]=d.split("-"); return `${parseInt(day)} ${M[parseInt(m)]}`; };
@@ -136,10 +137,17 @@ function StudentForm({ initial, onSave, onCancel, saveLabel="Зберегти" }
 }
 
 // ─── STUDENT CARD (colorway card) ────────────────────────────────
-function StudentCard({ s, onSelect }) {
-  const { BG_DEEP, GREEN, GOLD, RED } = useContext(ThemeContext);
+function StudentCard({ s, onSelect, settings }) {
+  const theme = useContext(ThemeContext);
+  const { BG_DEEP, GREEN, GOLD, RED } = theme;
   const { shade, glow } = useFX();
-  const typeColor = s.type === "school" ? GREEN : GOLD;
+  // Колір картки учня — той самий, що обраний для послуги цього типу
+  // (Автошкола/Приватний) на вкладці «Послуги», а не фіксований GREEN/GOLD.
+  const PALETTE = makePalette(theme);
+  const colorOf = id => PALETTE.find(p=>p.id===id)?.color || GREEN;
+  const matchedSvc = (settings?.services || []).find(sv => sv.type === s.type && sv.active)
+                   || (settings?.services || []).find(sv => sv.type === s.type);
+  const typeColor = matchedSvc ? colorOf(matchedSvc.colorId) : (s.type === "school" ? GREEN : GOLD);
   const typeLabel = s.type === "school" ? "Автошкола" : "Приватний";
   const ini       = s.name.split(" ").map(w=>w[0]).slice(0,2).join("");
   const barColor  = s.blocked ? RED : typeColor;
@@ -538,7 +546,7 @@ function StudentDetailSheet({ s, onClose, onUpdate, onDelete, onBlock, autoOpenH
 }
 
 // ─── MAIN ────────────────────────────────────────────────────────
-export default function StudentsView({ studentJump, onStudentJumpHandled, bookings=[] } = {}) {
+export default function StudentsView({ studentJump, onStudentJumpHandled, bookings=[], settings } = {}) {
   const { BG_DEEP, SURFACE, SURF_HI, BORDER, TEXT, DIM, FAINT, ACCENT, ACC_HI, GREEN, BLUE, SO, SI } = useContext(ThemeContext);
   const { ink } = useFX();
 
@@ -689,7 +697,7 @@ export default function StudentsView({ studentJump, onStudentJumpHandled, bookin
         </div>
 
         {list.map(s=>(
-          <StudentCard key={s.id} s={s} onSelect={s=>setDetailStudent(s)} />
+          <StudentCard key={s.id} s={s} onSelect={s=>setDetailStudent(s)} settings={settings} />
         ))}
 
         {loading && (
