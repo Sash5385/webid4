@@ -1052,6 +1052,9 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   const [dragId, setDragId] = useState(null);
   const [holdId, setHoldId] = useState(null);
   const [quickCancelId, setQuickCancelId] = useState(null);
+  // ID записів, які адмін вручну "розрізав" — більше не об'єднувати автоматично
+  // (тільки на цей сеанс перегляду, у Firebase не зберігається).
+  const [splitIds, setSplitIds] = useState(() => new Set());
   const quickCancelRef = useRef(null);
   const [cancellingSet, setCancellingSet] = useState(new Set());
   const cancelTimers = useRef({});
@@ -1085,6 +1088,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
       if (b.status === "cancelled") continue;
       if (b.type === "block" || b.type === "vip-slot" || b.type === "personal") continue;
       if (!b.userId) continue;
+      if (splitIds.has(b.id)) continue; // вручну "розрізаний" — ніколи не мерджити
       const key = `${b.day}_${b.userId}`;
       (byGroup[key] ||= []).push(b);
     }
@@ -1109,7 +1113,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
       }
     });
     return map;
-  }, [bookings, settings.services]);
+  }, [bookings, settings.services, splitIds]);
   const [windowW, setWindowW] = useState(window.innerWidth);
   const [windowH, setWindowH] = useState(window.innerHeight);
   const PAST_DAYS = 30;
@@ -2967,6 +2971,29 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                         </div>
                       )}
                       {!b._mergedIds && <div className="slot-handle bottom" onPointerDown={e=>onPointerDown(e,b,"bottom")}/>}
+                      {/* Розрізати об'єднану картку назад на окремі записи (лише на цей перегляд) */}
+                      {b._mergedIds && height >= 14 && (
+                        <div
+                          onPointerDown={e=>e.stopPropagation()}
+                          onClick={e=>{
+                            e.stopPropagation();
+                            const ids = [b.id, ...b._mergedIds];
+                            setSplitIds(s => new Set([...s, ...ids]));
+                          }}
+                          title="Розділити об'єднану картку"
+                          style={{
+                            position:"absolute", bottom:2, right:2, zIndex:5,
+                            width:16, height:16, borderRadius:5,
+                            background:"rgba(0,0,0,0.55)",
+                            display:"flex", alignItems:"center", justifyContent:"center",
+                            cursor:"pointer",
+                          }}>
+                          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                            <circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/>
+                            <line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12"/>
+                          </svg>
+                        </div>
+                      )}
 
                     </div>
 
