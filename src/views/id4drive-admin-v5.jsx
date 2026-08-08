@@ -1074,6 +1074,42 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
     });
     return map;
   }, [bookings]);
+  // Сусідні (без розриву в часі) записи одного учня в один день — об'єднуємо
+  // у вигляді ОДНІЄЇ картки в сітці: тривалість і ціна підсумовуються.
+  // Дані в Firebase лишаються окремими записами — це лише відображення.
+  // map[id] = { mergedIds, mergedDurMin, mergedPrice } для першого запису групи,
+  // map[id] = { hidden:true } для "поглинутих" (не рендеряться окремо).
+  const mergeInfoMap = useMemo(() => {
+    const byGroup = {};
+    for (const b of bookings) {
+      if (b.status === "cancelled") continue;
+      if (b.type === "block" || b.type === "vip-slot" || b.type === "personal") continue;
+      if (!b.userId) continue;
+      const key = `${b.day}_${b.userId}`;
+      (byGroup[key] ||= []).push(b);
+    }
+    const map = {};
+    Object.values(byGroup).forEach(list => {
+      list.sort((a, b2) => a.startMin - b2.startMin);
+      let i = 0;
+      while (i < list.length) {
+        let j = i;
+        while (j + 1 < list.length && list[j + 1].startMin === list[j].startMin + list[j].durMin) j++;
+        if (j > i) {
+          const group = list.slice(i, j + 1);
+          const primary = group[0];
+          map[primary.id] = {
+            mergedIds: group.slice(1).map(g => g.id),
+            mergedDurMin: group.reduce((s, g) => s + g.durMin, 0),
+            mergedPrice: group.reduce((s, g) => s + computeBookingPrice(g, settings.services), 0),
+          };
+          for (let k = i + 1; k <= j; k++) map[list[k].id] = { hidden: true };
+        }
+        i = j + 1;
+      }
+    });
+    return map;
+  }, [bookings, settings.services]);
   const [windowW, setWindowW] = useState(window.innerWidth);
   const [windowH, setWindowH] = useState(window.innerHeight);
   const PAST_DAYS = 30;
@@ -2723,8 +2759,16 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
               })}
 
               {/* Bookings */}
-              {bookings.filter(b=>b.day===absDay).sort((a,b)=>a.startMin-b.startMin).map(b=>{
-                if (b.status === "cancelled") return null;
+              {bookings.filter(b=>b.day===absDay).sort((a,b)=>a.startMin-b.startMin).map(origB=>{
+                if (origB.status === "cancelled") return null;
+                // Сусідній (без розриву) запис того ж учня — "поглинутий" сусідньою карткою, не рендеримо окремо.
+                const mi = mergeInfoMap[origB.id];
+                if (mi?.hidden) return null;
+                // Для першого запису об'єднаної групи — синтетична копія лише для геометрії/ціни картки
+                // (клік відкриває деталі саме origB, щоб модалка й дії лишались "чесними" для одного запису).
+                const b = mi?.mergedIds?.length
+                  ? { ...origB, durMin: mi.mergedDurMin, _mergedIds: mi.mergedIds, _mergedPrice: mi.mergedPrice }
+                  : origB;
                 const wsMin = effectiveWorkStart * 60;
                 const weMin = effectiveWorkEnd * 60;
                 if (b.startMin >= weMin || b.startMin + b.durMin <= wsMin) return null;
@@ -2741,7 +2785,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                 const slotTimeStr = String(Math.floor(b.startMin/60)).padStart(2,'0')+':'+String(b.startMin%60).padStart(2,'0');
                 const queueCount = b.date ? (queueMap[`${b.date}_${slotTimeStr}`] || 0) : 0;
                 const isDimmed = !isBlock && !isVipSlot && !isPersonal && (b.status==="noshow" || isCancelling);
-                const price = computeBookingPrice(b, settings.services);
+                const price = b._mergedPrice != null ? b._mergedPrice : computeBookingPrice(b, settings.services);
                 return (
                   /* Обгортка — overflow:visible щоб значок не обрізався */
                   <div key={b.id} style={{
@@ -2770,7 +2814,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                           setCancellingSet(s=>{ const ns=new Set(s); ns.delete(b.id); return ns; });
                           return;
                         }
-                        if(!dragRef.current){ setLocalSelectedBooking(b); onSlotClick?.(b); }
+                        if(!dragRef.current){ setLocalSelectedBooking(origB); onSlotClick?.(origB); }
                       }}
                       style={isVipSlot ? {
                         position:"relative", width:"100%", height:"100%",
@@ -2805,7 +2849,8 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                         filter: isDimmed ? "grayscale(0.6)" : "none",
                         transition:"opacity 0.4s, filter 0.4s",
                       }}>
-                      <div className="slot-handle top" onPointerDown={e=>onPointerDown(e,b,"top")}/>
+                      {/* Ресайз відключений на об'єднаній картці — невідомо, який із поглинутих записів стискати/розтягувати */}
+                      {!b._mergedIds && <div className="slot-handle top" onPointerDown={e=>onPointerDown(e,b,"top")}/>}
                       {!isBlock && !isVipSlot && !isPersonal && <div className="shine-layer"/>}
                       {isVipSlot && height >= 14 && (
                         <span style={{fontSize:11, lineHeight:1}}>👑</span>
@@ -2921,7 +2966,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                           <span style={{fontSize:7, fontWeight:800, color:GOLD, lineHeight:1}}>{queueCount}</span>
                         </div>
                       )}
-                      <div className="slot-handle bottom" onPointerDown={e=>onPointerDown(e,b,"bottom")}/>
+                      {!b._mergedIds && <div className="slot-handle bottom" onPointerDown={e=>onPointerDown(e,b,"bottom")}/>}
 
                     </div>
 
