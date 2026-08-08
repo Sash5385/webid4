@@ -3070,30 +3070,28 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
             const cw = calcRef.current.COL_W;
             if (el && cw) el.scrollTo({ left: PAST_DAYS * (cw + 4), behavior:"smooth" });
           }}
+          title="Сьогодні"
           style={{
             position:"absolute",
             bottom:4,
             right:8,
             zIndex:20,
-            padding:"5px 12px",
-            borderRadius:20,
+            width:44,
+            height:44,
+            borderRadius:"50%",
             border:"none",
             background:BLUE,
             color:"#fff",
-            fontSize:12,
-            fontWeight:700,
             cursor:"pointer",
             display:"flex",
             alignItems:"center",
-            gap:5,
+            justifyContent:"center",
             boxShadow:"0 2px 10px rgba(0,0,0,0.3)",
-            letterSpacing:0.2,
             touchAction:"none",
           }}
         >
-          {todayDir==="left" && <svg width="10" height="10" viewBox="0 0 10 10"><path d="M7 1L3 5l4 4" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" fill="none"/></svg>}
-          Сьогодні
-          {todayDir==="right" && <svg width="10" height="10" viewBox="0 0 10 10"><path d="M3 1l4 4-4 4" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" fill="none"/></svg>}
+          {todayDir==="left" && <svg width="14" height="14" viewBox="0 0 10 10"><path d="M7 1L3 5l4 4" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" fill="none"/></svg>}
+          {todayDir==="right" && <svg width="14" height="14" viewBox="0 0 10 10"><path d="M3 1l4 4-4 4" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" fill="none"/></svg>}
         </button>
       )}
       </div>{/* /outer flex */}
