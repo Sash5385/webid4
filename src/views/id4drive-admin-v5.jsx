@@ -2473,7 +2473,9 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                   padding:"2px 4px", borderRadius:10, cursor: isPastDay ? "default" : "pointer",
                   opacity: isPastDay ? 0.35 : 1, overflow:"visible",
                   // Будні — зелені, вихідні — червоні (day.wk = субота/неділя).
-                  background: `linear-gradient(155deg, color-mix(in srgb, color-mix(in srgb, ${day.wk ? RED : GREEN} 22%, ${BG_DEEP}) 78%, transparent) 0%, color-mix(in srgb, ${BG_DEEP} 78%, transparent) 100%)`,
+                  // Заблокований день — та сама діагональна штриховка, що й у заблокованих
+                  // слотах сітки (STRIPE_A/STRIPE_B) — узгоджена мова "заблоковано" в межах UI.
+                  background: isClosedDay ? `repeating-linear-gradient(45deg,${STRIPE_A},${STRIPE_A} 5px,${STRIPE_B} 5px,${STRIPE_B} 10px)` : `linear-gradient(155deg, color-mix(in srgb, color-mix(in srgb, ${day.wk ? RED : GREEN} 22%, ${BG_DEEP}) 78%, transparent) 0%, color-mix(in srgb, ${BG_DEEP} 78%, transparent) 100%)`,
                   backdropFilter:"blur(10px)", WebkitBackdropFilter:"blur(10px)",
                   boxShadow: `3px 3px 7px rgba(${SHADE},0.4), -2px -2px 6px rgba(${GLOW},0.06)${isToday ? `, inset 0 0 0 1.5px ${GOLD}99` : isClosedDay ? `, inset 0 0 0 1.5px rgba(220,60,60,0.8)` : ""}`,
                 }}>
@@ -2487,11 +2489,34 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                 }}>
                   {day.num} {day.monthFull}{day.year !== currentYear ? ` ${day.year}` : ""}
                 </div>
-                <div style={{position:"absolute", top:3, right:4, fontSize:8, lineHeight:1, opacity: isClosedDay ? 1 : 0.75,
-                  color: isClosedDay ? RED : isLoadingCol ? FAINT : isOpenCol ? GREEN : FAINT,
-                }}>{isPastDay ? "" : isClosedDay ? "🔒" : isLoadingCol ? "…" : isOpenCol ? "✓" : "＋"}</div>
+                {!isPastDay && !isClosedDay && !isLoadingCol && (
+                  <div style={{
+                    position:"absolute", top:-4, right:-4, width:14, height:14, borderRadius:"50%",
+                    background: isOpenCol ? `linear-gradient(155deg,#a6e888,${GREEN})` : `linear-gradient(145deg,${SURF_HI},${SURFACE})`,
+                    boxShadow:"0 1px 3px rgba(0,0,0,0.5)",
+                    display:"flex", alignItems:"center", justifyContent:"center",
+                  }}>
+                    {isOpenCol ? (
+                      <svg width="8.5" height="8.5" viewBox="0 0 24 24" fill="none" stroke="#0f2e08" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="5 13 10 18 19 7"/></svg>
+                    ) : (
+                      <svg width="8.5" height="8.5" viewBox="0 0 24 24" fill="none" stroke={FAINT} strokeWidth="3.5" strokeLinecap="round"><line x1="12" y1="6" x2="12" y2="18"/><line x1="6" y1="12" x2="18" y2="12"/></svg>
+                    )}
+                  </div>
+                )}
+                {!isPastDay && isLoadingCol && (
+                  <div style={{position:"absolute", top:3, right:4, fontSize:8, lineHeight:1, color:FAINT}}>…</div>
+                )}
                 {dayNotes[dateStrCol] && (
-                  <div style={{position:"absolute", top:3, left:4, fontSize:8, lineHeight:1, color:GOLD}}>📝</div>
+                  <div style={{
+                    position:"absolute", top:-4, left:-4, width:14, height:14, borderRadius:"50%",
+                    background:`linear-gradient(155deg,#ffe28a,${GOLD})`,
+                    boxShadow:"0 1px 3px rgba(0,0,0,0.5)",
+                    display:"flex", alignItems:"center", justifyContent:"center",
+                  }}>
+                    <svg width="8.5" height="8.5" viewBox="0 0 24 24" fill="none" stroke="#3a2800" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M14 3v5h5"/><path d="M6 3h8l5 5v13H6z"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/>
+                    </svg>
+                  </div>
                 )}
                 {genToast?.absDay === absDay && (
                   <div style={{position:"absolute", bottom:-18, left:"50%", transform:"translateX(-50%)",
