@@ -1992,14 +1992,13 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
       const dy = e.clientY - fd.startClientY;
       const dx = e.clientX - (fd.startClientX ?? e.clientX);
       // Довгий тап відбувся, але після нього палець явно поїхав горизонтально
-      // (гортання днів свайпом), а не вертикально — відпускаємо жест повністю
-      // й передаємо керування ручному скролу (swipeRef.manualScroll), точно так
-      // само, як і записи (.slot-base, touch-action:none + preventDefault на
-      // pointerdown) — це той самий, вже перевірений механізм.
+      // (гортання днів свайпом), а не вертикально — відпускаємо жест повністю.
+      // touch-action тут дозволяє нативний pan-x завжди (як і на порожньому
+      // фоні дня), тому додатково штовхати ручний скрол не треба — браузер
+      // сам прокрутить, JS лише прибирає свій намір на переміщення слота.
       if (!fd.moved && Math.hypot(dx, dy) > 10 && Math.abs(dx) > Math.abs(dy) * 1.7) {
         freeDragRef.current = null;
         setFreeDragPreview(null);
-        if (swipeRef.current) swipeRef.current.manualScroll = true;
         return;
       }
       // Поріг підняли з 6 до 10px — на дотику звичайний тап майже завжди трохи
@@ -2008,6 +2007,10 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
         fd.moved = true;
         clearTimeout(slotHoldTimerRef.current);
         navigator.vibrate?.(15);
+        // Довгий тап підтвердив намір саме перетягувати слот вертикально —
+        // від цього моменту забороняємо нативному pan-y (дозволеному touch-action
+        // для звичайного скролу дня) конкурувати з нашим ручним переміщенням.
+        e.preventDefault?.();
       }
       if (!fd.moved) return;
       const { PX_PER_MIN, snapMin, workStart, workEnd } = calcRef.current;
@@ -2659,23 +2662,11 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                   <div key={`os-${time}`}
                     onPointerDown={e=>{
                       if (isPastDay || isClosedDay) return;
-                      // preventDefault одразу на pointerdown — так само, як і в записів
-                      // (.slot-base, touch-action:none): це і є той момент, коли браузер
-                      // остаточно вирішує, віддавати жест нативному панорамуванню чи нашому
-                      // JS. Без цього виклику рішення іноді "не встигало" за довгим тапом.
-                      e.preventDefault();
                       e.stopPropagation();
-                      if (scheduleLocked) {
-                        // Замочок закритий — жодного drag/resize/модалки, лише дозволяємо
-                        // будь-якому руху одразу передати керування ручному скролу
-                        // (swipeRef.manualScroll), так само, як і записи в цьому ж режимі
-                        // (pd.locked). РАНІШЕ тут був голий return — і саме тому свайп по
-                        // вільному слоту не працював ВЗАГАЛІ, поки розклад заблокований:
-                        // touch-action:none блокував нативне панорамування, а на ручний
-                        // скрол ніхто так і не передавав керування.
-                        slotPressRef.current = { dateStr: dateStrCol, time, slot, startX: e.clientX, startY: e.clientY, lastY: e.clientY, locked: true };
-                        return;
-                      }
+                      // Замочок закритий — жодного drag/resize/модалки. Нічого не робимо і
+                      // НЕ викликаємо preventDefault: touch-action:pan-x pan-y (нижче) сам
+                      // віддасть жест нативному панорамуванню — так само, як і порожній фон.
+                      if (scheduleLocked) return;
                       slotHoldFiredRef.current = false;
                       slotPressRef.current = { dateStr: dateStrCol, time, slot, startX: e.clientX, startY: e.clientY, lastY: e.clientY };
                       slotHoldTimerRef.current = setTimeout(()=>{
@@ -2700,22 +2691,13 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                       sp.lastX = e.clientX;
                       const dx = e.clientX - sp.startX;
                       const dy = e.clientY - sp.startY;
-                      if (sp.locked) {
-                        // Замочок закритий: жодного перетягування слота — будь-який рух
-                        // (в будь-якому напрямку) одразу віддає жест ручному скролу.
-                        if (Math.hypot(dx, dy) > 8) {
-                          slotPressRef.current = null;
-                          if (swipeRef.current) swipeRef.current.manualScroll = true;
-                        }
-                        return;
-                      }
                       // Явно горизонтальний рух — це свайп гортання днів, а не намір тримати
-                      // слот: звільняємо жест і передаємо керування ручному скролу
-                      // (swipeRef.manualScroll) — так само, як і записи.
+                      // слот: просто скасовуємо очікування довгого тапу. touch-action тут
+                      // дозволяє нативний pan-x завжди (як і на порожньому фоні дня), браузер
+                      // сам прокрутить — не заважаємо і не дублюємо скрол вручну.
                       if (Math.hypot(dx, dy) > 10 && Math.abs(dx) > Math.abs(dy) * 1.7) {
                         clearTimeout(slotHoldTimerRef.current);
                         slotPressRef.current = null;
-                        if (swipeRef.current) swipeRef.current.manualScroll = true;
                         return;
                       }
                       if (Math.abs(dy) > 8) {
@@ -2743,12 +2725,12 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                       alignItems:"center", justifyContent:"center",
                       padding:0,
                       transition: isBeingDragged || isBeingResized ? "none" : undefined,
-                      // touch-action:none + preventDefault на pointerdown — точно той самий
-                      // рецепт, що й у .slot-base для записів (де свайп працює стабільно
-                      // навіть по великих об'єднаних картках). Раніше тут не було власного
-                      // preventDefault на pointerdown — лишалось тільки на touch-action,
-                      // що, вочевидь, недостатньо надійно для довгого тапу перед рухом.
-                      touchAction: isPlainFree ? "none" : "manipulation",
+                      // pan-x pan-y — так само, як і на порожньому фоні дня: свайп там
+                      // завжди був плавним, з нативною інерцією. touch-action:none давав
+                      // робочий, але "смиканий" ручний скрол без інерції. Вертикальне
+                      // перетягування слота після довгого тапу вимикає нативний pan-y
+                      // самостійно через e.preventDefault() у момент озброєння.
+                      touchAction: isPlainFree ? "pan-x pan-y" : "manipulation",
                       WebkitTouchCallout:"none", WebkitUserDrag:"none",
                       WebkitUserSelect:"none", userSelect:"none",
                     }}>
