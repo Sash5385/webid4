@@ -1990,6 +1990,15 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
       const fd = freeDragRef.current;
       if (!fd) return;
       const dy = e.clientY - fd.startClientY;
+      const dx = e.clientX - (fd.startClientX ?? e.clientX);
+      // Довгий тап відбувся, але після нього палець явно поїхав горизонтально
+      // (гортання днів свайпом), а не вертикально — відпускаємо жест повністю,
+      // без переміщення слота й без модалки, щоб не заважати нативному скролу.
+      if (!fd.moved && Math.abs(dx) > 6 && Math.abs(dx) > Math.abs(dy)) {
+        freeDragRef.current = null;
+        setFreeDragPreview(null);
+        return;
+      }
       // Поріг підняли з 6 до 10px — на дотику звичайний тап майже завжди трохи
       // "плаває" в межах ~6px, і слот переміщувався сам собою від легкого дотику.
       if (!fd.moved && Math.abs(dy) > 10) {
@@ -2649,7 +2658,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                       if (scheduleLocked || isPastDay || isClosedDay) return;
                       e.stopPropagation();
                       slotHoldFiredRef.current = false;
-                      slotPressRef.current = { dateStr: dateStrCol, time, slot, startY: e.clientY, lastY: e.clientY };
+                      slotPressRef.current = { dateStr: dateStrCol, time, slot, startX: e.clientX, startY: e.clientY, lastY: e.clientY };
                       slotHoldTimerRef.current = setTimeout(()=>{
                         const sp = slotPressRef.current;
                         if (!sp) return;
@@ -2659,7 +2668,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                           // Довгий тап "озброює" перетягування — з цього моменту рух пальця
                           // рухає слот; просте відпускання без руху відкриє модалку опцій
                           // (window onUp нижче, коли freeDragRef.moved лишився false).
-                          freeDragRef.current = { dateStr: dateStrCol, time, slot, startClientY: sp.lastY, startMin, durMin: slotDurMin, moved: false, newStart: startMin };
+                          freeDragRef.current = { dateStr: dateStrCol, time, slot, startClientY: sp.lastY, startClientX: sp.lastX ?? sp.startX, startMin, durMin: slotDurMin, moved: false, newStart: startMin };
                         } else {
                           setSlotOptions({ dateStr: dateStrCol, time, startTime: time, slot });
                         }
@@ -2669,7 +2678,18 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                       const sp = slotPressRef.current;
                       if (!sp || slotHoldFiredRef.current) return; // після озброєння рухом керує freeDragRef
                       sp.lastY = e.clientY;
-                      if (Math.abs(e.clientY - sp.startY) > 8) {
+                      sp.lastX = e.clientX;
+                      const dx = e.clientX - sp.startX;
+                      const dy = e.clientY - sp.startY;
+                      // Явно горизонтальний рух — це свайп гортання днів, а не намір
+                      // тримати слот: одразу звільняємо жест, щоб не заважати нативному
+                      // touch-action:pan-x чекаючи довгий тап.
+                      if (Math.abs(dx) > 6 && Math.abs(dx) > Math.abs(dy)) {
+                        clearTimeout(slotHoldTimerRef.current);
+                        slotPressRef.current = null;
+                        return;
+                      }
+                      if (Math.abs(dy) > 8) {
                         clearTimeout(slotHoldTimerRef.current);
                         slotPressRef.current = null;
                       }
