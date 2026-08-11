@@ -2670,7 +2670,11 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                       alignItems:"center", justifyContent:"center",
                       padding:0,
                       transition: isBeingDragged || isBeingResized ? "none" : undefined,
-                      touchAction: isPlainFree ? "none" : "manipulation",
+                      // pan-x (не none!) — дозволяємо браузеру нативно обробляти горизонтальний
+                      // свайп (гортання днів), а вертикальний рух лишаємо під контролем нашого
+                      // JS (перетягування/розтягування слота). З "none" свайп по вільному слоту
+                      // взагалі не працював, бо touch-action:none блокує будь-яке нативне панорамування.
+                      touchAction: isPlainFree ? "pan-x" : "manipulation",
                       WebkitUserSelect:"none", userSelect:"none",
                     }}>
                     {hasSurcharge && <span style={{position:"absolute", top:3, left:4, fontSize:9, fontWeight:800, color:"rgba(247,201,72,0.95)", lineHeight:1}}>+{slot.surcharge}₴</span>}
