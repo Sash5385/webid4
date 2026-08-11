@@ -2289,7 +2289,26 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
       <div style={{display:"flex", flex:1, minHeight:0, overflow:"hidden", position:"relative"}}>
 
         {/* TIME COLUMN — fixed left, never scrolls */}
-        <div style={{
+        <div
+          onPointerDown={e=>{
+            // Стовпчик часу — не нащадок gridRef (він і не мусить сам скролитись),
+            // тому onPointerDownCapture на gridRef сюди не долітає, і swipeRef
+            // ніколи не ініціалізувався для дотиків, що починались тут — свайп
+            // звідси не міг працювати ВЗАГАЛІ. Ініціалізуємо вручну, так само,
+            // як це робить сам gridRef для дотиків усередині себе.
+            swipeRef.current = { startX:e.clientX, startY:e.clientY, endX:e.clientX, endY:e.clientY, startTime:Date.now() };
+          }}
+          onPointerMove={e=>{
+            if (!swipeRef.current) return;
+            const dx = e.clientX - swipeRef.current.startX;
+            const dy = e.clientY - swipeRef.current.startY;
+            // Тут немає жодної конкуруючої функції (немає drag/resize) — досить
+            // невеликого зсуву, щоб віддати керування ручному скролу gridRef.
+            if (!swipeRef.current.manualScroll && Math.hypot(dx, dy) > 6) {
+              swipeRef.current.manualScroll = true;
+            }
+          }}
+          style={{
           width:TIME_COL_W, flexShrink:0, zIndex:10,
           display:"flex", flexDirection:"column",
           borderRight:`1px solid ${ink(0.07)}`,
