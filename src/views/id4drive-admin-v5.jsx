@@ -1992,15 +1992,13 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
       const dy = e.clientY - fd.startClientY;
       const dx = e.clientX - (fd.startClientX ?? e.clientX);
       // Довгий тап відбувся, але після нього палець явно поїхав горизонтально
-      // (гортання днів свайпом), а не вертикально — відпускаємо жест повністю
-      // й передаємо керування ручному скролу (swipeRef.manualScroll), яким уже
-      // користуються бронювання. Поріг той самий, що й у бронювань (moved>10 і
-      // dx переважає dy як мінімум у 1.7 раза) — м'якший поріг (dx>6) плутав
-      // звичайне тремтіння пальця під час тапу на високому слоті зі свайпом.
+      // (гортання днів свайпом), а не вертикально — відпускаємо жест повністю.
+      // touch-action тут дозволяє нативний pan-x завжди (як і на порожньому
+      // фоні дня), тому додатково штовхати ручний скрол не треба — браузер
+      // сам прокрутить, JS лише прибирає свій намір на переміщення слота.
       if (!fd.moved && Math.hypot(dx, dy) > 10 && Math.abs(dx) > Math.abs(dy) * 1.7) {
         freeDragRef.current = null;
         setFreeDragPreview(null);
-        if (swipeRef.current) swipeRef.current.manualScroll = true;
         return;
       }
       // Поріг підняли з 6 до 10px — на дотику звичайний тап майже завжди трохи
@@ -2009,6 +2007,10 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
         fd.moved = true;
         clearTimeout(slotHoldTimerRef.current);
         navigator.vibrate?.(15);
+        // Довгий тап підтвердив намір саме перетягувати слот вертикально —
+        // від цього моменту забороняємо нативному pan-y (дозволеному touch-action
+        // для звичайного скролу дня) конкурувати з нашим ручним переміщенням.
+        e.preventDefault?.();
       }
       if (!fd.moved) return;
       const { PX_PER_MIN, snapMin, workStart, workEnd } = calcRef.current;
@@ -2686,14 +2688,12 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                       const dx = e.clientX - sp.startX;
                       const dy = e.clientY - sp.startY;
                       // Явно горизонтальний рух — це свайп гортання днів, а не намір тримати
-                      // слот: звільняємо жест і передаємо керування тому самому ручному скролу
-                      // (swipeRef.manualScroll), яким уже користуються бронювання. Поріг як у
-                      // бронювань (moved>10, dx переважає dy у 1.7 раза) — м'якший dx>6 плутав
-                      // тремтіння пальця під час тапу на високому слоті зі свайпом.
+                      // слот: просто скасовуємо очікування довгого тапу. touch-action тут
+                      // дозволяє нативний pan-x завжди (як і на порожньому фоні дня), браузер
+                      // сам прокрутить — не заважаємо і не дублюємо скрол вручну.
                       if (Math.hypot(dx, dy) > 10 && Math.abs(dx) > Math.abs(dy) * 1.7) {
                         clearTimeout(slotHoldTimerRef.current);
                         slotPressRef.current = null;
-                        if (swipeRef.current) swipeRef.current.manualScroll = true;
                         return;
                       }
                       if (Math.abs(dy) > 8) {
@@ -2721,10 +2721,12 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                       alignItems:"center", justifyContent:"center",
                       padding:0,
                       transition: isBeingDragged || isBeingResized ? "none" : undefined,
-                      // "none" — як у бронювань: горизонтальний свайп тут керується не нативним
-                      // touch-action (він ненадійно "встигав" за нашим довгим тапом), а тим самим
-                      // ручним swipeRef.manualScroll-скролом, яким уже користуються бронювання.
-                      touchAction: isPlainFree ? "none" : "manipulation",
+                      // pan-x pan-y — так само, як і на порожньому фоні дня (там свайп завжди
+                      // працював). "none" блокував ЙОГО повністю на високих слотах, що займають
+                      // майже весь екран (напр. 12-годинний слот), і тап туди взагалі не свайпив.
+                      // Вертикальне перетягування слота після довгого тапу вимикає нативний
+                      // pan-y самостійно через e.preventDefault() у момент озброєння.
+                      touchAction: isPlainFree ? "pan-x pan-y" : "manipulation",
                       WebkitUserSelect:"none", userSelect:"none",
                     }}>
                     {hasSurcharge && <span style={{position:"absolute", top:3, left:4, fontSize:9, fontWeight:800, color:"rgba(247,201,72,0.95)", lineHeight:1}}>+{slot.surcharge}₴</span>}
