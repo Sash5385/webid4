@@ -2662,11 +2662,15 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                   <div key={`os-${time}`}
                     onPointerDown={e=>{
                       if (isPastDay || isClosedDay) return;
-                      e.stopPropagation();
-                      // Замочок закритий — жодного drag/resize/модалки. Нічого не робимо і
-                      // НЕ викликаємо preventDefault: touch-action:pan-x pan-y (нижче) сам
-                      // віддасть жест нативному панорамуванню — так само, як і порожній фон.
+                      // Замочок закритий — виходимо ДО stopPropagation і взагалі без жодних
+                      // побічних ефектів, точно як порожній фон дня (там теж голий return
+                      // при заблокованому розкладі). stopPropagation тут потрібен лише щоб
+                      // не спрацьовувало батьківське "створити новий слот" при розблокованому
+                      // розкладі — а той батьківський обробник і сам ігнорує заблокований
+                      // розклад, тож викликати stopPropagation при locked не було чим виправдано,
+                      // і це, вочевидь, заважало нативному панорамуванню.
                       if (scheduleLocked) return;
+                      e.stopPropagation();
                       slotHoldFiredRef.current = false;
                       slotPressRef.current = { dateStr: dateStrCol, time, slot, startX: e.clientX, startY: e.clientY, lastY: e.clientY };
                       slotHoldTimerRef.current = setTimeout(()=>{
