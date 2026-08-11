@@ -1992,11 +1992,13 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
       const dy = e.clientY - fd.startClientY;
       const dx = e.clientX - (fd.startClientX ?? e.clientX);
       // Довгий тап відбувся, але після нього палець явно поїхав горизонтально
-      // (гортання днів свайпом), а не вертикально — відпускаємо жест повністю,
-      // без переміщення слота й без модалки, щоб не заважати нативному скролу.
+      // (гортання днів свайпом), а не вертикально — відпускаємо жест повністю
+      // й передаємо керування ручному скролу (swipeRef.manualScroll), яким уже
+      // користуються бронювання.
       if (!fd.moved && Math.abs(dx) > 6 && Math.abs(dx) > Math.abs(dy)) {
         freeDragRef.current = null;
         setFreeDragPreview(null);
+        if (swipeRef.current) swipeRef.current.manualScroll = true;
         return;
       }
       // Поріг підняли з 6 до 10px — на дотику звичайний тап майже завжди трохи
@@ -2681,12 +2683,13 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                       sp.lastX = e.clientX;
                       const dx = e.clientX - sp.startX;
                       const dy = e.clientY - sp.startY;
-                      // Явно горизонтальний рух — це свайп гортання днів, а не намір
-                      // тримати слот: одразу звільняємо жест, щоб не заважати нативному
-                      // touch-action:pan-x чекаючи довгий тап.
+                      // Явно горизонтальний рух — це свайп гортання днів, а не намір тримати
+                      // слот: звільняємо жест і передаємо керування тому самому ручному скролу
+                      // (swipeRef.manualScroll), яким уже користуються бронювання.
                       if (Math.abs(dx) > 6 && Math.abs(dx) > Math.abs(dy)) {
                         clearTimeout(slotHoldTimerRef.current);
                         slotPressRef.current = null;
+                        if (swipeRef.current) swipeRef.current.manualScroll = true;
                         return;
                       }
                       if (Math.abs(dy) > 8) {
@@ -2714,11 +2717,10 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                       alignItems:"center", justifyContent:"center",
                       padding:0,
                       transition: isBeingDragged || isBeingResized ? "none" : undefined,
-                      // pan-x (не none!) — дозволяємо браузеру нативно обробляти горизонтальний
-                      // свайп (гортання днів), а вертикальний рух лишаємо під контролем нашого
-                      // JS (перетягування/розтягування слота). З "none" свайп по вільному слоту
-                      // взагалі не працював, бо touch-action:none блокує будь-яке нативне панорамування.
-                      touchAction: isPlainFree ? "pan-x" : "manipulation",
+                      // "none" — як у бронювань: горизонтальний свайп тут керується не нативним
+                      // touch-action (він ненадійно "встигав" за нашим довгим тапом), а тим самим
+                      // ручним swipeRef.manualScroll-скролом, яким уже користуються бронювання.
+                      touchAction: isPlainFree ? "none" : "manipulation",
                       WebkitUserSelect:"none", userSelect:"none",
                     }}>
                     {hasSurcharge && <span style={{position:"absolute", top:3, left:4, fontSize:9, fontWeight:800, color:"rgba(247,201,72,0.95)", lineHeight:1}}>+{slot.surcharge}₴</span>}
