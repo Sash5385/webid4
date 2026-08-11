@@ -1142,8 +1142,11 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   const [shineId, setShineId] = useState(null);
   const slotHoldTimerRef = useRef(null);
   const slotHoldFiredRef = useRef(false);
-  const freeDragRef = useRef(null); // { dateStr, time, startClientY, startMin, moved, newStart }
+  const slotPressRef = useRef(null); // { dateStr, time, slot, startY, lastY } — до озброєння drag довгим тапом
+  const freeDragRef = useRef(null); // { dateStr, time, slot, startClientY, startMin, moved, newStart }
   const [freeDragPreview, setFreeDragPreview] = useState(null); // { dateStr, time, newStart }
+  const resizeHoldTimerRef = useRef(null);
+  const resizeHoldPosRef = useRef(null); // { startY, lastY } — до озброєння resize довгим тапом
   const freeResizeRef = useRef(null); // { dateStr, time, startClientY, startDur, maxDur, moved, newDur }
   const [freeResizePreview, setFreeResizePreview] = useState(null); // { dateStr, time, newDur }
   const [openSlots, setOpenSlots] = useState({}); // { "2025-06-01": ["07:00","08:00",...] }
@@ -2007,7 +2010,12 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
       if (!fd) return;
       freeDragRef.current = null;
       setFreeDragPreview(null);
-      if (!fd.moved) return;
+      if (!fd.moved) {
+        // Довгий тап спрацював, але пальцем так і не поворухнули — це не
+        // переміщення, а запит на модалку опцій слота (VIP/надбавка/скидання).
+        setSlotOptions({ dateStr: fd.dateStr, time: fd.time, startTime: fd.time, slot: fd.slot });
+        return;
+      }
       slotHoldFiredRef.current = true; // не даємо onClick одразу перемкнути слот після drag
       setTimeout(() => { slotHoldFiredRef.current = false; }, 60);
       const h = String(Math.floor(fd.newStart / 60)).padStart(2, "0");
@@ -2641,17 +2649,33 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                       if (scheduleLocked || isPastDay || isClosedDay) return;
                       e.stopPropagation();
                       slotHoldFiredRef.current = false;
+                      slotPressRef.current = { dateStr: dateStrCol, time, slot, startY: e.clientY, lastY: e.clientY };
                       slotHoldTimerRef.current = setTimeout(()=>{
+                        const sp = slotPressRef.current;
+                        if (!sp) return;
                         slotHoldFiredRef.current = true;
                         navigator.vibrate?.(40);
-                        setSlotOptions({ dateStr: dateStrCol, time, startTime: time, slot });
+                        if (isPlainFree) {
+                          // Довгий тап "озброює" перетягування — з цього моменту рух пальця
+                          // рухає слот; просте відпускання без руху відкриє модалку опцій
+                          // (window onUp нижче, коли freeDragRef.moved лишився false).
+                          freeDragRef.current = { dateStr: dateStrCol, time, slot, startClientY: sp.lastY, startMin, durMin: slotDurMin, moved: false, newStart: startMin };
+                        } else {
+                          setSlotOptions({ dateStr: dateStrCol, time, startTime: time, slot });
+                        }
                       }, 600);
-                      if (isPlainFree) {
-                        freeDragRef.current = { dateStr: dateStrCol, time, startClientY: e.clientY, startMin, durMin: slotDurMin, moved: false, newStart: startMin };
+                    }}
+                    onPointerMove={e=>{
+                      const sp = slotPressRef.current;
+                      if (!sp || slotHoldFiredRef.current) return; // після озброєння рухом керує freeDragRef
+                      sp.lastY = e.clientY;
+                      if (Math.abs(e.clientY - sp.startY) > 8) {
+                        clearTimeout(slotHoldTimerRef.current);
+                        slotPressRef.current = null;
                       }
                     }}
-                    onPointerUp={()=>clearTimeout(slotHoldTimerRef.current)}
-                    onPointerCancel={()=>clearTimeout(slotHoldTimerRef.current)}
+                    onPointerUp={()=>{ clearTimeout(slotHoldTimerRef.current); slotPressRef.current = null; }}
+                    onPointerCancel={()=>{ clearTimeout(slotHoldTimerRef.current); slotPressRef.current = null; }}
                     onClick={e=>{
                       e.stopPropagation();
                       if (isPastDay || isClosedDay || slotHoldFiredRef.current) return;
@@ -2714,8 +2738,25 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                           if (scheduleLocked) return;
                           e.stopPropagation(); e.preventDefault();
                           clearTimeout(slotHoldTimerRef.current);
-                          freeResizeRef.current = { dateStr: dateStrCol, time, startClientY: e.clientY, startDur: slotDurMin, maxDur: maxDurMin, moved: false, newDur: slotDurMin };
+                          resizeHoldPosRef.current = { startY: e.clientY, lastY: e.clientY };
+                          resizeHoldTimerRef.current = setTimeout(()=>{
+                            const rp = resizeHoldPosRef.current;
+                            if (!rp) return;
+                            navigator.vibrate?.(20);
+                            freeResizeRef.current = { dateStr: dateStrCol, time, startClientY: rp.lastY, startDur: slotDurMin, maxDur: maxDurMin, moved: false, newDur: slotDurMin };
+                          }, 600);
                         }}
+                        onPointerMove={e=>{
+                          const rp = resizeHoldPosRef.current;
+                          if (!rp || freeResizeRef.current) return;
+                          rp.lastY = e.clientY;
+                          if (Math.abs(e.clientY - rp.startY) > 8) {
+                            clearTimeout(resizeHoldTimerRef.current);
+                            resizeHoldPosRef.current = null;
+                          }
+                        }}
+                        onPointerUp={()=>{ clearTimeout(resizeHoldTimerRef.current); resizeHoldPosRef.current = null; }}
+                        onPointerCancel={()=>{ clearTimeout(resizeHoldTimerRef.current); resizeHoldPosRef.current = null; }}
                         onClick={e=>e.stopPropagation()}
                         style={{
                           // Хіт-зона лишається ВСЕРЕДИНІ меж слота (bottom:0) — слоти йдуть впритул
