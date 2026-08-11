@@ -1143,6 +1143,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   const slotHoldTimerRef = useRef(null);
   const slotHoldFiredRef = useRef(false);
   const slotPressRef = useRef(null); // { dateStr, time, slot, startY, lastY } — до озброєння drag довгим тапом
+  const slotClaimedRef = useRef(false); // дотик уже "заявлений" дочірнім вільним слотом — батьківський порожній фон не має відкривати своє меню "новий слот"
   const freeDragRef = useRef(null); // { dateStr, time, slot, startClientY, startMin, moved, newStart }
   const [freeDragPreview, setFreeDragPreview] = useState(null); // { dateStr, time, newStart }
   const resizeHoldTimerRef = useRef(null);
@@ -2581,6 +2582,10 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
               <div
                 onClick={e=>{ if(xJustShownRef.current){ xJustShownRef.current=false; return; } if(quickCancelId){ xVisibleRef.current=false; setQuickCancelId(null); } }}
                 onPointerDown={e=>{
+                  // Дотик уже "заявлений" дочірнім вільним слотом (без stopPropagation,
+                  // щоб не заважати нативному touch-action панорамуванню) — не відкриваємо
+                  // меню "новий слот" поверх уже існуючого.
+                  if (slotClaimedRef.current) { slotClaimedRef.current = false; return; }
                   if (scheduleLocked || isPastDay) return;
                   if (e.button > 0) return;
                   if (dragRef.current || pendingDragRef.current) return;
@@ -2683,15 +2688,13 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                   <div key={`os-${time}`}
                     onPointerDown={e=>{
                       if (isPastDay || isClosedDay) return;
-                      // Замочок закритий — виходимо ДО stopPropagation і взагалі без жодних
-                      // побічних ефектів, точно як порожній фон дня (там теж голий return
-                      // при заблокованому розкладі). stopPropagation тут потрібен лише щоб
-                      // не спрацьовувало батьківське "створити новий слот" при розблокованому
-                      // розкладі — а той батьківський обробник і сам ігнорує заблокований
-                      // розклад, тож викликати stopPropagation при locked не було чим виправдано,
-                      // і це, вочевидь, заважало нативному панорамуванню.
+                      // Заявляємо дотик БЕЗ stopPropagation — він, судячи з усього,
+                      // заважає нативному touch-action панорамуванню на реальних
+                      // мобільних браузерах (так само, як і в кейсі з заблокованим
+                      // розкладом раніше). Батьківський порожній фон перевіряє
+                      // slotClaimedRef і сам не відкриває своє меню "новий слот".
+                      slotClaimedRef.current = true;
                       if (scheduleLocked) return;
-                      e.stopPropagation();
                       slotHoldFiredRef.current = false;
                       slotPressRef.current = { dateStr: dateStrCol, time, slot, startX: e.clientX, startY: e.clientY, lastY: e.clientY };
                       slotHoldTimerRef.current = setTimeout(()=>{
