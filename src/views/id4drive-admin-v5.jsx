@@ -1994,8 +1994,10 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
       // Довгий тап відбувся, але після нього палець явно поїхав горизонтально
       // (гортання днів свайпом), а не вертикально — відпускаємо жест повністю
       // й передаємо керування ручному скролу (swipeRef.manualScroll), яким уже
-      // користуються бронювання.
-      if (!fd.moved && Math.abs(dx) > 6 && Math.abs(dx) > Math.abs(dy)) {
+      // користуються бронювання. Поріг той самий, що й у бронювань (moved>10 і
+      // dx переважає dy як мінімум у 1.7 раза) — м'якший поріг (dx>6) плутав
+      // звичайне тремтіння пальця під час тапу на високому слоті зі свайпом.
+      if (!fd.moved && Math.hypot(dx, dy) > 10 && Math.abs(dx) > Math.abs(dy) * 1.7) {
         freeDragRef.current = null;
         setFreeDragPreview(null);
         if (swipeRef.current) swipeRef.current.manualScroll = true;
@@ -2685,8 +2687,10 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                       const dy = e.clientY - sp.startY;
                       // Явно горизонтальний рух — це свайп гортання днів, а не намір тримати
                       // слот: звільняємо жест і передаємо керування тому самому ручному скролу
-                      // (swipeRef.manualScroll), яким уже користуються бронювання.
-                      if (Math.abs(dx) > 6 && Math.abs(dx) > Math.abs(dy)) {
+                      // (swipeRef.manualScroll), яким уже користуються бронювання. Поріг як у
+                      // бронювань (moved>10, dx переважає dy у 1.7 раза) — м'якший dx>6 плутав
+                      // тремтіння пальця під час тапу на високому слоті зі свайпом.
+                      if (Math.hypot(dx, dy) > 10 && Math.abs(dx) > Math.abs(dy) * 1.7) {
                         clearTimeout(slotHoldTimerRef.current);
                         slotPressRef.current = null;
                         if (swipeRef.current) swipeRef.current.manualScroll = true;
