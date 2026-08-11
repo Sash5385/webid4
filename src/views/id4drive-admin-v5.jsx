@@ -1987,7 +1987,9 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
       const fd = freeDragRef.current;
       if (!fd) return;
       const dy = e.clientY - fd.startClientY;
-      if (!fd.moved && Math.abs(dy) > 6) {
+      // Поріг підняли з 6 до 10px — на дотику звичайний тап майже завжди трохи
+      // "плаває" в межах ~6px, і слот переміщувався сам собою від легкого дотику.
+      if (!fd.moved && Math.abs(dy) > 10) {
         fd.moved = true;
         clearTimeout(slotHoldTimerRef.current);
         navigator.vibrate?.(15);
@@ -2041,7 +2043,9 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
       const fr = freeResizeRef.current;
       if (!fr) return;
       const dy = e.clientY - fr.startClientY;
-      if (!fr.moved && Math.abs(dy) > 6) {
+      // Той самий поріг, що й для перетягування слота — захист від випадкового
+      // розтягування через легке тремтіння пальця під час тапу.
+      if (!fr.moved && Math.abs(dy) > 10) {
         fr.moved = true;
         navigator.vibrate?.(15);
       }
