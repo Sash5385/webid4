@@ -2669,14 +2669,25 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                 return (
                   <div key={`os-${time}`}
                     onPointerDown={e=>{
-                      if (scheduleLocked || isPastDay || isClosedDay) return;
+                      if (isPastDay || isClosedDay) return;
                       // preventDefault одразу на pointerdown — так само, як і в записів
                       // (.slot-base, touch-action:none): це і є той момент, коли браузер
                       // остаточно вирішує, віддавати жест нативному панорамуванню чи нашому
                       // JS. Без цього виклику рішення іноді "не встигало" за довгим тапом.
                       e.preventDefault();
                       e.stopPropagation();
-                      dbg(`DOWN dur=${slotDurMin} x=${Math.round(e.clientX)} y=${Math.round(e.clientY)}`);
+                      dbg(`DOWN dur=${slotDurMin} locked=${scheduleLocked} x=${Math.round(e.clientX)} y=${Math.round(e.clientY)}`);
+                      if (scheduleLocked) {
+                        // Замочок закритий — жодного drag/resize/модалки, лише дозволяємо
+                        // будь-якому руху одразу передати керування ручному скролу
+                        // (swipeRef.manualScroll), так само, як і записи в цьому ж режимі
+                        // (pd.locked). РАНІШЕ тут був голий return — і саме тому свайп по
+                        // вільному слоту не працював ВЗАГАЛІ, поки розклад заблокований:
+                        // touch-action:none блокував нативне панорамування, а на ручний
+                        // скрол ніхто так і не передавав керування.
+                        slotPressRef.current = { dateStr: dateStrCol, time, slot, startX: e.clientX, startY: e.clientY, lastY: e.clientY, locked: true };
+                        return;
+                      }
                       slotHoldFiredRef.current = false;
                       slotPressRef.current = { dateStr: dateStrCol, time, slot, startX: e.clientX, startY: e.clientY, lastY: e.clientY };
                       slotHoldTimerRef.current = setTimeout(()=>{
@@ -2702,6 +2713,16 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                       sp.lastX = e.clientX;
                       const dx = e.clientX - sp.startX;
                       const dy = e.clientY - sp.startY;
+                      if (sp.locked) {
+                        // Замочок закритий: жодного перетягування слота — будь-який рух
+                        // (в будь-якому напрямку) одразу віддає жест ручному скролу.
+                        if (Math.hypot(dx, dy) > 8) {
+                          slotPressRef.current = null;
+                          if (swipeRef.current) swipeRef.current.manualScroll = true;
+                          dbg(`LOCKED-BAIL dx=${Math.round(dx)} dy=${Math.round(dy)} manualScroll=true`);
+                        }
+                        return;
+                      }
                       // Явно горизонтальний рух — це свайп гортання днів, а не намір тримати
                       // слот: звільняємо жест і передаємо керування ручному скролу
                       // (swipeRef.manualScroll) — так само, як і записи.
