@@ -1143,6 +1143,11 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   const slotHoldTimerRef = useRef(null);
   const slotHoldFiredRef = useRef(false);
   const slotPressRef = useRef(null); // { dateStr, time, slot, startY, lastY } — до озброєння drag довгим тапом
+  // ТИМЧАСОВА діагностика свайпу зі стовпчика часу — прибрати після знаходження причини.
+  const [dbgLog, setDbgLog] = useState([]);
+  const dbg = (msg) => setDbgLog(l => [...l.slice(-13), `${new Date().toISOString().slice(14,23)} ${msg}`]);
+  const dbgRef = useRef(null);
+  useEffect(() => { dbgRef.current = dbg; });
   const freeDragRef = useRef(null); // { dateStr, time, slot, startClientY, startMin, moved, newStart }
   const [freeDragPreview, setFreeDragPreview] = useState(null); // { dateStr, time, newStart }
   const resizeHoldTimerRef = useRef(null);
@@ -1744,6 +1749,9 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
         const prevY = swipeRef.current.endY;
         swipeRef.current.endX = e.clientX;
         swipeRef.current.endY = e.clientY;
+        if (swipeRef.current.manualScroll) {
+          dbgRef.current?.(`WIN-MOVE drag=${!!dragRef.current} pending=${!!pendingDragRef.current} grid=${!!gridRef.current}`);
+        }
         if (!dragRef.current && !pendingDragRef.current && swipeRef.current.manualScroll && gridRef.current) {
           const dx = prevX - e.clientX;
           const dy = prevY - e.clientY;
@@ -1752,6 +1760,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
           } else {
             gridRef.current.scrollTop += dy;
           }
+          dbgRef.current?.(`WIN-SCROLL dx=${dx} dy=${dy} sw=${gridRef.current.scrollWidth} cw=${gridRef.current.clientWidth}`);
         }
       }
       if (pendingDragRef.current) {
@@ -2297,6 +2306,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
             // звідси не міг працювати ВЗАГАЛІ. Ініціалізуємо вручну, так само,
             // як це робить сам gridRef для дотиків усередині себе.
             swipeRef.current = { startX:e.clientX, startY:e.clientY, endX:e.clientX, endY:e.clientY, startTime:Date.now() };
+            dbg(`TC-DOWN hpx=${settings.hourHeightPx} y=${Math.round(e.clientY)} h=${e.currentTarget.getBoundingClientRect().height}`);
           }}
           onPointerMove={e=>{
             if (!swipeRef.current) return;
@@ -2306,8 +2316,11 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
             // невеликого зсуву, щоб віддати керування ручному скролу gridRef.
             if (!swipeRef.current.manualScroll && Math.hypot(dx, dy) > 6) {
               swipeRef.current.manualScroll = true;
+              dbg(`TC-BAIL manualScroll=true dx=${Math.round(dx)} dy=${Math.round(dy)}`);
             }
           }}
+          onPointerUp={()=>dbg(`TC-UP`)}
+          onPointerCancel={()=>dbg(`TC-CANCEL`)}
           style={{
           width:TIME_COL_W, flexShrink:0, zIndex:10,
           display:"flex", flexDirection:"column",
@@ -3227,6 +3240,22 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
       </div>{/* /outer flex */}
 
     </Card>
+
+    {/* ТИМЧАСОВА діагностика свайпу зі стовпчика часу — прибрати після знаходження причини */}
+    {dbgLog.length > 0 && (
+      <div
+        onClick={()=>setDbgLog([])}
+        style={{
+          position:"fixed", top:0, left:0, right:0, zIndex:99999,
+          background:"rgba(0,0,0,0.88)", color:"#0f0",
+          font:"10px/1.4 monospace", padding:"4px 6px",
+          maxHeight:"38vh", overflowY:"auto",
+          whiteSpace:"pre-wrap", pointerEvents:"auto",
+        }}
+      >
+        {dbgLog.map((l,i)=><div key={i}>{l}</div>)}
+      </div>
+    )}
 
     {/* Кнопка «📅 Місячний календар» — портується в шапку (по центру, замість лого; ключик — тепер у стовпці часу) */}
     {keyPortalEl && createPortal(
