@@ -2008,20 +2008,20 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
       if (!fd) return;
       const dy = e.clientY - fd.startClientY;
       const dx = e.clientX - (fd.startClientX ?? e.clientX);
-      // Довгий тап відбувся, але після нього палець явно поїхав горизонтально
-      // (гортання днів свайпом), а не вертикально — відпускаємо жест повністю
-      // й передаємо керування ручному скролу (swipeRef.manualScroll). Нативне
-      // panning тут ненадійне (спостерігалась несистемна поведінка — то
-      // скролить, то ні на тій самій білдці) — тому керує лише JS, як і записи.
-      if (!fd.moved && Math.hypot(dx, dy) > 10 && Math.abs(dx) > Math.abs(dy) * 1.7) {
-        freeDragRef.current = null;
-        setFreeDragPreview(null);
-        if (swipeRef.current) swipeRef.current.manualScroll = true;
-        return;
-      }
-      // Поріг підняли з 6 до 10px — на дотику звичайний тап майже завжди трохи
-      // "плаває" в межах ~6px, і слот переміщувався сам собою від легкого дотику.
-      if (!fd.moved && Math.abs(dy) > 10) {
+      // Довгий тап відбувся, але після нього палець поїхав радше горизонтально,
+      // ніж вертикально (звичайний свайп гортання днів, а не намір тягнути
+      // слот) — відпускаємо жест повністю й передаємо керування ручному скролу.
+      // РАНІШЕ горизонтальна гілка вимагала dx>1.7dy (асиметрично суворіше, ніж
+      // вертикальна, якій було досить dy>10 незалежно від dx) — повільний свайп,
+      // що встигав "озброїти" перетягування до 8px зсуву в pre-arm перевірці,
+      // тут знову губився. Тепер обидві гілки симетричні: просто яка вісь більша.
+      if (!fd.moved && Math.hypot(dx, dy) > 10) {
+        if (Math.abs(dx) >= Math.abs(dy)) {
+          freeDragRef.current = null;
+          setFreeDragPreview(null);
+          if (swipeRef.current) swipeRef.current.manualScroll = true;
+          return;
+        }
         fd.moved = true;
         clearTimeout(slotHoldTimerRef.current);
         navigator.vibrate?.(15);
