@@ -2738,18 +2738,18 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                         }
                         return;
                       }
-                      // Явно горизонтальний рух — це свайп гортання днів, а не намір тримати
-                      // слот: звільняємо жест і передаємо керування ручному скролу
-                      // (swipeRef.manualScroll) — так само, як і записи.
-                      if (Math.hypot(dx, dy) > 10 && Math.abs(dx) > Math.abs(dy) * 1.7) {
+                      // Довгий тап ще не спрацював — будь-який достатній рух означає, що
+                      // це НЕ утримання слота, тож завжди звільняємо жест і передаємо
+                      // керування ручному скролу (сам скрол розбереться з віссю: dx>=dy —
+                      // горизонтально, інакше вертикально), так само, як і в записів/locked.
+                      // РАНІШЕ тут вимагалась ЯВНА горизонтальна перевага (dx>1.7dy), і рух
+                      // із помітною вертикальною складовою просто "губився" без будь-якої
+                      // передачі керування — свайп виглядав неробочим для звичайних, не
+                      // ідеально горизонтальних дотиків.
+                      if (Math.hypot(dx, dy) > 8) {
                         clearTimeout(slotHoldTimerRef.current);
                         slotPressRef.current = null;
                         if (swipeRef.current) swipeRef.current.manualScroll = true;
-                        return;
-                      }
-                      if (Math.abs(dy) > 8) {
-                        clearTimeout(slotHoldTimerRef.current);
-                        slotPressRef.current = null;
                       }
                     }}
                     onPointerUp={()=>{ clearTimeout(slotHoldTimerRef.current); slotPressRef.current = null; }}
