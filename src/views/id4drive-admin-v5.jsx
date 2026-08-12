@@ -2691,11 +2691,20 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                       // розкладом раніше). Батьківський порожній фон перевіряє
                       // slotClaimedRef і сам не відкриває своє меню "новий слот".
                       slotClaimedRef.current = true;
-                      if (scheduleLocked) return;
                       // preventDefault (без stopPropagation) — сигналізує браузеру, що
                       // цей дотик веде JS, а не нативне panning; touch-action:none нижче
                       // вже цього вимагає, тут лише явно про всяк випадок.
                       e.preventDefault();
+                      if (scheduleLocked) {
+                        // Замочок закритий — жодного drag/resize/модалки, лише дозволяємо
+                        // будь-якому руху одразу передати керування ручному скролу. РАНІШЕ
+                        // тут був голий return без цієї гілки — і саме тому свайп по
+                        // вільному слоту знову не працював взагалі, поки розклад заблокований
+                        // (touch-action:none блокує нативне панорамування, а керувати ручним
+                        // скролом було нічому).
+                        slotPressRef.current = { dateStr: dateStrCol, time, slot, startX: e.clientX, startY: e.clientY, lastY: e.clientY, locked: true };
+                        return;
+                      }
                       slotHoldFiredRef.current = false;
                       slotPressRef.current = { dateStr: dateStrCol, time, slot, startX: e.clientX, startY: e.clientY, lastY: e.clientY };
                       slotHoldTimerRef.current = setTimeout(()=>{
@@ -2720,6 +2729,15 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                       sp.lastX = e.clientX;
                       const dx = e.clientX - sp.startX;
                       const dy = e.clientY - sp.startY;
+                      if (sp.locked) {
+                        // Замочок закритий: жодного перетягування слота — будь-який рух
+                        // (в будь-якому напрямку) одразу віддає жест ручному скролу.
+                        if (Math.hypot(dx, dy) > 8) {
+                          slotPressRef.current = null;
+                          if (swipeRef.current) swipeRef.current.manualScroll = true;
+                        }
+                        return;
+                      }
                       // Явно горизонтальний рух — це свайп гортання днів, а не намір тримати
                       // слот: звільняємо жест і передаємо керування ручному скролу
                       // (swipeRef.manualScroll) — так само, як і записи.
