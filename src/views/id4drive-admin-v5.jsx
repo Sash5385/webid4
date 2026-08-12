@@ -1144,6 +1144,11 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   const slotHoldFiredRef = useRef(false);
   const slotPressRef = useRef(null); // { dateStr, time, slot, startY, lastY } — до озброєння drag довгим тапом
   const slotClaimedRef = useRef(false); // дотик уже "заявлений" дочірнім вільним слотом — батьківський порожній фон не має відкривати своє меню "новий слот"
+  // ТИМЧАСОВА діагностика свайпу по вільному слоту (розблокований режим) — прибрати після знаходження причини.
+  const [dbgLog, setDbgLog] = useState([]);
+  const dbg = (msg) => setDbgLog(l => [...l.slice(-15), `${new Date().toISOString().slice(14,23)} ${msg}`]);
+  const dbgRef = useRef(null);
+  useEffect(() => { dbgRef.current = dbg; });
   const freeDragRef = useRef(null); // { dateStr, time, slot, startClientY, startMin, moved, newStart }
   const [freeDragPreview, setFreeDragPreview] = useState(null); // { dateStr, time, newStart }
   const resizeHoldTimerRef = useRef(null);
@@ -1745,6 +1750,9 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
         const prevY = swipeRef.current.endY;
         swipeRef.current.endX = e.clientX;
         swipeRef.current.endY = e.clientY;
+        if (swipeRef.current.manualScroll) {
+          dbgRef.current?.(`WIN drag=${!!dragRef.current} pending=${!!pendingDragRef.current} grid=${!!gridRef.current}`);
+        }
         if (!dragRef.current && !pendingDragRef.current && swipeRef.current.manualScroll && gridRef.current) {
           const dx = prevX - e.clientX;
           const dy = prevY - e.clientY;
@@ -1753,6 +1761,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
           } else {
             gridRef.current.scrollTop += dy;
           }
+          dbgRef.current?.(`SCROLL dx=${dx} dy=${dy}`);
         }
       }
       if (pendingDragRef.current) {
@@ -2691,6 +2700,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                       // розкладом раніше). Батьківський порожній фон перевіряє
                       // slotClaimedRef і сам не відкриває своє меню "новий слот".
                       slotClaimedRef.current = true;
+                      dbg(`DOWN locked=${scheduleLocked} x=${Math.round(e.clientX)} y=${Math.round(e.clientY)}`);
                       // preventDefault (без stopPropagation) — сигналізує браузеру, що
                       // цей дотик веде JS, а не нативне panning; touch-action:none нижче
                       // вже цього вимагає, тут лише явно про всяк випадок.
@@ -2750,10 +2760,11 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                         clearTimeout(slotHoldTimerRef.current);
                         slotPressRef.current = null;
                         if (swipeRef.current) swipeRef.current.manualScroll = true;
+                        dbg(`BAIL dx=${Math.round(dx)} dy=${Math.round(dy)} swipeRefExists=${!!swipeRef.current}`);
                       }
                     }}
-                    onPointerUp={()=>{ clearTimeout(slotHoldTimerRef.current); slotPressRef.current = null; }}
-                    onPointerCancel={()=>{ clearTimeout(slotHoldTimerRef.current); slotPressRef.current = null; }}
+                    onPointerUp={()=>{ clearTimeout(slotHoldTimerRef.current); slotPressRef.current = null; dbg('UP'); }}
+                    onPointerCancel={()=>{ clearTimeout(slotHoldTimerRef.current); slotPressRef.current = null; dbg('CANCEL'); }}
                     onClick={e=>{
                       e.stopPropagation();
                       if (isPastDay || isClosedDay || slotHoldFiredRef.current) return;
@@ -3249,6 +3260,22 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
       </div>{/* /outer flex */}
 
     </Card>
+
+    {/* ТИМЧАСОВА діагностика свайпу по вільному слоту — прибрати після знаходження причини */}
+    {dbgLog.length > 0 && (
+      <div
+        onClick={()=>setDbgLog([])}
+        style={{
+          position:"fixed", top:0, left:0, right:0, zIndex:99999,
+          background:"rgba(0,0,0,0.88)", color:"#0f0",
+          font:"10px/1.4 monospace", padding:"4px 6px",
+          maxHeight:"38vh", overflowY:"auto",
+          whiteSpace:"pre-wrap", pointerEvents:"auto",
+        }}
+      >
+        {dbgLog.map((l,i)=><div key={i}>{l}</div>)}
+      </div>
+    )}
 
     {/* Кнопка «📅 Місячний календар» — портується в шапку (по центру, замість лого; ключик — тепер у стовпці часу) */}
     {keyPortalEl && createPortal(
