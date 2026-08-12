@@ -1746,22 +1746,29 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   useEffect(() => {
     const onMove = (e) => {
       if (swipeRef.current) {
-        const prevX = swipeRef.current.endX;
-        const prevY = swipeRef.current.endY;
         swipeRef.current.endX = e.clientX;
         swipeRef.current.endY = e.clientY;
-        if (swipeRef.current.manualScroll) {
-          dbgRef.current?.(`WIN drag=${!!dragRef.current} pending=${!!pendingDragRef.current} grid=${!!gridRef.current}`);
-        }
         if (!dragRef.current && !pendingDragRef.current && swipeRef.current.manualScroll && gridRef.current) {
-          const dx = prevX - e.clientX;
-          const dy = prevY - e.clientY;
-          if (Math.abs(dx) >= Math.abs(dy)) {
-            gridRef.current.scrollLeft += dx;
-          } else {
-            gridRef.current.scrollTop += dy;
+          // Абсолютний розрахунок від "якоря" (позиція й scrollLeft/scrollTop
+          // у момент, коли manualScroll щойно увімкнувся) — а не накопичення
+          // через += по кожній крихітній dx/dy. При += будь-яка втрачена/
+          // об'єднана подія pointermove назавжди "губить" частину відстані;
+          // тут же кожна подія наново рахує ПОВНУ відстань від якоря, тож
+          // рідкісні події не шкодять фінальному результату.
+          if (swipeRef.current.scrollAnchorX == null) {
+            swipeRef.current.scrollAnchorX = e.clientX;
+            swipeRef.current.scrollAnchorY = e.clientY;
+            swipeRef.current.scrollStartLeft = gridRef.current.scrollLeft;
+            swipeRef.current.scrollStartTop = gridRef.current.scrollTop;
           }
-          dbgRef.current?.(`SCROLL dx=${dx} dy=${dy}`);
+          const totalDx = swipeRef.current.scrollAnchorX - e.clientX;
+          const totalDy = swipeRef.current.scrollAnchorY - e.clientY;
+          if (Math.abs(totalDx) >= Math.abs(totalDy)) {
+            gridRef.current.scrollLeft = swipeRef.current.scrollStartLeft + totalDx;
+          } else {
+            gridRef.current.scrollTop = swipeRef.current.scrollStartTop + totalDy;
+          }
+          dbgRef.current?.(`ABS totalDx=${Math.round(totalDx)} newScrollLeft=${gridRef.current.scrollLeft}`);
         }
       }
       if (pendingDragRef.current) {
@@ -2300,22 +2307,23 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
           onPointerDown={e=>{
             // Стовпчик часу — не нащадок gridRef, тому onPointerDownCapture на
             // gridRef сюди не долітає — ініціалізуємо swipeRef вручну.
-            swipeRef.current = { startX:e.clientX, startY:e.clientY, endX:e.clientX, endY:e.clientY, startTime:Date.now() };
+            swipeRef.current = {
+              startX:e.clientX, startY:e.clientY, endX:e.clientX, endY:e.clientY, startTime:Date.now(),
+              scrollAnchorX: e.clientX, scrollStartLeft: gridRef.current?.scrollLeft ?? 0,
+            };
           }}
           onPointerMove={e=>{
             const sr = swipeRef.current;
             if (!sr) return;
-            const dx = sr.endX - e.clientX;
             sr.endX = e.clientX;
             sr.endY = e.clientY;
             // Стовпчик часу керує ЛИШЕ горизонтальним гортанням днів — вертикальний
             // скрол годин і так синхронізується автоматично з основної сітки
-            // (onScroll ставить transform на timeColRef). Тому рух завжди йде в
-            // scrollLeft, а не через спільний "домінантна вісь" механізм: коли
-            // рядки стиснуті (немає вертикального оверфлоу), той механізм міг
-            // обрати вертикальну вісь і застосувати scrollTop, який візуально
-            // нічого не змінював — свайп днями виглядав як "не працює".
-            if (gridRef.current) gridRef.current.scrollLeft += dx;
+            // (onScroll ставить transform на timeColRef). Абсолютний розрахунок
+            // від якоря (а не += по кожній крихітній dx) — стійкий до рідкісних/
+            // згрупованих подій pointermove, які інакше "губили" би частину
+            // відстані й свайп днями виглядав як "не працює".
+            if (gridRef.current) gridRef.current.scrollLeft = sr.scrollStartLeft + (sr.scrollAnchorX - e.clientX);
           }}
           style={{
           width:TIME_COL_W, flexShrink:0, zIndex:10,
