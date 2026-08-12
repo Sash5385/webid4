@@ -2080,9 +2080,18 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
       const fr = freeResizeRef.current;
       if (!fr) return;
       const dy = e.clientY - fr.startClientY;
+      const dx = e.clientX - (fr.startClientX ?? e.clientX);
       // Той самий поріг, що й для перетягування слота — захист від випадкового
-      // розтягування через легке тремтіння пальця під час тапу.
-      if (!fr.moved && Math.abs(dy) > 10) {
+      // розтягування через легке тремтіння пальця під час тапу. Якщо рух радше
+      // горизонтальний — це свайп днів, що "просочився" через довгий тап на
+      // маленькій ручці ресайзу коротких слотів: відпускаємо й передаємо скролу.
+      if (!fr.moved && Math.hypot(dx, dy) > 10) {
+        if (Math.abs(dx) >= Math.abs(dy)) {
+          freeResizeRef.current = null;
+          setFreeResizePreview(null);
+          if (swipeRef.current) swipeRef.current.manualScroll = true;
+          return;
+        }
         fr.moved = true;
         navigator.vibrate?.(15);
       }
@@ -2835,21 +2844,30 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                           if (scheduleLocked) return;
                           e.stopPropagation(); e.preventDefault();
                           clearTimeout(slotHoldTimerRef.current);
-                          resizeHoldPosRef.current = { startY: e.clientY, lastY: e.clientY };
+                          resizeHoldPosRef.current = { startX: e.clientX, startY: e.clientY, lastY: e.clientY };
                           resizeHoldTimerRef.current = setTimeout(()=>{
                             const rp = resizeHoldPosRef.current;
                             if (!rp) return;
                             navigator.vibrate?.(20);
-                            freeResizeRef.current = { dateStr: dateStrCol, time, startClientY: rp.lastY, startDur: slotDurMin, maxDur: maxDurMin, moved: false, newDur: slotDurMin };
+                            freeResizeRef.current = { dateStr: dateStrCol, time, startClientY: rp.lastY, startClientX: rp.startX, startDur: slotDurMin, maxDur: maxDurMin, moved: false, newDur: slotDurMin };
                           }, 600);
                         }}
                         onPointerMove={e=>{
                           const rp = resizeHoldPosRef.current;
                           if (!rp || freeResizeRef.current) return;
                           rp.lastY = e.clientY;
-                          if (Math.abs(e.clientY - rp.startY) > 8) {
+                          const dx = e.clientX - rp.startX;
+                          const dy = e.clientY - rp.startY;
+                          // Маленька ручка ресайзу на короткому слоті займає велику частку
+                          // всієй висоти — дотик, що мав би бути свайпом днів, часто
+                          // потрапляє саме сюди. Та сама симетрична перевірка ("яка вісь
+                          // більша"), що й на самому слоті, передає керування скролу.
+                          if (Math.hypot(dx, dy) > 8) {
                             clearTimeout(resizeHoldTimerRef.current);
                             resizeHoldPosRef.current = null;
+                            if (Math.abs(dx) >= Math.abs(dy) && swipeRef.current) {
+                              swipeRef.current.manualScroll = true;
+                            }
                           }
                         }}
                         onPointerUp={()=>{ clearTimeout(resizeHoldTimerRef.current); resizeHoldPosRef.current = null; }}
