@@ -1252,11 +1252,24 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
           if (!slot.available) return;
           const [h, m] = time.split(":").map(Number);
           const sMin = h * 60 + m;
-          if (dayBk.some(b => b.startMin < sMin + (settings.snapMin || 30) && b.startMin + b.durMin > sMin)) {
+          const coveringBk = dayBk.find(b => b.startMin < sMin + (settings.snapMin || 30) && b.startMin + b.durMin > sMin);
+          if (coveringBk) {
             const hh = String(h).padStart(2, "0");
             const mm = String(m).padStart(2, "0");
             upd[`timeslots/${date}/slot${hh}${mm}/available`] = false;
           }
+        });
+      });
+      // Дозаповнюємо прапорець реального старту (bookingStart) для КОЖНОГО
+      // завантаженого запису, незалежно від того, чи вже позначений його слот
+      // недоступним — так старі бронювання (зроблені до появи цього прапорця)
+      // теж отримують його заднім числом при кожному перегляді дня, без
+      // окремої міграції.
+      Object.entries(bkByDate).forEach(([date, dayBk]) => {
+        dayBk.forEach(b => {
+          const hh = String(Math.floor(b.startMin / 60)).padStart(2, "0");
+          const mm = String(b.startMin % 60).padStart(2, "0");
+          upd[`timeslots/${date}/slot${hh}${mm}/bookingStart`] = true;
         });
       });
       if (Object.keys(upd).length) update(ref(db, "/"), upd).catch(() => {});
@@ -1310,6 +1323,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
           }
           updates[`timeslots/${dateStr}/${id}/available`] = false;
           updates[`timeslots/${dateStr}/${id}/time`] = `${h}:${m}`;
+          updates[`timeslots/${dateStr}/${id}/bookingStart`] = cur === b.startMin;
         }
       });
     let free = 0, blocked = 0;
@@ -3203,7 +3217,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                               const hh = String(Math.floor(slotMin/60)).padStart(2,'0');
                               const mm = String(slotMin%60).padStart(2,'0');
                               const path = `timeslots/${dateStr}/slot${hh}${mm}`;
-                              slotUpd[`${path}/available`]=true; slotUpd[`${path}/time`]=`${hh}:${mm}`; slotUpd[`${path}/phantom`]=null;
+                              slotUpd[`${path}/available`]=true; slotUpd[`${path}/time`]=`${hh}:${mm}`; slotUpd[`${path}/phantom`]=null; slotUpd[`${path}/bookingStart`]=null;
                             }
                             update(ref(db,'/'), slotUpd).catch(()=>{});
                           }
@@ -3961,6 +3975,11 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
             const sm = String(slotMin % 60).padStart(2, '0');
             slotUpd[`timeslots/${b.date}/slot${sh}${sm}/available`] = false;
             slotUpd[`timeslots/${b.date}/slot${sh}${sm}/time`] = `${sh}:${sm}`;
+            // Явний прапорець реального старту бронювання — клієнт показує лише
+            // його, а не кожен 30-хвилинний блок. Без цього при записах впритул
+            // одне до одного неможливо відрізнити "продовження" від "нового старту"
+            // лише за відстанню між позначками.
+            slotUpd[`timeslots/${b.date}/slot${sh}${sm}/bookingStart`] = i === 0;
           }
           update(ref(db, '/'), slotUpd).catch(() => {});
         }
@@ -6112,7 +6131,7 @@ export default function App() {
               const path = `timeslots/${b.date}/slot${hh}${mm}`;
               const node = day[`slot${hh}${mm}`];
               if (!node || node.phantom) { upd[path] = null; continue; }
-              upd[`${path}/available`] = true; upd[`${path}/time`] = `${hh}:${mm}`;
+              upd[`${path}/available`] = true; upd[`${path}/time`] = `${hh}:${mm}`; upd[`${path}/bookingStart`] = null;
             }
             if (Object.keys(upd).length) update(ref(db,'/'), upd).catch(()=>{});
           }).catch(()=>{});
@@ -6170,6 +6189,9 @@ export default function App() {
           if (!day[id]) slotUpd[`timeslots/${b.date}/${id}/phantom`] = true;
           slotUpd[`timeslots/${b.date}/${id}/available`] = false;
           slotUpd[`timeslots/${b.date}/${id}/time`] = `${sh}:${sm}`;
+          // Явний прапорець реального старту бронювання — клієнт показує лише
+          // його, а не кожен 30-хвилинний блок.
+          slotUpd[`timeslots/${b.date}/${id}/bookingStart`] = i === 0;
         }
         update(ref(db, '/'), slotUpd).catch(() => {});
       }).catch(() => {});
