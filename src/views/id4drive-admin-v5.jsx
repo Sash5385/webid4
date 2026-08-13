@@ -3147,10 +3147,21 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                           pointerEvents:"none",
                         }}>{cumulativeHoursMap[b.id]}</div>
                       )}
-                      {/* VIP crown badge for regular bookings marked as VIP */}
+                      {/* Час початку уроку — праворуч зверху */}
+                      {!isBlock && !isVipSlot && !isPersonal && height >= 14 && (
+                        <div style={{
+                          position:"absolute", top:2, right:3, zIndex:4,
+                          fontSize:Math.min(8, Math.max(6, height/9)),
+                          fontWeight:800, lineHeight:1, color:"rgba(255,255,255,0.75)",
+                          pointerEvents:"none",
+                          textShadow:"0 1px 2px rgba(0,0,0,0.6)",
+                        }}>{b.time || fmtTime(b.startMin)}</div>
+                      )}
+                      {/* VIP crown badge for regular bookings marked as VIP — ліворуч зверху,
+                          трохи правіше кружечка з к-стю уроків, щоб не перекривались */}
                       {b.isVipOnly && !isVipSlot && height >= 14 && (
                         <div style={{
-                          position:"absolute", top:2, right:2, zIndex:4,
+                          position:"absolute", top:1, left: cumulativeHoursMap[b.id] != null && height >= 20 ? 13 : 2, zIndex:4,
                           fontSize:Math.min(11, Math.max(7, height/7)),
                           lineHeight:1, pointerEvents:"none",
                           filter:`drop-shadow(0 1px 3px ${shade(0.7)})`,
