@@ -1,4 +1,6 @@
 import { useState, useContext } from "react";
+import { ref, get, update } from "firebase/database";
+import { db } from "../firebase";
 import { LangContext } from "../App";
 import { APP_VERSION } from "../version.js";
 import { ThemeContext } from "../theme.js";
@@ -201,6 +203,58 @@ select{color-scheme:${isKava?"light":"dark"}}
   const [showHint, setShowHint] = useState(false);
   const switchSection = (id) => { setActive(id); setShowHint(false); };
 
+  // Одноразова ручна очистка "осиротілих" зайнятих слотів — timeslots-документи
+  // з available:false, що лишились у базі без жодного реального активного
+  // запису, що їх покриває (залишки після тестів перетягування слотів тощо).
+  // Навмисно блоковані (adminBlocked/vipOnly/surcharge) слоти не чіпаємо —
+  // це не артефакти, а свідомо виставлені стани.
+  const [cleaning, setCleaning] = useState(false);
+  const [cleanResult, setCleanResult] = useState(null);
+  const runCleanupOrphanedSlots = async () => {
+    if (!window.confirm("Видалити всі \"зайняті\" слоти в базі, які не належать жодному активному запису? Дію не можна скасувати.")) return;
+    setCleaning(true);
+    setCleanResult(null);
+    try {
+      const [timeslotsSnap, bookingsSnap] = await Promise.all([
+        get(ref(db, "timeslots")),
+        get(ref(db, "bookings")),
+      ]);
+      const timeslots = timeslotsSnap.val() || {};
+      const bookingsRoot = bookingsSnap.val() || {};
+      const bkByDate = {};
+      Object.values(bookingsRoot).forEach(userBookings => {
+        Object.values(userBookings || {}).forEach(b => {
+          if (!b || b.status === "cancelled") return;
+          if (!b.date || b.startMin == null || !b.durMin) return;
+          (bkByDate[b.date] || (bkByDate[b.date] = [])).push(b);
+        });
+      });
+      const updates = {};
+      let removed = 0;
+      Object.entries(timeslots).forEach(([date, slotMap]) => {
+        const dayBk = bkByDate[date] || [];
+        Object.entries(slotMap || {}).forEach(([slotId, slot]) => {
+          if (!slot || slot.available !== false) return;
+          if (slot.adminBlocked || slot.vipOnly || slot.surcharge) return;
+          const [h, m] = (slot.time || "").split(":").map(Number);
+          if (Number.isNaN(h) || Number.isNaN(m)) return;
+          const sMin = h * 60 + m;
+          const covered = dayBk.some(b => b.startMin <= sMin && sMin < b.startMin + b.durMin);
+          if (!covered) {
+            updates[`timeslots/${date}/${slotId}`] = null;
+            removed++;
+          }
+        });
+      });
+      if (removed > 0) await update(ref(db, "/"), updates);
+      setCleanResult(removed);
+    } catch {
+      setCleanResult("Помилка");
+    } finally {
+      setCleaning(false);
+    }
+  };
+
   const uk = lang !== "en";
   const SECTIONS = [
     { id:"schedule",   icon:"🕐", color:BLUE,   title:t('set.schedule.title'), label:uk?"Графік":"Sched." },
@@ -307,6 +361,25 @@ select{color-scheme:${isKava?"light":"dark"}}
                 <Chip key={v} label={`${v} хв`} active={(settings.slotCreateStep??30)===v} onClick={()=>upd("slotCreateStep",v)}/>
               ))}
             </div>
+          </div>
+          <div style={{borderRadius:10,padding:"10px",marginTop:5,background:`linear-gradient(145deg,${SURF_HI},${SURFACE})`,boxShadow:SO}}>
+            <div style={{fontSize:12,color:DIM,marginBottom:8}}>
+              Видаляє "зайняті" слоти в базі, які не належать жодному активному
+              запису (залишки після тестів/помилок) — по всіх датах одразу.
+            </div>
+            <button onClick={runCleanupOrphanedSlots} disabled={cleaning} style={{
+              width:"100%", padding:"10px", borderRadius:9, border:"none",
+              cursor: cleaning ? "default" : "pointer",
+              background: cleaning ? `linear-gradient(145deg,${SURF_HI},${SURFACE})` : `linear-gradient(145deg,${RED},${RED}cc)`,
+              color:"#fff", fontSize:13, fontWeight:800,
+            }}>
+              {cleaning ? "Очищення..." : "🧹 Очистити сирітські слоти"}
+            </button>
+            {cleanResult !== null && (
+              <div style={{fontSize:11, color:DIM, marginTop:6, textAlign:"center"}}>
+                {cleanResult === "Помилка" ? "Помилка при очищенні" : `Видалено: ${cleanResult}`}
+              </div>
+            )}
           </div>
         </div>
       );
