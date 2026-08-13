@@ -3102,7 +3102,9 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                           { text: typeLabel, w: 600, c: si(0.58) },
                           ...(priceText      ? [{ text: priceText, w: 900, c: priceColor, shadow: !!b.surcharge }] : []),
                         ];
-                        const availH = height - 6;
+                        // Верхні 9px зарезервовані під час старту уроку (праворуч зверху) —
+                        // інакше прізвище/ім'я могли заходити під нього при малому зумі.
+                        const availH = height - 15;
                         const availW = COL_W - 8;
                         const maxLinesByH = Math.max(1, Math.floor(availH / 10));
                         const maxLinesByW = COL_W < 44 ? 2 : COL_W < 58 ? 3 : 4;
@@ -3116,7 +3118,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                         const fs = Math.min(11, fsByW, fsByH);
                         return (
                           <div style={{
-                            position:"absolute", top:2, left:2, right:2, bottom:2,
+                            position:"absolute", top:11, left:2, right:2, bottom:2,
                             display:"flex", flexDirection:"column", justifyContent:"center",
                             alignItems:"center", gap:1,
                             overflow:"hidden", zIndex:2,
@@ -3152,9 +3154,9 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                         <div style={{
                           position:"absolute", top:2, right:3, zIndex:4,
                           fontSize:Math.min(8, Math.max(6, height/9)),
-                          fontWeight:800, lineHeight:1, color:"rgba(255,255,255,0.75)",
+                          fontWeight:800, lineHeight:1, color:"rgba(0,0,0,0.8)",
                           pointerEvents:"none",
-                          textShadow:"0 1px 2px rgba(0,0,0,0.6)",
+                          textShadow:"0 0 3px rgba(255,255,255,0.9), 0 0 1px rgba(255,255,255,0.9)",
                         }}>{b.time || fmtTime(b.startMin)}</div>
                       )}
                       {/* VIP crown badge for regular bookings marked as VIP — ліворуч зверху,
