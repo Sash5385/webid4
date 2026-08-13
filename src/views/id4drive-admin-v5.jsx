@@ -1429,7 +1429,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   const toggleSlotFree = (dateStr, time, slot) => {
     const slotId = `slot${time.replace(":", "")}`;
     if (slot.adminBlocked) {
-      remove(ref(db, `timeslots/${dateStr}/${slotId}`)).catch(() => {});
+      update(ref(db, `timeslots/${dateStr}/${slotId}`), { available: true, adminBlocked: false, time }).catch(() => {});
     } else {
       update(ref(db, `timeslots/${dateStr}/${slotId}`), { available: false, adminBlocked: true, vipOnly: false, privateOnly: false, surcharge: null, time }).catch(() => {});
     }
