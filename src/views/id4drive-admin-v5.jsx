@@ -2872,7 +2872,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                         <span style={{fontSize:7, fontWeight:800, color:GOLD, lineHeight:1}}>{qc}</span>
                       </div>
                     ) : null; })()}
-                    {isPlainFree && (displayHeightMin !== 60 || isBeingResized) && (
+                    {(isPlainFree || isPrivateOnly || isBlocked) && (displayHeightMin !== 60 || isBeingResized) && (
                       <span style={{
                         position:"absolute", top:3, left:"50%", transform:"translateX(-50%)",
                         fontSize:8, fontWeight:800, color, background:"rgba(0,0,0,0.25)",
@@ -2881,7 +2881,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                         {displayHeightMin % 60 === 0 ? `${displayHeightMin/60} год` : displayHeightMin < 60 ? `${displayHeightMin} хв` : `${Math.floor(displayHeightMin/60)}г ${displayHeightMin%60}хв`}
                       </span>
                     )}
-                    {isPlainFree && (
+                    {(isPlainFree || isPrivateOnly || isBlocked) && (
                       // Час у вузькій колонці: "07:30–19:30" одним рядком не влазить —
                       // розбиваємо початок/кінець на два рядки, щоб точно вміщалось.
                       <div style={{
