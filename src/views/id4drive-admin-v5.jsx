@@ -1260,16 +1260,20 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
           }
         });
       });
-      // Дозаповнюємо прапорець реального старту (bookingStart) для КОЖНОГО
-      // завантаженого запису, незалежно від того, чи вже позначений його слот
-      // недоступним — так старі бронювання (зроблені до появи цього прапорця)
-      // теж отримують його заднім числом при кожному перегляді дня, без
+      // Дозаповнюємо прапорець bookingStart для КОЖНОГО завантаженого запису —
+      // true на реальному старті, false на кожному проміжному 30-хв маркері
+      // (не лише true на старті!) — інакше проміжні маркери старих бронювань
+      // лишались зовсім без прапорця (undefined) і клієнт однаково показував
+      // їх окремо. Так старі бронювання (зроблені до появи цього прапорця)
+      // отримують його повністю заднім числом при кожному перегляді дня, без
       // окремої міграції.
       Object.entries(bkByDate).forEach(([date, dayBk]) => {
         dayBk.forEach(b => {
-          const hh = String(Math.floor(b.startMin / 60)).padStart(2, "0");
-          const mm = String(b.startMin % 60).padStart(2, "0");
-          upd[`timeslots/${date}/slot${hh}${mm}/bookingStart`] = true;
+          for (let cur = b.startMin; cur < b.startMin + b.durMin; cur += 30) {
+            const hh = String(Math.floor(cur / 60)).padStart(2, "0");
+            const mm = String(cur % 60).padStart(2, "0");
+            upd[`timeslots/${date}/slot${hh}${mm}/bookingStart`] = cur === b.startMin;
+          }
         });
       });
       if (Object.keys(upd).length) update(ref(db, "/"), upd).catch(() => {});
