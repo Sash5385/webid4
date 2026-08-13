@@ -203,6 +203,36 @@ select{color-scheme:${isKava?"light":"dark"}}
   const [showHint, setShowHint] = useState(false);
   const switchSection = (id) => { setActive(id); setShowHint(false); };
 
+  // Дістає date/startMin/durMin з сирого запису бронювання так само, як це
+  // робить основний рендер розкладу (processBookingsRef у ScheduleView) —
+  // клієнтські самозаписи мають лише time+durationHours, а не startMin/durMin
+  // напряму. БЕЗ цього фолбека будь-яка перевірка "чи покритий цей слот
+  // реальним записом" хибно вважає такі записи неіснуючими.
+  const deriveBooking = (raw) => {
+    if (!raw || !raw.date) return null;
+    let startMin = raw.startMin;
+    if (startMin == null && raw.time) {
+      const [hh, mm] = raw.time.split(":").map(Number);
+      if (!Number.isNaN(hh) && !Number.isNaN(mm)) startMin = hh * 60 + mm;
+    }
+    let durMin = raw.durMin;
+    if (!durMin) durMin = raw.durationHours ? raw.durationHours * 60 : (startMin != null ? 60 : null);
+    if (startMin == null || !durMin) return null;
+    return { date: raw.date, startMin, durMin };
+  };
+  const collectBookingsByDate = (bookingsRoot) => {
+    const bkByDate = {};
+    Object.values(bookingsRoot || {}).forEach(userBookings => {
+      Object.values(userBookings || {}).forEach(raw => {
+        if (!raw || raw.status === "cancelled") return;
+        const b = deriveBooking(raw);
+        if (!b) return;
+        (bkByDate[b.date] || (bkByDate[b.date] = [])).push(b);
+      });
+    });
+    return bkByDate;
+  };
+
   // Одноразова ручна очистка "осиротілих" зайнятих слотів — timeslots-документи
   // з available:false, що лишились у базі без жодного реального активного
   // запису, що їх покриває (залишки після тестів перетягування слотів тощо).
@@ -220,15 +250,7 @@ select{color-scheme:${isKava?"light":"dark"}}
         get(ref(db, "bookings")),
       ]);
       const timeslots = timeslotsSnap.val() || {};
-      const bookingsRoot = bookingsSnap.val() || {};
-      const bkByDate = {};
-      Object.values(bookingsRoot).forEach(userBookings => {
-        Object.values(userBookings || {}).forEach(b => {
-          if (!b || b.status === "cancelled") return;
-          if (!b.date || b.startMin == null || !b.durMin) return;
-          (bkByDate[b.date] || (bkByDate[b.date] = [])).push(b);
-        });
-      });
+      const bkByDate = collectBookingsByDate(bookingsSnap.val());
       const updates = {};
       let removed = 0;
       Object.entries(timeslots).forEach(([date, slotMap]) => {
@@ -252,6 +274,43 @@ select{color-scheme:${isKava?"light":"dark"}}
       setCleanResult("Помилка");
     } finally {
       setCleaning(false);
+    }
+  };
+
+  // Аварійне відновлення: перезаписує позначки зайнятості (available:false +
+  // bookingStart) для КОЖНОГО активного бронювання в базі — виправляє шкоду
+  // від попередньої версії кнопки очистки, яка хибно видаляла зайняті слоти
+  // клієнтських самозаписів (не мали startMin/durMin напряму). Нічого не
+  // видаляє — лише дописує/підтверджує зайнятість, безпечно повторювати.
+  const [restoring, setRestoring] = useState(false);
+  const [restoreResult, setRestoreResult] = useState(null);
+  const runRestoreOccupiedMarkers = async () => {
+    if (!window.confirm("Відновити позначки зайнятості для всіх активних записів у базі?")) return;
+    setRestoring(true);
+    setRestoreResult(null);
+    try {
+      const bookingsSnap = await get(ref(db, "bookings"));
+      const bkByDate = collectBookingsByDate(bookingsSnap.val());
+      const updates = {};
+      let marked = 0;
+      Object.entries(bkByDate).forEach(([date, dayBk]) => {
+        dayBk.forEach(b => {
+          for (let cur = b.startMin; cur < b.startMin + b.durMin; cur += 30) {
+            const hh = String(Math.floor(cur / 60)).padStart(2, "0");
+            const mm = String(cur % 60).padStart(2, "0");
+            updates[`timeslots/${date}/slot${hh}${mm}/available`] = false;
+            updates[`timeslots/${date}/slot${hh}${mm}/time`] = `${hh}:${mm}`;
+            updates[`timeslots/${date}/slot${hh}${mm}/bookingStart`] = cur === b.startMin;
+            marked++;
+          }
+        });
+      });
+      if (marked > 0) await update(ref(db, "/"), updates);
+      setRestoreResult(marked);
+    } catch {
+      setRestoreResult("Помилка");
+    } finally {
+      setRestoring(false);
     }
   };
 
@@ -378,6 +437,25 @@ select{color-scheme:${isKava?"light":"dark"}}
             {cleanResult !== null && (
               <div style={{fontSize:11, color:DIM, marginTop:6, textAlign:"center"}}>
                 {cleanResult === "Помилка" ? "Помилка при очищенні" : `Видалено: ${cleanResult}`}
+              </div>
+            )}
+          </div>
+          <div style={{borderRadius:10,padding:"10px",marginTop:5,background:`linear-gradient(145deg,${SURF_HI},${SURFACE})`,boxShadow:SO}}>
+            <div style={{fontSize:12,color:DIM,marginBottom:8}}>
+              Відновлює позначки зайнятості для всіх активних записів у базі —
+              нічого не видаляє, лише дописує/підтверджує зайнятість.
+            </div>
+            <button onClick={runRestoreOccupiedMarkers} disabled={restoring} style={{
+              width:"100%", padding:"10px", borderRadius:9, border:"none",
+              cursor: restoring ? "default" : "pointer",
+              background: restoring ? `linear-gradient(145deg,${SURF_HI},${SURFACE})` : `linear-gradient(145deg,${GREEN},${GREEN}cc)`,
+              color:"#fff", fontSize:13, fontWeight:800,
+            }}>
+              {restoring ? "Відновлення..." : "🔄 Відновити позначки зайнятості"}
+            </button>
+            {restoreResult !== null && (
+              <div style={{fontSize:11, color:DIM, marginTop:6, textAlign:"center"}}>
+                {restoreResult === "Помилка" ? "Помилка при відновленні" : `Позначено: ${restoreResult}`}
               </div>
             )}
           </div>
