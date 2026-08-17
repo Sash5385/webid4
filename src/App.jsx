@@ -1,4 +1,6 @@
 import React, { useState, useEffect, lazy, Suspense, createContext, useContext } from "react";
+import { Capacitor } from '@capacitor/core';
+import { App as CapacitorApp } from '@capacitor/app';
 import { ref, onValue, update, push, remove, get } from "firebase/database";
 import { db, registerAdminFCM, onAdminForegroundMessage } from "./firebase";
 import { useAdminAuth, LoginScreen } from "./AdminAuth";
@@ -440,6 +442,15 @@ export default function App() {
   const [tab,        setTab]      = useState(() => (jumpTarget ? "schedule" : studentJump ? "students" : (localStorage.getItem("admin_tab") || "schedule")));
   useEffect(() => {
     if (jumpTarget || studentJump) window.history.replaceState(null, "", window.location.pathname);
+  }, []);
+  // Апаратна кнопка "назад" (Android): згортає застосунок замість закриття
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+    let handle;
+    CapacitorApp.addListener('backButton', () => {
+      CapacitorApp.minimizeApp().catch(() => CapacitorApp.exitApp());
+    }).then(h => { handle = h; });
+    return () => { handle?.remove(); };
   }, []);
   const [tabVisits,  setTabVisits]= useState({});
   const [openInfos,  setOpenInfos]= useState({});
