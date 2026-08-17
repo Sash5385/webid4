@@ -297,7 +297,7 @@ function TopBar({ tab, onChange, settings, setSettings }) {
                 <span style={{fontSize:11,fontWeight:800}}>Авто</span>
                 <span style={{fontSize:8,fontWeight:600,opacity:0.8}}>годин</span>
               </button>
-              {[8,9,10,12].map(n=>{
+              {[8,10,12,14].map(n=>{
                 const totalH = (settings.workEnd - settings.workStart) * 60;
                 const targetHpx = Math.round(totalH / n);
                 const active = !settings.autoHourHeight && Math.abs(settings.hourHeightPx - targetHpx) < 5;
