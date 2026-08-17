@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo, useContext } from "react";
 import { ref, onValue, update, push, remove } from "firebase/database";
 import { db } from "../firebase";
 import { ThemeContext } from "../theme.js";
-import { UICss, Modal, Field, Chip, Btn, Section } from "../ui";
+import { UICss, Modal, Field, Chip, Btn, Section, useFX } from "../ui";
 
 const SERVICES = {
   sv1:{ name:"Автошкола 1г", color:"#7ed957"  },
@@ -97,7 +97,8 @@ function getHours(item, svc) {
 }
 
 function QueueRow({ item, pos, onInvite, onBooked, onArchive, onDelete, dragHandleProps, isDragging, svcMap }) {
-  const { BORDER, FAINT, GOLD, GREEN, PURPLE, RED, BG_DEEP, SO } = useContext(ThemeContext);
+  const { BORDER, FAINT, GOLD, GREEN, PURPLE, RED, BG_DEEP } = useContext(ThemeContext);
+  const { shade, glow } = useFX();
 
   const STATUS_CFG = {
     waiting:  { label:"Очікує",    color:PURPLE },
@@ -114,12 +115,16 @@ function QueueRow({ item, pos, onInvite, onBooked, onArchive, onDelete, dragHand
 
   return (
     <div className={`drag-item fade-in ${isDragging?"dragging":""}`} style={{
-      borderRadius:14, marginBottom:8, boxShadow:SO, overflow:"hidden",
+      position:"relative", borderRadius:14, marginBottom:8, overflow:"hidden",
       background:`linear-gradient(155deg,color-mix(in srgb,${st.color} 50%,${BG_DEEP}) 0%,color-mix(in srgb,${st.color} 18%,${BG_DEEP}) 100%)`,
       border:`1px solid color-mix(in srgb,${st.color} 45%,transparent)`,
+      boxShadow:`-2px 5px 13px ${shade(0.45)},inset 1px 1px 0 ${glow(0.15)}`,
     }}>
+      <div style={{position:"absolute",pointerEvents:"none",top:0,right:"6%",width:"55%",height:"45%",zIndex:1,
+        background:"radial-gradient(ellipse at top right,rgba(255,255,255,0.18) 0%,transparent 65%)"}}/>
+
       {/* avatar info row */}
-      <div {...dragHandleProps} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 11px",cursor:"grab",touchAction:"none"}}>
+      <div {...dragHandleProps} style={{position:"relative",zIndex:2,display:"flex",alignItems:"center",gap:10,padding:"9px 11px",cursor:"grab",touchAction:"none"}}>
         <div style={{position:"relative",flexShrink:0}}>
           <div style={{
             width:36,height:36,borderRadius:11,
@@ -136,7 +141,7 @@ function QueueRow({ item, pos, onInvite, onBooked, onArchive, onDelete, dragHand
           }}>{pos}</div>
         </div>
         <div style={{flex:1,minWidth:0}}>
-          <div style={{fontSize:13,fontWeight:800,color:"#fff",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{item.name}</div>
+          <div style={{fontSize:13,fontWeight:800,color:"#fff",textShadow:`0 1px 3px ${shade(0.5)}`,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{item.name}</div>
           <div style={{fontSize:10,color:FAINT,marginTop:2,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>
             {item.phone}
             {svcLabel && ` · ${svcLabel}${hrs ? ` ${hrs}г` : ""}`}
