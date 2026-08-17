@@ -2,6 +2,9 @@ name: Build Android APK (test)
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - claude/capacitor-android-apk-cr84ox
 
 jobs:
   build-android:
