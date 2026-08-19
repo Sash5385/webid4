@@ -3056,8 +3056,9 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                 const height = (visEnd - visStart) * PX_PER_MIN;
                 // На стиснутих слотах фіксовані 12px-хендли зверху+знизу (24px разом)
                 // перекривали весь запис, не лишаючи місця для тапу "відкрити модалку" —
-                // звужуємо хендли пропорційно висоті, завжди лишаючи тапабельний центр.
-                const handleH = Math.min(12, Math.max(4, Math.floor(height * 0.28)));
+                // звужуємо хендли пропорційно висоті (разом ~1/3 слоту), лишаючи
+                // тапабельний центр 2/3 висоти.
+                const handleH = Math.min(12, Math.max(4, Math.floor(height / 6)));
                 const c = slotColor(b);
                 const isPending = b.status==="pending" && settings.pendingEnabled;
                 const isCancelling = cancellingSet.has(b.id);
