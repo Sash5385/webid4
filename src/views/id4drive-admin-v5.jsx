@@ -3054,6 +3054,10 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                 const visEnd   = Math.min(b.startMin + b.durMin, weMin);
                 const top    = minToPx(visStart);
                 const height = (visEnd - visStart) * PX_PER_MIN;
+                // На стиснутих слотах фіксовані 12px-хендли зверху+знизу (24px разом)
+                // перекривали весь запис, не лишаючи місця для тапу "відкрити модалку" —
+                // звужуємо хендли пропорційно висоті, завжди лишаючи тапабельний центр.
+                const handleH = Math.min(12, Math.max(4, Math.floor(height * 0.28)));
                 const c = slotColor(b);
                 const isPending = b.status==="pending" && settings.pendingEnabled;
                 const isCancelling = cancellingSet.has(b.id);
@@ -3128,7 +3132,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                         transition:"opacity 0.4s, filter 0.4s",
                       }}>
                       {/* Ресайз відключений на об'єднаній картці — невідомо, який із поглинутих записів стискати/розтягувати */}
-                      {!b._mergedIds && <div className="slot-handle top" onPointerDown={e=>onPointerDown(e,b,"top")}/>}
+                      {!b._mergedIds && <div className="slot-handle top" style={{height:handleH}} onPointerDown={e=>onPointerDown(e,b,"top")}/>}
                       {!isBlock && !isVipSlot && !isPersonal && <div className="shine-layer"/>}
                       {isVipSlot && height >= 14 && (
                         <span style={{fontSize:11, lineHeight:1}}>👑</span>
@@ -3257,7 +3261,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                           <span style={{fontSize:7, fontWeight:800, color:GOLD, lineHeight:1}}>{queueCount}</span>
                         </div>
                       )}
-                      {!b._mergedIds && <div className="slot-handle bottom" onPointerDown={e=>onPointerDown(e,b,"bottom")}/>}
+                      {!b._mergedIds && <div className="slot-handle bottom" style={{height:handleH}} onPointerDown={e=>onPointerDown(e,b,"bottom")}/>}
 
                     </div>
 
