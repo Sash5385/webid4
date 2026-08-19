@@ -7,6 +7,6 @@ public class MainActivity extends BridgeActivity {
   @Override
   public void onCreate(Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
-    getBridge().getWebView().getSettings().setTextZoom(200);
+    getBridge().getWebView().getSettings().setTextZoom(110);
   }
 }
