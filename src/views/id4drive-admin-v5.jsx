@@ -1618,11 +1618,43 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   // Keep calc values fresh for always-on window listeners (avoids stale closure)
   calcRef.current = { PX_PER_MIN, snapMin: settings.snapMin, workStart: effectiveWorkStart, workEnd: effectiveWorkEnd, COL_W, dayOffset, daysShown: settings.daysShown, N_DAYS };
 
+  // Сигнатура часового діапазону видимих записів/слотів (не самих об'єктів) —
+  // щоб авто-висота перераховувалась, коли з'являється запис ПІЗНІШЕ/РАНІШЕ
+  // за вже порахований діапазон (інакше новий пізній запис "вилазив" за межі
+  // екрана, доки користувач не проскролить дні туди-сюди). Зміна ціни/статусу
+  // тощо на span не впливає — висота під час звичайного редагування не стрибає.
+  const autoSpanKey = useMemo(() => {
+    if (!settings.autoHourHeight) return null;
+    const dayFrom = dayOffset + visDayRange.s;
+    const dayTo   = dayOffset + visDayRange.e;
+    let minStart = Infinity, maxEnd = -Infinity;
+    bookings.forEach(b => {
+      if (b.status === "cancelled") return;
+      if (b.day < dayFrom || b.day > dayTo) return;
+      minStart = Math.min(minStart, b.startMin);
+      maxEnd   = Math.max(maxEnd, b.startMin + b.durMin);
+    });
+    for (let d = dayFrom; d <= dayTo; d++) {
+      const daySlots = openSlots[absDayToDateStr(d)];
+      if (!daySlots) continue;
+      Object.entries(daySlots).forEach(([time, slot]) => {
+        if (!slot.available) return;
+        const [hh, mm] = time.split(':').map(Number);
+        const sMin = hh * 60 + mm;
+        minStart = Math.min(minStart, sMin);
+        maxEnd   = Math.max(maxEnd, sMin + (slot.durMin || 60));
+      });
+    }
+    return minStart === Infinity ? null : `${minStart}-${maxEnd}`;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bookings, openSlots, dayOffset, visDayRange.s, visDayRange.e, settings.autoHourHeight]);
+
   // Авто-висота годин ("Авто" замість фіксованих 6/8/9/10/12): підлаштовуємо
   // hourHeightPx під діапазон "перший запис — останній запис" видимих днів
-  // (6..16 годин). Рахуємо тільки при зміні видимого діапазону днів (скрол),
-  // а не на кожен новий/змінений запис — інакше висота "стрибала" б під час
-  // звичайної роботи з розкладом.
+  // (6..16 годин). Рахуємо при зміні видимого діапазону днів (скрол) АБО
+  // коли змінюється сам часовий діапазон записів (autoSpanKey) — напр. додали
+  // пізній запис. Просте редагування (ціна/статус), що span не міняє, висоту
+  // не перераховує — щоб вона не "стрибала" під час звичайної роботи.
   useEffect(() => {
     if (!settings.autoHourHeight) return;
     const dayFrom = dayOffset + visDayRange.s;
@@ -1664,7 +1696,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
     const headerOffsetReal = timeCol
       ? timeCol.getBoundingClientRect().top - el.getBoundingClientRect().top + el.scrollTop
       : (2 + HEADER_H + 10);
-    const BOTTOM_BUFFER = 40; // місце під плашку суми дня знизу
+    const BOTTOM_BUFFER = 56; // місце під плашку суми дня знизу + запас на неточність вимірювання
     const usableH = Math.max(200, el.clientHeight - headerOffsetReal - BOTTOM_BUFFER);
     const autoPxPerMinBase = availGridH / totalMin; // той самий множник, що й у реальному PX_PER_MIN
     const targetHpx = Math.max(60, Math.round(usableH / (n * autoPxPerMinBase)));
@@ -1678,7 +1710,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
       return { ...s, hourHeightPx: targetHpx };
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visDayRange.s, visDayRange.e, settings.autoHourHeight]);
+  }, [visDayRange.s, visDayRange.e, settings.autoHourHeight, autoSpanKey]);
 
   // Прокрутка до першого запису — спрацьовує тільки після авто-перерахунку
   // висоти (autoScrollToMinRef виставляється лише вище), не після ручного
