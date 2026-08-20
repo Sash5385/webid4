@@ -1153,6 +1153,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   const [openSlots, setOpenSlots] = useState({}); // { "2025-06-01": ["07:00","08:00",...] }
   const [viewingSlots, setViewingSlots] = useState({});
   const pendingSlotSnapRef = useRef(null);
+  const pendingSlotSnapTimerRef = useRef(null);
   const [genLoadingDays, setGenLoadingDays] = useState(new Set());
   const [isGeneratingAll, setIsGeneratingAll] = useState(false);
   const [genToast, setGenToast] = useState(null); // { absDay, free, blocked }
@@ -1213,7 +1214,22 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
       if (openSlotsRef) openSlotsRef.current = slots;
       if (activeDragIds?.current?.size > 0) {
         pendingSlotSnapRef.current = { slots, viewing };
+        // Запобіжник: якщо activeDragIds "зависне" непорожнім (застарілий id, що
+        // ніколи не видалився — напр. після швидкого дотику одразу до двох
+        // записів), відкладене оновлення слотів інакше НІКОЛИ не застосується,
+        // і новостворені/розблоковані слоти (ключик, тап на день) не з'являлись
+        // би, доки не перезайти в застосунок. Форсуємо застосування через 1.5с,
+        // навіть якщо drag формально ще "активний".
+        clearTimeout(pendingSlotSnapTimerRef.current);
+        pendingSlotSnapTimerRef.current = setTimeout(() => {
+          if (!pendingSlotSnapRef.current) return;
+          const { slots: s, viewing: v } = pendingSlotSnapRef.current;
+          pendingSlotSnapRef.current = null;
+          setOpenSlots(s);
+          setViewingSlots(v);
+        }, 1500);
       } else {
+        clearTimeout(pendingSlotSnapTimerRef.current);
         setOpenSlots(slots);
         setViewingSlots(viewing);
       }
