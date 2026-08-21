@@ -87,7 +87,7 @@ function StudentForm({ initial, onSave, onCancel, saveLabel="Зберегти" }
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7}}>
         <Field label="Ім'я"      value={d.name||""}     onChange={v=>upd("name",v)}     placeholder="Ім'я Прізвище" style={{marginBottom:0}}/>
         <Field label="Телефон"   value={d.phone||""}    onChange={v=>upd("phone",v)}    placeholder="+380..." style={{marginBottom:0}}/>
-        <Field label="Знижка ₴"  value={d.discount||""} onChange={v=>upd("discount",v)} placeholder="0" type="number" style={{marginBottom:0}}/>
+        <Field label="Знижка ₴/год"  value={d.discount||""} onChange={v=>upd("discount",v)} placeholder="0" type="number" style={{marginBottom:0}}/>
         <div>
           <div style={{fontSize:10,color:FAINT,letterSpacing:1,marginBottom:5}}>ТИП</div>
           <div style={{display:"flex",gap:6}}>
@@ -373,7 +373,7 @@ function StudentDetailSheet({ s, onClose, onUpdate, onDelete, onBlock, autoOpenH
                     <div style={{fontSize:14,fontWeight:700,color:TEXT}}>{s.phone||"—"}</div>
                   </div>
                   <div style={{width:88,background:glow(0.04),borderRadius:10,padding:"9px 12px",border:`1px solid ${BORDER}`,textAlign:"center"}}>
-                    <div style={{fontSize:9,color:FAINT,letterSpacing:1,textTransform:"uppercase",marginBottom:3}}>Знижка</div>
+                    <div style={{fontSize:9,color:FAINT,letterSpacing:1,textTransform:"uppercase",marginBottom:3}}>Знижка/год</div>
                     <div style={{fontSize:18,fontWeight:900,color:s.discount>0?GOLD:DIM}}>{s.discount||0}₴</div>
                   </div>
                 </div>
