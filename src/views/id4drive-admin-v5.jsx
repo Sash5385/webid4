@@ -2573,7 +2573,12 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
             const dateStrCol = absDayToDateStr(absDay);
             // Записи цього дня — для приховування вільних слотів, які запис накрив
             // (навіть наполовину): такий слот не показуємо й не пропонуємо клієнту.
-            const colBookings = bookings.filter(b => b.day === absDay && b.status !== "cancelled");
+            // Порівнюємо за абсолютною датою (b.date), а не відносним b.day — той
+            // рахується один раз від "сьогодні" в момент обробки снепшоту з Firebase
+            // і застаріває, якщо застосунок лишається відкритим через опівніч без
+            // нових bookings-подій: вільний слот тоді хибно лишався "накритим"
+            // записом, що вже фактично посунувся на інший відносний день.
+            const colBookings = bookings.filter(b => b.date === dateStrCol && b.status !== "cancelled");
             const slotCovered = (mn) => colBookings.some(b => b.startMin < mn + 60 && b.startMin + b.durMin > mn);
             const isOpenCol = Object.entries(openSlots[dateStrCol] || {}).some(([t, s]) => {
               if (!s.available) return false;
