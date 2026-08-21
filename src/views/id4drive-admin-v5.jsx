@@ -1451,6 +1451,12 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
     }
   };
 
+  // Повне видалення слота — прибирає запис із Firebase, комірка зникає з сітки
+  const deleteSlot = (dateStr, time) => {
+    const slotId = `slot${time.replace(":", "")}`;
+    remove(ref(db, `timeslots/${dateStr}/${slotId}`)).catch(() => {});
+  };
+
   // Довгий тап: VIP, приватний, надбавка або скидання
   const applySlotOption = (dateStr, time, option) => {
     const slotId = `slot${time.replace(":", "")}`;
@@ -3902,6 +3908,18 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
               }}>
                 <span>{_so.slot?.adminBlocked ? "🔓" : "🚫"}</span>
                 {_so.slot?.adminBlocked ? "Розблокувати слот" : "Заблокувати слот"}
+              </button>
+              {/* Видалити слот повністю */}
+              <button onClick={()=>{
+                deleteSlot(_so.dateStr, fmtTime(_soSelMin));
+                _closeSO();
+              }} style={{
+                width:"100%",padding:"13px 14px",border:"none",cursor:"pointer",
+                background:"rgba(239,68,68,0.09)",borderRadius:12,
+                color:"#f87171",fontSize:15,fontWeight:700,
+                display:"flex",alignItems:"center",gap:10,
+              }}>
+                <span>🗑️</span> Видалити слот
               </button>
             </div>
             {/* Надбавки — чіпи */}
