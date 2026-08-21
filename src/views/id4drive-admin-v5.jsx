@@ -4300,7 +4300,9 @@ function computeBookingPrice(b, services) {
     : b.price && b.durationHours
       ? Math.round((b.price / (b.durationHours * 60)) * b.durMin)
       : (b.price || 0);
-  return base + (b.surcharge || 0);
+  // Знижка учня (грн, фіксована сума) — застосовується до будь-якого запису,
+  // окрім тих, де ціну виставлено вручну (manualPrice — свідомий override адміна).
+  return Math.max(0, base + (b.surcharge || 0) - (b.discount || 0));
 }
 
 function BookingModal({ booking, onClose, onAction, settings, bookings, onViewStudent, mergeInfo }) {
@@ -4549,7 +4551,7 @@ function BookingModal({ booking, onClose, onAction, settings, bookings, onViewSt
             {[
               { label:"Дата",  val:`${day.num} ${day.month}`, sub:day.label },
               { label:"Час",   val:`${fmtTime(booking.startMin)}`, sub:`–${fmtTime(booking.startMin+durMinDisplay)}` },
-              { label:"Ціна",  val:`${price}₴`, sub: mergeInfo ? `${mergeInfo.count} записи, ${durMinDisplay}хв` : booking.surcharge ? `+${booking.surcharge}₴` : (svc ? `${svc.duration}хв` : "—"), gold: !!booking.surcharge && !mergeInfo },
+              { label:"Ціна",  val:`${price}₴`, sub: mergeInfo ? `${mergeInfo.count} записи, ${durMinDisplay}хв` : booking.surcharge && booking.discount ? `+${booking.surcharge}₴ / −${booking.discount}₴` : booking.surcharge ? `+${booking.surcharge}₴` : booking.discount ? `−${booking.discount}₴ знижка` : (svc ? `${svc.duration}хв` : "—"), gold: !!booking.surcharge && !mergeInfo },
             ].map(({ label, val, sub, gold }, i) => (
               <div key={i} style={{
                 padding:"11px 6px",background:BG_DEEP,
@@ -6171,6 +6173,7 @@ export default function App() {
           hoursDone: raw.hours || raw.hoursDone || 0,
           categoryId: raw.categoryId || null,
           isVipOnly:  raw.isVipOnly || false,
+          discount: usersMapRef.current[uid]?.discount || 0,
         });
       });
     });
