@@ -189,13 +189,26 @@ function StudentCard({ s, onSelect, settings }) {
 }
 
 // ─── STUDENT DETAIL SHEET ────────────────────────────────────────
-function StudentDetailSheet({ s, onClose, onUpdate, onDelete, onBlock, autoOpenHistory }) {
+const MANEUVER_LABELS = { rozvorot:"Розворот", parking90:"Паркування 90", parking45:"Паркування 45" };
+const BADGE_PRESETS = [
+  { icon:"🏅", label:"Молодець" },
+  { icon:"🥇", label:"Найкращий учень" },
+  { icon:"⭐", label:"Відмінна їзда" },
+  { icon:"🎯", label:"Точне паркування" },
+  { icon:"🚦", label:"Знавець ПДР" },
+  { icon:"🏆", label:"Готовий до іспиту" },
+];
+
+function StudentDetailSheet({ s, onClose, onUpdate, onDelete, onBlock, onAwardBadge, onRemoveBadge, autoOpenHistory }) {
   const { BG_DEEP, SURF_HI, SURFACE, BORDER, TEXT, DIM, FAINT, ACCENT, ACC_HI, GREEN, BLUE, GOLD, RED, SO, SI } = useContext(ThemeContext);
   const { shade, glow, ink } = useFX();
   const [closing,      setClosing]     = useState(false);
   const [editMode,     setEditMode]    = useState(false);
   const [confirmDel,   setConfirmDel]  = useState(false);
   const [pendingDelete,setPendingDelete] = useState(false);
+  const [badgePickerOpen, setBadgePickerOpen] = useState(false);
+  const [customIcon,   setCustomIcon]  = useState("🏅");
+  const [customLabel,  setCustomLabel] = useState("");
   const [pushOpen,     setPushOpen]    = useState(false);
   const [pushTitle,    setPushTitle]   = useState("Повідомлення");
   const [pushBody,     setPushBody]    = useState("");
@@ -364,6 +377,35 @@ function StudentDetailSheet({ s, onClose, onUpdate, onDelete, onBlock, autoOpenH
                     style={{flex:1,padding:"10px",borderRadius:10,border:"none",cursor:"pointer",background:`linear-gradient(145deg,${SURF_HI},${SURFACE})`,color:DIM,fontSize:13,fontWeight:700,boxShadow:SO,fontFamily:"inherit"}}>Назад</button>
                 </div>
               </div>
+            ) : badgePickerOpen ? (
+              <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                <div style={{fontSize:13,fontWeight:800,color:GOLD}}>🏅 Видати медаль: {s.name}</div>
+                <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:7}}>
+                  {BADGE_PRESETS.map((b,i)=>(
+                    <button key={i} onClick={()=>{onAwardBadge(s.id,b.icon,b.label);setBadgePickerOpen(false);}} style={{
+                      display:"flex",flexDirection:"column",alignItems:"center",gap:4,
+                      padding:"10px 4px",borderRadius:12,border:`1px solid ${BORDER}`,cursor:"pointer",
+                      background:glow(0.04),fontFamily:"inherit",
+                    }}>
+                      <span style={{fontSize:20}}>{b.icon}</span>
+                      <span style={{fontSize:9.5,fontWeight:700,color:DIM,textAlign:"center",lineHeight:1.2}}>{b.label}</span>
+                    </button>
+                  ))}
+                </div>
+                <div style={{fontSize:9,color:FAINT,letterSpacing:1,textTransform:"uppercase",marginTop:4}}>Своя медаль</div>
+                <div style={{display:"flex",gap:8}}>
+                  <input value={customIcon} onChange={e=>setCustomIcon(e.target.value.slice(0,2))} placeholder="🏅"
+                    style={{width:52,background:glow(0.04),border:`1px solid ${BORDER}`,outline:"none",color:TEXT,fontSize:18,textAlign:"center",padding:"9px 4px",borderRadius:10,boxShadow:SI,fontFamily:"inherit"}}/>
+                  <input value={customLabel} onChange={e=>setCustomLabel(e.target.value)} placeholder="Назва медалі"
+                    style={{flex:1,background:glow(0.04),border:`1px solid ${BORDER}`,outline:"none",color:TEXT,fontSize:13,padding:"9px 12px",borderRadius:10,boxShadow:SI,boxSizing:"border-box",fontFamily:"inherit"}}/>
+                </div>
+                <div style={{display:"flex",gap:7}}>
+                  <button disabled={!customLabel.trim()} onClick={()=>{onAwardBadge(s.id,customIcon||"🏅",customLabel.trim());setCustomLabel("");setBadgePickerOpen(false);}}
+                    style={{flex:1,padding:"10px",borderRadius:10,border:"none",cursor:!customLabel.trim()?"default":"pointer",opacity:!customLabel.trim()?0.5:1,background:`linear-gradient(145deg,${GOLD}cc,${GOLD}88)`,color:"#1a1a1a",fontSize:13,fontWeight:800,boxShadow:SO,fontFamily:"inherit"}}>Видати</button>
+                  <button onClick={()=>setBadgePickerOpen(false)}
+                    style={{flex:1,padding:"10px",borderRadius:10,border:"none",cursor:"pointer",background:`linear-gradient(145deg,${SURF_HI},${SURFACE})`,color:DIM,fontSize:13,fontWeight:700,boxShadow:SO,fontFamily:"inherit"}}>Назад</button>
+                </div>
+              </div>
             ) : (
               <>
                 {/* Phone + discount */}
@@ -455,6 +497,52 @@ function StudentDetailSheet({ s, onClose, onUpdate, onDelete, onBlock, autoOpenH
                     color:s.filmingConsent===undefined?FAINT:(s.filmingConsent?GREEN:RED),
                     background:s.filmingConsent===undefined?glow(0.06):(s.filmingConsent?`${GREEN}1a`:`${RED}1a`),
                   }}>{s.filmingConsent===undefined?"Не вказано":(s.filmingConsent?"Так":"Ні")}</span>
+                </div>
+
+                {/* Маневри — статистика спроб/успіху */}
+                {Object.keys(s.maneuverCounts||{}).length > 0 && (
+                  <div style={{background:glow(0.04),borderRadius:10,padding:"10px 12px",border:`1px solid ${BORDER}`}}>
+                    <div style={{fontSize:9,color:FAINT,letterSpacing:1,textTransform:"uppercase",marginBottom:8}}>🚗 Маневри</div>
+                    <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                      {Object.entries(MANEUVER_LABELS).filter(([key])=>s.maneuverCounts[key]).map(([key,label])=>{
+                        const attempts = s.maneuverCounts[key] || 0;
+                        const success = s.maneuverSuccessCounts?.[key] || 0;
+                        const pct = attempts ? Math.round(success/attempts*100) : 0;
+                        return (
+                          <div key={key} style={{display:"flex",alignItems:"center",gap:8}}>
+                            <div style={{flex:1,fontSize:12,fontWeight:700,color:TEXT}}>{label}</div>
+                            <div style={{fontSize:11,fontWeight:800,color: pct>=70?GREEN:pct>=40?GOLD:RED}}>{success}/{attempts} ({pct}%)</div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Медалі */}
+                <div style={{background:glow(0.04),borderRadius:10,padding:"10px 12px",border:`1px solid ${BORDER}`}}>
+                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
+                    <div style={{fontSize:9,color:FAINT,letterSpacing:1,textTransform:"uppercase"}}>🏅 Медалі</div>
+                    <button onClick={()=>setBadgePickerOpen(true)} style={{
+                      padding:"4px 10px",borderRadius:8,border:"none",cursor:"pointer",fontFamily:"inherit",
+                      background:`${GOLD}22`,color:GOLD,fontSize:11,fontWeight:800,
+                    }}>+ Видати</button>
+                  </div>
+                  {Object.keys(s.badges||{}).length === 0 ? (
+                    <div style={{fontSize:11,color:FAINT}}>Ще немає медалей</div>
+                  ) : (
+                    <div style={{display:"flex",flexWrap:"wrap",gap:7}}>
+                      {Object.entries(s.badges).sort((a,b)=>(b[1].awardedAt||0)-(a[1].awardedAt||0)).map(([bid,b])=>(
+                        <div key={bid} onClick={()=>onRemoveBadge(s.id,bid)} title="Тап — прибрати" style={{
+                          display:"flex",alignItems:"center",gap:5,padding:"5px 9px",borderRadius:20,
+                          background:`${GOLD}18`,border:`1px solid ${GOLD}44`,cursor:"pointer",
+                        }}>
+                          <span style={{fontSize:14}}>{b.icon}</span>
+                          <span style={{fontSize:11,fontWeight:700,color:TEXT}}>{b.label}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 {/* Notes */}
@@ -595,6 +683,8 @@ export default function StudentsView({ studentJump, onStudentJumpHandled, bookin
           noIntervalLimit:u.noIntervalLimit||false,
           filmingConsent:p.filmingConsent,
           createdAt:p.createdAt||u.createdAt||null,
+          maneuverCounts:u.maneuverCounts||{}, maneuverSuccessCounts:u.maneuverSuccessCounts||{},
+          badges:u.badges||{},
         };
       }));
       setLoading(false);
@@ -615,6 +705,12 @@ export default function StudentsView({ studentJump, onStudentJumpHandled, bookin
   const deleteStudent = id => {
     setStudents(ss=>ss.filter(x=>x.id!==id));
     remove(ref(db,`users/${id}`)).catch(()=>{});
+  };
+  const awardBadge = (id, icon, label) => {
+    push(ref(db,`users/${id}/badges`), { icon, label, awardedAt: Date.now() }).catch(()=>{});
+  };
+  const removeBadge = (id, badgeId) => {
+    remove(ref(db,`users/${id}/badges/${badgeId}`)).catch(()=>{});
   };
   const createStudent = async (data) => {
     const newRef = await push(ref(db,"users"),{
@@ -770,6 +866,8 @@ export default function StudentsView({ studentJump, onStudentJumpHandled, bookin
           onUpdate={updateStudent}
           onDelete={deleteStudent}
           onBlock={block}
+          onAwardBadge={awardBadge}
+          onRemoveBadge={removeBadge}
           autoOpenHistory={autoOpenHistory}
         />,
         document.body

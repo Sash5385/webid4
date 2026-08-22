@@ -4342,6 +4342,7 @@ function BookingModal({ booking, onClose, onAction, settings, bookings, onViewSt
   const [editRate, setEditRate] = useState(0);
   const [maneuverState, setManeuverState] = useState({});
   const [maneuverCounts, setManeuverCounts] = useState({});
+  const [maneuverResults, setManeuverResults] = useState({});
   const [filmingConsent, setFilmingConsent] = useState(null);
   useEffect(() => {
     if (!booking || !booking.userId) { setFilmingConsent(null); return; }
@@ -4377,6 +4378,7 @@ function BookingModal({ booking, onClose, onAction, settings, bookings, onViewSt
   useEffect(() => {
     if (!booking) return;
     setManeuverState(booking.maneuvers || {});
+    setManeuverResults(booking.maneuverResults || {});
     if (!booking.userId) { setManeuverCounts({}); return; }
     const r = ref(db, `users/${booking.userId}/maneuverCounts`);
     const unsub = onValue(r, snap => setManeuverCounts(snap.val() || {}));
@@ -4386,8 +4388,22 @@ function BookingModal({ booking, onClose, onAction, settings, bookings, onViewSt
   const toggleManeuver = (key) => {
     if (!booking || maneuverState[key]) return;
     setManeuverState(s => ({ ...s, [key]: true }));
+    setManeuverResults(s => ({ ...s, [key]: "success" }));
     update(ref(db, `bookings/${booking.userId}/${booking.id}/maneuvers`), { [key]: true }).catch(()=>{});
+    update(ref(db, `bookings/${booking.userId}/${booking.id}/maneuverResults`), { [key]: "success" }).catch(()=>{});
     update(ref(db, `users/${booking.userId}/maneuverCounts`), { [key]: increment(1) }).catch(()=>{});
+    update(ref(db, `users/${booking.userId}/maneuverSuccessCounts`), { [key]: increment(1) }).catch(()=>{});
+  };
+
+  // Перемикач "вдало/невдало" — доступний лише для вже відпрацьованого в
+  // цьому уроці маневру. За замовчуванням маневр рахується вдалим (щоб не
+  // додавати зайвий тап на типовий кейс); адмін може позначити невдалу спробу.
+  const toggleManeuverResult = (key) => {
+    if (!booking || !maneuverState[key]) return;
+    const next = (maneuverResults[key] || "success") === "success" ? "fail" : "success";
+    setManeuverResults(s => ({ ...s, [key]: next }));
+    update(ref(db, `bookings/${booking.userId}/${booking.id}/maneuverResults`), { [key]: next }).catch(()=>{});
+    update(ref(db, `users/${booking.userId}/maneuverSuccessCounts`), { [key]: increment(next === "success" ? 1 : -1) }).catch(()=>{});
   };
 
   // booking може стати null синхронно (напр. cancel обнуляє вибір), поки closing=true.
@@ -4604,26 +4620,40 @@ function BookingModal({ booking, onClose, onAction, settings, bookings, onViewSt
               ].map(m => {
                 const active = !!maneuverState[m.key];
                 const count = maneuverCounts[m.key] || 0;
+                const isSuccess = (maneuverResults[m.key] || "success") === "success";
                 return (
-                  <button key={m.key} onClick={() => toggleManeuver(m.key)} disabled={active} style={{
-                    position:"relative", fontFamily:"inherit",
-                    background: active ? `linear-gradient(155deg,${PURPLE},color-mix(in srgb,${PURPLE} 55%,#000))` : BG_DEEP,
-                    border:`1.5px solid ${active ? PURPLE : ink(0.1)}`,
-                    borderRadius:12, padding:"10px 4px",
-                    textAlign:"center", fontSize:10.5, fontWeight:700,
-                    color: active ? "#fff" : TEXT_DIM,
-                    cursor: active ? "default" : "pointer",
-                    boxShadow: active ? `0 3px 12px ${PURPLE}66` : "none",
-                  }}>
-                    {m.label}
+                  <div key={m.key} style={{position:"relative"}}>
+                    <button onClick={() => toggleManeuver(m.key)} style={{
+                      width:"100%", fontFamily:"inherit",
+                      background: active ? `linear-gradient(155deg,${PURPLE},color-mix(in srgb,${PURPLE} 55%,#000))` : BG_DEEP,
+                      border:`1.5px solid ${active ? PURPLE : ink(0.1)}`,
+                      borderRadius:12, padding:"10px 4px",
+                      textAlign:"center", fontSize:10.5, fontWeight:700,
+                      color: active ? "#fff" : TEXT_DIM,
+                      cursor: active ? "default" : "pointer",
+                      boxShadow: active ? `0 3px 12px ${PURPLE}66` : "none",
+                    }}>
+                      {m.label}
+                    </button>
                     <div style={{
                       position:"absolute", top:-7, right:-6,
                       background:GOLD, color:"#1a1200", fontSize:9, fontWeight:900,
                       width:18, height:18, borderRadius:"50%",
                       display:"flex", alignItems:"center", justifyContent:"center",
-                      border:`2px solid ${BG_DEEP}`,
+                      border:`2px solid ${BG_DEEP}`, pointerEvents:"none",
                     }}>{count}</div>
-                  </button>
+                    {active && (
+                      <div onClick={() => toggleManeuverResult(m.key)} style={{
+                        position:"absolute", bottom:-7, right:-6,
+                        background: isSuccess ? GREEN : RED, color:"#fff", fontSize:10, fontWeight:900,
+                        width:18, height:18, borderRadius:"50%",
+                        display:"flex", alignItems:"center", justifyContent:"center",
+                        border:`2px solid ${BG_DEEP}`, cursor:"pointer",
+                      }} title={isSuccess ? "Вдало (тап — позначити невдало)" : "Невдало (тап — позначити вдало)"}>
+                        {isSuccess ? "✓" : "✕"}
+                      </div>
+                    )}
+                  </div>
                 );
               })}
             </div>
