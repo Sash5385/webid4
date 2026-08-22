@@ -344,7 +344,7 @@ function StudentDetailSheet({ s, onClose, onUpdate, onDelete, onBlock, onAwardBa
           </div>
 
           {/* Body (scrollable) */}
-          <div style={{flex:1,overflowY:"auto",padding:"14px 16px 28px",display:"flex",flexDirection:"column",gap:10}}>
+          <div style={{flex:1,overflowY:"auto",padding:"14px 16px calc(28px + env(safe-area-inset-bottom))",display:"flex",flexDirection:"column",gap:10}}>
 
             {editMode ? (
               <StudentForm
