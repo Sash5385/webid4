@@ -619,7 +619,18 @@ function MonthCalendarSheet({ bookings, onClose, onPickDate }) {
   const [viewM, setViewM] = useState(today0.getMonth());
   const [slideDir, setSlideDir] = useState(0);
 
-  const close = () => setClosing(true);
+  // Закриття покладається на onAnimationEnd — якщо CSS-подія з якоїсь
+  // причини не спрацює (напр. вимкнена анімація у WebView), напівпрозорий
+  // оверлей (zIndex 200, на весь екран) лишиться "приклеєним" і глушитиме
+  // тапи по всій сторінці, включно з кнопкою відкриття цієї ж модалки.
+  // Форсуємо закриття через таймер незалежно від animationend.
+  const closeTimerRef = useRef(null);
+  useEffect(() => () => clearTimeout(closeTimerRef.current), []);
+  const close = () => {
+    setClosing(true);
+    clearTimeout(closeTimerRef.current);
+    closeTimerRef.current = setTimeout(onClose, 320);
+  };
 
   const counts = useMemo(() => {
     const map = {};
