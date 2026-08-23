@@ -1057,6 +1057,12 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   const STICKY_CLR  = isLight ? "rgba(58,140,30,0.92)"    : "rgba(99,211,120,0.9)";
   const SURFACE_HI = SURF_HI, SURFACE_LO = SURF_LO, TEXT_DIM = DIM, TEXT_FAINT = FAINT, ACCENT_HI = ACC_HI, SHADOW_OUT = SO, SHADOW_IN = SI;
   const [showMonthCal, setShowMonthCal] = useState(false);
+  // Лічильник, а не просто boolean — при кожному тапі на кнопку календар
+  // монтується заново (key змінюється), навіть якщо попередній стан
+  // технічно ще "відкрито" (напр. учень прогорнув сторінку і календар
+  // візуально загубився). Тап завжди гарантовано відкриває свіжу шторку.
+  const [calOpenKey, setCalOpenKey] = useState(0);
+  const openMonthCal = () => { setCalOpenKey(k => k + 1); setShowMonthCal(true); };
   const [keyPortalEl, setKeyPortalEl] = useState(null);
   useEffect(() => { setKeyPortalEl(document.getElementById('topbar-key-portal')); }, []);
 
@@ -3446,7 +3452,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
     {/* Кнопка «📅 Місячний календар» — портується в шапку (по центру, замість лого; ключик — тепер у стовпці часу) */}
     {keyPortalEl && createPortal(
       <button
-        onClick={()=>setShowMonthCal(true)}
+        onClick={openMonthCal}
         title="Місячний календар"
         style={{
           width:32, height:32, borderRadius:11, cursor:"pointer",
@@ -3461,6 +3467,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
 
     {showMonthCal && (
       <MonthCalendarSheet
+        key={calOpenKey}
         bookings={bookings}
         onClose={()=>setShowMonthCal(false)}
         onPickDate={(dateStr)=>{ if (setJumpTarget) setJumpTarget({ date: dateStr, ts: Date.now() }); }}

@@ -212,6 +212,12 @@ export default function JournalView() {
   const [prevReadAt] = useState(getJournalReadAt);
   const [keyPortalEl, setKeyPortalEl] = useState(null);
   const [showMonthCal, setShowMonthCal] = useState(false);
+  // Лічильник, а не просто boolean — при кожному тапі на кнопку календар
+  // монтується заново (key змінюється), навіть якщо попередній стан
+  // технічно ще "відкрито" (напр. учень прогорнув сторінку і календар
+  // візуально загубився). Тап завжди гарантовано відкриває свіжу шторку.
+  const [calOpenKey, setCalOpenKey] = useState(0);
+  const openMonthCal = () => { setCalOpenKey(k => k + 1); setShowMonthCal(true); };
 
   useEffect(() => { setKeyPortalEl(document.getElementById('topbar-key-portal')); }, []);
 
@@ -376,7 +382,7 @@ export default function JournalView() {
 
       {keyPortalEl && createPortal(
         <button
-          onClick={()=>setShowMonthCal(true)}
+          onClick={openMonthCal}
           title="Місячний календар"
           style={{
             width:32, height:32, borderRadius:11, cursor:"pointer",
@@ -391,6 +397,7 @@ export default function JournalView() {
 
       {showMonthCal && (
         <MonthCalendarSheet
+          key={calOpenKey}
           bookings={calBookings}
           onClose={()=>setShowMonthCal(false)}
           onPickDate={(dateStr)=>{ jumpToDate(dateStr); }}
