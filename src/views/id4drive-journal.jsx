@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useContext } from "react";
+import { createPortal } from "react-dom";
 import { ref, onValue } from "firebase/database";
 import { db } from "../firebase";
 import { ThemeContext } from "../theme.js";
 import { useBackClose } from "../ui";
+import { MonthCalendarSheet } from "./id4drive-admin-v5";
 
 export const JOURNAL_READ_KEY = "journal_read_at";
 
@@ -208,6 +210,10 @@ export default function JournalView() {
   const [typeFilter, setTypeFilter] = useState("all");
   const [detail,     setDetail]    = useState(null);
   const [prevReadAt] = useState(getJournalReadAt);
+  const [keyPortalEl, setKeyPortalEl] = useState(null);
+  const [showMonthCal, setShowMonthCal] = useState(false);
+
+  useEffect(() => { setKeyPortalEl(document.getElementById('topbar-key-portal')); }, []);
 
   useEffect(() => {
     setJournalReadAt();
@@ -216,6 +222,23 @@ export default function JournalView() {
     });
     return unsub;
   }, []);
+
+  // Адаптер для MonthCalendarSheet — той самий компонент, що і в Розкладі,
+  // очікує "бронювання" з полями day (зсув від сьогодні) і startMin.
+  // Журнал натомість зберігає плоскі події (new/cancel/reschedule) з ts —
+  // конвертуємо їх у ту саму форму, щоб показати кількість подій за день.
+  const calToday = React.useMemo(() => { const d = new Date(); d.setHours(12,0,0,0); return d; }, []);
+  const calBookings = React.useMemo(() => events.map(ev => {
+    const d = new Date(ev.ts);
+    const dayOnly = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12);
+    const day = Math.round((dayOnly - calToday) / 86400000);
+    return { id: ev.id, day, startMin: d.getHours()*60 + d.getMinutes(), name: ev.name };
+  }), [events, calToday]);
+
+  const jumpToDate = (dateStr) => {
+    const el = document.getElementById(`jgroup-${dateStr}`);
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
 
   const unreadCount = events.filter(e => e.ts > prevReadAt).length;
   const bySection   = section === "admin" ? events.filter(e => e.by === "admin") : events;
@@ -286,8 +309,11 @@ export default function JournalView() {
       )}
 
       {/* Day groups */}
-      {groups.map(group => (
-        <div key={group.key} style={{marginBottom:14}}>
+      {groups.map(group => {
+        const gd = new Date(group.evs[0].ts);
+        const dateStr = `${gd.getFullYear()}-${String(gd.getMonth()+1).padStart(2,'0')}-${String(gd.getDate()).padStart(2,'0')}`;
+        return (
+        <div key={group.key} id={`jgroup-${dateStr}`} style={{marginBottom:14}}>
 
           {/* Day header */}
           <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6,paddingLeft:2}}>
@@ -345,7 +371,31 @@ export default function JournalView() {
             );
           })}
         </div>
-      ))}
+        );
+      })}
+
+      {keyPortalEl && createPortal(
+        <button
+          onClick={()=>setShowMonthCal(true)}
+          title="Місячний календар"
+          style={{
+            width:32, height:32, borderRadius:11, cursor:"pointer",
+            background:`linear-gradient(135deg,color-mix(in srgb,${theme.BLUE} 45%,${BG_DEEP}) 0%,${BG_DEEP} 100%)`,
+            border:`1px solid color-mix(in srgb,${theme.BLUE} 35%,transparent)`,
+            display:"flex", alignItems:"center", justifyContent:"center",
+            flexShrink:0,
+          }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M3 10h18M8 2v4M16 2v4"/></svg>
+        </button>
+      , keyPortalEl)}
+
+      {showMonthCal && (
+        <MonthCalendarSheet
+          bookings={calBookings}
+          onClose={()=>setShowMonthCal(false)}
+          onPickDate={(dateStr)=>{ jumpToDate(dateStr); }}
+        />
+      )}
 
       {detail && (
         <EventDetailSheet

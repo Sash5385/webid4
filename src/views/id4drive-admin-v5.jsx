@@ -6539,4 +6539,4 @@ export default function App() {
   );
 }
 
-export { ScheduleView, SettingsView };
+export { ScheduleView, SettingsView, MonthCalendarSheet };
