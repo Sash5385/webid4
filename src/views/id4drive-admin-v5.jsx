@@ -1121,7 +1121,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   }, [bookings, settings.services]);
   const [windowW, setWindowW] = useState(window.innerWidth);
   const [windowH, setWindowH] = useState(window.innerHeight);
-  const PAST_DAYS = 30;
+  const PAST_DAYS = 365;
   const VBUF = 5;
   const [dayOffset, setDayOffset] = useState(-PAST_DAYS);
   const dragRef = useRef(null);
