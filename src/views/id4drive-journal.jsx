@@ -242,8 +242,15 @@ export default function JournalView() {
   }), [events, calToday]);
 
   const jumpToDate = (dateStr) => {
-    const el = document.getElementById(`jgroup-${dateStr}`);
-    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    // Скрол стартує лише ПІСЛЯ того, як шторка календаря повністю закриється
+    // (та ж затримка, що й запобіжний таймер закриття) — інакше активна
+    // анімація закриття оверлею (position:fixed, zIndex:200) накладається
+    // на активний скрол сторінки, і кнопка календаря в шапці (sticky)
+    // лишається "мертвою" до ручного скролу назад угору.
+    setTimeout(() => {
+      const el = document.getElementById(`jgroup-${dateStr}`);
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 340);
   };
 
   const unreadCount = events.filter(e => e.ts > prevReadAt).length;

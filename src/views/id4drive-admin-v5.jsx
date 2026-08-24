@@ -732,6 +732,7 @@ function MonthCalendarSheet({ bookings, onClose, onPickDate }) {
         position:"fixed", inset:0, zIndex:200, background:shade(0.55),
         display:"flex", alignItems:"flex-end", justifyContent:"center",
         backdropFilter:"blur(8px)",
+        pointerEvents: closing ? "none" : undefined,
         animation: closing ? `_mc-bg-out 0.26s ease-in forwards` : `_mc-bg-in 0.2s ease-out`,
       }}>
         <div onClick={e=>e.stopPropagation()}
