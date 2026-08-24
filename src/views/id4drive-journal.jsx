@@ -74,7 +74,23 @@ function buildDayGroups(events) {
 }
 
 const noun = n => n === 1 ? "подія" : n < 5 ? "події" : "подій";
-const TYPE_PREFIX = { new: "✓", cancel: "✕", reschedule: "↻" };
+const TYPE_PREFIX = { new: "✓", cancel: "✕", reschedule: "↻", new_student: "🆕" };
+
+// Нові реєстрації — окреме джерело даних (users), а не bookings: подія
+// "людина вперше з'явилась у застосунку", а не щось про її запис.
+function buildStudentEvents(data) {
+  const evs = [];
+  if (!data) return evs;
+  Object.entries(data).forEach(([uid, u]) => {
+    if (!u) return;
+    const ts = u.profile?.createdAt || u.createdAt;
+    if (!ts) return;
+    const name = u.profile?.name || u.name || "Новий учень";
+    const phone = u.profile?.phone || u.phone || "";
+    evs.push({ id: `${uid}_reg`, type: "new_student", ts, name, slot: phone, by: "" });
+  });
+  return evs;
+}
 
 function buildEvents(data) {
   const evs = [];
@@ -168,7 +184,7 @@ function EventDetailSheet({ ev, meta, onClose, theme }) {
 
           <div style={{padding:"14px 20px 28px",display:"flex",flexDirection:"column",gap:8}}>
             <InfoRow label="УЧЕНЬ" value={ev.name} valueStyle={{fontSize:16,fontWeight:800,color:theme.TEXT}} theme={theme} />
-            {ev.slot && <InfoRow label="ЗАНЯТТЯ" value={ev.slot} theme={theme} />}
+            {ev.slot && <InfoRow label={ev.type === "new_student" ? "ТЕЛЕФОН" : "ЗАНЯТТЯ"} value={ev.slot} theme={theme} />}
             {byLabel && <InfoRow label="ДІЯ ВІД" value={byLabel} theme={theme} />}
           </div>
         </div>
@@ -199,12 +215,18 @@ export default function JournalView() {
   const glow  = a => `rgba(${theme.GLOW},${a})`;
 
   const EVENT_TYPES = {
-    new:        { label: "Новий запис", color: theme.GREEN, icon: "📅" },
-    cancel:     { label: "Скасовано",   color: theme.RED,   icon: "✗"  },
-    reschedule: { label: "Перенос",     color: theme.GOLD,  icon: "↔"  },
+    new:         { label: "Новий запис", color: theme.GREEN, icon: "📅" },
+    cancel:      { label: "Скасовано",   color: theme.RED,   icon: "✗"  },
+    reschedule:  { label: "Перенос",     color: theme.GOLD,  icon: "↔"  },
+    new_student: { label: "Новий учень", color: theme.BLUE,  icon: "🆕" },
   };
 
-  const [events,     setEvents]    = useState([]);
+  const [bookingEvents, setBookingEvents] = useState([]);
+  const [studentEvents, setStudentEvents] = useState([]);
+  const events = React.useMemo(
+    () => [...bookingEvents, ...studentEvents].sort((a, b) => b.ts - a.ts),
+    [bookingEvents, studentEvents]
+  );
   const [section,    setSection]   = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
   const [detail,     setDetail]    = useState(null);
@@ -220,7 +242,14 @@ export default function JournalView() {
   useEffect(() => {
     setJournalReadAt();
     const unsub = onValue(ref(db, "bookings"), snap => {
-      setEvents(buildEvents(snap.val()));
+      setBookingEvents(buildEvents(snap.val()));
+    });
+    return unsub;
+  }, []);
+
+  useEffect(() => {
+    const unsub = onValue(ref(db, "users"), snap => {
+      setStudentEvents(buildStudentEvents(snap.val()));
     });
     return unsub;
   }, []);
@@ -285,11 +314,12 @@ export default function JournalView() {
       <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:6 }}>
         <span style={{fontSize:10,color:FAINT}}>{bySection.length} {noun(bySection.length)}</span>
       </div>
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:6, marginBottom:12 }}>
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:6, marginBottom:12 }}>
         {[
-          ["new",        "✓ НОВИЙ",     theme.GREEN],
-          ["cancel",     "✕ СКАСОВАНО", theme.RED  ],
-          ["reschedule", "↻ ПЕРЕНОС",   theme.GOLD ],
+          ["new",         "✓ НОВИЙ",     theme.GREEN],
+          ["cancel",      "✕ СКАСОВАНО", theme.RED  ],
+          ["reschedule",  "↻ ПЕРЕНОС",   theme.GOLD ],
+          ["new_student", "🆕 УЧЕНЬ",    theme.BLUE ],
         ].map(([id, lbl, color]) => {
           const active = typeFilter === id;
           const count  = bySection.filter(e => e.type === id).length;
