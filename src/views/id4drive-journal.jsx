@@ -93,6 +93,103 @@ function buildStudentEvents(data) {
   return evs;
 }
 
+// Перші входи в клієнтський застосунок (users/{uid}/firstLoginAt) — окремо
+// від реєстрації: людина могла зайти й нічого не заповнити, але адмін хоче
+// бачити сам факт заходу, а не лише завершену реєстрацію.
+function buildLoginEvents(data) {
+  const evs = [];
+  if (!data) return evs;
+  Object.entries(data).forEach(([uid, u]) => {
+    if (!u || !u.firstLoginAt) return;
+    const name  = u.profile?.name  || u.name  || "";
+    const phone = u.profile?.phone || u.phone || "";
+    evs.push({ id: uid, ts: u.firstLoginAt, name, phone });
+  });
+  return evs.sort((a, b) => b.ts - a.ts);
+}
+
+const LOGIN_READ_KEY = "journal_logins_read_at";
+function getLoginReadAt() { return parseInt(localStorage.getItem(LOGIN_READ_KEY) || "0", 10); }
+function setLoginReadAtStorage() { localStorage.setItem(LOGIN_READ_KEY, Date.now().toString()); }
+
+function LoginsSheet({ events, prevReadAt, onClose, theme }) {
+  const [closing, setClosing] = useState(false);
+  const shade = a => `rgba(${theme.SHADE},${a})`;
+  const glow  = a => `rgba(${theme.GLOW},${a})`;
+  const _close = () => setClosing(true);
+  useBackClose(true, _close);
+
+  return (
+    <>
+      <style>{`
+        @keyframes _ld-up{from{transform:translateY(100%)}to{transform:translateY(0)}}
+        @keyframes _ld-down{from{transform:translateY(0);opacity:1}to{transform:translateY(100%);opacity:0}}
+        @keyframes _ld-bg-in{from{opacity:0}to{opacity:1}}
+        @keyframes _ld-bg-out{from{opacity:1}to{opacity:0}}
+      `}</style>
+      <div
+        onClick={closing ? undefined : _close}
+        style={{
+          position:"fixed",inset:0,zIndex:200,
+          background:shade(0.55),
+          backdropFilter:"blur(8px)",
+          display:"flex",alignItems:"flex-end",justifyContent:"center",
+          animation: closing ? `_ld-bg-out 0.26s ease-in forwards` : `_ld-bg-in 0.2s ease-out`,
+        }}
+      >
+        <div
+          onClick={e => e.stopPropagation()}
+          onAnimationEnd={closing ? () => { setClosing(false); onClose(); } : undefined}
+          style={{
+            width:"100%",maxWidth:480,maxHeight:"70vh",overflowY:"auto",
+            background:theme.BG_DEEP,
+            borderRadius:"24px 24px 0 0",
+            boxShadow:`0 -2px 0 ${glow(0.08)},0 -16px 60px ${shade(0.8)}`,
+            pointerEvents: closing ? "none" : undefined,
+            animation: closing ? `_ld-down 0.26s ease-in forwards` : `_ld-up 0.38s cubic-bezier(0.34,1.56,0.64,1)`,
+          }}
+        >
+          <div style={{width:36,height:4,borderRadius:2,background:glow(0.15),margin:"10px auto 0"}} />
+          <div style={{padding:"16px 20px 14px",borderBottom:`1px solid ${theme.BORDER}`}}>
+            <div style={{fontSize:15,fontWeight:800,color:theme.PURPLE}}>Нові входи в застосунок</div>
+          </div>
+          <div style={{padding:"10px 14px 24px"}}>
+            {events.length === 0 && (
+              <div style={{textAlign:"center",color:theme.DIM,fontSize:13,padding:"20px 0"}}>Ще ніхто не заходив</div>
+            )}
+            {events.map(ev => {
+              const isNew = ev.ts > prevReadAt;
+              return (
+                <div key={ev.id} style={{
+                  display:"flex",alignItems:"center",gap:10,padding:"10px 12px",
+                  borderRadius:12,marginBottom:6,
+                  background:glow(0.04),
+                  border:`1px solid ${theme.BORDER}`,
+                }}>
+                  <div style={{fontSize:13,fontWeight:800,color:"#fff",width:52,textAlign:"center",flexShrink:0,fontVariantNumeric:"tabular-nums"}}>
+                    {formatTime(ev.ts)}
+                  </div>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{display:"flex",alignItems:"center",gap:5}}>
+                      <span style={{fontSize:12.5,fontWeight:700,color:"#fff",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                        {ev.name || ev.phone || "Новий відвідувач"}
+                      </span>
+                      {isNew && <div style={{width:5,height:5,borderRadius:"50%",flexShrink:0,background:"#fff",boxShadow:"0 0 4px #fff"}}/>}
+                    </div>
+                    {ev.name && ev.phone && (
+                      <div style={{fontSize:10.5,marginTop:2,color:"rgba(255,255,255,0.7)"}}>{ev.phone}</div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
 function buildEvents(data) {
   const evs = [];
   if (!data) return evs;
@@ -241,6 +338,13 @@ export default function JournalView() {
   const [calOpenKey, setCalOpenKey] = useState(0);
   const openMonthCal = () => { setCalOpenKey(k => k + 1); setShowMonthCal(true); };
 
+  const [loginEvents, setLoginEvents] = useState([]);
+  const [prevLoginReadAt] = useState(getLoginReadAt);
+  const [loginsSeen, setLoginsSeen] = useState(false);
+  const [showLogins, setShowLogins] = useState(false);
+  const loginBadge = loginsSeen ? 0 : loginEvents.filter(e => e.ts > prevLoginReadAt).length;
+  const openLogins = () => { setShowLogins(true); setLoginsSeen(true); setLoginReadAtStorage(); };
+
   useEffect(() => { setKeyPortalEl(document.getElementById('topbar-key-portal')); }, []);
 
   useEffect(() => {
@@ -253,7 +357,9 @@ export default function JournalView() {
 
   useEffect(() => {
     const unsub = onValue(ref(db, "users"), snap => {
-      setStudentEvents(buildStudentEvents(snap.val()));
+      const val = snap.val();
+      setStudentEvents(buildStudentEvents(val));
+      setLoginEvents(buildLoginEvents(val));
     });
     return unsub;
   }, []);
@@ -418,18 +524,41 @@ export default function JournalView() {
       })}
 
       {keyPortalEl && createPortal(
-        <button
-          onClick={openMonthCal}
-          title="Місячний календар"
-          style={{
-            width:32, height:32, borderRadius:11, cursor:"pointer",
-            background:`linear-gradient(135deg,color-mix(in srgb,${theme.BLUE} 45%,${BG_DEEP}) 0%,${BG_DEEP} 100%)`,
-            border:`1px solid color-mix(in srgb,${theme.BLUE} 35%,transparent)`,
-            display:"flex", alignItems:"center", justifyContent:"center",
-            flexShrink:0,
-          }}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M3 10h18M8 2v4M16 2v4"/></svg>
-        </button>
+        <div style={{display:"flex",alignItems:"center",gap:6}}>
+          <button
+            onClick={openLogins}
+            title="Нові входи в застосунок"
+            style={{
+              position:"relative",
+              width:32, height:32, borderRadius:11, cursor:"pointer",
+              background:`linear-gradient(135deg,color-mix(in srgb,${theme.PURPLE} 45%,${BG_DEEP}) 0%,${BG_DEEP} 100%)`,
+              border:`1px solid color-mix(in srgb,${theme.PURPLE} 35%,transparent)`,
+              display:"flex", alignItems:"center", justifyContent:"center",
+              flexShrink:0,
+            }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+            {loginBadge > 0 && (
+              <div style={{
+                position:"absolute",top:-4,right:-4,
+                background:theme.PURPLE,color:"#fff",borderRadius:10,
+                padding:"1px 5px",fontSize:9,fontWeight:800,
+                boxShadow:`0 0 8px ${theme.PURPLE}88`,lineHeight:1.4,
+              }}>{loginBadge}</div>
+            )}
+          </button>
+          <button
+            onClick={openMonthCal}
+            title="Місячний календар"
+            style={{
+              width:32, height:32, borderRadius:11, cursor:"pointer",
+              background:`linear-gradient(135deg,color-mix(in srgb,${theme.BLUE} 45%,${BG_DEEP}) 0%,${BG_DEEP} 100%)`,
+              border:`1px solid color-mix(in srgb,${theme.BLUE} 35%,transparent)`,
+              display:"flex", alignItems:"center", justifyContent:"center",
+              flexShrink:0,
+            }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M3 10h18M8 2v4M16 2v4"/></svg>
+          </button>
+        </div>
       , keyPortalEl)}
 
       {showMonthCal && (
@@ -438,6 +567,15 @@ export default function JournalView() {
           bookings={calBookings}
           onClose={()=>setShowMonthCal(false)}
           onPickDate={(dateStr)=>{ jumpToDate(dateStr); }}
+        />
+      )}
+
+      {showLogins && (
+        <LoginsSheet
+          events={loginEvents}
+          prevReadAt={prevLoginReadAt}
+          onClose={() => setShowLogins(false)}
+          theme={theme}
         />
       )}
 
