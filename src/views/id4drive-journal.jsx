@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useContext } from "react";
-import { createPortal } from "react-dom";
 import { ref, onValue } from "firebase/database";
 import { db } from "../firebase";
 import { ThemeContext } from "../theme.js";
@@ -210,7 +209,6 @@ export default function JournalView() {
   const [typeFilter, setTypeFilter] = useState("all");
   const [detail,     setDetail]    = useState(null);
   const [prevReadAt] = useState(getJournalReadAt);
-  const [keyPortalEl, setKeyPortalEl] = useState(null);
   const [showMonthCal, setShowMonthCal] = useState(false);
   // Лічильник, а не просто boolean — при кожному тапі на кнопку календар
   // монтується заново (key змінюється), навіть якщо попередній стан
@@ -218,8 +216,6 @@ export default function JournalView() {
   // візуально загубився). Тап завжди гарантовано відкриває свіжу шторку.
   const [calOpenKey, setCalOpenKey] = useState(0);
   const openMonthCal = () => { setCalOpenKey(k => k + 1); setShowMonthCal(true); };
-
-  useEffect(() => { setKeyPortalEl(document.getElementById('topbar-key-portal')); }, []);
 
   useEffect(() => {
     setJournalReadAt();
@@ -387,20 +383,25 @@ export default function JournalView() {
         );
       })}
 
-      {keyPortalEl && createPortal(
-        <button
-          onClick={openMonthCal}
-          title="Місячний календар"
-          style={{
-            width:32, height:32, borderRadius:11, cursor:"pointer",
-            background:`linear-gradient(135deg,color-mix(in srgb,${theme.BLUE} 45%,${BG_DEEP}) 0%,${BG_DEEP} 100%)`,
-            border:`1px solid color-mix(in srgb,${theme.BLUE} 35%,transparent)`,
-            display:"flex", alignItems:"center", justifyContent:"center",
-            flexShrink:0,
-          }}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M3 10h18M8 2v4M16 2v4"/></svg>
-        </button>
-      , keyPortalEl)}
+      {/* position:fixed, а не портал у sticky-шапку — прив'язана напряму до
+          екрана, тому не залежить від скрол-контейнера journal-списку і
+          завжди клікабельна незалежно від того, де саме прокручено сторінку. */}
+      <button
+        onClick={openMonthCal}
+        title="Місячний календар"
+        style={{
+          position:"fixed",
+          top:"calc(4px + env(safe-area-inset-top, 0px))",
+          right:8,
+          zIndex:25,
+          width:32, height:32, borderRadius:11, cursor:"pointer",
+          background:`linear-gradient(135deg,color-mix(in srgb,${theme.BLUE} 45%,${BG_DEEP}) 0%,${BG_DEEP} 100%)`,
+          border:`1px solid color-mix(in srgb,${theme.BLUE} 35%,transparent)`,
+          display:"flex", alignItems:"center", justifyContent:"center",
+          boxShadow:"0 2px 10px rgba(0,0,0,0.35)",
+        }}>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M3 10h18M8 2v4M16 2v4"/></svg>
+      </button>
 
       {showMonthCal && (
         <MonthCalendarSheet
