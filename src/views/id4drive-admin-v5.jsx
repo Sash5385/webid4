@@ -2229,7 +2229,17 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
       const fr = freeResizeRef.current;
       if (!fr) return;
       freeResizeRef.current = null;
-      if (!fr.moved || fr.newDur === fr.startDur) { setFreeResizePreview(null); return; }
+      setFreeResizePreview(null);
+      if (!fr.moved) {
+        // Довгий тап на ручці ресайзу спрацював, але пальцем так і не
+        // поворухнули — так само, як і довгий тап по самому слоту, це запит
+        // на модалку опцій, а не розтягування. РАНІШЕ тут просто нічого не
+        // відбувалось — довгий тап у нижній частині короткого слота (де ця
+        // ручка займає велику частку висоти) "губився" без відкриття модалки.
+        setSlotOptions({ dateStr: fr.dateStr, time: fr.time, startTime: fr.time, slot: fr.slot });
+        return;
+      }
+      if (fr.newDur === fr.startDur) return;
       const [hh, mm] = fr.time.split(":").map(Number);
       const startMin = hh * 60 + mm;
       const newEnd = startMin + fr.newDur;
@@ -2994,7 +3004,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                             const rp = resizeHoldPosRef.current;
                             if (!rp) return;
                             navigator.vibrate?.(20);
-                            freeResizeRef.current = { dateStr: dateStrCol, time, startClientY: rp.lastY, startClientX: rp.startX, startDur: slotDurMin, maxDur: maxDurMin, moved: false, newDur: slotDurMin };
+                            freeResizeRef.current = { dateStr: dateStrCol, time, slot, startClientY: rp.lastY, startClientX: rp.startX, startDur: slotDurMin, maxDur: maxDurMin, moved: false, newDur: slotDurMin };
                           }, 600);
                         }}
                         onPointerMove={e=>{
