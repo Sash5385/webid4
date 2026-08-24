@@ -627,7 +627,9 @@ exports.sendLessonReminders = onSchedule(
   }
 );
 
-// Ручна розсилка адміна → пуш активним учням (останній місяць)
+// Ручна розсилка адміна → пуш УСІМ учням з увімкненими сповіщеннями
+// (раніше — лише активним за останні 30 днів; обмеження прибрано за
+// прямим запитом: розсилка про вільний слот має йти всім).
 exports.onPushTask = onValueCreated(
   { ref: "push_tasks/{taskId}", region: "europe-west1" },
   async (event) => {
@@ -636,13 +638,12 @@ exports.onPushTask = onValueCreated(
     const { date, slots, comment } = task;
     const taskId = event.params.taskId;
 
-    const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
-    const recentSnap = await db.ref("recentStudents").get();
-    const recentUids = recentSnap.exists()
-      ? Object.entries(recentSnap.val()).filter(([, ts]) => ts >= thirtyDaysAgo).map(([uid]) => uid)
+    const tokenSnap = await db.ref("studentTokens").get();
+    const tokened = tokenSnap.exists()
+      ? Object.entries(tokenSnap.val()).filter(([, token]) => !!token).map(([uid, token]) => ({ uid, token }))
       : [];
 
-    if (!recentUids.length) {
+    if (!tokened.length) {
       await db.ref(`push_tasks/${taskId}`).update({ status: "sent", sentCount: 0, sentAt: Date.now() });
       return;
     }
@@ -654,9 +655,6 @@ exports.onPushTask = onValueCreated(
     const title = "🚗 Є вільний слот!";
     const body = `${dateFmt} о ${slotsStr}${comment ? " — " + comment : ""}`;
     const url = `https://id4drive.pro/cabinet?date=${date}${slotsArr[0] ? `&time=${encodeURIComponent(slotsArr[0])}` : ""}`;
-
-    const tokenSnaps = await Promise.all(recentUids.map(uid => db.ref(`users/${uid}/fcmTokens/web/token`).get()));
-    const tokened = tokenSnaps.map((s, i) => ({ token: s.val(), uid: recentUids[i] })).filter(t => t.token);
 
     let sentCount = 0;
     for (let i = 0; i < tokened.length; i += 500) {
@@ -672,7 +670,7 @@ exports.onPushTask = onValueCreated(
       sentCount += res?.successCount || 0;
     }
 
-    await Promise.all(recentUids.map(uid => saveNotification(uid, title, body, "slot_broadcast").catch(() => {})));
+    await Promise.all(tokened.map(({ uid }) => saveNotification(uid, title, body, "slot_broadcast").catch(() => {})));
     await db.ref(`push_tasks/${taskId}`).update({ status: "sent", sentCount, sentAt: Date.now() });
   }
 );
