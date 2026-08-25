@@ -341,7 +341,9 @@ function TopBar({ tab, onChange, settings, setSettings }) {
         ) : (
           <div style={{display:"flex",alignItems:"center",gap:6,flex:1}}>
             <img src="/icon-192.png" alt="ID4Drive" style={{width:22,height:22,borderRadius:"50%",flexShrink:0,boxShadow:"-2px 3px 8px rgba(0,0,0,0.45)"}}/>
-            <div style={{fontSize:13,fontWeight:800,letterSpacing:-0.3,color:theme.TEXT}}>{tabLabel}</div>
+            <div style={{fontSize:13,fontWeight:800,letterSpacing:-0.3,color:theme.TEXT,flex:1}}>{tabLabel}</div>
+            {/* Портал для кнопки «Місячний календар» — рендериться з Journal/Bookings через createPortal, той самий слот що і в Розкладі */}
+            <div id="topbar-key-portal" style={{flex:"0 0 auto",display:"flex",justifyContent:"center",alignItems:"center",minWidth:0}}/>
           </div>
         )}
       </div>
@@ -460,7 +462,12 @@ export default function App() {
   const [selectedBooking,  setSelectedBooking]  = useState(null);
   const [newBookingData,   setNewBookingData]    = useState(null);
   const [chatUnread,    setChatUnread]    = useState(0);
-  const [journalUnread, setJournalUnread] = useState(0);
+  // Розділено на дві частини — записи-події (bookings) і нові реєстрації
+  // учнів (users) — бо це два незалежні onValue-слухачі, і кожен рахує
+  // свою частину бейджа окремо, а бейдж — їхня сума.
+  const [journalUnreadBookings, setJournalUnreadBookings] = useState(0);
+  const [journalUnreadStudents, setJournalUnreadStudents] = useState(0);
+  const journalUnread = journalUnreadBookings + journalUnreadStudents;
 
   const switchTab = t => {
     setTab(t);
@@ -471,7 +478,7 @@ export default function App() {
       setChatUnread(0);
       if ('clearAppBadge' in navigator) navigator.clearAppBadge();
     }
-    if (t === 'journal') setJournalUnread(0);
+    if (t === 'journal') { setJournalUnreadBookings(0); setJournalUnreadStudents(0); }
   };
 
   // Профіль/Історія з модалки запису → відкрити картку учня на вкладці "Учні"
@@ -741,10 +748,28 @@ export default function App() {
           if (b.cancelledAt   && b.cancelledAt   > readAt) cnt++;
           if (b.rescheduledAt && b.rescheduledAt > readAt) cnt++;
         }); });
-        setJournalUnread(cnt);
+        setJournalUnreadBookings(cnt);
       }
     });
   }, [adminUser, processBookingsSnap]);
+
+  // Нові реєстрації учнів — окремий лічильник бейджа "Журнал", щоб адмін
+  // одразу бачив, коли прийшла нова людина (не поточний учень, а саме
+  // новий запис у users з createdAt пізніше за останній перегляд журналу).
+  useEffect(() => {
+    if (!adminUser) return;
+    return onValue(ref(db, "users"), snap => {
+      const data = snap.val();
+      const readAt = parseInt(localStorage.getItem("journal_read_at") || "0", 10);
+      if (!readAt || !data) return;
+      let cnt = 0;
+      Object.values(data).forEach(u => {
+        const ts = u?.profile?.createdAt || u?.createdAt;
+        if (ts && ts > readAt) cnt++;
+      });
+      setJournalUnreadStudents(cnt);
+    });
+  }, [adminUser]);
 
   // Debounce map for move/resize saves (avoids Firebase write on every pointermove)
   const moveSaveTimers = React.useRef({});

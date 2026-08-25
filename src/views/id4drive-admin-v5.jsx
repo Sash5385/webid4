@@ -23,6 +23,16 @@ const PALETTE = [
   { id:"lime",   name:"Лайм",      color:"#a3e635" },
 ];
 
+// Медалі за урок — присвоюються прямо в модалці бронювання (прив'язані до booking.id)
+const BADGE_PRESETS = [
+  { icon:"🏅", label:"Молодець" },
+  { icon:"🥇", label:"Найкращий учень" },
+  { icon:"⭐", label:"Відмінна їзда" },
+  { icon:"🎯", label:"Точне паркування" },
+  { icon:"🚦", label:"Знавець ПДР" },
+  { icon:"🏆", label:"Готовий до іспиту" },
+];
+
 // ═══════════════════════════════════════════════════════════════
 // GLOBAL CSS (slots from v4, rest v3)
 // ═══════════════════════════════════════════════════════════════
@@ -609,7 +619,18 @@ function MonthCalendarSheet({ bookings, onClose, onPickDate }) {
   const [viewM, setViewM] = useState(today0.getMonth());
   const [slideDir, setSlideDir] = useState(0);
 
-  const close = () => setClosing(true);
+  // Закриття покладається на onAnimationEnd — якщо CSS-подія з якоїсь
+  // причини не спрацює (напр. вимкнена анімація у WebView), напівпрозорий
+  // оверлей (zIndex 200, на весь екран) лишиться "приклеєним" і глушитиме
+  // тапи по всій сторінці, включно з кнопкою відкриття цієї ж модалки.
+  // Форсуємо закриття через таймер незалежно від animationend.
+  const closeTimerRef = useRef(null);
+  useEffect(() => () => clearTimeout(closeTimerRef.current), []);
+  const close = () => {
+    setClosing(true);
+    clearTimeout(closeTimerRef.current);
+    closeTimerRef.current = setTimeout(onClose, 320);
+  };
 
   const counts = useMemo(() => {
     const map = {};
@@ -711,6 +732,7 @@ function MonthCalendarSheet({ bookings, onClose, onPickDate }) {
         position:"fixed", inset:0, zIndex:200, background:shade(0.55),
         display:"flex", alignItems:"flex-end", justifyContent:"center",
         backdropFilter:"blur(8px)",
+        pointerEvents: closing ? "none" : undefined,
         animation: closing ? `_mc-bg-out 0.26s ease-in forwards` : `_mc-bg-in 0.2s ease-out`,
       }}>
         <div onClick={e=>e.stopPropagation()}
@@ -1036,6 +1058,12 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   const STICKY_CLR  = isLight ? "rgba(58,140,30,0.92)"    : "rgba(99,211,120,0.9)";
   const SURFACE_HI = SURF_HI, SURFACE_LO = SURF_LO, TEXT_DIM = DIM, TEXT_FAINT = FAINT, ACCENT_HI = ACC_HI, SHADOW_OUT = SO, SHADOW_IN = SI;
   const [showMonthCal, setShowMonthCal] = useState(false);
+  // Лічильник, а не просто boolean — при кожному тапі на кнопку календар
+  // монтується заново (key змінюється), навіть якщо попередній стан
+  // технічно ще "відкрито" (напр. учень прогорнув сторінку і календар
+  // візуально загубився). Тап завжди гарантовано відкриває свіжу шторку.
+  const [calOpenKey, setCalOpenKey] = useState(0);
+  const openMonthCal = () => { setCalOpenKey(k => k + 1); setShowMonthCal(true); };
   const [keyPortalEl, setKeyPortalEl] = useState(null);
   useEffect(() => { setKeyPortalEl(document.getElementById('topbar-key-portal')); }, []);
 
@@ -1111,7 +1139,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   }, [bookings, settings.services]);
   const [windowW, setWindowW] = useState(window.innerWidth);
   const [windowH, setWindowH] = useState(window.innerHeight);
-  const PAST_DAYS = 30;
+  const PAST_DAYS = 365;
   const VBUF = 5;
   const [dayOffset, setDayOffset] = useState(-PAST_DAYS);
   const dragRef = useRef(null);
@@ -1153,6 +1181,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   const [openSlots, setOpenSlots] = useState({}); // { "2025-06-01": ["07:00","08:00",...] }
   const [viewingSlots, setViewingSlots] = useState({});
   const pendingSlotSnapRef = useRef(null);
+  const pendingSlotSnapTimerRef = useRef(null);
   const [genLoadingDays, setGenLoadingDays] = useState(new Set());
   const [isGeneratingAll, setIsGeneratingAll] = useState(false);
   const [genToast, setGenToast] = useState(null); // { absDay, free, blocked }
@@ -1213,7 +1242,22 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
       if (openSlotsRef) openSlotsRef.current = slots;
       if (activeDragIds?.current?.size > 0) {
         pendingSlotSnapRef.current = { slots, viewing };
+        // Запобіжник: якщо activeDragIds "зависне" непорожнім (застарілий id, що
+        // ніколи не видалився — напр. після швидкого дотику одразу до двох
+        // записів), відкладене оновлення слотів інакше НІКОЛИ не застосується,
+        // і новостворені/розблоковані слоти (ключик, тап на день) не з'являлись
+        // би, доки не перезайти в застосунок. Форсуємо застосування через 1.5с,
+        // навіть якщо drag формально ще "активний".
+        clearTimeout(pendingSlotSnapTimerRef.current);
+        pendingSlotSnapTimerRef.current = setTimeout(() => {
+          if (!pendingSlotSnapRef.current) return;
+          const { slots: s, viewing: v } = pendingSlotSnapRef.current;
+          pendingSlotSnapRef.current = null;
+          setOpenSlots(s);
+          setViewingSlots(v);
+        }, 1500);
       } else {
+        clearTimeout(pendingSlotSnapTimerRef.current);
         setOpenSlots(slots);
         setViewingSlots(viewing);
       }
@@ -1435,6 +1479,12 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
     }
   };
 
+  // Повне видалення слота — прибирає запис із Firebase, комірка зникає з сітки
+  const deleteSlot = (dateStr, time) => {
+    const slotId = `slot${time.replace(":", "")}`;
+    remove(ref(db, `timeslots/${dateStr}/${slotId}`)).catch(() => {});
+  };
+
   // Довгий тап: VIP, приватний, надбавка або скидання
   const applySlotOption = (dateStr, time, option) => {
     const slotId = `slot${time.replace(":", "")}`;
@@ -1618,11 +1668,43 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   // Keep calc values fresh for always-on window listeners (avoids stale closure)
   calcRef.current = { PX_PER_MIN, snapMin: settings.snapMin, workStart: effectiveWorkStart, workEnd: effectiveWorkEnd, COL_W, dayOffset, daysShown: settings.daysShown, N_DAYS };
 
+  // Сигнатура часового діапазону видимих записів/слотів (не самих об'єктів) —
+  // щоб авто-висота перераховувалась, коли з'являється запис ПІЗНІШЕ/РАНІШЕ
+  // за вже порахований діапазон (інакше новий пізній запис "вилазив" за межі
+  // екрана, доки користувач не проскролить дні туди-сюди). Зміна ціни/статусу
+  // тощо на span не впливає — висота під час звичайного редагування не стрибає.
+  const autoSpanKey = useMemo(() => {
+    if (!settings.autoHourHeight) return null;
+    const dayFrom = dayOffset + visDayRange.s;
+    const dayTo   = dayOffset + visDayRange.e;
+    let minStart = Infinity, maxEnd = -Infinity;
+    bookings.forEach(b => {
+      if (b.status === "cancelled") return;
+      if (b.day < dayFrom || b.day > dayTo) return;
+      minStart = Math.min(minStart, b.startMin);
+      maxEnd   = Math.max(maxEnd, b.startMin + b.durMin);
+    });
+    for (let d = dayFrom; d <= dayTo; d++) {
+      const daySlots = openSlots[absDayToDateStr(d)];
+      if (!daySlots) continue;
+      Object.entries(daySlots).forEach(([time, slot]) => {
+        if (!slot.available) return;
+        const [hh, mm] = time.split(':').map(Number);
+        const sMin = hh * 60 + mm;
+        minStart = Math.min(minStart, sMin);
+        maxEnd   = Math.max(maxEnd, sMin + (slot.durMin || 60));
+      });
+    }
+    return minStart === Infinity ? null : `${minStart}-${maxEnd}`;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bookings, openSlots, dayOffset, visDayRange.s, visDayRange.e, settings.autoHourHeight]);
+
   // Авто-висота годин ("Авто" замість фіксованих 6/8/9/10/12): підлаштовуємо
   // hourHeightPx під діапазон "перший запис — останній запис" видимих днів
-  // (6..16 годин). Рахуємо тільки при зміні видимого діапазону днів (скрол),
-  // а не на кожен новий/змінений запис — інакше висота "стрибала" б під час
-  // звичайної роботи з розкладом.
+  // (6..16 годин). Рахуємо при зміні видимого діапазону днів (скрол) АБО
+  // коли змінюється сам часовий діапазон записів (autoSpanKey) — напр. додали
+  // пізній запис. Просте редагування (ціна/статус), що span не міняє, висоту
+  // не перераховує — щоб вона не "стрибала" під час звичайної роботи.
   useEffect(() => {
     if (!settings.autoHourHeight) return;
     const dayFrom = dayOffset + visDayRange.s;
@@ -1664,7 +1746,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
     const headerOffsetReal = timeCol
       ? timeCol.getBoundingClientRect().top - el.getBoundingClientRect().top + el.scrollTop
       : (2 + HEADER_H + 10);
-    const BOTTOM_BUFFER = 40; // місце під плашку суми дня знизу
+    const BOTTOM_BUFFER = 56; // місце під плашку суми дня знизу + запас на неточність вимірювання
     const usableH = Math.max(200, el.clientHeight - headerOffsetReal - BOTTOM_BUFFER);
     const autoPxPerMinBase = availGridH / totalMin; // той самий множник, що й у реальному PX_PER_MIN
     const targetHpx = Math.max(60, Math.round(usableH / (n * autoPxPerMinBase)));
@@ -1678,7 +1760,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
       return { ...s, hourHeightPx: targetHpx };
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visDayRange.s, visDayRange.e, settings.autoHourHeight]);
+  }, [visDayRange.s, visDayRange.e, settings.autoHourHeight, autoSpanKey]);
 
   // Прокрутка до першого запису — спрацьовує тільки після авто-перерахунку
   // висоти (autoScrollToMinRef виставляється лише вище), не після ручного
@@ -2147,7 +2229,17 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
       const fr = freeResizeRef.current;
       if (!fr) return;
       freeResizeRef.current = null;
-      if (!fr.moved || fr.newDur === fr.startDur) { setFreeResizePreview(null); return; }
+      setFreeResizePreview(null);
+      if (!fr.moved) {
+        // Довгий тап на ручці ресайзу спрацював, але пальцем так і не
+        // поворухнули — так само, як і довгий тап по самому слоту, це запит
+        // на модалку опцій, а не розтягування. РАНІШЕ тут просто нічого не
+        // відбувалось — довгий тап у нижній частині короткого слота (де ця
+        // ручка займає велику частку висоти) "губився" без відкриття модалки.
+        setSlotOptions({ dateStr: fr.dateStr, time: fr.time, startTime: fr.time, slot: fr.slot });
+        return;
+      }
+      if (fr.newDur === fr.startDur) return;
       const [hh, mm] = fr.time.split(":").map(Number);
       const startMin = hh * 60 + mm;
       const newEnd = startMin + fr.newDur;
@@ -2525,7 +2617,12 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
             const dateStrCol = absDayToDateStr(absDay);
             // Записи цього дня — для приховування вільних слотів, які запис накрив
             // (навіть наполовину): такий слот не показуємо й не пропонуємо клієнту.
-            const colBookings = bookings.filter(b => b.day === absDay && b.status !== "cancelled");
+            // Порівнюємо за абсолютною датою (b.date), а не відносним b.day — той
+            // рахується один раз від "сьогодні" в момент обробки снепшоту з Firebase
+            // і застаріває, якщо застосунок лишається відкритим через опівніч без
+            // нових bookings-подій: вільний слот тоді хибно лишався "накритим"
+            // записом, що вже фактично посунувся на інший відносний день.
+            const colBookings = bookings.filter(b => b.date === dateStrCol && b.status !== "cancelled");
             const slotCovered = (mn) => colBookings.some(b => b.startMin < mn + 60 && b.startMin + b.durMin > mn);
             const isOpenCol = Object.entries(openSlots[dateStrCol] || {}).some(([t, s]) => {
               if (!s.available) return false;
@@ -2907,7 +3004,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                             const rp = resizeHoldPosRef.current;
                             if (!rp) return;
                             navigator.vibrate?.(20);
-                            freeResizeRef.current = { dateStr: dateStrCol, time, startClientY: rp.lastY, startClientX: rp.startX, startDur: slotDurMin, maxDur: maxDurMin, moved: false, newDur: slotDurMin };
+                            freeResizeRef.current = { dateStr: dateStrCol, time, slot, startClientY: rp.lastY, startClientX: rp.startX, startDur: slotDurMin, maxDur: maxDurMin, moved: false, newDur: slotDurMin };
                           }, 600);
                         }}
                         onPointerMove={e=>{
@@ -3022,6 +3119,11 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                 const visEnd   = Math.min(b.startMin + b.durMin, weMin);
                 const top    = minToPx(visStart);
                 const height = (visEnd - visStart) * PX_PER_MIN;
+                // На стиснутих слотах фіксовані 12px-хендли зверху+знизу (24px разом)
+                // перекривали весь запис, не лишаючи місця для тапу "відкрити модалку" —
+                // звужуємо хендли пропорційно висоті (разом ~1/3 слоту), лишаючи
+                // тапабельний центр 2/3 висоти.
+                const handleH = Math.min(12, Math.max(4, Math.floor(height / 6)));
                 const c = slotColor(b);
                 const isPending = b.status==="pending" && settings.pendingEnabled;
                 const isCancelling = cancellingSet.has(b.id);
@@ -3096,7 +3198,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                         transition:"opacity 0.4s, filter 0.4s",
                       }}>
                       {/* Ресайз відключений на об'єднаній картці — невідомо, який із поглинутих записів стискати/розтягувати */}
-                      {!b._mergedIds && <div className="slot-handle top" onPointerDown={e=>onPointerDown(e,b,"top")}/>}
+                      {!b._mergedIds && <div className="slot-handle top" style={{height:handleH}} onPointerDown={e=>onPointerDown(e,b,"top")}/>}
                       {!isBlock && !isVipSlot && !isPersonal && <div className="shine-layer"/>}
                       {isVipSlot && height >= 14 && (
                         <span style={{fontSize:11, lineHeight:1}}>👑</span>
@@ -3225,7 +3327,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                           <span style={{fontSize:7, fontWeight:800, color:GOLD, lineHeight:1}}>{queueCount}</span>
                         </div>
                       )}
-                      {!b._mergedIds && <div className="slot-handle bottom" onPointerDown={e=>onPointerDown(e,b,"bottom")}/>}
+                      {!b._mergedIds && <div className="slot-handle bottom" style={{height:handleH}} onPointerDown={e=>onPointerDown(e,b,"bottom")}/>}
 
                     </div>
 
@@ -3361,7 +3463,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
     {/* Кнопка «📅 Місячний календар» — портується в шапку (по центру, замість лого; ключик — тепер у стовпці часу) */}
     {keyPortalEl && createPortal(
       <button
-        onClick={()=>setShowMonthCal(true)}
+        onClick={openMonthCal}
         title="Місячний календар"
         style={{
           width:32, height:32, borderRadius:11, cursor:"pointer",
@@ -3376,6 +3478,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
 
     {showMonthCal && (
       <MonthCalendarSheet
+        key={calOpenKey}
         bookings={bookings}
         onClose={()=>setShowMonthCal(false)}
         onPickDate={(dateStr)=>{ if (setJumpTarget) setJumpTarget({ date: dateStr, ts: Date.now() }); }}
@@ -3845,6 +3948,18 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                 <span>{_so.slot?.adminBlocked ? "🔓" : "🚫"}</span>
                 {_so.slot?.adminBlocked ? "Розблокувати слот" : "Заблокувати слот"}
               </button>
+              {/* Видалити слот повністю */}
+              <button onClick={()=>{
+                deleteSlot(_so.dateStr, fmtTime(_soSelMin));
+                _closeSO();
+              }} style={{
+                width:"100%",padding:"13px 14px",border:"none",cursor:"pointer",
+                background:"rgba(239,68,68,0.09)",borderRadius:12,
+                color:"#f87171",fontSize:15,fontWeight:700,
+                display:"flex",alignItems:"center",gap:10,
+              }}>
+                <span>🗑️</span> Видалити слот
+              </button>
             </div>
             {/* Надбавки — чіпи */}
             <div style={{padding:"4px 16px 32px"}}>
@@ -4247,7 +4362,11 @@ function computeBookingPrice(b, services) {
     : b.price && b.durationHours
       ? Math.round((b.price / (b.durationHours * 60)) * b.durMin)
       : (b.price || 0);
-  return base + (b.surcharge || 0);
+  // Знижка учня (грн/год, фіксована сума) — діє на годину, тож масштабується
+  // на тривалість запису (2 год = знижка ×2). Не застосовується там, де ціну
+  // виставлено вручну (manualPrice — свідомий override адміна).
+  const discount = (b.discount || 0) * (b.durMin / 60);
+  return Math.max(0, Math.round(base + (b.surcharge || 0) - discount));
 }
 
 function BookingModal({ booking, onClose, onAction, settings, bookings, onViewStudent, mergeInfo }) {
@@ -4262,6 +4381,9 @@ function BookingModal({ booking, onClose, onAction, settings, bookings, onViewSt
   const [editRate, setEditRate] = useState(0);
   const [maneuverState, setManeuverState] = useState({});
   const [maneuverCounts, setManeuverCounts] = useState({});
+  const [maneuverResults, setManeuverResults] = useState({});
+  const [allBadges, setAllBadges] = useState({});
+  const [badgePickerOpen, setBadgePickerOpen] = useState(false);
   const [filmingConsent, setFilmingConsent] = useState(null);
   useEffect(() => {
     if (!booking || !booking.userId) { setFilmingConsent(null); return; }
@@ -4297,17 +4419,47 @@ function BookingModal({ booking, onClose, onAction, settings, bookings, onViewSt
   useEffect(() => {
     if (!booking) return;
     setManeuverState(booking.maneuvers || {});
-    if (!booking.userId) { setManeuverCounts({}); return; }
+    setManeuverResults(booking.maneuverResults || {});
+    setBadgePickerOpen(false);
+    if (!booking.userId) { setManeuverCounts({}); setAllBadges({}); return; }
     const r = ref(db, `users/${booking.userId}/maneuverCounts`);
     const unsub = onValue(r, snap => setManeuverCounts(snap.val() || {}));
-    return () => unsub();
+    const rb = ref(db, `users/${booking.userId}/badges`);
+    const unsubB = onValue(rb, snap => setAllBadges(snap.val() || {}));
+    return () => { unsub(); unsubB(); };
   }, [booking]);
 
   const toggleManeuver = (key) => {
     if (!booking || maneuverState[key]) return;
     setManeuverState(s => ({ ...s, [key]: true }));
+    setManeuverResults(s => ({ ...s, [key]: "success" }));
     update(ref(db, `bookings/${booking.userId}/${booking.id}/maneuvers`), { [key]: true }).catch(()=>{});
+    update(ref(db, `bookings/${booking.userId}/${booking.id}/maneuverResults`), { [key]: "success" }).catch(()=>{});
     update(ref(db, `users/${booking.userId}/maneuverCounts`), { [key]: increment(1) }).catch(()=>{});
+    update(ref(db, `users/${booking.userId}/maneuverSuccessCounts`), { [key]: increment(1) }).catch(()=>{});
+  };
+
+  // Перемикач "вдало/невдало" — доступний лише для вже відпрацьованого в
+  // цьому уроці маневру. За замовчуванням маневр рахується вдалим (щоб не
+  // додавати зайвий тап на типовий кейс); адмін може позначити невдалу спробу.
+  const toggleManeuverResult = (key) => {
+    if (!booking || !maneuverState[key]) return;
+    const next = (maneuverResults[key] || "success") === "success" ? "fail" : "success";
+    setManeuverResults(s => ({ ...s, [key]: next }));
+    update(ref(db, `bookings/${booking.userId}/${booking.id}/maneuverResults`), { [key]: next }).catch(()=>{});
+    update(ref(db, `users/${booking.userId}/maneuverSuccessCounts`), { [key]: increment(next === "success" ? 1 : -1) }).catch(()=>{});
+  };
+
+  // Медаль за конкретний урок — прив'язана до booking.id, тому клієнт може
+  // показати її саме біля цього завершеного запису, а не загальним списком.
+  const awardBookingBadge = (icon, label) => {
+    if (!booking) return;
+    fbPush(ref(db, `users/${booking.userId}/badges`), { icon, label, awardedAt: Date.now(), bookingId: booking.id }).catch(()=>{});
+    setBadgePickerOpen(false);
+  };
+  const removeBookingBadge = (badgeId) => {
+    if (!booking) return;
+    remove(ref(db, `users/${booking.userId}/badges/${badgeId}`)).catch(()=>{});
   };
 
   // booking може стати null синхронно (напр. cancel обнуляє вибір), поки closing=true.
@@ -4331,6 +4483,7 @@ function BookingModal({ booking, onClose, onAction, settings, bookings, onViewSt
   // сумарну ціну й тривалість (booking сам лишається одним "чесним" записом
   // для дій: скасувати/неявка/повтор/редагування діють лише на нього).
   const durMinDisplay = mergeInfo ? mergeInfo.durMin : booking.durMin;
+  const discountAmtDisplay = booking.discount ? Math.round(booking.discount * booking.durMin / 60) : 0;
   const price = mergeInfo ? mergeInfo.price : computeBookingPrice(booking, settings.services);
   const ini   = booking.name.trim().split(" ").slice(0, 2).map(w => w[0]).join("");
   const typeLabel = booking.type === "school" ? "🎓 Автошкола" : "🚗 Приватний";
@@ -4496,7 +4649,7 @@ function BookingModal({ booking, onClose, onAction, settings, bookings, onViewSt
             {[
               { label:"Дата",  val:`${day.num} ${day.month}`, sub:day.label },
               { label:"Час",   val:`${fmtTime(booking.startMin)}`, sub:`–${fmtTime(booking.startMin+durMinDisplay)}` },
-              { label:"Ціна",  val:`${price}₴`, sub: mergeInfo ? `${mergeInfo.count} записи, ${durMinDisplay}хв` : booking.surcharge ? `+${booking.surcharge}₴` : (svc ? `${svc.duration}хв` : "—"), gold: !!booking.surcharge && !mergeInfo },
+              { label:"Ціна",  val:`${price}₴`, sub: mergeInfo ? `${mergeInfo.count} записи, ${durMinDisplay}хв` : booking.surcharge && discountAmtDisplay ? `+${booking.surcharge}₴ / −${discountAmtDisplay}₴` : booking.surcharge ? `+${booking.surcharge}₴` : discountAmtDisplay ? `−${discountAmtDisplay}₴ знижка` : (svc ? `${svc.duration}хв` : "—"), gold: !!booking.surcharge && !mergeInfo },
             ].map(({ label, val, sub, gold }, i) => (
               <div key={i} style={{
                 padding:"11px 6px",background:BG_DEEP,
@@ -4523,29 +4676,83 @@ function BookingModal({ booking, onClose, onAction, settings, bookings, onViewSt
               ].map(m => {
                 const active = !!maneuverState[m.key];
                 const count = maneuverCounts[m.key] || 0;
+                const isSuccess = (maneuverResults[m.key] || "success") === "success";
                 return (
-                  <button key={m.key} onClick={() => toggleManeuver(m.key)} disabled={active} style={{
-                    position:"relative", fontFamily:"inherit",
-                    background: active ? `linear-gradient(155deg,${PURPLE},color-mix(in srgb,${PURPLE} 55%,#000))` : BG_DEEP,
-                    border:`1.5px solid ${active ? PURPLE : ink(0.1)}`,
-                    borderRadius:12, padding:"10px 4px",
-                    textAlign:"center", fontSize:10.5, fontWeight:700,
-                    color: active ? "#fff" : TEXT_DIM,
-                    cursor: active ? "default" : "pointer",
-                    boxShadow: active ? `0 3px 12px ${PURPLE}66` : "none",
-                  }}>
-                    {m.label}
+                  <div key={m.key} style={{position:"relative"}}>
+                    <button onClick={() => toggleManeuver(m.key)} style={{
+                      width:"100%", fontFamily:"inherit",
+                      background: active ? `linear-gradient(155deg,${PURPLE},color-mix(in srgb,${PURPLE} 55%,#000))` : BG_DEEP,
+                      border:`1.5px solid ${active ? PURPLE : ink(0.1)}`,
+                      borderRadius:12, padding:"10px 4px",
+                      textAlign:"center", fontSize:10.5, fontWeight:700,
+                      color: active ? "#fff" : TEXT_DIM,
+                      cursor: active ? "default" : "pointer",
+                      boxShadow: active ? `0 3px 12px ${PURPLE}66` : "none",
+                    }}>
+                      {m.label}
+                    </button>
                     <div style={{
                       position:"absolute", top:-7, right:-6,
                       background:GOLD, color:"#1a1200", fontSize:9, fontWeight:900,
                       width:18, height:18, borderRadius:"50%",
                       display:"flex", alignItems:"center", justifyContent:"center",
-                      border:`2px solid ${BG_DEEP}`,
+                      border:`2px solid ${BG_DEEP}`, pointerEvents:"none",
                     }}>{count}</div>
-                  </button>
+                    {active && (
+                      <div onClick={() => toggleManeuverResult(m.key)} style={{
+                        position:"absolute", bottom:-7, right:-6,
+                        background: isSuccess ? GREEN : RED, color:"#fff", fontSize:10, fontWeight:900,
+                        width:18, height:18, borderRadius:"50%",
+                        display:"flex", alignItems:"center", justifyContent:"center",
+                        border:`2px solid ${BG_DEEP}`, cursor:"pointer",
+                      }} title={isSuccess ? "Вдало (тап — позначити невдало)" : "Невдало (тап — позначити вдало)"}>
+                        {isSuccess ? "✓" : "✕"}
+                      </div>
+                    )}
+                  </div>
                 );
               })}
             </div>
+          </div>
+
+          {/* Медаль за урок — прив'язана до цього booking, видно учню біля завершеного запису */}
+          <div style={{padding:"10px 14px 0"}}>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6}}>
+              <div style={{fontSize:9,fontWeight:700,letterSpacing:1,color:TEXT_FAINT,textTransform:"uppercase"}}>
+                🏅 Медаль за урок
+              </div>
+              <div onClick={() => setBadgePickerOpen(o => !o)} style={{
+                fontSize:11,fontWeight:800,color:GOLD,cursor:"pointer",padding:"2px 8px",
+                borderRadius:8,background:`${GOLD}22`,
+              }}>{badgePickerOpen ? "Закрити" : "+ Додати"}</div>
+            </div>
+            {Object.entries(allBadges).filter(([,b])=>b.bookingId===booking.id).length > 0 && (
+              <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:badgePickerOpen?8:0}}>
+                {Object.entries(allBadges).filter(([,b])=>b.bookingId===booking.id).map(([bid,b])=>(
+                  <div key={bid} onClick={()=>removeBookingBadge(bid)} title="Тап — прибрати" style={{
+                    display:"flex",alignItems:"center",gap:5,padding:"5px 9px",borderRadius:20,
+                    background:`${GOLD}18`,border:`1px solid ${GOLD}44`,cursor:"pointer",
+                  }}>
+                    <span style={{fontSize:14}}>{b.icon}</span>
+                    <span style={{fontSize:11,fontWeight:700,color:TEXT}}>{b.label}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            {badgePickerOpen && (
+              <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:7,paddingBottom:4}}>
+                {BADGE_PRESETS.map((bp,i)=>(
+                  <button key={i} onClick={()=>awardBookingBadge(bp.icon,bp.label)} style={{
+                    display:"flex",flexDirection:"column",alignItems:"center",gap:4,
+                    padding:"9px 4px",borderRadius:12,border:`1px solid ${ink(0.1)}`,cursor:"pointer",
+                    background:BG_DEEP,fontFamily:"inherit",
+                  }}>
+                    <span style={{fontSize:18}}>{bp.icon}</span>
+                    <span style={{fontSize:9,fontWeight:700,color:TEXT_DIM,textAlign:"center",lineHeight:1.2}}>{bp.label}</span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Queue */}
@@ -6118,6 +6325,7 @@ export default function App() {
           hoursDone: raw.hours || raw.hoursDone || 0,
           categoryId: raw.categoryId || null,
           isVipOnly:  raw.isVipOnly || false,
+          discount: usersMapRef.current[uid]?.discount || 0,
         });
       });
     });
@@ -6360,4 +6568,4 @@ export default function App() {
   );
 }
 
-export { ScheduleView, SettingsView };
+export { ScheduleView, SettingsView, MonthCalendarSheet };

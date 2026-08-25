@@ -87,7 +87,7 @@ function StudentForm({ initial, onSave, onCancel, saveLabel="Зберегти" }
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7}}>
         <Field label="Ім'я"      value={d.name||""}     onChange={v=>upd("name",v)}     placeholder="Ім'я Прізвище" style={{marginBottom:0}}/>
         <Field label="Телефон"   value={d.phone||""}    onChange={v=>upd("phone",v)}    placeholder="+380..." style={{marginBottom:0}}/>
-        <Field label="Знижка %"  value={d.discount||""} onChange={v=>upd("discount",v)} placeholder="0" type="number" style={{marginBottom:0}}/>
+        <Field label="Знижка ₴/год"  value={d.discount||""} onChange={v=>upd("discount",v.replace(/[^\d]/g,""))} placeholder="0" type="text" inputMode="numeric" style={{marginBottom:0}}/>
         <div>
           <div style={{fontSize:10,color:FAINT,letterSpacing:1,marginBottom:5}}>ТИП</div>
           <div style={{display:"flex",gap:6}}>
@@ -189,7 +189,9 @@ function StudentCard({ s, onSelect, settings }) {
 }
 
 // ─── STUDENT DETAIL SHEET ────────────────────────────────────────
-function StudentDetailSheet({ s, onClose, onUpdate, onDelete, onBlock, autoOpenHistory }) {
+const MANEUVER_LABELS = { rozvorot:"Розворот", parking90:"Паркування 90", parking45:"Паркування 45" };
+
+function StudentDetailSheet({ s, onClose, onUpdate, onDelete, onBlock, onRemoveBadge, autoOpenHistory }) {
   const { BG_DEEP, SURF_HI, SURFACE, BORDER, TEXT, DIM, FAINT, ACCENT, ACC_HI, GREEN, BLUE, GOLD, RED, SO, SI } = useContext(ThemeContext);
   const { shade, glow, ink } = useFX();
   const [closing,      setClosing]     = useState(false);
@@ -331,7 +333,7 @@ function StudentDetailSheet({ s, onClose, onUpdate, onDelete, onBlock, autoOpenH
           </div>
 
           {/* Body (scrollable) */}
-          <div style={{flex:1,overflowY:"auto",padding:"14px 16px 28px",display:"flex",flexDirection:"column",gap:10}}>
+          <div style={{flex:1,overflowY:"auto",padding:"14px 16px calc(28px + env(safe-area-inset-bottom))",display:"flex",flexDirection:"column",gap:10}}>
 
             {editMode ? (
               <StudentForm
@@ -373,8 +375,8 @@ function StudentDetailSheet({ s, onClose, onUpdate, onDelete, onBlock, autoOpenH
                     <div style={{fontSize:14,fontWeight:700,color:TEXT}}>{s.phone||"—"}</div>
                   </div>
                   <div style={{width:88,background:glow(0.04),borderRadius:10,padding:"9px 12px",border:`1px solid ${BORDER}`,textAlign:"center"}}>
-                    <div style={{fontSize:9,color:FAINT,letterSpacing:1,textTransform:"uppercase",marginBottom:3}}>Знижка</div>
-                    <div style={{fontSize:18,fontWeight:900,color:s.discount>0?GOLD:DIM}}>{s.discount||0}%</div>
+                    <div style={{fontSize:9,color:FAINT,letterSpacing:1,textTransform:"uppercase",marginBottom:3}}>Знижка/год</div>
+                    <div style={{fontSize:18,fontWeight:900,color:s.discount>0?GOLD:DIM}}>{s.discount||0}₴</div>
                   </div>
                 </div>
 
@@ -455,6 +457,46 @@ function StudentDetailSheet({ s, onClose, onUpdate, onDelete, onBlock, autoOpenH
                     color:s.filmingConsent===undefined?FAINT:(s.filmingConsent?GREEN:RED),
                     background:s.filmingConsent===undefined?glow(0.06):(s.filmingConsent?`${GREEN}1a`:`${RED}1a`),
                   }}>{s.filmingConsent===undefined?"Не вказано":(s.filmingConsent?"Так":"Ні")}</span>
+                </div>
+
+                {/* Маневри — статистика спроб/успіху */}
+                {Object.keys(s.maneuverCounts||{}).length > 0 && (
+                  <div style={{background:glow(0.04),borderRadius:10,padding:"10px 12px",border:`1px solid ${BORDER}`}}>
+                    <div style={{fontSize:9,color:FAINT,letterSpacing:1,textTransform:"uppercase",marginBottom:8}}>🚗 Маневри</div>
+                    <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                      {Object.entries(MANEUVER_LABELS).filter(([key])=>s.maneuverCounts[key]).map(([key,label])=>{
+                        const attempts = s.maneuverCounts[key] || 0;
+                        const success = s.maneuverSuccessCounts?.[key] || 0;
+                        const pct = attempts ? Math.round(success/attempts*100) : 0;
+                        return (
+                          <div key={key} style={{display:"flex",alignItems:"center",gap:8}}>
+                            <div style={{flex:1,fontSize:12,fontWeight:700,color:TEXT}}>{label}</div>
+                            <div style={{fontSize:11,fontWeight:800,color: pct>=70?GREEN:pct>=40?GOLD:RED}}>{success}/{attempts} ({pct}%)</div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Медалі — видаються за конкретний урок у модалці бронювання */}
+                <div style={{background:glow(0.04),borderRadius:10,padding:"10px 12px",border:`1px solid ${BORDER}`}}>
+                  <div style={{fontSize:9,color:FAINT,letterSpacing:1,textTransform:"uppercase",marginBottom:8}}>🏅 Медалі</div>
+                  {Object.keys(s.badges||{}).length === 0 ? (
+                    <div style={{fontSize:11,color:FAINT}}>Ще немає медалей</div>
+                  ) : (
+                    <div style={{display:"flex",flexWrap:"wrap",gap:7}}>
+                      {Object.entries(s.badges).sort((a,b)=>(b[1].awardedAt||0)-(a[1].awardedAt||0)).map(([bid,b])=>(
+                        <div key={bid} onClick={()=>onRemoveBadge(s.id,bid)} title="Тап — прибрати" style={{
+                          display:"flex",alignItems:"center",gap:5,padding:"5px 9px",borderRadius:20,
+                          background:`${GOLD}18`,border:`1px solid ${GOLD}44`,cursor:"pointer",
+                        }}>
+                          <span style={{fontSize:14}}>{b.icon}</span>
+                          <span style={{fontSize:11,fontWeight:700,color:TEXT}}>{b.label}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 {/* Notes */}
@@ -595,6 +637,8 @@ export default function StudentsView({ studentJump, onStudentJumpHandled, bookin
           noIntervalLimit:u.noIntervalLimit||false,
           filmingConsent:p.filmingConsent,
           createdAt:p.createdAt||u.createdAt||null,
+          maneuverCounts:u.maneuverCounts||{}, maneuverSuccessCounts:u.maneuverSuccessCounts||{},
+          badges:u.badges||{},
         };
       }));
       setLoading(false);
@@ -615,6 +659,9 @@ export default function StudentsView({ studentJump, onStudentJumpHandled, bookin
   const deleteStudent = id => {
     setStudents(ss=>ss.filter(x=>x.id!==id));
     remove(ref(db,`users/${id}`)).catch(()=>{});
+  };
+  const removeBadge = (id, badgeId) => {
+    remove(ref(db,`users/${id}/badges/${badgeId}`)).catch(()=>{});
   };
   const createStudent = async (data) => {
     const newRef = await push(ref(db,"users"),{
@@ -770,6 +817,7 @@ export default function StudentsView({ studentJump, onStudentJumpHandled, bookin
           onUpdate={updateStudent}
           onDelete={deleteStudent}
           onBlock={block}
+          onRemoveBadge={removeBadge}
           autoOpenHistory={autoOpenHistory}
         />,
         document.body

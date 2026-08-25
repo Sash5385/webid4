@@ -139,7 +139,7 @@ export function Section({ title, icon, children, right, defaultOpen = false }) {
 }
 
 // ── Field: labelled input / textarea ───────────────────────────
-export function Field({ label, value, onChange, placeholder, type = "text", textarea = false, rows = 3, style = {} }) {
+export function Field({ label, value, onChange, placeholder, type = "text", inputMode, textarea = false, rows = 3, style = {} }) {
   const { BG_DEEP, BORDER, TEXT, FAINT } = useContext(ThemeContext);
   const base = { width: "100%", background: BG_DEEP, border: `1px solid ${BORDER}`, borderRadius: RADIUS.control, padding: PAD.control, color: TEXT, fontSize: 14, outline: "none", boxSizing: "border-box", fontFamily: "inherit" };
   return (
@@ -147,7 +147,7 @@ export function Field({ label, value, onChange, placeholder, type = "text", text
       {label && <div style={{ fontSize: 10, color: FAINT, letterSpacing: 1, marginBottom: 5 }}>{label.toUpperCase()}</div>}
       {textarea
         ? <textarea value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} rows={rows} style={{ ...base, resize: "vertical" }} />
-        : <input type={type} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} style={base} />}
+        : <input type={type} inputMode={inputMode} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} style={base} />}
     </div>
   );
 }
