@@ -377,7 +377,8 @@ const DEFAULT_SETTINGS = {
   studentCanReschedule: true,
   studentCanCancel: true,
   bookCutoffHours: 2,       // min hours before slot for booking
-  calendarOpenDays: 30,     // how many days ahead visible to students
+  calendarOpenDays: 30,     // how many days ahead visible to students (private lessons)
+  schoolCalendarOpenDays: 14, // how many days ahead visible to school (автошкола) students
   minBookingIntervalDays: 0, // min days between any two bookings (0 = disabled)
   // sticky time
   stickyTime: "both",       // before | after | both

@@ -477,6 +477,9 @@ select{color-scheme:${isKava?"light":"dark"}}
           <Row label={t('set.restr.calendar')} hint={t('set.restr.calendar_h')}>
             <NumInput value={settings.calendarOpenDays} onChange={v=>upd("calendarOpenDays",v)} min={1} max={365} suffix={` ${t('days')}`}/>
           </Row>
+          <Row label={t('set.restr.schoolCalendar')} hint={t('set.restr.schoolCalendar_h')}>
+            <NumInput value={settings.schoolCalendarOpenDays ?? 14} onChange={v=>upd("schoolCalendarOpenDays",v)} min={1} max={365} suffix={` ${t('days')}`}/>
+          </Row>
           <Row label={lang==="en"?"Min interval between bookings":"Мінімальний інтервал між записами"} hint={lang==="en"?"Minimum days between any two bookings for one student. 0 — disabled.":"Мінімум днів між будь-якими двома записами учня. 0 — без обмеження."} last>
             <NumInput value={settings.minBookingIntervalDays ?? 0} onChange={v=>upd("minBookingIntervalDays",v)} min={0} max={30} suffix={` ${t('days')}`}/>
           </Row>

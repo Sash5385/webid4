@@ -368,7 +368,7 @@ const DEFAULT_SETTINGS = {
   workStart:7, workEnd:20, weekends:[6], daysShown:6, snapMin:30, slotCreateStep:30, hourHeightPx:60, autoHourHeight:false,
   lunchEnabled:true, lunchStart:12, lunchEnd:13, customBlocks:[], pendingEnabled:false,
   theme:"dark", language:"uk", queueAutoFifo:true, queueBroadcast:false, queueManual:false,
-  studentCanReschedule:true, studentCanCancel:true, bookCutoffHours:2, calendarOpenDays:30,
+  studentCanReschedule:true, studentCanCancel:true, bookCutoffHours:2, calendarOpenDays:30, schoolCalendarOpenDays:14,
   stickyTime:"both", notifLocation:"topbar", showCompleteBtn:true,
   navTabs:["schedule","journal","bookings","students","services","chats","templates","stats","settings"],
   autoReminders:[
@@ -655,6 +655,7 @@ export default function App() {
         studentCanCancel:     settings.studentCanCancel     ?? true,
         bookCutoffHours:      settings.bookCutoffHours      ?? 2,
         calendarOpenDays:     settings.calendarOpenDays     ?? 30,
+        schoolCalendarOpenDays: settings.schoolCalendarOpenDays ?? 14,
         stickyTime:      settings.stickyTime      ?? "both",
         notifLocation:   settings.notifLocation   ?? "topbar",
         navTabs:         settings.navTabs         ?? [],

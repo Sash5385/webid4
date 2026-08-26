@@ -195,8 +195,10 @@ const S = {
   'set.restr.cancel':     { uk:'Учень може скасовувати',       en:'Student can cancel'     },
   'set.restr.cutoff':     { uk:'Заборона запису',               en:'Booking cut-off'        },
   'set.restr.cutoff_h':   { uk:'Годин до уроку',                en:'Hours before lesson'    },
-  'set.restr.calendar':   { uk:'Календар наперед',              en:'Calendar ahead'         },
-  'set.restr.calendar_h': { uk:'Днів видно учневі',             en:'Days visible to student'},
+  'set.restr.calendar':   { uk:'Календар наперед (приватні)',   en:'Calendar ahead (private)' },
+  'set.restr.calendar_h': { uk:'Днів видно учневі. Для приватних уроків — без обмежень', en:'Days visible to student. Private lessons — unlimited' },
+  'set.restr.schoolCalendar':   { uk:'Календар наперед (автошкола)', en:'Calendar ahead (school)' },
+  'set.restr.schoolCalendar_h': { uk:'Днів видно учневі автошколи',  en:'Days visible to school student' },
 
   'set.queue.title':  { uk:'Черга', en:'Queue' },
   'set.queue.info_t': { uk:'Черга', en:'Queue' },
