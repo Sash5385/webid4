@@ -11,6 +11,16 @@ const M = ["","Січ","Лют","Бер","Кві","Тра","Чер","Лип","С
 const fmtS = d => { if(!d) return "—"; const [,m,day]=d.split("-"); return `${parseInt(day)} ${M[parseInt(m)]}`; };
 const navTo = tab => window.dispatchEvent(new CustomEvent("id4drive-nav", {detail:tab}));
 
+// Мітки поля "Досвід водіння" — те саме, що учень бачить у себе в анкеті
+// (webID4client/src/pages/cabinet/ProfileTab.jsx), тут лише для показу адміну.
+const EXPERIENCE_LABELS = {
+  no_license: "Не маю посвідчення, збираюсь складати іспит",
+  has_license: "Маю посвідчення, не маю досвіду водіння",
+  novice: "Початківець",
+  basic: "Базовий",
+  licensed: "З правами",
+};
+
 const Svg = (d, s=18, c="white", w=2) => (
   <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth={w} strokeLinecap="round" strokeLinejoin="round">{d}</svg>
 );
@@ -400,6 +410,14 @@ function StudentDetailSheet({ s, onClose, onUpdate, onDelete, onBlock, onRemoveB
                   {s.type==="school" && <Progress hours={s.hours} offset={s.hoursOffset||0}/>}
                 </div>
 
+                {/* Driving experience — заповнюється учнем в анкеті реєстрації */}
+                {s.experience && (
+                  <div style={{background:glow(0.04),borderRadius:10,padding:"9px 12px",border:`1px solid ${BORDER}`}}>
+                    <div style={{fontSize:9,color:FAINT,letterSpacing:1,textTransform:"uppercase",marginBottom:3}}>Досвід водіння</div>
+                    <div style={{fontSize:13,fontWeight:700,color:TEXT}}>{EXPERIENCE_LABELS[s.experience]||s.experience}</div>
+                  </div>
+                )}
+
                 {/* Hours offset (school only) */}
                 {s.type==="school" && (
                   <div style={{background:glow(0.04),borderRadius:10,padding:"10px 12px",border:`1px solid ${BORDER}`}}>
@@ -636,6 +654,7 @@ export default function StudentsView({ studentJump, onStudentJumpHandled, bookin
           discount:u.discount||0, notes:u.notes||"", blocked:u.blocked||false, isVip:u.isVip||false,
           noIntervalLimit:u.noIntervalLimit||false,
           filmingConsent:p.filmingConsent,
+          experience:p.experience||u.experience||null,
           createdAt:p.createdAt||u.createdAt||null,
           maneuverCounts:u.maneuverCounts||{}, maneuverSuccessCounts:u.maneuverSuccessCounts||{},
           badges:u.badges||{},
