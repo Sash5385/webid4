@@ -474,6 +474,9 @@ select{color-scheme:${isKava?"light":"dark"}}
           <Row label={t('set.restr.cutoff')} hint={t('set.restr.cutoff_h')}>
             <NumInput value={settings.bookCutoffHours} onChange={v=>upd("bookCutoffHours",v)} min={0} max={48} suffix={` ${t('hr')}`}/>
           </Row>
+          <Row label={t('set.restr.slotGen')} hint={t('set.restr.slotGen_h')}>
+            <NumInput value={settings.slotGenDays ?? 30} onChange={v=>upd("slotGenDays",v)} min={1} max={365} suffix={` ${t('days')}`}/>
+          </Row>
           <Row label={t('set.restr.calendar')} hint={t('set.restr.calendar_h')}>
             <NumInput value={settings.calendarOpenDays} onChange={v=>upd("calendarOpenDays",v)} min={1} max={365} suffix={` ${t('days')}`}/>
           </Row>
