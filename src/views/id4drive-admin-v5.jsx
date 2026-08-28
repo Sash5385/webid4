@@ -3027,7 +3027,19 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                             }
                           }
                         }}
-                        onPointerUp={()=>{ clearTimeout(resizeHoldTimerRef.current); resizeHoldPosRef.current = null; }}
+                        onPointerUp={()=>{
+                          clearTimeout(resizeHoldTimerRef.current);
+                          resizeHoldPosRef.current = null;
+                          // Не покладаємось лише на window-рівневий pointerup (нижче) — на
+                          // деяких WebView він іноді не долітає з цієї вкладеної ручки.
+                          // Тримали без руху — відкриваємо модалку опцій прямо тут.
+                          const fr = freeResizeRef.current;
+                          if (fr && !fr.moved) {
+                            freeResizeRef.current = null;
+                            setFreeResizePreview(null);
+                            setSlotOptions({ dateStr: fr.dateStr, time: fr.time, startTime: fr.time, slot: fr.slot });
+                          }
+                        }}
                         onPointerCancel={()=>{ clearTimeout(resizeHoldTimerRef.current); resizeHoldPosRef.current = null; }}
                         onClick={e=>e.stopPropagation()}
                         style={{
