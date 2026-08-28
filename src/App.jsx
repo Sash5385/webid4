@@ -44,7 +44,15 @@ body,html{margin:0;padding:0;background:${theme.BG}${theme.BG_IMAGE ? `;backgrou
 ::-webkit-scrollbar-thumb{background:${scrollThumb};border-radius:3px}
 @keyframes spin{to{transform:rotate(360deg)}}
 .spinner{width:32px;height:32px;border:3px solid ${spinnerBorder};border-top-color:${theme.ACCENT};border-radius:50%;animation:spin .8s linear infinite}
-@keyframes fade-tab{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+/* transform:none, а НЕ translateY(0) — критично.
+   .tab-anim має fill-mode "both", тому кінцевий кадр залишається на елементі
+   назавжди. Будь-який transform (навіть нульовий) робить елемент containing
+   block для position:fixed нащадків. А .tab-anim — це ще й скрол-контейнер
+   вкладки, тож усі шторки (місячний календар тощо) прив'язувались до нього
+   і "з'їжджали" разом зі скролом замість того, щоб триматись вікна:
+   після автоскролу до дати календар відкривався за межами екрана.
+   transform:none знімає containing block — fixed знову рахується від вікна. */
+@keyframes fade-tab{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
 .tab-anim{animation:fade-tab .22s ease both}
 `;
 };
