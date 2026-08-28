@@ -183,7 +183,7 @@ export default function ChatsView() {
       const list = Object.entries(data)
         .map(([uid, u]) => {
           const p = u.profile || {};
-          return { id:uid, name:p.name||"", phone:p.phone||"", hue:hueForUid(uid), online:false, unread:0, lastMsg:"", lastTime:"" };
+          return { id:uid, name:p.name||"", phone:p.phone||"", hue:hueForUid(uid), online:false, unread:0, lastMsg:"", lastTime:"", lastTs:0 };
         })
         .filter(c => c.name || c.phone);
       setContacts(list);
@@ -207,7 +207,7 @@ export default function ChatsView() {
         if (msgs.length > 0) {
           const last = msgs[msgs.length-1];
           setContacts(cs => cs.map(ct => ct.id===c.id
-            ? {...ct, lastMsg:last.text, lastTime:last.time, unread:openId===c.id?0:(ct.unread||0)+(last.from!=='admin'?1:0)}
+            ? {...ct, lastMsg:last.text, lastTime:last.time, lastTs:last.ts||0, unread:openId===c.id?0:(ct.unread||0)+(last.from!=='admin'?1:0)}
             : ct));
         }
       });
@@ -296,7 +296,10 @@ export default function ChatsView() {
     }
   };
 
-  const filtered      = contacts.filter(c => (c.name||"").toLowerCase().includes(search.toLowerCase()) || (c.phone||"").includes(search));
+  // Активні чати — з непрочитаними та/або нещодавнім листуванням — зверху списку.
+  const filtered      = contacts
+    .filter(c => (c.name||"").toLowerCase().includes(search.toLowerCase()) || (c.phone||"").includes(search))
+    .sort((a,b) => (b.unread>0)-(a.unread>0) || (b.lastTs||0)-(a.lastTs||0));
   const totalUnread   = contacts.reduce((s,c)=>s+c.unread, 0);
   const broadcastOpen = openId === BROADCAST_ID;
   const generalOpen   = openId === GENERAL_ID;
