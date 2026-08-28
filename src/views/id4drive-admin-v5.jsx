@@ -712,7 +712,12 @@ function MonthCalendarSheet({ bookings, onClose, onPickDate }) {
   for (let i = 0; i < firstDow; i++) cells.push(null);
   for (let d = 1; d <= daysInMonth; d++) cells.push(d);
 
-  return (
+  // Портал у document.body — шторка не повинна залежати від того, чи
+  // якийсь предок (сторінка, вкладка, обгортка) має transform/filter/
+  // will-change: будь-який з них перетворює predka на containing block
+  // для position:fixed, і шторка тоді "прилипає" до скрол-контейнера
+  // замість вікна (двічі вже ловили цей клас багів у різних предках).
+  return createPortal(
     <>
       <style>{`
         @keyframes _mc-up{from{transform:translateY(100%)}to{transform:translateY(0)}}
@@ -862,7 +867,7 @@ function MonthCalendarSheet({ bookings, onClose, onPickDate }) {
         </div>
       </div>
     </>
-  );
+  , document.body);
 }
 
 // ═══════════════════════════════════════════════════════════════

@@ -181,7 +181,24 @@ export default function ChatsView() {
   const [search,      setSearch]      = useState("");
   const [deletingId,  setDeletingId]  = useState(null);
   const [loading,     setLoading]     = useState(true);
+  const [unreadMeta,  setUnreadMeta]  = useState({});
   const msgUnsubs = useRef({});
+
+  // Лічильник непрочитаних — з chatMeta/{uid}/unreadForAdmin (той самий
+  // authoritative-джерело, що й бейдж у BottomNav). Раніше рахували локально
+  // в підписці на повідомлення, звіряючись зі значенням openId, захопленим
+  // у замиканні при першому підписі — те замикання ніколи не оновлювалось,
+  // тому перевірка "чат зараз відкритий" майже завжди була хибною, і бейдж
+  // міг знову з'явитись navіть під час читання чату.
+  useEffect(() => {
+    const unsub = onValue(ref(db, "chatMeta"), snap => {
+      const data = snap.val() || {};
+      const map = {};
+      Object.entries(data).forEach(([uid, m]) => { map[uid] = m?.unreadForAdmin || 0; });
+      setUnreadMeta(map);
+    });
+    return unsub;
+  }, []);
 
   // ── Load students ─────────────────────────────────────────────
   useEffect(() => {
@@ -190,7 +207,7 @@ export default function ChatsView() {
       const list = Object.entries(data)
         .map(([uid, u]) => {
           const p = u.profile || {};
-          return { id:uid, name:p.name||"", phone:p.phone||"", hue:hueForUid(uid), online:false, unread:0, lastMsg:"", lastTime:"", lastTs:0 };
+          return { id:uid, name:p.name||"", phone:p.phone||"", hue:hueForUid(uid), online:false, lastMsg:"", lastTime:"", lastTs:0 };
         })
         .filter(c => c.name || c.phone);
       setContacts(list);
@@ -214,7 +231,7 @@ export default function ChatsView() {
         if (msgs.length > 0) {
           const last = msgs[msgs.length-1];
           setContacts(cs => cs.map(ct => ct.id===c.id
-            ? {...ct, lastMsg:last.text, lastTime:last.time, lastTs:last.ts||0, unread:openId===c.id?0:(ct.unread||0)+(last.from!=='admin'?1:0)}
+            ? {...ct, lastMsg:last.text, lastTime:last.time, lastTs:last.ts||0}
             : ct));
         }
       });
@@ -265,7 +282,7 @@ export default function ChatsView() {
     if (deletingId) { setDeletingId(null); return; }
     setOpenId(prev => prev===id ? null : id);
     if (id !== BROADCAST_ID && id !== GENERAL_ID) {
-      setContacts(cs => cs.map(c => c.id===id ? {...c,unread:0} : c));
+      setUnreadMeta(m => ({...m, [id]:0}));
       set(ref(db, `chatMeta/${id}/unreadForAdmin`), 0).catch(()=>{});
     }
   };
@@ -306,8 +323,8 @@ export default function ChatsView() {
   // Активні чати — з непрочитаними та/або нещодавнім листуванням — зверху списку.
   const filtered      = contacts
     .filter(c => (c.name||"").toLowerCase().includes(search.toLowerCase()) || (c.phone||"").includes(search))
-    .sort((a,b) => (b.unread>0)-(a.unread>0) || (b.lastTs||0)-(a.lastTs||0));
-  const totalUnread   = contacts.reduce((s,c)=>s+c.unread, 0);
+    .sort((a,b) => ((unreadMeta[b.id]||0)>0)-((unreadMeta[a.id]||0)>0) || (b.lastTs||0)-(a.lastTs||0));
+  const totalUnread   = contacts.reduce((s,c)=>s+(unreadMeta[c.id]||0), 0);
   const broadcastOpen = openId === BROADCAST_ID;
   const generalOpen   = openId === GENERAL_ID;
 
@@ -438,8 +455,8 @@ export default function ChatsView() {
                   </div>
                   <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:4,flexShrink:0}}>
                     <span style={{fontSize:10,color:"rgba(255,255,255,0.65)"}}>{c.lastTime}</span>
-                    {c.unread > 0
-                      ? <span style={{background:ACCENT,color:"#fff",borderRadius:9,padding:"1px 6px",fontSize:10,fontWeight:800}}>{c.unread}</span>
+                    {(unreadMeta[c.id]||0) > 0
+                      ? <span style={{background:ACCENT,color:"#fff",borderRadius:9,padding:"1px 6px",fontSize:10,fontWeight:800}}>{unreadMeta[c.id]}</span>
                       : <span style={{width:8,height:8,borderRadius:4,background:"rgba(255,255,255,0.25)",display:"inline-block"}}/>
                     }
                   </div>
