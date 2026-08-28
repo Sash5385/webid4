@@ -99,12 +99,15 @@ export default defineConfig({
       },
       workbox: {
         cleanupOutdatedCaches: true,
-        // Без цього новий SW чекає, поки ВСІ вкладки/сесії PWA закриються, перш
-        // ніж активуватись — а PWA на телефоні може роками не закриватись
-        // повністю (лише згортатись). skipWaiting+clientsClaim: новий SW бере
-        // контроль одразу, щойно браузер його завантажив.
-        skipWaiting: true,
-        clientsClaim: true,
+        // НЕ вмикати skipWaiting/clientsClaim тут (build-time) — це конфліктує з
+        // registerType:'prompt'. Якщо новий SW сам скидає waiting і захоплює
+        // клієнтів у фоні, PWA на телефоні (яка роками не перезавантажується,
+        // лише згортається) лишається керованою новим SW, але з JS-бандлом
+        // старої версії ще в пам'яті — жодного видимого оновлення користувач
+        // так і не побачить. Контроль над "коли саме" вже є в застосунку:
+        // useAppUpdate.js сам шле SKIP_WAITING (по кліку на банер АБО
+        // автоматично, коли вкладку згортають), а versionGuard() рятує сесії,
+        // де навіть це не спрацювало.
         globPatterns: ['**/*.{js,css,html,svg,png,ico}'],
         // Serve navigations network-first so an online client always gets the
         // freshest index.html (and thus the freshest bundle) through the SW,
