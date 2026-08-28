@@ -376,17 +376,24 @@ export default function JournalView() {
     return { id: ev.id, day, startMin: d.getHours()*60 + d.getMinutes(), name: ev.name };
   }), [events, calToday]);
 
-  const jumpToDate = (dateStr) => {
-    // Скрол стартує лише ПІСЛЯ того, як шторка календаря повністю закриється
-    // (та ж затримка, що й запобіжний таймер закриття) — інакше активна
-    // анімація закриття оверлею (position:fixed, zIndex:200) накладається
-    // на активний скрол сторінки, і кнопка календаря в шапці (sticky)
-    // лишається "мертвою" до ручного скролу назад угору.
-    setTimeout(() => {
-      const el = document.getElementById(`jgroup-${dateStr}`);
+  // Скрол стартує лише ПІСЛЯ того, як шторка календаря справді зникла з DOM
+  // (showMonthCal стало false — підтверджено React, а не вгадано таймером).
+  // Раніше скрол планувався фіксованим таймером (340мс) "навмання" — якщо
+  // закриття з якоїсь причини тривало довше (напр. затримка рендеру), активний
+  // скрол сторінки накладався на ще присутній оверлей (position:fixed, zIndex:200),
+  // і вся sticky-шапка (з кнопками календаря й "нових входів") лишалась
+  // непроклацуваною до ручного скролу вгору.
+  const [pendingJump, setPendingJump] = useState(null);
+  useEffect(() => {
+    if (showMonthCal || !pendingJump) return;
+    const target = pendingJump;
+    setPendingJump(null);
+    requestAnimationFrame(() => {
+      const el = document.getElementById(`jgroup-${target}`);
       if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
-    }, 340);
-  };
+    });
+  }, [showMonthCal, pendingJump]);
+  const jumpToDate = (dateStr) => setPendingJump(dateStr);
 
   const unreadCount = events.filter(e => e.ts > prevReadAt).length;
   const bySection   = section === "admin" ? events.filter(e => e.by === "admin") : events;
