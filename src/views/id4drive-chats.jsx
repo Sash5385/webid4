@@ -40,10 +40,17 @@ function Conversation({ contact, messages, onSend, isBroadcast }) {
   const [text, setText] = useState("");
   const [quick, setQuick] = useState(false);
   const bottomRef = useRef(null);
+  const listRef = useRef(null);
   const taRef = useRef(null);
 
   useEffect(() => { setText(""); }, [contact.id]);
-  useEffect(() => { bottomRef.current?.scrollIntoView({behavior:"smooth"}); }, [messages]);
+  // Скрол лише всередині вікна повідомлень (listRef), а не scrollIntoView —
+  // той підіймається по всіх предках і смикав всю сторінку вниз при
+  // кожному відкритті діалогу чи новому повідомленні.
+  useEffect(() => {
+    const el = listRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [messages]);
 
   const send = () => {
     if (!text.trim()) return;
@@ -66,7 +73,7 @@ function Conversation({ contact, messages, onSend, isBroadcast }) {
           </div>
         </div>
       )}
-      <div style={{height:isBroadcast?220:260,overflowY:"auto",padding:"10px 0",display:"flex",flexDirection:"column",gap:3}}>
+      <div ref={listRef} style={{height:isBroadcast?220:260,overflowY:"auto",padding:"10px 0",display:"flex",flexDirection:"column",gap:3}}>
         {(messages||[]).length === 0 && (
           <div style={{textAlign:"center",padding:"30px 20px",color:FAINT,fontSize:12}}>Немає повідомлень</div>
         )}
