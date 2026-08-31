@@ -1619,6 +1619,8 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   const bookingsRef = useRef(bookings);
   useEffect(() => { bookingsRef.current = bookings; }, [bookings]);
   useEffect(() => { setBookingsRef.current = setBookings; }, [setBookings]);
+  const settingsRef = useRef(settings);
+  useEffect(() => { settingsRef.current = settings; }, [settings]);
   // quickCancelRef тепер оновлюється напряму в holdTimer/onMove (без затримки ре-рендеру)
   useEffect(() => {
     const timer = setInterval(() => {
@@ -2107,6 +2109,20 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
     }
   };
 
+  // Обідня перерва того дня, в хвилинах — для перевірки при перетягуванні/
+  // розтягуванні вільних слотів (settingsRef, бо effects нижче мають [] deps).
+  const lunchForDate = (dateStr) => {
+    const s = settingsRef.current;
+    const dow = (new Date(dateStr + "T12:00:00").getDay() + 6) % 7;
+    const ov = (s.dateOverrides || []).find(o => o.date === dateStr);
+    const ws = (s.weekSchedule || [])[dow] || {};
+    return {
+      enabled: ov?.lunchEnabled ?? ws.lunchEnabled ?? s.lunchEnabled ?? true,
+      start:   (ov?.lunchStart ?? ws.lunchStart ?? s.lunchStart ?? 12) * 60,
+      end:     (ov?.lunchEnd   ?? ws.lunchEnd   ?? s.lunchEnd   ?? 13) * 60,
+    };
+  };
+
   // Перетягування вільних (зелених) слотів вгору/вниз по колонці дня — крок з Кроку часу (snapMin).
   // Заблоковані/VIP/з надбавкою слоти не рухаємо (freeDragRef активується лише для звичайних вільних).
   useEffect(() => {
@@ -2163,6 +2179,9 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
       const bks = bookingsRef.current || [];
       const occupiedByBooking = bks.some(b => b.date === fd.dateStr && b.startMin < newEnd && b.startMin + b.durMin > fd.newStart);
       if (occupiedByBooking) { navigator.vibrate?.([10,10,10]); return; }
+      // Не даємо перетягнути вільний слот на/через обідню перерву того дня.
+      const lunch = lunchForDate(fd.dateStr);
+      if (lunch.enabled && fd.newStart < lunch.end && newEnd > lunch.start) { navigator.vibrate?.([10,10,10]); return; }
       // Перенесений слот (особливо розтягнутий на кілька годин) може накрити
       // собою інші вільні документи на новому місці — так само, як і
       // розтягування, поглинаємо їх (видаляємо окремі записи); якщо на шляху
@@ -2250,6 +2269,9 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
       const [hh, mm] = fr.time.split(":").map(Number);
       const startMin = hh * 60 + mm;
       const newEnd = startMin + fr.newDur;
+      // Не даємо розтягнути вільний слот через обідню перерву того дня.
+      const lunch = lunchForDate(fr.dateStr);
+      if (lunch.enabled && startMin < lunch.end && newEnd > lunch.start) { navigator.vibrate?.([10,10,10]); return; }
       const slotId = `slot${fr.time.replace(":", "")}`;
       const updates = { [`timeslots/${fr.dateStr}/${slotId}/durMin`]: fr.newDur };
       // Ріст поглинає наступні вільні слоти, у які «в’їхав» новий розмір, —
