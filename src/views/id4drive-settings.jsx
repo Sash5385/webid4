@@ -679,6 +679,35 @@ select{color-scheme:${isKava?"light":"dark"}}
         fontFamily:"ui-sans-serif,-apple-system,system-ui,sans-serif", color:TEXT,
       }}>
 
+        {/* SECTION RAIL — сітка міні-карток з градієнтом зверху: авто-перенос
+            рядків (grid, без overflowX), тож усі 9 пунктів завжди влазять
+            в екран без горизонтального скролу. */}
+        <div style={{
+          display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(58px, 1fr))",
+          gap:6, padding:"4px 4px 0",
+        }}>
+          {SECTIONS.map(sec => {
+            const isActive = active === sec.id;
+            return (
+              <button key={sec.id} onClick={()=>switchSection(sec.id)} title={sec.title} style={{
+                width:"100%", height:48, borderRadius:12, border:"none", cursor:"pointer",
+                background: isActive
+                  ? `linear-gradient(155deg,${sec.color}dd,${sec.color}66)`
+                  : `color-mix(in srgb,${sec.color} 16%,${SURFACE})`,
+                boxShadow: isActive ? `0 3px 10px ${sec.color}55, inset 1px 1px 0 rgba(255,255,255,0.18)` : SO,
+                display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:3,
+                fontFamily:"inherit", transition:"all .15s",
+              }}>
+                <span style={{fontSize:16,lineHeight:1}}>{sec.icon}</span>
+                <span style={{
+                  fontSize:9.5, fontWeight:700, color: isActive ? "#fff" : TEXT,
+                  overflow:"hidden", whiteSpace:"nowrap", textOverflow:"ellipsis", maxWidth:"100%",
+                }}>{sec.label}</span>
+              </button>
+            );
+          })}
+        </div>
+
         {/* PANEL — section content */}
         <div style={{padding:"4px 4px 0", minWidth:0}}>
           <div style={{
@@ -703,38 +732,6 @@ select{color-scheme:${isKava?"light":"dark"}}
             </div>
             {renderSection(active)}
           </div>
-        </div>
-
-        {/* SECTION RAIL — горизонтальна смуга міні-карток з градієнтом, приліплена
-            знизу (position:sticky, bottom:0) до низу скрол-контейнера вкладки —
-            той самий нижній край, де починається BottomNav, тож рейка завжди
-            лишається одразу над ним, а не йде разом зі скролом контенту. */}
-        <div style={{
-          position:"sticky", bottom:0, zIndex:15,
-          display:"flex", gap:6, overflowX:"auto",
-          padding:"8px 4px 10px", margin:"0 -4px",
-          background:`linear-gradient(0deg,${BG_DEEP} 65%,transparent)`,
-        }}>
-          {SECTIONS.map(sec => {
-            const isActive = active === sec.id;
-            return (
-              <button key={sec.id} onClick={()=>switchSection(sec.id)} title={sec.title} style={{
-                flex:"0 0 auto", width:62, height:52, borderRadius:12, border:"none", cursor:"pointer",
-                background: isActive
-                  ? `linear-gradient(155deg,${sec.color}dd,${sec.color}66)`
-                  : `color-mix(in srgb,${sec.color} 16%,${SURFACE})`,
-                boxShadow: isActive ? `0 3px 10px ${sec.color}55, inset 1px 1px 0 rgba(255,255,255,0.18)` : SO,
-                display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:3,
-                fontFamily:"inherit", transition:"all .15s",
-              }}>
-                <span style={{fontSize:16,lineHeight:1}}>{sec.icon}</span>
-                <span style={{
-                  fontSize:9.5, fontWeight:700, color: isActive ? "#fff" : TEXT,
-                  overflow:"hidden", whiteSpace:"nowrap", textOverflow:"ellipsis", maxWidth:"100%",
-                }}>{sec.label}</span>
-              </button>
-            );
-          })}
         </div>
       </div>
 
