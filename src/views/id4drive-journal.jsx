@@ -197,6 +197,8 @@ function buildEvents(data) {
     if (!userBkgs) return;
     Object.entries(userBkgs).forEach(([key, b]) => {
       if (!b) return;
+      // Особиста подія адміна — не урок, у журналі відвідувань учнів їй не місце.
+      if (b.type === "personal") return;
       const name = b.studentName || b.name || "Без імені";
       const dateStr = b.date ? b.date.split("-").reverse().join(".") : "";
       const durH = b.durationHours ?? (b.durMin ? b.durMin / 60 : null);
