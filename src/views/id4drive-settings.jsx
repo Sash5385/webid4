@@ -682,7 +682,7 @@ select{color-scheme:${isKava?"light":"dark"}}
         {/* SECTION RAIL — розгорнута панель зліва (іконка+назва), контент розділу — праворуч */}
         <div style={{
           display:"flex", flexDirection:"column", gap:4,
-          flexShrink:0, width:112, padding:"4px 0 10px 4px",
+          flexShrink:0, width:78, padding:"4px 0 10px 4px",
           position:"sticky", top:8, alignSelf:"flex-start",
         }}>
           {SECTIONS.map(sec => {
@@ -694,7 +694,7 @@ select{color-scheme:${isKava?"light":"dark"}}
                   ? `linear-gradient(155deg,${sec.color}dd,${sec.color}66)`
                   : `color-mix(in srgb,${sec.color} 16%,${SURFACE})`,
                 boxShadow: isActive ? `-1px 3px 10px ${sec.color}55, inset 1px 1px 0 rgba(255,255,255,0.18)` : SO,
-                display:"flex", alignItems:"center", gap:8, padding:"0 10px",
+                display:"flex", alignItems:"center", gap:6, padding:"0 8px",
                 fontSize:15, lineHeight:1, transition:"all .15s", flexShrink:0,
                 fontFamily:"inherit",
               }}>
