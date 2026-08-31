@@ -679,25 +679,30 @@ select{color-scheme:${isKava?"light":"dark"}}
         fontFamily:"ui-sans-serif,-apple-system,system-ui,sans-serif", color:TEXT,
       }}>
 
-        {/* SECTION RAIL — вузька колонка іконок зліва, контент розділу — праворуч */}
+        {/* SECTION RAIL — розгорнута панель зліва (іконка+назва), контент розділу — праворуч */}
         <div style={{
-          display:"flex", flexDirection:"column", gap:5,
-          flexShrink:0, padding:"4px 0 10px 4px",
+          display:"flex", flexDirection:"column", gap:4,
+          flexShrink:0, width:112, padding:"4px 0 10px 4px",
           position:"sticky", top:8, alignSelf:"flex-start",
         }}>
           {SECTIONS.map(sec => {
             const isActive = active === sec.id;
             return (
               <button key={sec.id} onClick={()=>switchSection(sec.id)} title={sec.title} style={{
-                width:34, height:34, borderRadius:11, border:"none", cursor:"pointer",
+                width:"100%", height:38, borderRadius:11, border:"none", cursor:"pointer",
                 background: isActive
                   ? `linear-gradient(155deg,${sec.color}dd,${sec.color}66)`
                   : `color-mix(in srgb,${sec.color} 16%,${SURFACE})`,
                 boxShadow: isActive ? `-1px 3px 10px ${sec.color}55, inset 1px 1px 0 rgba(255,255,255,0.18)` : SO,
-                display:"flex", alignItems:"center", justifyContent:"center",
-                fontSize:16, lineHeight:1, transition:"all .15s", flexShrink:0,
+                display:"flex", alignItems:"center", gap:8, padding:"0 10px",
+                fontSize:15, lineHeight:1, transition:"all .15s", flexShrink:0,
+                fontFamily:"inherit",
               }}>
-                {sec.icon}
+                <span style={{flexShrink:0}}>{sec.icon}</span>
+                <span style={{
+                  fontSize:11.5, fontWeight:700, color: isActive ? "#fff" : TEXT,
+                  overflow:"hidden", whiteSpace:"nowrap", textOverflow:"ellipsis", textAlign:"left",
+                }}>{sec.label}</span>
               </button>
             );
           })}
