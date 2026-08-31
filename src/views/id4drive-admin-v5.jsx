@@ -5851,7 +5851,7 @@ function SettingsView({ settings, setSettings }) {
         <div style={{fontSize:12,color:TEXT_DIM,marginBottom:14}}>
           Коли учень скасовує запис, як пропонувати слот тим, хто в черзі?
         </div>
-        <Row label="FIFO" hint="Автоматично запросити першого в черзі">
+        <Row label="FIFO" hint="Автоматично записати першого в черзі (без підтвердження)">
           <Toggle on={settings.queueAutoFifo} onChange={v=>upd("queueAutoFifo",v)}/>
         </Row>
         <Row label="Broadcast" hint="Розіслати всім, хто перший підтвердив — той записаний">
