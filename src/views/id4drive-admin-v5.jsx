@@ -2762,6 +2762,11 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                   // 30-хвилинного рядка має відповідати ЙОГО початку, а не сусідньому,
                   // інакше дотик у нижній половині рядка показував час на 30хв пізніше.
                   const minute = Math.floor(rawMin / 30) * 30;
+                  // Обідня перерва — не пропонувати створення нового слота/запису,
+                  // навіть якщо адмін довго тисне саме в цей проміжок часу. Раніше
+                  // затемнення обіду було суто візуальним (pointerEvents:"none"),
+                  // тож довгий тап під ним усе одно відкривав меню створення.
+                  if (colLunch.enabled && minute >= colLunch.start * 60 && minute < colLunch.end * 60) return;
                   emptyHoldPosRef.current = { startY: e.clientY, day: absDay, startMin: minute, dateStr: dateStrCol };
                   emptyHoldTimerRef.current = setTimeout(() => {
                     if (!emptyHoldPosRef.current) return;
