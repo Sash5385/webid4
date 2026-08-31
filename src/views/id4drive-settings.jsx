@@ -675,41 +675,12 @@ select{color-scheme:${isKava?"light":"dark"}}
       <UICss/>
       <style>{css}</style>
       <div style={{
-        display:"flex", flexDirection:"row", alignItems:"flex-start", gap:6,
+        display:"flex", flexDirection:"column", gap:10,
         fontFamily:"ui-sans-serif,-apple-system,system-ui,sans-serif", color:TEXT,
       }}>
 
-        {/* SECTION RAIL — розгорнута панель зліва (іконка+назва), контент розділу — праворуч */}
-        <div style={{
-          display:"flex", flexDirection:"column", gap:4,
-          flexShrink:0, width:78, padding:"4px 0 10px 4px",
-          position:"sticky", top:8, alignSelf:"flex-start",
-        }}>
-          {SECTIONS.map(sec => {
-            const isActive = active === sec.id;
-            return (
-              <button key={sec.id} onClick={()=>switchSection(sec.id)} title={sec.title} style={{
-                width:"100%", height:38, borderRadius:11, border:"none", cursor:"pointer",
-                background: isActive
-                  ? `linear-gradient(155deg,${sec.color}dd,${sec.color}66)`
-                  : `color-mix(in srgb,${sec.color} 16%,${SURFACE})`,
-                boxShadow: isActive ? `-1px 3px 10px ${sec.color}55, inset 1px 1px 0 rgba(255,255,255,0.18)` : SO,
-                display:"flex", alignItems:"center", gap:6, padding:"0 8px",
-                fontSize:15, lineHeight:1, transition:"all .15s", flexShrink:0,
-                fontFamily:"inherit",
-              }}>
-                <span style={{flexShrink:0}}>{sec.icon}</span>
-                <span style={{
-                  fontSize:11.5, fontWeight:700, color: isActive ? "#fff" : TEXT,
-                  overflow:"hidden", whiteSpace:"nowrap", textOverflow:"ellipsis", textAlign:"left",
-                }}>{sec.label}</span>
-              </button>
-            );
-          })}
-        </div>
-
         {/* PANEL — section content */}
-        <div style={{padding:"4px 4px 40px 0", minWidth:0, flex:1}}>
+        <div style={{padding:"4px 4px 0", minWidth:0}}>
           <div style={{
             borderRadius:16,
             boxShadow:`0 0 0 1.5px ${isKava?"rgba(0,0,0,0.14)":"rgba(255,255,255,0.18)"}, 0 8px 28px rgba(0,0,0,0.28)`,
@@ -732,6 +703,38 @@ select{color-scheme:${isKava?"light":"dark"}}
             </div>
             {renderSection(active)}
           </div>
+        </div>
+
+        {/* SECTION RAIL — горизонтальна смуга міні-карток з градієнтом, приліплена
+            знизу (position:sticky, bottom:0) до низу скрол-контейнера вкладки —
+            той самий нижній край, де починається BottomNav, тож рейка завжди
+            лишається одразу над ним, а не йде разом зі скролом контенту. */}
+        <div style={{
+          position:"sticky", bottom:0, zIndex:15,
+          display:"flex", gap:6, overflowX:"auto",
+          padding:"8px 4px 10px", margin:"0 -4px",
+          background:`linear-gradient(0deg,${BG_DEEP} 65%,transparent)`,
+        }}>
+          {SECTIONS.map(sec => {
+            const isActive = active === sec.id;
+            return (
+              <button key={sec.id} onClick={()=>switchSection(sec.id)} title={sec.title} style={{
+                flex:"0 0 auto", width:62, height:52, borderRadius:12, border:"none", cursor:"pointer",
+                background: isActive
+                  ? `linear-gradient(155deg,${sec.color}dd,${sec.color}66)`
+                  : `color-mix(in srgb,${sec.color} 16%,${SURFACE})`,
+                boxShadow: isActive ? `0 3px 10px ${sec.color}55, inset 1px 1px 0 rgba(255,255,255,0.18)` : SO,
+                display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:3,
+                fontFamily:"inherit", transition:"all .15s",
+              }}>
+                <span style={{fontSize:16,lineHeight:1}}>{sec.icon}</span>
+                <span style={{
+                  fontSize:9.5, fontWeight:700, color: isActive ? "#fff" : TEXT,
+                  overflow:"hidden", whiteSpace:"nowrap", textOverflow:"ellipsis", maxWidth:"100%",
+                }}>{sec.label}</span>
+              </button>
+            );
+          })}
         </div>
       </div>
 
