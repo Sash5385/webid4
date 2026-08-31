@@ -681,10 +681,14 @@ select{color-scheme:${isKava?"light":"dark"}}
 
         {/* SECTION RAIL — сітка міні-карток з градієнтом зверху: авто-перенос
             рядків (grid, без overflowX), тож усі 9 пунктів завжди влазять
-            в екран без горизонтального скролу. */}
+            в екран без горизонтального скролу. Приліплена зверху (position:
+            sticky, top:0), тож лишається на місці й не рухається при скролі
+            вмісту панелі нижче. */}
         <div style={{
+          position:"sticky", top:0, zIndex:15,
           display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(58px, 1fr))",
-          gap:6, padding:"4px 4px 0",
+          gap:6, padding:"4px 4px 6px",
+          background:`linear-gradient(180deg,${BG_DEEP} 65%,transparent)`,
         }}>
           {SECTIONS.map(sec => {
             const isActive = active === sec.id;
