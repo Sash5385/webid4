@@ -1,4 +1,5 @@
-import { useState, useContext } from "react";
+import { useState, useContext, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { ref, get, update } from "firebase/database";
 import { db } from "../firebase";
 import { LangContext } from "../App";
@@ -158,6 +159,24 @@ export default function SettingsView({ settings, setSettings }) {
   const lang = useContext(LangContext);
   const t = createT(lang);
   const isKava = settings?.theme === "light";
+
+  // Реальна висота нижнього навбару (BottomNav у App.jsx, id="app-bottomnav"),
+  // щоб друга пігулка (SECTION RAIL) сідала точно над ним через fixed+portal —
+  // "мертво", без залежності від position:sticky в скрол-контейнері вкладки.
+  const [navH, setNavH] = useState(64);
+  useEffect(() => {
+    const measure = () => {
+      const el = document.getElementById('app-bottomnav');
+      if (el) setNavH(el.offsetHeight);
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    window.addEventListener('orientationchange', measure);
+    return () => {
+      window.removeEventListener('resize', measure);
+      window.removeEventListener('orientationchange', measure);
+    };
+  }, []);
   const css = `
 input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:4px;border-radius:2px;background:${BG_DEEP};outline:none;box-shadow:${SI}}
 input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:9px;background:linear-gradient(145deg,${ACC_HI},${ACCENT});cursor:pointer;box-shadow:0 2px 6px rgba(255,90,60,0.5)}
@@ -652,58 +671,56 @@ select{color-scheme:${isKava?"light":"dark"}}
         </div>
 
         {/* SECTION RAIL — друга пігулка, візуально ідентична нижньому навбару
-            (BottomNav у App.jsx: той самий градієнт/радіус/бордер/тінь,
-            прозорі таби, активна секція підсвічена ACCENT + рискою знизу).
-            Приліплена знизу (position:sticky, bottom:0) — сідає впритул над
-            навбаром, як другий поверх. marginBottom:-14 компенсує нижній
-            padding скрол-контейнера вкладки (.tab-anim у App.jsx), інакше
-            між пігулкою і навбаром лишається щілина розміром у той padding. */}
+            (BottomNav у App.jsx: "скляні чипи" — той самий напівпрозорий фон,
+            радіус, бордер, тінь; активна секція підсвічена зеленою заливкою
+            чипу, без окремої рискою — так само як таби внизу).
+            Рендериться через portal у document.body з position:fixed і
+            bottom:navH (реальна виміряна висота #app-bottomnav) — тому
+            дійсно "мертво" прибита над навбаром і не рухається під час
+            скролу вмісту секції (на відміну від sticky, який пінився лише
+            всередині скрол-контейнера вкладки). Спейсер нижче звільняє
+            місце в потоці, щоб фіксована пігулка не перекривала контент. */}
+        <div style={{ height:56 }}/>
+      </div>
+
+      {createPortal(
         <div style={{
-          position:"sticky", bottom:0, zIndex:15,
-          padding:"6px 3px 0", marginBottom:-14,
+          position:"fixed", left:0, right:0, bottom:navH, zIndex:50,
+          padding:"6px 3px 0", pointerEvents:"none",
         }}>
           <div style={{
-            background: isKava ? `linear-gradient(180deg,#d9c4a0,#ccb48c)` : `linear-gradient(180deg,#3a3b40,#2e2f34)`,
-            borderRadius:22,
-            border: isKava ? `1px solid ${BORDER}` : `1px solid rgba(255,255,255,0.08)`,
+            background: isKava ? "rgba(255,255,255,0.5)" : "rgba(255,255,255,0.04)",
+            borderRadius:16,
+            border:`1px solid ${BORDER}`,
             boxShadow: isKava
-              ? `0 8px 32px rgba(92,42,26,0.18), 0 2px 8px rgba(92,42,26,0.12)`
-              : `0 12px 40px rgba(0,0,0,0.65), 0 4px 16px rgba(0,0,0,0.4), 0 -1px 0 rgba(255,255,255,0.05)`,
-            display:"flex", overflow:"hidden",
+              ? "0 8px 24px rgba(92,42,26,0.14)"
+              : "0 8px 24px rgba(0,0,0,0.45)",
+            display:"flex", gap:2, padding:3,
+            pointerEvents:"auto",
           }}>
             {SECTIONS.map(sec => {
               const isActive = active === sec.id;
               return (
                 <button key={sec.id} onClick={()=>switchSection(sec.id)} title={sec.title} style={{
-                  flex:"1 1 0", minWidth:0, padding:"9px 2px 8px",
-                  background:"transparent", border:"none", cursor:"pointer",
-                  display:"flex", flexDirection:"column", alignItems:"center", gap:3,
+                  flex:"1 1 0", minWidth:0, padding:"8px 2px 7px",
+                  background: isActive ? `color-mix(in srgb, ${GREEN} 18%, transparent)` : "transparent",
+                  border:"none", cursor:"pointer", borderRadius:11,
+                  display:"flex", flexDirection:"column", alignItems:"center", gap:4,
                   position:"relative", fontFamily:"inherit",
                 }}>
+                  <span style={{ fontSize:15, lineHeight:1 }}>{sec.icon}</span>
                   <span style={{
-                    fontSize:15, lineHeight:1,
-                    transform: isActive ? "scale(1.08)" : "scale(0.94)",
-                    opacity: isActive ? 1 : 0.55,
-                    transition:"transform .15s, opacity .15s",
-                  }}>{sec.icon}</span>
-                  <span style={{
-                    fontSize:7.5, fontWeight:700,
-                    color: isActive ? ACCENT : (isKava ? DIM : FAINT),
+                    fontSize:9, fontWeight:700,
+                    color: isActive ? GREEN : (isKava ? DIM : FAINT),
                     whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", maxWidth:"100%",
                   }}>{sec.label}</span>
-                  {isActive && (
-                    <div style={{
-                      position:"absolute", bottom:2, left:"50%", transform:"translateX(-50%)",
-                      width:16, height:2.5, borderRadius:2,
-                      background:ACCENT, boxShadow:`0 0 8px ${ACCENT}99`,
-                    }}/>
-                  )}
                 </button>
               );
             })}
           </div>
-        </div>
-      </div>
+        </div>,
+        document.body
+      )}
 
       <div onClick={forceUpdate} style={{textAlign:"center",padding:"8px 0 2px",color:FAINT,fontSize:13,fontWeight:600,letterSpacing:0.5,cursor:"pointer"}}>
         {APP_VERSION}

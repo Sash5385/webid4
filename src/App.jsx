@@ -149,7 +149,7 @@ function BottomNav({ active, onChange, settings, chatUnread, journalUnread }) {
   const activeBg = `color-mix(in srgb, ${theme.GREEN} 18%, transparent)`;
 
   return (
-    <div style={{
+    <div id="app-bottomnav" style={{
       flexShrink:0,
       padding:`0 3px calc(10px + env(safe-area-inset-bottom, 0px))`,
       background: isKava ? "#d4ba96" : "transparent",
