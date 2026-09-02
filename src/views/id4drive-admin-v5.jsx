@@ -3070,6 +3070,11 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                             freeResizeRef.current = null;
                             setFreeResizePreview(null);
                             setSlotOptions({ dateStr: fr.dateStr, time: fr.time, startTime: fr.time, slot: fr.slot });
+                          } else if (!fr) {
+                            // Короткий тап без утримання (ручка resize стоїть поверх слота
+                            // й перехоплює дотик з onClick.stopPropagation нижче) — той самий
+                            // ефект, що й тап деінде на вільному слоті.
+                            toggleSlotFree(dateStrCol, time, slot);
                           }
                         }}
                         onPointerCancel={()=>{ clearTimeout(resizeHoldTimerRef.current); resizeHoldPosRef.current = null; }}
