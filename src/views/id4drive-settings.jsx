@@ -655,10 +655,12 @@ select{color-scheme:${isKava?"light":"dark"}}
             (BottomNav у App.jsx: той самий градієнт/радіус/бордер/тінь,
             прозорі таби, активна секція підсвічена ACCENT + рискою знизу).
             Приліплена знизу (position:sticky, bottom:0) — сідає впритул над
-            навбаром, як другий поверх. */}
+            навбаром, як другий поверх. marginBottom:-14 компенсує нижній
+            padding скрол-контейнера вкладки (.tab-anim у App.jsx), інакше
+            між пігулкою і навбаром лишається щілина розміром у той padding. */}
         <div style={{
           position:"sticky", bottom:0, zIndex:15,
-          padding:"6px 3px 0",
+          padding:"6px 3px 0", marginBottom:-14,
         }}>
           <div style={{
             background: isKava ? `linear-gradient(180deg,#d9c4a0,#ccb48c)` : `linear-gradient(180deg,#3a3b40,#2e2f34)`,
