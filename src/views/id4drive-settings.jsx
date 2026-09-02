@@ -7,18 +7,6 @@ import { ThemeContext } from "../theme.js";
 import { UICss, useFX } from "../ui";
 import { createT } from "../lang";
 
-const ALL_TABS = [
-  { id:"schedule",  lk:"nav.schedule"  },
-  { id:"bookings",  lk:"nav.bookings"  },
-  { id:"students",  lk:"nav.students"  },
-  { id:"services",  lk:"nav.services"  },
-  { id:"chats",     lk:"nav.chats"     },
-  { id:"templates", lk:"nav.templates" },
-  { id:"stats",     lk:"nav.stats"     },
-  { id:"journal",   lk:"nav.journal"   },
-  { id:"settings",  lk:"nav.settings"  },
-];
-
 const DAY_NAMES = ["Пн","Вт","Ср","Чт","Пт","Сб","Нд"];
 
 // ─── MODULE-LEVEL ATOMS (stable references → no remount on settings change) ───
@@ -322,7 +310,6 @@ select{color-scheme:${isKava?"light":"dark"}}
     { id:"queue",      icon:"✅", color:GREEN,  title:t('set.queue.title'),    label:uk?"Черга":"Queue"  },
     { id:"sticky",     icon:"📌", color:PURPLE, title:t('set.sticky.title'),   label:uk?"Слоти":"Slots"  },
     { id:"auto",       icon:"📨", color:GOLD,   title:t('set.auto.title'),     label:uk?"Авто":"Auto"    },
-    { id:"nav",        icon:"📱", color:ACCENT, title:t('set.nav.title'),      label:uk?"Навіг.":"Nav"   },
     { id:"surcharges", icon:"💰", color:GOLD,   title:"Надбавки",              label:uk?"Збори":"Fees"   },
     { id:"push",       icon:"🔔", color:GREEN,  title:"Сповіщення",            label:"Сповіщення"        },
   ];
@@ -559,47 +546,6 @@ select{color-scheme:${isKava?"light":"dark"}}
         </div>
       );
 
-      case "nav": return (
-        <div>
-          {showHint && <Info color={BLUE} title={t('set.nav.info_t')} text={t('set.nav.info')}/>}
-          <div style={{display:"flex",flexDirection:"column",gap:5,paddingTop:4}}>
-            {ALL_TABS.map((tab)=>{
-              const isOn = settings.navTabs?.includes(tab.id) ?? true;
-              const isFixed = tab.id === "settings";
-              const toggle = () => {
-                if(isFixed) return;
-                upd("navTabs", isOn
-                  ? (settings.navTabs||ALL_TABS.map(x=>x.id)).filter(x=>x!==tab.id)
-                  : [...(settings.navTabs||ALL_TABS.map(x=>x.id)),tab.id]);
-              };
-              return (
-                <div key={tab.id} onClick={toggle} style={{
-                  display:"flex",alignItems:"center",justifyContent:"space-between",
-                  padding:"9px 14px",borderRadius:22,
-                  cursor:isFixed?"default":"pointer",userSelect:"none",
-                  background:`linear-gradient(135deg,color-mix(in srgb,${svColor(isOn)} ${isOn?40:22}%,${BG_DEEP}) 0%,${BG_DEEP} 100%)`,
-                  border:`1px solid color-mix(in srgb,${svColor(isOn)} ${isOn?32:24}%,transparent)`,
-                  opacity:isFixed?0.65:1,
-                }}>
-                  <span style={{fontSize:12,fontWeight:700,color:isOn?"#fff":FAINT}}>{t(tab.lk)}</span>
-                  <div style={{
-                    width:40,height:22,borderRadius:11,position:"relative",flexShrink:0,
-                    background:isOn?`linear-gradient(145deg,color-mix(in srgb,${GREEN} 85%,#fff),${GREEN})`:`linear-gradient(145deg,${SURF_LO},${BG_DEEP})`,
-                    boxShadow:isOn?`0 0 6px ${GREEN}44`:SI,
-                  }}>
-                    <div style={{
-                      position:"absolute",top:2,left:isOn?20:2,width:18,height:18,borderRadius:9,
-                      background:"linear-gradient(135deg,#fff,#ddd)",transition:"left .2s",
-                      boxShadow:"0 1px 3px rgba(0,0,0,0.3)",
-                    }}/>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      );
-
       case "surcharges": return (
         <div>
           <Row label="Картка для оплати" hint="Показується учням у «Моїх записах» з кнопкою копіювання">
@@ -679,39 +625,6 @@ select{color-scheme:${isKava?"light":"dark"}}
         fontFamily:"ui-sans-serif,-apple-system,system-ui,sans-serif", color:TEXT,
       }}>
 
-        {/* SECTION RAIL — сітка міні-карток з градієнтом зверху: авто-перенос
-            рядків (grid, без overflowX), тож усі 9 пунктів завжди влазять
-            в екран без горизонтального скролу. Приліплена зверху (position:
-            sticky, top:0), тож лишається на місці й не рухається при скролі
-            вмісту панелі нижче. */}
-        <div style={{
-          position:"sticky", top:0, zIndex:15,
-          display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(58px, 1fr))",
-          gap:6, padding:"4px 4px 6px",
-          background:`linear-gradient(180deg,${BG_DEEP} 65%,transparent)`,
-        }}>
-          {SECTIONS.map(sec => {
-            const isActive = active === sec.id;
-            return (
-              <button key={sec.id} onClick={()=>switchSection(sec.id)} title={sec.title} style={{
-                width:"100%", height:48, borderRadius:12, border:"none", cursor:"pointer",
-                background: isActive
-                  ? `linear-gradient(155deg,${sec.color}dd,${sec.color}66)`
-                  : `color-mix(in srgb,${sec.color} 16%,${SURFACE})`,
-                boxShadow: isActive ? `0 3px 10px ${sec.color}55, inset 1px 1px 0 rgba(255,255,255,0.18)` : SO,
-                display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:3,
-                fontFamily:"inherit", transition:"all .15s",
-              }}>
-                <span style={{fontSize:16,lineHeight:1}}>{sec.icon}</span>
-                <span style={{
-                  fontSize:9.5, fontWeight:700, color: isActive ? "#fff" : TEXT,
-                  overflow:"hidden", whiteSpace:"nowrap", textOverflow:"ellipsis", maxWidth:"100%",
-                }}>{sec.label}</span>
-              </button>
-            );
-          })}
-        </div>
-
         {/* PANEL — section content */}
         <div style={{padding:"4px 4px 0", minWidth:0}}>
           <div style={{
@@ -735,6 +648,57 @@ select{color-scheme:${isKava?"light":"dark"}}
               }}>💡</button>
             </div>
             {renderSection(active)}
+          </div>
+        </div>
+
+        {/* SECTION RAIL — друга пігулка, візуально ідентична нижньому навбару
+            (BottomNav у App.jsx: той самий градієнт/радіус/бордер/тінь,
+            прозорі таби, активна секція підсвічена ACCENT + рискою знизу).
+            Приліплена знизу (position:sticky, bottom:0) — сідає впритул над
+            навбаром, як другий поверх. */}
+        <div style={{
+          position:"sticky", bottom:0, zIndex:15,
+          padding:"6px 3px 0",
+        }}>
+          <div style={{
+            background: isKava ? `linear-gradient(180deg,#d9c4a0,#ccb48c)` : `linear-gradient(180deg,#3a3b40,#2e2f34)`,
+            borderRadius:22,
+            border: isKava ? `1px solid ${BORDER}` : `1px solid rgba(255,255,255,0.08)`,
+            boxShadow: isKava
+              ? `0 8px 32px rgba(92,42,26,0.18), 0 2px 8px rgba(92,42,26,0.12)`
+              : `0 12px 40px rgba(0,0,0,0.65), 0 4px 16px rgba(0,0,0,0.4), 0 -1px 0 rgba(255,255,255,0.05)`,
+            display:"flex", overflow:"hidden",
+          }}>
+            {SECTIONS.map(sec => {
+              const isActive = active === sec.id;
+              return (
+                <button key={sec.id} onClick={()=>switchSection(sec.id)} title={sec.title} style={{
+                  flex:"1 1 0", minWidth:0, padding:"9px 2px 8px",
+                  background:"transparent", border:"none", cursor:"pointer",
+                  display:"flex", flexDirection:"column", alignItems:"center", gap:3,
+                  position:"relative", fontFamily:"inherit",
+                }}>
+                  <span style={{
+                    fontSize:15, lineHeight:1,
+                    transform: isActive ? "scale(1.08)" : "scale(0.94)",
+                    opacity: isActive ? 1 : 0.55,
+                    transition:"transform .15s, opacity .15s",
+                  }}>{sec.icon}</span>
+                  <span style={{
+                    fontSize:7.5, fontWeight:700,
+                    color: isActive ? ACCENT : (isKava ? DIM : FAINT),
+                    whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", maxWidth:"100%",
+                  }}>{sec.label}</span>
+                  {isActive && (
+                    <div style={{
+                      position:"absolute", bottom:2, left:"50%", transform:"translateX(-50%)",
+                      width:16, height:2.5, borderRadius:2,
+                      background:ACCENT, boxShadow:`0 0 8px ${ACCENT}99`,
+                    }}/>
+                  )}
+                </button>
+              );
+            })}
           </div>
         </div>
       </div>
