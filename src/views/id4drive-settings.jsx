@@ -81,21 +81,22 @@ function SmallToggle({ on, onChange, color }) {
   );
 }
 
-function NumInput({ value, onChange, min=0, max=999, suffix="", step=1 }) {
+function NumInput({ value, onChange, min=0, max=999, suffix="", step=1, compact }) {
   const { BG_DEEP, SURF_HI, SURFACE, TEXT, SO, SI } = useContext(ThemeContext);
+  const bs = compact ? 22 : 26;
   return (
-    <div style={{display:"flex",alignItems:"center",gap:4,background:BG_DEEP,borderRadius:9,boxShadow:SI,padding:"4px 6px"}}>
+    <div style={{display:"flex",alignItems:"center",gap:4,background:BG_DEEP,borderRadius:9,boxShadow:SI,padding: compact ? "3px 5px" : "4px 6px"}}>
       <button onClick={()=>onChange(Math.max(min,value-step))} style={{
-        width:26,height:26,borderRadius:7,border:"none",cursor:"pointer",
-        background:`linear-gradient(145deg,${SURF_HI},${SURFACE})`,color:TEXT,fontSize:14,
+        width:bs,height:bs,borderRadius:7,border:"none",cursor:"pointer",
+        background:`linear-gradient(145deg,${SURF_HI},${SURFACE})`,color:TEXT,fontSize:compact?12:14,
         display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,boxShadow:SO,
       }}>−</button>
-      <span style={{fontSize:13,fontWeight:700,color:TEXT,minWidth:32,textAlign:"center"}}>
+      <span style={{fontSize:compact?11:13,fontWeight:700,color:TEXT,minWidth:compact?26:32,textAlign:"center"}}>
         {value}{suffix}
       </span>
       <button onClick={()=>onChange(Math.min(max,value+step))} style={{
-        width:26,height:26,borderRadius:7,border:"none",cursor:"pointer",
-        background:`linear-gradient(145deg,${SURF_HI},${SURFACE})`,color:TEXT,fontSize:14,
+        width:bs,height:bs,borderRadius:7,border:"none",cursor:"pointer",
+        background:`linear-gradient(145deg,${SURF_HI},${SURFACE})`,color:TEXT,fontSize:compact?12:14,
         display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,boxShadow:SO,
       }}>+</button>
     </div>
@@ -115,21 +116,21 @@ function Radio({ on, onChange }) {
   );
 }
 
-function Row({ label, hint, children, last, color }) {
+function Row({ label, hint, children, last, color, compact }) {
   const { BG_DEEP, ACCENT } = useContext(ThemeContext);
   const c = color || ACCENT;
   return (
     <div style={{
       display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,
-      padding:"9px 12px",
+      padding: compact ? "6px 10px" : "9px 12px",
       borderRadius:11,
       background:`linear-gradient(135deg,color-mix(in srgb,${c} 42%,${BG_DEEP}) 0%,${BG_DEEP} 100%)`,
       border:`1px solid color-mix(in srgb,${c} 35%,transparent)`,
-      marginBottom: last ? 0 : 6,
+      marginBottom: last ? 0 : (compact ? 4 : 6),
     }}>
       <div style={{flex:1,minWidth:0}}>
-        <div style={{fontSize:13,fontWeight:700,color:"#fff"}}>{label}</div>
-        {hint && <div style={{fontSize:10,color:"rgba(255,255,255,0.6)",marginTop:2}}>{hint}</div>}
+        <div style={{fontSize:compact?12:13,fontWeight:700,color:"#fff"}}>{label}</div>
+        {hint && <div style={{fontSize:compact?9:10,color:"rgba(255,255,255,0.6)",marginTop:compact?1:2,lineHeight:1.35}}>{hint}</div>}
       </div>
       <div style={{flexShrink:0}}>{children}</div>
     </div>
@@ -513,26 +514,26 @@ select{color-scheme:${isKava?"light":"dark"}}
       case "restr": return (
         <div>
           {showHint && <Info color={RED} title={t('set.restr.info_t')} text={t('set.restr.info')}/>}
-          <Row color={svColor(settings.studentCanReschedule)} label={t('set.restr.reschedule')}>
+          <Row compact color={svColor(settings.studentCanReschedule)} label={t('set.restr.reschedule')}>
             <Toggle color={svColor(settings.studentCanReschedule)} on={settings.studentCanReschedule} onChange={v=>upd("studentCanReschedule",v)}/>
           </Row>
-          <Row color={svColor(settings.studentCanCancel)} label={t('set.restr.cancel')}>
+          <Row compact color={svColor(settings.studentCanCancel)} label={t('set.restr.cancel')}>
             <Toggle color={svColor(settings.studentCanCancel)} on={settings.studentCanCancel} onChange={v=>upd("studentCanCancel",v)}/>
           </Row>
-          <Row label={t('set.restr.cutoff')} hint={t('set.restr.cutoff_h')}>
-            <NumInput value={settings.bookCutoffHours} onChange={v=>upd("bookCutoffHours",v)} min={0} max={48} suffix={` ${t('hr')}`}/>
+          <Row compact label={t('set.restr.cutoff')} hint={t('set.restr.cutoff_h')}>
+            <NumInput compact value={settings.bookCutoffHours} onChange={v=>upd("bookCutoffHours",v)} min={0} max={48} suffix={` ${t('hr')}`}/>
           </Row>
-          <Row label={t('set.restr.slotGen')} hint={t('set.restr.slotGen_h')}>
-            <NumInput value={settings.slotGenDays ?? 30} onChange={v=>upd("slotGenDays",v)} min={1} max={365} suffix={` ${t('days')}`}/>
+          <Row compact label={t('set.restr.slotGen')} hint={t('set.restr.slotGen_h')}>
+            <NumInput compact value={settings.slotGenDays ?? 30} onChange={v=>upd("slotGenDays",v)} min={1} max={365} suffix={` ${t('days')}`}/>
           </Row>
-          <Row label={t('set.restr.calendar')} hint={t('set.restr.calendar_h')}>
-            <NumInput value={settings.calendarOpenDays} onChange={v=>upd("calendarOpenDays",v)} min={1} max={365} suffix={` ${t('days')}`}/>
+          <Row compact label={t('set.restr.calendar')} hint={t('set.restr.calendar_h')}>
+            <NumInput compact value={settings.calendarOpenDays} onChange={v=>upd("calendarOpenDays",v)} min={1} max={365} suffix={` ${t('days')}`}/>
           </Row>
-          <Row label={t('set.restr.schoolCalendar')} hint={t('set.restr.schoolCalendar_h')}>
-            <NumInput value={settings.schoolCalendarOpenDays ?? 14} onChange={v=>upd("schoolCalendarOpenDays",v)} min={1} max={365} suffix={` ${t('days')}`}/>
+          <Row compact label={t('set.restr.schoolCalendar')} hint={t('set.restr.schoolCalendar_h')}>
+            <NumInput compact value={settings.schoolCalendarOpenDays ?? 14} onChange={v=>upd("schoolCalendarOpenDays",v)} min={1} max={365} suffix={` ${t('days')}`}/>
           </Row>
-          <Row label={lang==="en"?"Min interval between bookings":"Мінімальний інтервал між записами"} hint={lang==="en"?"Minimum days between any two bookings for one student. 0 — disabled.":"Мінімум днів між будь-якими двома записами учня. 0 — без обмеження."} last>
-            <NumInput value={settings.minBookingIntervalDays ?? 0} onChange={v=>upd("minBookingIntervalDays",v)} min={0} max={30} suffix={` ${t('days')}`}/>
+          <Row compact label={lang==="en"?"Min interval between bookings":"Мінімальний інтервал між записами"} hint={lang==="en"?"Minimum days between any two bookings for one student. 0 — disabled.":"Мінімум днів між будь-якими двома записами учня. 0 — без обмеження."} last>
+            <NumInput compact value={settings.minBookingIntervalDays ?? 0} onChange={v=>upd("minBookingIntervalDays",v)} min={0} max={30} suffix={` ${t('days')}`}/>
           </Row>
         </div>
       );
@@ -722,7 +723,7 @@ select{color-scheme:${isKava?"light":"dark"}}
             скролу вмісту секції (на відміну від sticky, який пінився лише
             всередині скрол-контейнера вкладки). Спейсер нижче звільняє
             місце в потоці, щоб фіксована пігулка не перекривала контент. */}
-        <div style={{ height:railH + 8 }}/>
+        <div style={{ height:railH + 16 }}/>
       </div>
 
       {createPortal(
