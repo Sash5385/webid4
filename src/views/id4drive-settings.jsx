@@ -1,4 +1,4 @@
-import { useState, useContext, useEffect } from "react";
+import { useState, useContext, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { ref, get, update } from "firebase/database";
 import { db } from "../firebase";
@@ -209,6 +209,22 @@ select{color-scheme:${isKava?"light":"dark"}}
   const [active, setActive] = useState("schedule");
   const [showHint, setShowHint] = useState(false);
   const switchSection = (id) => { setActive(id); setShowHint(false); };
+
+  // Реальна висота самої пігулки SECTION RAIL — спейсер у потоці має бути
+  // точно такий, інакше фіксована пігулка перекриває низ контенту секції
+  // (накладка при скролі до кінця довгих секцій).
+  const railRef = useRef(null);
+  const [railH, setRailH] = useState(70);
+  useEffect(() => {
+    const measure = () => { if (railRef.current) setRailH(railRef.current.offsetHeight); };
+    measure();
+    window.addEventListener('resize', measure);
+    window.addEventListener('orientationchange', measure);
+    return () => {
+      window.removeEventListener('resize', measure);
+      window.removeEventListener('orientationchange', measure);
+    };
+  }, [active]);
 
   // Дістає date/startMin/durMin з сирого запису бронювання так само, як це
   // робить основний рендер розкладу (processBookingsRef у ScheduleView) —
@@ -680,11 +696,11 @@ select{color-scheme:${isKava?"light":"dark"}}
             скролу вмісту секції (на відміну від sticky, який пінився лише
             всередині скрол-контейнера вкладки). Спейсер нижче звільняє
             місце в потоці, щоб фіксована пігулка не перекривала контент. */}
-        <div style={{ height:56 }}/>
+        <div style={{ height:railH + 8 }}/>
       </div>
 
       {createPortal(
-        <div style={{
+        <div ref={railRef} style={{
           position:"fixed", left:0, right:0, bottom:navH, zIndex:50,
           padding:"6px 3px 0", pointerEvents:"none",
         }}>
