@@ -733,6 +733,7 @@ select{color-scheme:${isKava?"light":"dark"}}
         }}>
           <div style={{
             background: isKava ? "rgba(255,255,255,0.5)" : "rgba(255,255,255,0.04)",
+            backdropFilter:"blur(20px)", WebkitBackdropFilter:"blur(20px)",
             borderRadius:16,
             border:`1px solid ${BORDER}`,
             boxShadow: isKava
