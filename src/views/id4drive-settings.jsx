@@ -721,9 +721,10 @@ select{color-scheme:${isKava?"light":"dark"}}
             bottom:navH (реальна виміряна висота #app-bottomnav) — тому
             дійсно "мертво" прибита над навбаром і не рухається під час
             скролу вмісту секції (на відміну від sticky, який пінився лише
-            всередині скрол-контейнера вкладки). Спейсер нижче звільняє
-            місце в потоці, щоб фіксована пігулка не перекривала контент. */}
-        <div style={{ height:railH + 16 }}/>
+            всередині скрол-контейнера вкладки). Спейсер після версії
+            (не тут!) звільняє місце в потоці — якщо покласти його одразу
+            після PANEL, версія й 40px-спейсер підуть услід за ним і
+            опиняться рівно під фіксованою пігулкою, невидимі. */}
       </div>
 
       {createPortal(
@@ -769,7 +770,7 @@ select{color-scheme:${isKava?"light":"dark"}}
       <div onClick={forceUpdate} style={{textAlign:"center",padding:"8px 0 2px",color:FAINT,fontSize:13,fontWeight:600,letterSpacing:0.5,cursor:"pointer"}}>
         {APP_VERSION}
       </div>
-      <div style={{height:40}}/>
+      <div style={{height:railH + 16}}/>
     </>
   );
 }
