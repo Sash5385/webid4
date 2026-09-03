@@ -284,7 +284,7 @@ function TopBar({ tab, onChange, settings, setSettings }) {
   return (
     <div style={{position:"sticky",top:0,zIndex:20}}>
       <div style={{
-        padding:`calc(4px + env(safe-area-inset-top, 0px)) 8px 4px`,
+        padding:`max(50px, calc(4px + env(safe-area-inset-top, 0px))) 8px 4px`,
         display:"flex",alignItems:"center",
         background:navBg,
         backdropFilter:"blur(20px)",
