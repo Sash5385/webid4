@@ -10,6 +10,37 @@ import { createT } from "../lang";
 
 const DAY_NAMES = ["Пн","Вт","Ср","Чт","Пт","Сб","Нд"];
 
+// ─── SECTION RAIL ICONS — той самий "3D pillow" стиль іконок, що й у
+// BottomNav (App.jsx: makeTabIcons/I3): кольоровий градієнт при активній
+// вкладці, темний неактивний фон, глянцевий блік зверху-справа. ───
+const SEC_INACTIVE_GR = { dark:"linear-gradient(135deg,#2e3034,#26282c)", kava:"linear-gradient(135deg,#6b3a22,#4a2210)" };
+const SEC_ICON_SVG = {
+  schedule:   <><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></>,
+  snap:       <><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></>,
+  restr:      <><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></>,
+  queue:      <><circle cx="12" cy="12" r="9"/><path d="M7.5 12.5l3 3 6-6.5"/></>,
+  sticky:     <><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.3"/></>,
+  auto:       <><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></>,
+  surcharges: <><circle cx="12" cy="12" r="9"/><path d="M12 7.5v9M15 9.7c0-1.1-1.2-2-3-2s-3 .9-3 1.9 1.3 1.5 3 1.8c1.7.3 3 .8 3 1.9s-1.2 1.9-3 1.9-3-.9-3-2"/></>,
+  push:       <><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></>,
+};
+function SecIcon({ id, color, active, isKava, size=34 }) {
+  const gr = active ? color : (isKava ? SEC_INACTIVE_GR.kava : SEC_INACTIVE_GR.dark);
+  return (
+    <div style={{
+      width:size, height:size, borderRadius:size*0.3, background:gr,
+      display:"inline-flex", alignItems:"center", justifyContent:"center",
+      position:"relative", overflow:"hidden", flexShrink:0,
+      boxShadow:"-2px 3px 8px rgba(0,0,0,0.4),inset 1px 1px 0 rgba(255,255,255,0.2),inset -1px -1px 0 rgba(0,0,0,0.25)",
+    }}>
+      <div style={{position:"absolute",top:0,right:0,width:"60%",height:"50%",background:"radial-gradient(ellipse at top right,rgba(255,255,255,0.35) 0%,transparent 70%)",pointerEvents:"none"}}/>
+      <svg width={size*0.55} height={size*0.55} viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{position:"relative",zIndex:1}}>
+        {SEC_ICON_SVG[id]}
+      </svg>
+    </div>
+  );
+}
+
 // ─── MODULE-LEVEL ATOMS (stable references → no remount on settings change) ───
 
 function Toggle({ on, onChange, color }) {
@@ -165,17 +196,13 @@ export default function SettingsView({ settings, setSettings }) {
   // "мертво", без залежності від position:sticky в скрол-контейнері вкладки.
   const [navH, setNavH] = useState(64);
   useEffect(() => {
-    const measure = () => {
-      const el = document.getElementById('app-bottomnav');
-      if (el) setNavH(el.offsetHeight);
-    };
+    const el = document.getElementById('app-bottomnav');
+    if (!el) return;
+    const measure = () => setNavH(el.offsetHeight);
     measure();
-    window.addEventListener('resize', measure);
-    window.addEventListener('orientationchange', measure);
-    return () => {
-      window.removeEventListener('resize', measure);
-      window.removeEventListener('orientationchange', measure);
-    };
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
   }, []);
   const css = `
 input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:4px;border-radius:2px;background:${BG_DEEP};outline:none;box-shadow:${SI}}
@@ -214,16 +241,15 @@ select{color-scheme:${isKava?"light":"dark"}}
   // точно такий, інакше фіксована пігулка перекриває низ контенту секції
   // (накладка при скролі до кінця довгих секцій).
   const railRef = useRef(null);
-  const [railH, setRailH] = useState(70);
+  const [railH, setRailH] = useState(90);
   useEffect(() => {
-    const measure = () => { if (railRef.current) setRailH(railRef.current.offsetHeight); };
+    const el = railRef.current;
+    if (!el) return;
+    const measure = () => setRailH(el.offsetHeight);
     measure();
-    window.addEventListener('resize', measure);
-    window.addEventListener('orientationchange', measure);
-    return () => {
-      window.removeEventListener('resize', measure);
-      window.removeEventListener('orientationchange', measure);
-    };
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
   }, [active]);
 
   // Дістає date/startMin/durMin з сирого запису бронювання так само, як це
@@ -724,7 +750,7 @@ select{color-scheme:${isKava?"light":"dark"}}
                   display:"flex", flexDirection:"column", alignItems:"center", gap:4,
                   position:"relative", fontFamily:"inherit",
                 }}>
-                  <span style={{ fontSize:15, lineHeight:1 }}>{sec.icon}</span>
+                  <SecIcon id={sec.id} color={sec.color} active={isActive} isKava={isKava}/>
                   <span style={{
                     fontSize:9, fontWeight:700,
                     color: isActive ? GREEN : (isKava ? DIM : FAINT),
