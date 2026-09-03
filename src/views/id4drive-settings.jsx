@@ -644,8 +644,8 @@ select{color-scheme:${isKava?"light":"dark"}}
             </div>
           ))}
           <button onClick={()=>upd("surcharges", [...(settings.surcharges||[]), 100])} style={{
-            width:"100%",padding:"11px",borderRadius:12,border:`1px dashed rgba(255,255,255,0.15)`,cursor:"pointer",
-            background:"transparent",color:FAINT,fontSize:13,fontWeight:700,marginTop:2,
+            width:"100%",padding:"11px",borderRadius:12,border:`1px dashed ${GREEN}88`,cursor:"pointer",
+            background:"transparent",color:GREEN,fontSize:13,fontWeight:700,marginTop:2,
           }}>+ Додати надбавку</button>
         </div>
       );
