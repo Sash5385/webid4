@@ -2700,7 +2700,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                     hasAnySlotsCol ? clearDaySlots(absDay) : generateDaySlots(absDay);
                   }, 300);
                 }}
-                onPointerDown={e=>{ if(scheduleLocked || isPastDay) return; clearTimeout(dayLongPressRef.current); dayLongFiredRef.current=false; dayLongPressRef.current=setTimeout(()=>{ dayLongFiredRef.current=true; navigator.vibrate?.(30); setDayNotesModal({ dateStr: dateStrCol, dayLabel: day.fullLabel, dayNum: day.num, dayMonth: day.monthFull }); }, 600); }}
+                onPointerDown={e=>{ if(scheduleLocked) return; clearTimeout(dayLongPressRef.current); dayLongFiredRef.current=false; dayLongPressRef.current=setTimeout(()=>{ dayLongFiredRef.current=true; navigator.vibrate?.(30); setDayNotesModal({ dateStr: dateStrCol, dayLabel: day.fullLabel, dayNum: day.num, dayMonth: day.monthFull }); }, 600); }}
                 onPointerUp={()=>clearTimeout(dayLongPressRef.current)}
                 onPointerLeave={()=>clearTimeout(dayLongPressRef.current)}
                 style={{
