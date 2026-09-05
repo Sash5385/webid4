@@ -1438,6 +1438,17 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
       await update(ref(db, "/"), Object.fromEntries(entries.slice(i, i + CHUNK_SIZE)));
     }
   };
+  // Видалення ЦІЛОГО дня (`timeslots/{date} = null`) прибирає одразу десятки
+  // дочірніх слот-записів — на кожному з яких висить той самий Cloud Function
+  // тригер. Один multi-path update() з N такими піддеревами зачіпає стільки ж
+  // реальних записів, скільки й генерація, і так само може впертися у
+  // TOO_MANY_TRIGGERS — рахувати треба кількість реальних записів під ключами,
+  // а не кількість самих ключів. Тому видаляємо дні ПО ОДНОМУ послідовно.
+  const clearDaysRange = async (limit) => {
+    for (let d = 0; d <= limit; d++) {
+      await remove(ref(db, `timeslots/${absDayToDateStr(d)}`));
+    }
+  };
 
   const generateAllSlots = async () => {
     setIsGeneratingAll(true);
@@ -1445,11 +1456,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
       const limit = settings.slotGenDays || 30;
       const allUpdates = {};
       // Clear timeslots for all active days first, then write fresh state
-      const clearUpdates = {};
-      for (let d = 0; d <= limit; d++) {
-        clearUpdates[`timeslots/${absDayToDateStr(d)}`] = null;
-      }
-      await chunkedUpdate(clearUpdates);
+      await clearDaysRange(limit);
       // Now compute and write fresh slots (pass {} — no existing adminBlocked to preserve)
       // force НЕ передаємо: масова регенерація має поважати weekSchedule.enabled
       // (дні вихідного за тижневим шаблоном лишаються закритими). force=true —
@@ -1480,11 +1487,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
     setIsGeneratingAll(true);
     try {
       const limit = settings.slotGenDays || 30;
-      const clearUpdates = {};
-      for (let d = 0; d <= limit; d++) {
-        clearUpdates[`timeslots/${absDayToDateStr(d)}`] = null;
-      }
-      await chunkedUpdate(clearUpdates);
+      await clearDaysRange(limit);
     } finally {
       setIsGeneratingAll(false);
     }
