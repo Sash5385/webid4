@@ -1424,6 +1424,21 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
     }
   };
 
+  // Firebase RTDB відхиляє ОДИН update() з надто великою кількістю ключів
+  // помилкою TOO_MANY_TRIGGERS, якщо на шляху висять Cloud Functions-тригери
+  // (timeslots/{date}/{slotId} — onSlotFreed тощо): весь запис атомарно
+  // відхиляється повністю, тому "Ключик" на великих slotGenDays міг генерувати
+  // слоти, які одразу зникають (клієнт оптимістично показував їх, а сервер
+  // відкидав весь запис). Розбиваємо на пачки — кожна пачка своя атомарна
+  // транзакція, у межах ліміту тригерів.
+  const CHUNK_SIZE = 400;
+  const chunkedUpdate = async (updates) => {
+    const entries = Object.entries(updates);
+    for (let i = 0; i < entries.length; i += CHUNK_SIZE) {
+      await update(ref(db, "/"), Object.fromEntries(entries.slice(i, i + CHUNK_SIZE)));
+    }
+  };
+
   const generateAllSlots = async () => {
     setIsGeneratingAll(true);
     try {
@@ -1434,7 +1449,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
       for (let d = 0; d <= limit; d++) {
         clearUpdates[`timeslots/${absDayToDateStr(d)}`] = null;
       }
-      await update(ref(db, "/"), clearUpdates);
+      await chunkedUpdate(clearUpdates);
       // Now compute and write fresh slots (pass {} — no existing adminBlocked to preserve)
       // force НЕ передаємо: масова регенерація має поважати weekSchedule.enabled
       // (дні вихідного за тижневим шаблоном лишаються закритими). force=true —
@@ -1444,7 +1459,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
         const result = computeDayUpdates(dateStr, {});
         if (result) Object.assign(allUpdates, result.updates);
       }
-      if (Object.keys(allUpdates).length) await update(ref(db, "/"), allUpdates);
+      if (Object.keys(allUpdates).length) await chunkedUpdate(allUpdates);
     } finally {
       setIsGeneratingAll(false);
     }
@@ -1469,7 +1484,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
       for (let d = 0; d <= limit; d++) {
         clearUpdates[`timeslots/${absDayToDateStr(d)}`] = null;
       }
-      await update(ref(db, "/"), clearUpdates);
+      await chunkedUpdate(clearUpdates);
     } finally {
       setIsGeneratingAll(false);
     }
