@@ -4418,14 +4418,41 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
             </div>
             <div>
               <div style={{fontSize:10,fontWeight:700,letterSpacing:1.2,color:FAINT,textTransform:"uppercase",marginBottom:6}}>Тривалість</div>
-              <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-                {[{label:"30хв",value:30},{label:"1г",value:60},{label:"1.5г",value:90},{label:"2г",value:120},{label:"3г",value:180}].map(o=>(
-                  <button key={o.value} onClick={()=>setPeEditDur(o.value)} style={{
-                    padding:"6px 12px",borderRadius:10,border:"none",cursor:"pointer",fontSize:12,fontWeight:700,fontFamily:"inherit",
-                    background: peEditDur===o.value ? "rgba(45,212,191,0.2)" : SURFACE,
-                    color: peEditDur===o.value ? "#2dd4bf" : DIM,
-                    outline: peEditDur===o.value ? "1.5px solid rgba(45,212,191,0.5)" : "none",
-                  }}>{o.label}</button>
+              <div style={{display:"flex",gap:6}}>
+                <select
+                  value={String(Math.floor(peEditDur/60))}
+                  onChange={e=>setPeEditDur(Math.max(15, Number(e.target.value)*60 + (peEditDur%60)))}
+                  style={{
+                    flex:1,padding:"9px 4px",borderRadius:11,
+                    background:SURF_LO,border:`1px solid ${BORDER}`,
+                    color:TEXT,fontSize:13,outline:"none",boxSizing:"border-box",fontFamily:"inherit",
+                  }}
+                >
+                  {[0,1,2,3,4,5].map(h=>(
+                    <option key={h} value={h}>{h} год</option>
+                  ))}
+                </select>
+                <select
+                  value={String(peEditDur%60).padStart(2,"0")}
+                  onChange={e=>setPeEditDur(Math.max(15, Math.floor(peEditDur/60)*60 + Number(e.target.value)))}
+                  style={{
+                    flex:1,padding:"9px 4px",borderRadius:11,
+                    background:SURF_LO,border:`1px solid ${BORDER}`,
+                    color:TEXT,fontSize:13,outline:"none",boxSizing:"border-box",fontFamily:"inherit",
+                  }}
+                >
+                  {["00","15","30","45"].map(m=>(
+                    <option key={m} value={m}>{m} хв</option>
+                  ))}
+                </select>
+              </div>
+              <div style={{display:"flex",gap:4,marginTop:6}}>
+                {[1,2,3,4,5].map(h=>(
+                  <button key={h} onClick={()=>setPeEditDur(h*60)} style={{
+                    flex:1,padding:"5px 0",borderRadius:8,border:"none",cursor:"pointer",fontSize:11,fontWeight:700,fontFamily:"inherit",
+                    background: peEditDur===h*60 ? "rgba(45,212,191,0.2)" : SURFACE,
+                    color: peEditDur===h*60 ? "#2dd4bf" : DIM,
+                  }}>{h}г</button>
                 ))}
               </div>
             </div>
@@ -5201,14 +5228,6 @@ function PersonalEventModal({ data, onClose, onConfirm }) {
   const day = Math.round((slotDate - today) / 86400000);
   const canSave = title.trim().length > 0;
 
-  const DUR_OPTIONS = [
-    { label:"30хв", value:30 },
-    { label:"1г",   value:60 },
-    { label:"1.5г", value:90 },
-    { label:"2г",   value:120 },
-    { label:"3г",   value:180 },
-  ];
-
   const _close = () => setClosing(true);
 
   return (
@@ -5335,14 +5354,41 @@ function PersonalEventModal({ data, onClose, onConfirm }) {
               <div style={{width:26,height:26,borderRadius:8,flexShrink:0,marginTop:18,background:"rgba(45,212,191,0.15)",color:"#2dd4bf",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12}}>⏱</div>
               <div style={{flex:1,minWidth:0}}>
                 <div style={{fontSize:10,fontWeight:700,letterSpacing:1.2,color:FAINT,textTransform:"uppercase",marginBottom:7}}>Тривалість</div>
-                <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-                  {DUR_OPTIONS.map(o=>(
-                    <button key={o.value} onClick={()=>setDurMin(o.value)} style={{
-                      padding:"6px 14px",borderRadius:10,border:"none",cursor:"pointer",fontSize:13,fontWeight:700,fontFamily:"inherit",
-                      background: durMin===o.value ? "rgba(45,212,191,0.2)" : SURF_HI,
-                      color: durMin===o.value ? "#2dd4bf" : DIM,
-                      outline: durMin===o.value ? "1.5px solid rgba(45,212,191,0.5)" : "none",
-                    }}>{o.label}</button>
+                <div style={{display:"flex",gap:6}}>
+                  <select
+                    value={String(Math.floor(durMin/60))}
+                    onChange={e=>setDurMin(Math.max(15, Number(e.target.value)*60 + (durMin%60)))}
+                    style={{
+                      flex:1,padding:"9px 4px",borderRadius:10,
+                      background:SURF_LO,border:`1px solid ${BORDER}`,
+                      color:TEXT,fontSize:13,outline:"none",boxSizing:"border-box",fontFamily:"inherit",
+                    }}
+                  >
+                    {[0,1,2,3,4,5].map(h=>(
+                      <option key={h} value={h}>{h} год</option>
+                    ))}
+                  </select>
+                  <select
+                    value={String(durMin%60).padStart(2,"0")}
+                    onChange={e=>setDurMin(Math.max(15, Math.floor(durMin/60)*60 + Number(e.target.value)))}
+                    style={{
+                      flex:1,padding:"9px 4px",borderRadius:10,
+                      background:SURF_LO,border:`1px solid ${BORDER}`,
+                      color:TEXT,fontSize:13,outline:"none",boxSizing:"border-box",fontFamily:"inherit",
+                    }}
+                  >
+                    {["00","15","30","45"].map(m=>(
+                      <option key={m} value={m}>{m} хв</option>
+                    ))}
+                  </select>
+                </div>
+                <div style={{display:"flex",gap:4,marginTop:6}}>
+                  {[1,2,3,4,5].map(h=>(
+                    <button key={h} onClick={()=>setDurMin(h*60)} style={{
+                      flex:1,padding:"5px 0",borderRadius:8,border:"none",cursor:"pointer",fontSize:11,fontWeight:700,fontFamily:"inherit",
+                      background: durMin===h*60 ? "rgba(45,212,191,0.2)" : SURF_HI,
+                      color: durMin===h*60 ? "#2dd4bf" : DIM,
+                    }}>{h}г</button>
                   ))}
                 </div>
               </div>
