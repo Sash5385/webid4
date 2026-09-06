@@ -2446,6 +2446,65 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
     }]);
   };
 
+  // Блокуємо/звільняємо timeslots під особистою подією — так само, як для
+  // звичайного бронювання, щоб студент не міг записатись на цей час.
+  const blockPersonalSlots = (dateStr, startMin, durMin) => {
+    const upd = {};
+    for (let i = 0; i < durMin; i += 30) {
+      const m = startMin + i;
+      const sh = String(Math.floor(m / 60)).padStart(2, "0"), sm = String(m % 60).padStart(2, "0");
+      upd[`timeslots/${dateStr}/slot${sh}${sm}/available`] = false;
+      upd[`timeslots/${dateStr}/slot${sh}${sm}/time`] = `${sh}:${sm}`;
+      upd[`timeslots/${dateStr}/slot${sh}${sm}/bookingStart`] = i === 0;
+    }
+    update(ref(db, "/"), upd).catch(() => {});
+  };
+  const unblockPersonalSlots = (dateStr, startMin, durMin) => {
+    const upd = {};
+    for (let i = 0; i < durMin; i += 30) {
+      const m = startMin + i;
+      const sh = String(Math.floor(m / 60)).padStart(2, "0"), sm = String(m % 60).padStart(2, "0");
+      upd[`timeslots/${dateStr}/slot${sh}${sm}/available`] = true;
+      upd[`timeslots/${dateStr}/slot${sh}${sm}/time`] = `${sh}:${sm}`;
+      upd[`timeslots/${dateStr}/slot${sh}${sm}/phantom`] = null;
+    }
+    update(ref(db, "/"), upd).catch(() => {});
+  };
+
+  const savePersonalEventEdit = () => {
+    const ev = personalEventView;
+    if (!ev || !peEditTitle.trim()) return;
+    const [nh, nm] = peEditTime.split(":").map(Number);
+    const newStartMin = nh * 60 + nm;
+    const oldDate = ev.date || absDayToDateStr(ev.day);
+    const timeChanged = peEditDate !== oldDate || newStartMin !== ev.startMin || peEditDur !== ev.durMin;
+    if (timeChanged) {
+      unblockPersonalSlots(oldDate, ev.startMin, ev.durMin);
+      blockPersonalSlots(peEditDate, newStartMin, peEditDur);
+    }
+    const patch = {
+      date: peEditDate, time: peEditTime, startMin: newStartMin, durMin: peEditDur,
+      studentName: peEditTitle.trim(), name: peEditTitle.trim(), note: peEditNote.trim(),
+    };
+    const key = ev._fbKey || ev.id;
+    update(ref(db, `bookings/personal/${key}`), patch).catch(() => {});
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const d = new Date(peEditDate); d.setHours(0, 0, 0, 0);
+    const newDay = Math.round((d - today) / 86400000);
+    setBookings(bs => bs.map(x => x.id === ev.id ? { ...x, ...patch, day: newDay } : x));
+    setPersonalEventView(null);
+  };
+
+  const deletePersonalEvent = () => {
+    const ev = personalEventView;
+    if (!ev) return;
+    unblockPersonalSlots(ev.date || absDayToDateStr(ev.day), ev.startMin, ev.durMin);
+    const key = ev._fbKey || ev.id;
+    remove(ref(db, `bookings/personal/${key}`)).catch(() => {});
+    setBookings(bs => bs.filter(x => x.id !== ev.id));
+    setPersonalEventView(null);
+  };
+
   const handleVipSlot = ({ day, startMin }) => {
     const dateStr = absDayToDateStr(day);
     const hh = String(Math.floor(startMin / 60)).padStart(2, "0");
@@ -2464,6 +2523,12 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   const [ltmClosing, setLtmClosing] = useState(false);
   const [ltmScatter, setLtmScatter] = useState(false);
   const [personalEventView, setPersonalEventView] = useState(null); // booking object for viewing
+  // Поля форми редагування особистої події (заповнюються при відкритті personalEventView)
+  const [peEditTitle, setPeEditTitle] = useState("");
+  const [peEditDur,   setPeEditDur]   = useState(60);
+  const [peEditNote,  setPeEditNote]  = useState("");
+  const [peEditDate,  setPeEditDate]  = useState("");
+  const [peEditTime,  setPeEditTime]  = useState("");
 
   const isStickySlot = (dateStr, time) => {
     if (!settings.stickyTimeEnabled) return true;
@@ -3229,7 +3294,15 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                         if(dragEndedRef.current) return;
                         if(isVipSlot){ setVipSlotModal(b); return; }
                         if(isBlock){ setBlockModal(b); return; }
-                        if(isPersonal){ setPersonalEventView(b); return; }
+                        if(isPersonal){
+                          setPersonalEventView(b);
+                          setPeEditTitle(b.name || "");
+                          setPeEditDur(b.durMin || 60);
+                          setPeEditNote(b.note || "");
+                          setPeEditDate(b.date || absDayToDateStr(b.day));
+                          setPeEditTime(fmtTime(b.startMin));
+                          return;
+                        }
                         if(isCancelling){
                           clearTimeout(cancelTimers.current[b.id]);
                           delete cancelTimers.current[b.id];
@@ -4223,12 +4296,21 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
       data={personalEventData}
       onClose={()=>setPersonalEventData(null)}
       onConfirm={b=>{
-        setBookings(bs => [...bs, b]);
+        const fbData = {
+          id: b.id, date: b.date, time: fmtTime(b.startMin),
+          startMin: b.startMin, durMin: b.durMin,
+          studentName: b.name, name: b.name, note: b.note || "",
+          type: "personal", status: "personal",
+          createdAt: Date.now(), createdBy: "admin",
+        };
+        update(ref(db, `bookings/personal/${b.id}`), fbData).catch(() => {});
+        blockPersonalSlots(b.date, b.startMin, b.durMin);
+        setBookings(bs => [...bs, { ...b, userId: "personal", _fbKey: b.id }]);
         setPersonalEventData(null);
       }}
     />
 
-    {/* Перегляд особистої події */}
+    {/* Редагування особистої події */}
     {personalEventView && (
       <div onClick={()=>setPersonalEventView(null)} style={{
         position:"fixed",inset:0,zIndex:200,background:`${shade(0.6)}`,
@@ -4236,7 +4318,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
         backdropFilter:"blur(8px)",
       }}>
         <div onClick={e=>e.stopPropagation()} style={{
-          width:280,background:BG_DEEP,
+          width:300,background:BG_DEEP,
           borderRadius:20,overflow:"hidden",
           boxShadow:`0 8px 40px ${shade(0.7)}, 0 0 0 1.5px rgba(45,212,191,0.3)`,
         }}>
@@ -4245,23 +4327,88 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
             background:"rgba(45,212,191,0.1)",
             borderBottom:"1px solid rgba(45,212,191,0.15)",
           }}>
-            <div style={{fontSize:13,fontWeight:800,color:"#2dd4bf"}}>
-              📌 {personalEventView.name}
-            </div>
-            <div style={{fontSize:11,color:`${ink(0.45)}`,marginTop:3}}>
-              {personalEventView.date} · {fmtTime(personalEventView.startMin)} · {personalEventView.durMin}хв
-            </div>
+            <div style={{fontSize:13,fontWeight:800,color:"#2dd4bf"}}>📌 Особиста подія</div>
           </div>
-          {personalEventView.note && (
-            <div style={{padding:"10px 16px",fontSize:13,color:`${ink(0.7)}`,lineHeight:1.5}}>
-              {personalEventView.note}
+          <div style={{padding:"14px 16px",display:"flex",flexDirection:"column",gap:12}}>
+            <div>
+              <div style={{fontSize:10,fontWeight:700,letterSpacing:1.2,color:FAINT,textTransform:"uppercase",marginBottom:6}}>Назва</div>
+              <input
+                value={peEditTitle}
+                onChange={e=>setPeEditTitle(e.target.value)}
+                style={{
+                  width:"100%",padding:"9px 11px",borderRadius:11,
+                  background:SURF_LO,border:`1px solid ${BORDER}`,
+                  color:TEXT,fontSize:14,outline:"none",boxSizing:"border-box",fontFamily:"inherit",
+                }}
+              />
             </div>
-          )}
+            <div style={{display:"flex",gap:8}}>
+              <div style={{flex:1}}>
+                <div style={{fontSize:10,fontWeight:700,letterSpacing:1.2,color:FAINT,textTransform:"uppercase",marginBottom:6}}>Дата</div>
+                <input
+                  type="date"
+                  value={peEditDate}
+                  onChange={e=>setPeEditDate(e.target.value)}
+                  style={{
+                    width:"100%",padding:"9px 11px",borderRadius:11,
+                    background:SURF_LO,border:`1px solid ${BORDER}`,
+                    color:TEXT,fontSize:13,outline:"none",boxSizing:"border-box",fontFamily:"inherit",
+                  }}
+                />
+              </div>
+              <div style={{flex:1}}>
+                <div style={{fontSize:10,fontWeight:700,letterSpacing:1.2,color:FAINT,textTransform:"uppercase",marginBottom:6}}>Час</div>
+                <input
+                  type="time"
+                  value={peEditTime}
+                  onChange={e=>setPeEditTime(e.target.value)}
+                  style={{
+                    width:"100%",padding:"9px 11px",borderRadius:11,
+                    background:SURF_LO,border:`1px solid ${BORDER}`,
+                    color:TEXT,fontSize:13,outline:"none",boxSizing:"border-box",fontFamily:"inherit",
+                  }}
+                />
+              </div>
+            </div>
+            <div>
+              <div style={{fontSize:10,fontWeight:700,letterSpacing:1.2,color:FAINT,textTransform:"uppercase",marginBottom:6}}>Тривалість</div>
+              <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                {[{label:"30хв",value:30},{label:"1г",value:60},{label:"1.5г",value:90},{label:"2г",value:120},{label:"3г",value:180}].map(o=>(
+                  <button key={o.value} onClick={()=>setPeEditDur(o.value)} style={{
+                    padding:"6px 12px",borderRadius:10,border:"none",cursor:"pointer",fontSize:12,fontWeight:700,fontFamily:"inherit",
+                    background: peEditDur===o.value ? "rgba(45,212,191,0.2)" : SURFACE,
+                    color: peEditDur===o.value ? "#2dd4bf" : DIM,
+                    outline: peEditDur===o.value ? "1.5px solid rgba(45,212,191,0.5)" : "none",
+                  }}>{o.label}</button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <div style={{fontSize:10,fontWeight:700,letterSpacing:1.2,color:FAINT,textTransform:"uppercase",marginBottom:6}}>Нотатка</div>
+              <textarea
+                value={peEditNote}
+                onChange={e=>setPeEditNote(e.target.value)}
+                rows={2}
+                style={{
+                  width:"100%",padding:"9px 11px",borderRadius:11,resize:"none",
+                  background:SURF_LO,border:`1px solid ${BORDER}`,
+                  color:TEXT,fontSize:13,outline:"none",boxSizing:"border-box",fontFamily:"inherit",
+                }}
+              />
+            </div>
+            <button
+              disabled={!peEditTitle.trim()}
+              onClick={savePersonalEventEdit}
+              style={{
+                width:"100%",padding:"12px",borderRadius:12,border:"none",cursor:"pointer",fontFamily:"inherit",
+                background: peEditTitle.trim() ? "linear-gradient(145deg,#2dd4bf,#14b8a6)" : ink(0.07),
+                color: peEditTitle.trim() ? "#fff" : FAINT,
+                fontSize:14,fontWeight:800,
+              }}
+            >Зберегти</button>
+          </div>
           <button
-            onClick={()=>{
-              setBookings(bs => bs.filter(b => b.id !== personalEventView.id));
-              setPersonalEventView(null);
-            }}
+            onClick={deletePersonalEvent}
             style={{
               width:"100%",padding:"12px",border:"none",cursor:"pointer",
               borderTop:`1px solid ${ink(0.06)}`,
