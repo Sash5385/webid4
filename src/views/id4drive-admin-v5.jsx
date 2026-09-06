@@ -3009,7 +3009,12 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                       // touch-action:none — нативне panning тут показало себе ненадійним
                       // (несистемно то скролило, то ні на тій самій білдці). "Смиканий"
                       // без інерції ручний JS-скрол, зате завжди детерміновано працює.
-                      touchAction: isPlainFree ? "none" : "manipulation",
+                      // На минулих/закритих днях onPointerDown одразу виходить
+                      // (isPastDay || isClosedDay) — ні drag/resize, ні ручний скрол там не
+                      // вмикаються, тож touch-action:none лишав дотик по порожньому слоту
+                      // "мертвим": ні нативне panning, ні ручний скрол. Тому там дозволяємо
+                      // нативне panning як завжди.
+                      touchAction: (isPlainFree && !isPastDay && !isClosedDay) ? "none" : "manipulation",
                       WebkitTouchCallout:"none", WebkitUserDrag:"none",
                       WebkitUserSelect:"none", userSelect:"none",
                     }}>
