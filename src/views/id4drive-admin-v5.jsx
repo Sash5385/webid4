@@ -5183,19 +5183,21 @@ function PersonalEventModal({ data, onClose, onConfirm }) {
   const [title,        setTitle]        = useState("");
   const [durMin,       setDurMin]       = useState(60);
   const [note,         setNote]         = useState("");
+  const [peDate,       setPeDate]       = useState("");
+  const [peTime,       setPeTime]       = useState("");
   const [closing,      setClosing]      = useState(false);
   const [pendingEvent, setPendingEvent] = useState(null);
 
   useEffect(() => {
-    if (data) { setTitle(""); setDurMin(60); setNote(""); }
+    if (data) { setTitle(""); setDurMin(60); setNote(""); setPeDate(data.dateStr); setPeTime(data.time); }
   }, [!!data]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!data && !closing) return null;
 
-  const [hh, mm] = data.time.split(":").map(Number);
+  const [hh, mm] = peTime.split(":").map(Number);
   const startMin = hh * 60 + mm;
   const today = new Date(); today.setHours(0,0,0,0);
-  const slotDate = new Date(data.dateStr + "T00:00:00");
+  const slotDate = new Date(peDate + "T00:00:00");
   const day = Math.round((slotDate - today) / 86400000);
   const canSave = title.trim().length > 0;
 
@@ -5255,35 +5257,94 @@ function PersonalEventModal({ data, onClose, onConfirm }) {
           }}>
             <div style={{width:36,height:4,borderRadius:2,background:"rgba(45,212,191,0.35)",margin:"0 auto 12px"}}/>
             <div style={{fontSize:18,fontWeight:800,color:"#2dd4bf",marginBottom:2}}>📌 Особиста подія</div>
-            <div style={{fontSize:12,color:DIM}}>{data.dateStr} · {data.time}</div>
+            <div style={{fontSize:12,color:DIM}}>{peDate} · {peTime}</div>
           </div>
 
-          <div style={{padding:"16px 18px 32px",display:"flex",flexDirection:"column",gap:18}}>
-            <div>
-              <div style={{fontSize:10,fontWeight:700,letterSpacing:1.2,color:FAINT,textTransform:"uppercase",marginBottom:7}}>Назва</div>
-              <input
-                value={title}
-                onChange={e=>setTitle(e.target.value)}
-                placeholder="Наприклад: Лікар, Справи..."
-                style={{
-                  width:"100%",padding:"10px 12px",borderRadius:12,
-                  background:SURF_LO,border:`1px solid ${BORDER}`,
-                  color:TEXT,fontSize:14,outline:"none",boxSizing:"border-box",fontFamily:"inherit",
-                }}
-              />
+          <div style={{padding:"16px 18px 32px",display:"flex",flexDirection:"column",gap:16}}>
+            <div style={{display:"flex",alignItems:"flex-start",gap:8}}>
+              <div style={{width:26,height:26,borderRadius:8,flexShrink:0,marginTop:18,background:"rgba(45,212,191,0.15)",color:"#2dd4bf",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12}}>✎</div>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:10,fontWeight:700,letterSpacing:1.2,color:FAINT,textTransform:"uppercase",marginBottom:7}}>Назва</div>
+                <input
+                  value={title}
+                  onChange={e=>setTitle(e.target.value)}
+                  placeholder="Наприклад: Лікар, Справи..."
+                  style={{
+                    width:"100%",padding:"10px 12px",borderRadius:12,
+                    background:SURF_LO,border:`1px solid ${BORDER}`,
+                    color:TEXT,fontSize:14,outline:"none",boxSizing:"border-box",fontFamily:"inherit",
+                  }}
+                />
+              </div>
             </div>
 
-            <div>
-              <div style={{fontSize:10,fontWeight:700,letterSpacing:1.2,color:FAINT,textTransform:"uppercase",marginBottom:7}}>Тривалість</div>
-              <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-                {DUR_OPTIONS.map(o=>(
-                  <button key={o.value} onClick={()=>setDurMin(o.value)} style={{
-                    padding:"6px 14px",borderRadius:10,border:"none",cursor:"pointer",fontSize:13,fontWeight:700,fontFamily:"inherit",
-                    background: durMin===o.value ? "rgba(45,212,191,0.2)" : SURF_HI,
-                    color: durMin===o.value ? "#2dd4bf" : DIM,
-                    outline: durMin===o.value ? "1.5px solid rgba(45,212,191,0.5)" : "none",
-                  }}>{o.label}</button>
-                ))}
+            <div style={{display:"flex",alignItems:"flex-start",gap:8}}>
+              <div style={{width:26,height:26,borderRadius:8,flexShrink:0,marginTop:18,background:"rgba(45,212,191,0.15)",color:"#2dd4bf",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12}}>📅</div>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:10,fontWeight:700,letterSpacing:1.2,color:FAINT,textTransform:"uppercase",marginBottom:7}}>Дата</div>
+                <input
+                  type="date"
+                  value={peDate}
+                  onChange={e=>setPeDate(e.target.value)}
+                  style={{
+                    width:"100%",padding:"10px 12px",borderRadius:12,
+                    background:SURF_LO,border:`1px solid ${BORDER}`,
+                    color:TEXT,fontSize:13,outline:"none",boxSizing:"border-box",fontFamily:"inherit",
+                  }}
+                />
+              </div>
+            </div>
+
+            <div style={{display:"flex",alignItems:"flex-start",gap:8}}>
+              <div style={{width:26,height:26,borderRadius:8,flexShrink:0,marginTop:18,background:"rgba(45,212,191,0.15)",color:"#2dd4bf",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12}}>🕐</div>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:10,fontWeight:700,letterSpacing:1.2,color:FAINT,textTransform:"uppercase",marginBottom:7}}>Час</div>
+                <div style={{display:"flex",gap:6}}>
+                  <select
+                    value={peTime.split(":")[0] || "09"}
+                    onChange={e=>setPeTime(`${e.target.value}:${peTime.split(":")[1] || "00"}`)}
+                    style={{flex:1,padding:"9px 4px",borderRadius:10,background:SURF_LO,border:`1px solid ${BORDER}`,color:TEXT,fontSize:13,outline:"none",boxSizing:"border-box",fontFamily:"inherit"}}
+                  >
+                    {Array.from({length:24},(_,h)=>String(h).padStart(2,"0")).map(h=>(
+                      <option key={h} value={h}>{h}</option>
+                    ))}
+                  </select>
+                  <select
+                    value={peTime.split(":")[1] || "00"}
+                    onChange={e=>setPeTime(`${peTime.split(":")[0] || "09"}:${e.target.value}`)}
+                    style={{flex:1,padding:"9px 4px",borderRadius:10,background:SURF_LO,border:`1px solid ${BORDER}`,color:TEXT,fontSize:13,outline:"none",boxSizing:"border-box",fontFamily:"inherit"}}
+                  >
+                    {["00","05","10","15","20","25","30","35","40","45","50","55"].map(m=>(
+                      <option key={m} value={m}>{m}</option>
+                    ))}
+                  </select>
+                </div>
+                <div style={{display:"flex",gap:4,marginTop:6}}>
+                  {["01","02","03","04","05"].map(h=>(
+                    <button key={h} onClick={()=>setPeTime(`${h}:${peTime.split(":")[1] || "00"}`)} style={{
+                      flex:1,padding:"5px 0",borderRadius:8,border:"none",cursor:"pointer",fontSize:11,fontWeight:700,fontFamily:"inherit",
+                      background: (peTime.split(":")[0]===h) ? "rgba(45,212,191,0.2)" : SURF_HI,
+                      color: (peTime.split(":")[0]===h) ? "#2dd4bf" : DIM,
+                    }}>{h}</button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div style={{display:"flex",alignItems:"flex-start",gap:8}}>
+              <div style={{width:26,height:26,borderRadius:8,flexShrink:0,marginTop:18,background:"rgba(45,212,191,0.15)",color:"#2dd4bf",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12}}>⏱</div>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:10,fontWeight:700,letterSpacing:1.2,color:FAINT,textTransform:"uppercase",marginBottom:7}}>Тривалість</div>
+                <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                  {DUR_OPTIONS.map(o=>(
+                    <button key={o.value} onClick={()=>setDurMin(o.value)} style={{
+                      padding:"6px 14px",borderRadius:10,border:"none",cursor:"pointer",fontSize:13,fontWeight:700,fontFamily:"inherit",
+                      background: durMin===o.value ? "rgba(45,212,191,0.2)" : SURF_HI,
+                      color: durMin===o.value ? "#2dd4bf" : DIM,
+                      outline: durMin===o.value ? "1.5px solid rgba(45,212,191,0.5)" : "none",
+                    }}>{o.label}</button>
+                  ))}
+                </div>
               </div>
             </div>
 
@@ -5308,13 +5369,13 @@ function PersonalEventModal({ data, onClose, onConfirm }) {
                 if (!canSave) return;
                 setPendingEvent({
                   id: `personal-${Date.now()}`,
-                  day, date: data.dateStr,
+                  day, date: peDate,
                   startMin, durMin,
                   name: title.trim(),
                   note: note.trim(),
                   type: "personal",
                   status: "personal",
-                  wasAdminBlocked: !!data.slot?.adminBlocked,
+                  wasAdminBlocked: (peDate === data.dateStr && peTime === data.time) ? !!data.slot?.adminBlocked : false,
                   createdAt: Date.now(),
                   createdBy: "admin",
                 });
