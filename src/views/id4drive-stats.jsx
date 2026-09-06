@@ -179,21 +179,29 @@ function computeMonthForecast(bookings, svcs) {
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const dayOfMonth = now.getDate();
   if (dayOfMonth < 3) return null;
+  const todayStr = getDateStr(now);
   const monthKey = `${year}-${String(month+1).padStart(2,'0')}`;
-  const monthIncome = bookings
-    .filter(b => (b.status === 'confirmed' || b.status === 'pending') && (b.date||'').startsWith(monthKey))
-    .reduce((s, b) => s + bkIncome(b, svcs), 0);
-  return Math.round((monthIncome / dayOfMonth) * daysInMonth);
+  const inMonth = bookings.filter(b => (b.status === 'confirmed' || b.status === 'pending') && (b.date||'').startsWith(monthKey));
+  // Екстраполюємо лише з днів, що вже минули, — інакше вже заброньовані
+  // майбутні дні місяця рахувались і як "дохід досі", і ще раз як прогноз,
+  // роздуваючи число в рази.
+  const elapsedIncome = inMonth.filter(b => b.date <= todayStr).reduce((s, b) => s + bkIncome(b, svcs), 0);
+  const knownTotal     = inMonth.reduce((s, b) => s + bkIncome(b, svcs), 0);
+  const extrapolated   = Math.round((elapsedIncome / dayOfMonth) * daysInMonth);
+  // Прогноз не може бути меншим за вже підтверджені/заплановані записи на місяць.
+  return Math.max(extrapolated, knownTotal);
 }
 
 function computeYearForecast(bookings, svcs) {
   const now = new Date();
   const dayOfYear = Math.floor((now - new Date(now.getFullYear(), 0, 0)) / 86400000);
   if (dayOfYear < 10) return null;
-  const yearIncome = bookings
-    .filter(b => (b.status === 'confirmed' || b.status === 'pending') && (b.date||'').startsWith(`${now.getFullYear()}`))
-    .reduce((s, b) => s + bkIncome(b, svcs), 0);
-  return Math.round((yearIncome / dayOfYear) * 365);
+  const todayStr = getDateStr(now);
+  const inYear = bookings.filter(b => (b.status === 'confirmed' || b.status === 'pending') && (b.date||'').startsWith(`${now.getFullYear()}`));
+  const elapsedIncome = inYear.filter(b => b.date <= todayStr).reduce((s, b) => s + bkIncome(b, svcs), 0);
+  const knownTotal     = inYear.reduce((s, b) => s + bkIncome(b, svcs), 0);
+  const extrapolated   = Math.round((elapsedIncome / dayOfYear) * 365);
+  return Math.max(extrapolated, knownTotal);
 }
 
 function periodSum(data) {
