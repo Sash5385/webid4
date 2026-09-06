@@ -2054,8 +2054,27 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
     };
     const onUp = () => {
       const wasDragging = !!dragRef.current;
-      const endedId = dragRef.current?.id ?? pendingDragRef.current?.id;
-      const endedMergedIds = dragRef.current?.mergedIds ?? pendingDragRef.current?.mergedIds ?? null;
+      const draggedMeta = dragRef.current;
+      const endedId = draggedMeta?.id ?? pendingDragRef.current?.id;
+      const endedMergedIds = draggedMeta?.mergedIds ?? pendingDragRef.current?.mergedIds ?? null;
+
+      // Особиста подія: drag "move" лише пересуває картку локально (React
+      // state) — Firebase досі показує СТАРИЙ час заблокованим, а НОВИЙ час
+      // лишається вільним/бронювальним для студента. Синхронізуємо тут.
+      if (wasDragging && draggedMeta.mode === "move" && !draggedMeta.isBlock) {
+        const finalB = (bookingsRef.current || []).find(b => b.id === draggedMeta.id);
+        if (finalB && finalB.type === "personal" &&
+            (finalB.day !== draggedMeta.startDay || finalB.startMin !== draggedMeta.startMinutes)) {
+          const oldDateStr = absDayToDateStr(draggedMeta.startDay);
+          const newDateStr = absDayToDateStr(finalB.day);
+          unblockPersonalSlots(oldDateStr, draggedMeta.startMinutes, draggedMeta.startDur);
+          blockPersonalSlots(newDateStr, finalB.startMin, finalB.durMin);
+          const hh = String(Math.floor(finalB.startMin / 60)).padStart(2, "0");
+          const mm = String(finalB.startMin % 60).padStart(2, "0");
+          const key = finalB._fbKey || finalB.id;
+          update(ref(db, `bookings/personal/${key}`), { date: newDateStr, time: `${hh}:${mm}`, startMin: finalB.startMin }).catch(() => {});
+        }
+      }
 
       dragRef.current = null;
       setDragId(null);
