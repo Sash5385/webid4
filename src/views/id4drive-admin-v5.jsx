@@ -4358,16 +4358,43 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
               </div>
               <div style={{flex:1}}>
                 <div style={{fontSize:10,fontWeight:700,letterSpacing:1.2,color:FAINT,textTransform:"uppercase",marginBottom:6}}>Час</div>
-                <input
-                  type="time"
-                  value={peEditTime}
-                  onChange={e=>setPeEditTime(e.target.value)}
-                  style={{
-                    width:"100%",padding:"9px 11px",borderRadius:11,
-                    background:SURF_LO,border:`1px solid ${BORDER}`,
-                    color:TEXT,fontSize:13,outline:"none",boxSizing:"border-box",fontFamily:"inherit",
-                  }}
-                />
+                <div style={{display:"flex",gap:6}}>
+                  <select
+                    value={peEditTime.split(":")[0] || "09"}
+                    onChange={e=>setPeEditTime(`${e.target.value}:${peEditTime.split(":")[1] || "00"}`)}
+                    style={{
+                      flex:1,padding:"9px 4px",borderRadius:11,
+                      background:SURF_LO,border:`1px solid ${BORDER}`,
+                      color:TEXT,fontSize:13,outline:"none",boxSizing:"border-box",fontFamily:"inherit",
+                    }}
+                  >
+                    {Array.from({length:24},(_,h)=>String(h).padStart(2,"0")).map(h=>(
+                      <option key={h} value={h}>{h}</option>
+                    ))}
+                  </select>
+                  <select
+                    value={peEditTime.split(":")[1] || "00"}
+                    onChange={e=>setPeEditTime(`${peEditTime.split(":")[0] || "09"}:${e.target.value}`)}
+                    style={{
+                      flex:1,padding:"9px 4px",borderRadius:11,
+                      background:SURF_LO,border:`1px solid ${BORDER}`,
+                      color:TEXT,fontSize:13,outline:"none",boxSizing:"border-box",fontFamily:"inherit",
+                    }}
+                  >
+                    {["00","05","10","15","20","25","30","35","40","45","50","55"].map(m=>(
+                      <option key={m} value={m}>{m}</option>
+                    ))}
+                  </select>
+                </div>
+                <div style={{display:"flex",gap:4,marginTop:6}}>
+                  {["01","02","03","04","05"].map(h=>(
+                    <button key={h} onClick={()=>setPeEditTime(`${h}:${peEditTime.split(":")[1] || "00"}`)} style={{
+                      flex:1,padding:"5px 0",borderRadius:8,border:"none",cursor:"pointer",fontSize:11,fontWeight:700,fontFamily:"inherit",
+                      background: (peEditTime.split(":")[0]===h) ? "rgba(45,212,191,0.2)" : SURFACE,
+                      color: (peEditTime.split(":")[0]===h) ? "#2dd4bf" : DIM,
+                    }}>{h}</button>
+                  ))}
+                </div>
               </div>
             </div>
             <div>
