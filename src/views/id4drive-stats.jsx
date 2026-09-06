@@ -84,12 +84,13 @@ function computeWeekData(bookings, offset = 0, svcs) {
 
 function computeMonthData(bookings, offsetMonths = 0, svcs) {
   const now = new Date();
-  const buckets = Array.from({length: 5}, (_, i) => {
-    const d = new Date(now.getFullYear(), now.getMonth() - 4 + i + offsetMonths, 1);
-    const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
-    return { key, label: UK_MONTHS[d.getMonth()] };
+  const y = now.getFullYear(), m = now.getMonth() + offsetMonths;
+  const daysInMonth = new Date(y, m + 1, 0).getDate();
+  const buckets = Array.from({length: daysInMonth}, (_, i) => {
+    const d = new Date(y, m, i + 1);
+    return { key: getDateStr(d), label: String(i + 1) };
   });
-  return aggregateBuckets(buckets, bookings, b => (b.date||"").slice(0, 7), svcs);
+  return aggregateBuckets(buckets, bookings, b => b.date || "", svcs);
 }
 
 function computeYearData(bookings, offsetYears = 0, svcs) {
@@ -107,7 +108,7 @@ function filterByPeriod(bookings, data, period, cfrom, cto) {
   const keys = new Set(data.map(b => b.key));
   return bookings.filter(b => {
     if (period === 'day') return keys.has(`${b.date}_${parseInt((b.time||'').split(':')[0], 10)}`);
-    if (period === 'week') return keys.has(b.date||'');
+    if (period === 'week' || period === 'month') return keys.has(b.date||'');
     return keys.has((b.date||'').slice(0, 7));
   });
 }
@@ -204,8 +205,7 @@ function periodSum(data) {
 }
 
 function trendPct(cur, prev) {
-  if (!prev && !cur) return 0;
-  if (!prev) return cur > 0 ? 100 : 0;
+  if (!prev) return null; // немає з чим порівнювати — не вигадуємо фальшиві +100%
   return Math.round(((cur - prev) / prev) * 100);
 }
 
@@ -403,7 +403,7 @@ export default function StatsView() {
                  : period === "week"   ? computeWeekData(bookings, -1, services)
                  : period === "year"   ? computeYearData(bookings, -1, services)
                  : period === "day"    ? computeDayData(bookings, -1, services)
-                 :                       computeMonthData(bookings, -5, services);
+                 :                       computeMonthData(bookings, -1, services);
 
   const cur  = periodSum(data);
   const prev = periodSum(prevData);
@@ -425,9 +425,9 @@ export default function StatsView() {
   const forecast     = period === "year" ? computeYearForecast(bookings, services) : period === "custom" ? null : computeMonthForecast(bookings, services);
   const slotsPerBucket = period === "day" ? 10 : 8;
   const occupancy    = data.length ? Math.min(100, Math.round((cur.lessons / (data.length * slotsPerBucket)) * 100)) : 0;
-  const occupancySub = period === "day" ? "сьогодні" : period === "week" ? "цей тиждень" : period === "month" ? "5 місяців" : period === "custom" ? "інтервал" : "рік";
+  const occupancySub = period === "day" ? "сьогодні" : period === "week" ? "цей тиждень" : period === "month" ? "цей місяць" : period === "custom" ? "інтервал" : "рік";
   const forecastSub  = period === "year" ? "рік (прогноз)" : period === "custom" ? "—" : "місяць (прогноз)";
-  const byPeriodLabel= period === "day" ? "По годинах" : period === "week" ? "По днях" : period === "custom" && customDiffDays <= 62 ? "По днях" : "По місяцях";
+  const byPeriodLabel= period === "day" ? "По годинах" : period === "week" || period === "month" ? "По днях" : period === "custom" && customDiffDays <= 62 ? "По днях" : "По місяцях";
 
   const METRICS = [
     {id:"income",  label:t('income')+' ₴', color:GOLD},
@@ -468,7 +468,7 @@ export default function StatsView() {
             {label:"Дохід",        value:fmtK(totalIncome),               sub:"за період",                         color:GOLD,                                       trend:trendPct(cur.income,  prev.income)},
             {label:"Уроків",       value:totalLessons,                    sub:`${totalSchool}а · ${totalPrivate}п`, color:BLUE,                                       trend:trendPct(cur.lessons, prev.lessons)},
             {label:"Серед. чек",   value:fmtK(avgCheck),                  sub:"дохід / урок",                      color:GREEN,                                      trend:trendPct(avgCheck, prevAvgCheck)},
-            {label:"No-show",      value:`${noshowPct}%`,                 sub:`скасувань: ${totalCancel}`,          color:noshowPct>5?RED:DIM,                        trend:trendPct(cur.noshow, prev.noshow) * -1},
+            {label:"No-show",      value:`${noshowPct}%`,                 sub:`скасувань: ${totalCancel}`,          color:noshowPct>5?RED:DIM,                        trend: trendPct(cur.noshow, prev.noshow) == null ? null : trendPct(cur.noshow, prev.noshow) * -1},
             {label:"Заповненість", value:`${occupancy}%`,               sub:occupancySub,                        color:occupancy<50?RED:occupancy<80?GOLD:GREEN, trend:0},
             {label:"Прогноз",      value:forecast!=null?fmtK(forecast):"—", sub:forecastSub,                      color:PURPLE,                                   trend:0},
           ].map((k, i) => (
@@ -479,7 +479,7 @@ export default function StatsView() {
             }}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:6}}>
                 <div style={{fontSize:9,color:"rgba(255,255,255,0.6)",letterSpacing:1,textTransform:"uppercase",fontWeight:700}}>{k.label}</div>
-                {k.trend !== 0 && (
+                {k.trend != null && k.trend !== 0 && (
                   <span style={{
                     fontSize:9, fontWeight:800, padding:"2px 6px", borderRadius:6,
                     color:k.trend>=0?GREEN:RED,
