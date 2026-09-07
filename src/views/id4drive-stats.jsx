@@ -577,11 +577,16 @@ export default function StatsView() {
             </div>
           ) : incomeGoal > 0 ? (
             <>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:2}}>
-                <span style={{fontSize:20,fontWeight:900,color:curMonthCurrent>=incomeGoal?GREEN:GOLD}}>{fmtK(curMonthCurrent)}</span>
-                <span style={{fontSize:11,color:FAINT}}>/ {fmtK(incomeGoal)}</span>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-end",marginBottom:curMonthForecast>curMonthCurrent?7:11}}>
+                <div>
+                  <div style={{fontSize:24,fontWeight:900,color:GOLD,lineHeight:1}}>{fmtK(incomeGoal)}</div>
+                  <div style={{fontSize:8,color:FAINT,marginTop:3}}>ціль місяця</div>
+                </div>
+                <div style={{textAlign:"right"}}>
+                  <div style={{fontSize:16,fontWeight:800,color:curMonthCurrent>=incomeGoal?GREEN:TEXT,lineHeight:1}}>{fmtK(curMonthCurrent)}</div>
+                  <div style={{fontSize:8,color:FAINT,marginTop:3}}>вже зароблено</div>
+                </div>
               </div>
-              <div style={{fontSize:9,color:FAINT,marginBottom:curMonthForecast>curMonthCurrent?2:7}}>поточний (до сьогодні)</div>
               {curMonthForecast > curMonthCurrent && (
                 <div style={{fontSize:9,color:ACCENT,fontWeight:700,marginBottom:7}}>
                   прогноз із записами наперед: {fmtK(curMonthForecast)}
