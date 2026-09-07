@@ -197,31 +197,12 @@ function trendPct(cur, prev) {
   return Math.round(((cur - prev) / prev) * 100);
 }
 
-function exportCSV(bookings, svcs) {
-  const rows = bookings
-    .filter(b => b.status === 'confirmed' || b.status === 'pending')
-    .sort((a, b) => (b.date||'').localeCompare(a.date||''))
-    .map(b => [
-      b.date||'', b.time||'',
-      (b.studentName||b.name||'').replace(/,/g,' '),
-      b.serviceType||'', bkIncome(b, svcs), b.durMin || (b.durationHours ? b.durationHours*60 : 60),
-    ].join(','));
-  const csv = ['Дата,Час,Учень,Тип,Сума,Хвилин', ...rows].join('\n');
-  const blob = new Blob(['﻿'+csv], {type:'text/csv;charset=utf-8;'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `id4drive-${new Date().toISOString().slice(0,10)}.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
 // ─── CHIP ────────────────────────────────────────────────────────
 const Chip = ({label, active, onClick, color}) => {
   const { ACC_HI, ACCENT, SURF_HI, SURFACE, DIM, SO } = useContext(ThemeContext);
   return (
     <button onClick={onClick} style={{
-      padding:"6px 12px", borderRadius:9, border:"none", cursor:"pointer", fontSize:11, fontWeight:700, flexShrink:0, fontFamily:"inherit",
+      flex:1, padding:"7px 4px", borderRadius:9, border:"none", cursor:"pointer", fontSize:11, fontWeight:700, fontFamily:"inherit", textAlign:"center",
       background: active ? `linear-gradient(145deg,${color||ACC_HI},${color?color+"bb":ACCENT})` : `linear-gradient(145deg,${SURF_HI},${SURFACE})`,
       color: active ? "#fff" : DIM, boxShadow: active ? "none" : SO,
     }}>{label}</button>
@@ -434,7 +415,7 @@ export default function StatsView() {
       <div style={{display:"flex",flexDirection:"column",gap:8,fontFamily:"ui-sans-serif,-apple-system,system-ui,sans-serif",color:TEXT}}>
 
         {/* ── PERIOD ── */}
-        <div style={{display:"flex",gap:6,overflowX:"auto",paddingBottom:2}}>
+        <div style={{display:"flex",gap:6}}>
           {[["day","День"],["week",t('st2.week')],["month",t('st2.month')],["year",t('st2.year')],["custom","Період"]].map(([k,l])=>(
             <Chip key={k} label={l} active={period===k} onClick={()=>setPeriod(k)}/>
           ))}
@@ -444,16 +425,16 @@ export default function StatsView() {
         <Card className="fu" style={{padding:"12px"}}>
           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:9}}>
             <button onClick={()=>calGoMonth(-1)} style={{
-              width:24,height:24,borderRadius:7,border:"none",cursor:"pointer",fontFamily:"inherit",
-              background:SURF_HI,color:DIM,fontSize:12,fontWeight:700,
+              width:34,height:34,borderRadius:9,border:"none",cursor:"pointer",fontFamily:"inherit",
+              background:SURF_HI,color:DIM,fontSize:18,fontWeight:700,lineHeight:1,
             }}>‹</button>
             <button onClick={calPickMonth} title="Обрати весь місяць" style={{
               border:"none",cursor:"pointer",fontFamily:"inherit",background:"transparent",
               fontSize:13,fontWeight:800,color:TEXT,textTransform:"capitalize",padding:"4px 10px",borderRadius:8,
             }}>{calMonthLabel}</button>
             <button onClick={()=>calGoMonth(1)} style={{
-              width:24,height:24,borderRadius:7,border:"none",cursor:"pointer",fontFamily:"inherit",
-              background:SURF_HI,color:DIM,fontSize:12,fontWeight:700,
+              width:34,height:34,borderRadius:9,border:"none",cursor:"pointer",fontFamily:"inherit",
+              background:SURF_HI,color:DIM,fontSize:18,fontWeight:700,lineHeight:1,
             }}>›</button>
           </div>
           <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:3,marginBottom:4}}>
@@ -524,10 +505,11 @@ export default function StatsView() {
               padding:"10px 9px",
               background:`linear-gradient(155deg,color-mix(in srgb,${k.color} 20%,${BG_DEEP}),color-mix(in srgb,${k.color} 6%,${BG_DEEP}))`,
               border:`1px solid color-mix(in srgb,${k.color} 30%,transparent)`,
+              textAlign:"center",
             }}>
               <div style={{fontSize:8,color:"rgba(255,255,255,0.6)",letterSpacing:0.6,textTransform:"uppercase",fontWeight:700,marginBottom:6}}>{k.label}</div>
               <div style={{fontSize:18,fontWeight:900,color:"#fff",letterSpacing:-0.3,marginBottom:3,lineHeight:1.05}}>{k.value}</div>
-              <div style={{display:"flex",alignItems:"center",gap:5,flexWrap:"wrap"}}>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:5,flexWrap:"wrap"}}>
                 <div style={{fontSize:9,color:"rgba(255,255,255,0.5)"}}>{k.sub}</div>
                 {k.trend != null && k.trend !== 0 && (
                   <span style={{
@@ -548,29 +530,25 @@ export default function StatsView() {
             background:`linear-gradient(155deg,color-mix(in srgb,${GREEN} 14%,${BG_DEEP}),color-mix(in srgb,${GREEN} 3%,${BG_DEEP}))`,
             border:`1px solid color-mix(in srgb,${GREEN} 24%,transparent)`,
           }}>
-            <div style={{fontSize:9,color:"rgba(255,255,255,0.6)",letterSpacing:1,textTransform:"uppercase",fontWeight:700,marginBottom:9}}>Розподіл</div>
+            <div style={{fontSize:9,color:"rgba(255,255,255,0.6)",letterSpacing:1,textTransform:"uppercase",fontWeight:700,marginBottom:7}}>Розподіл</div>
             {(() => {
               const totalRatio = totalSchool + totalPrivate;
               const schoolPct = totalRatio ? Math.round((totalSchool/totalRatio)*100) : 0;
               return (
-                <>
-                  <div style={{display:"flex",gap:8,marginBottom:9}}>
-                    {[[GREEN,"Автошкола",totalSchool],[GOLD,"Приватний",totalPrivate]].map(([c,l,v])=>(
-                      <div key={l} style={{flex:1,textAlign:"center"}}>
-                        <div style={{fontSize:19,fontWeight:900,color:c,lineHeight:1}}>{v}</div>
-                        <div style={{fontSize:9,color:"rgba(255,255,255,0.6)",marginTop:3}}>{l}</div>
-                      </div>
-                    ))}
-                  </div>
-                  <div style={{display:"flex",height:8,borderRadius:5,overflow:"hidden",boxShadow:SI}}>
+                <div style={{display:"flex",flexDirection:"column",gap:5}}>
+                  {[[GREEN,"Автошкола",totalSchool,schoolPct],[GOLD,"Приватний",totalPrivate,100-schoolPct]].map(([c,l,v,pct])=>(
+                    <div key={l} style={{display:"flex",alignItems:"center",gap:5}}>
+                      <i style={{width:7,height:7,borderRadius:2,background:c,flexShrink:0}}/>
+                      <span style={{flex:1,fontSize:9.5,color:"rgba(255,255,255,0.7)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{l}</span>
+                      <span style={{fontSize:12,fontWeight:900,color:c}}>{v}</span>
+                      <span style={{fontSize:8.5,color:"rgba(255,255,255,0.5)",width:26,textAlign:"right",flexShrink:0}}>{pct}%</span>
+                    </div>
+                  ))}
+                  <div style={{display:"flex",height:6,borderRadius:4,overflow:"hidden",boxShadow:SI,marginTop:1}}>
                     <div style={{width:`${totalRatio?schoolPct:50}%`,background:GREEN,transition:"width .5s ease"}}/>
                     <div style={{width:`${totalRatio?100-schoolPct:50}%`,background:GOLD,transition:"width .5s ease"}}/>
                   </div>
-                  <div style={{display:"flex",justifyContent:"space-between",marginTop:5}}>
-                    <span style={{fontSize:9,color:GREEN,fontWeight:700}}>{schoolPct}%</span>
-                    <span style={{fontSize:9,color:GOLD,fontWeight:700}}>{100-schoolPct}%</span>
-                  </div>
-                </>
+                </div>
               );
             })()}
           </Card>
@@ -580,20 +558,22 @@ export default function StatsView() {
             background:`linear-gradient(155deg,color-mix(in srgb,${GOLD} 14%,${BG_DEEP}),color-mix(in srgb,${GOLD} 3%,${BG_DEEP}))`,
             border:`1px solid color-mix(in srgb,${GOLD} 24%,transparent)`,
           }}>
-            <div style={{fontSize:9,color:"rgba(255,255,255,0.6)",letterSpacing:1,textTransform:"uppercase",fontWeight:700,marginBottom:9}}>{byPeriodLabel}</div>
-            {data.map((d, i) => {
-              const maxI = Math.max(...data.map(x => x.income), 1);
-              const pct  = d.income / maxI;
-              return (
-                <div key={i} style={{display:"flex",alignItems:"center",gap:6,marginBottom:6}}>
-                  <span style={{fontSize:9,color:"rgba(255,255,255,0.55)",fontWeight:700,width:16,textAlign:"right",flexShrink:0}}>{d.label}</span>
-                  <div style={{flex:1,height:5,background:BG_DEEP,borderRadius:3,boxShadow:SI,overflow:"hidden"}}>
-                    <div style={{height:"100%",width:`${pct*100}%`,borderRadius:3,background:`linear-gradient(90deg,${GOLD},${GREEN})`,transition:"width .5s ease"}}/>
+            <div style={{fontSize:9,color:"rgba(255,255,255,0.6)",letterSpacing:1,textTransform:"uppercase",fontWeight:700,marginBottom:7}}>{byPeriodLabel}</div>
+            <div style={{display:"flex",flexDirection:"column",gap:4,maxHeight:140,overflowY:"auto",paddingRight:2}}>
+              {data.map((d, i) => {
+                const maxI = Math.max(...data.map(x => x.income), 1);
+                const pct  = d.income / maxI;
+                return (
+                  <div key={i} style={{display:"flex",alignItems:"center",gap:6}}>
+                    <span style={{fontSize:8.5,color:"rgba(255,255,255,0.55)",fontWeight:700,width:16,textAlign:"right",flexShrink:0}}>{d.label}</span>
+                    <div style={{flex:1,height:4,background:BG_DEEP,borderRadius:3,boxShadow:SI,overflow:"hidden"}}>
+                      <div style={{height:"100%",width:`${pct*100}%`,borderRadius:3,background:`linear-gradient(90deg,${GOLD},${GREEN})`,transition:"width .5s ease"}}/>
+                    </div>
+                    <span style={{fontSize:8.5,color:GOLD,fontWeight:800,width:32,textAlign:"right",flexShrink:0}}>{d.income ? fmtK(d.income) : <span style={{color:FAINT}}>—</span>}</span>
                   </div>
-                  <span style={{fontSize:9,color:GOLD,fontWeight:800,width:34,textAlign:"right",flexShrink:0}}>{d.income ? fmtK(d.income) : <span style={{color:FAINT}}>—</span>}</span>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </Card>
         </div>
 
@@ -685,32 +665,6 @@ export default function StatsView() {
             })}
           </Card>
         )}
-
-        {/* ── ЕКСПОРТ ── */}
-        <Card className="fu" style={{padding:"12px"}}>
-          <div style={{fontSize:9,color:FAINT,letterSpacing:1,textTransform:"uppercase",fontWeight:700,marginBottom:10}}>Експорт</div>
-          <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:7}}>
-            {[
-              {label:"Excel", emoji:"📊", color:GREEN, sub:"Статистика",     onClick:()=>exportCSV(bookings, services)},
-              {label:"PDF",   emoji:"📄", color:RED,   sub:"Для податкової", onClick:()=>window.print()},
-            ].map(e=>(
-              <button key={e.label} onClick={e.onClick} style={{
-                padding:"11px 6px", borderRadius:11, border:"none", cursor:"pointer", fontFamily:"inherit",
-                background:`linear-gradient(155deg,color-mix(in srgb,${e.color} 22%,${BG_DEEP}),color-mix(in srgb,${e.color} 6%,${BG_DEEP}))`,
-                display:"flex", flexDirection:"column", alignItems:"center", gap:5, boxShadow:SO,
-              }}>
-                <div style={{
-                  width:34, height:34, borderRadius:10,
-                  background:`linear-gradient(145deg,${e.color}55,${e.color}22)`,
-                  display:"flex", alignItems:"center", justifyContent:"center", fontSize:18,
-                  boxShadow:`0 2px 8px ${e.color}33`,
-                }}>{e.emoji}</div>
-                <span style={{fontSize:11,fontWeight:800,color:"#fff"}}>{e.label}</span>
-                <span style={{fontSize:9,color:"rgba(255,255,255,0.55)"}}>{e.sub}</span>
-              </button>
-            ))}
-          </div>
-        </Card>
 
         <div style={{height:8}}/>
       </div>
