@@ -36,18 +36,42 @@ function bkIncome(b, svcs) {
   return b.price || 0;
 }
 
+// Сусідні (без розриву в часі) записи одного учня в один день адмінка
+// показує ОДНІЄЮ карткою в розкладі — тут так само рахуємо їх ОДНИМ уроком,
+// а не по кожному окремому Firebase-запису (інакше 2-годинний урок,
+// збережений як два сусідні 1-годинні записи, рахувався як "2 уроки").
+function markMergedContinuations(bookings) {
+  const byGroup = {};
+  bookings.forEach(b => {
+    const st = b.status || "confirmed";
+    if ((st !== "confirmed" && st !== "pending") || !b.date || b.startMin == null || !b.durMin) return;
+    (byGroup[`${b.date}_${b._uid}`] ||= []).push(b);
+  });
+  const continuations = new Set();
+  Object.values(byGroup).forEach(list => {
+    list.sort((a, b) => a.startMin - b.startMin);
+    for (let i = 1; i < list.length; i++) {
+      if (list[i].startMin === list[i-1].startMin + list[i-1].durMin) continuations.add(list[i]._key);
+    }
+  });
+  return continuations;
+}
+
 function aggregateBuckets(buckets, bookings, getKey, svcs) {
   const map = {};
   buckets.forEach(b => { map[b.key] = { ...b, income:0, lessons:0, school:0, private:0, noshow:0, cancel:0 }; });
+  const continuations = markMergedContinuations(bookings);
   bookings.forEach(b => {
     const k = getKey(b);
     if (!map[k]) return;
     const st = b.status || "confirmed";
     if (st === "confirmed" || st === "pending") {
-      map[k].income  += bkIncome(b, svcs);
-      map[k].lessons += 1;
-      if (bkType(b) === "school") map[k].school++;
-      else map[k].private++;
+      map[k].income += bkIncome(b, svcs);
+      if (!continuations.has(b._key)) {
+        map[k].lessons += 1;
+        if (bkType(b) === "school") map[k].school++;
+        else map[k].private++;
+      }
     } else if (st === "noshow")    { map[k].noshow++; }
     else if (st === "cancelled")  { map[k].cancel++; }
   });
@@ -172,37 +196,6 @@ function computePopularSlots(bookings, svcs) {
   return Object.values(map).sort((a, b) => b.count - a.count).slice(0, 6);
 }
 
-function computeMonthForecast(bookings, svcs) {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = now.getMonth();
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const dayOfMonth = now.getDate();
-  if (dayOfMonth < 3) return null;
-  const todayStr = getDateStr(now);
-  const monthKey = `${year}-${String(month+1).padStart(2,'0')}`;
-  const inMonth = bookings.filter(b => (b.status === 'confirmed' || b.status === 'pending') && (b.date||'').startsWith(monthKey));
-  // Екстраполюємо лише з днів, що вже минули, — інакше вже заброньовані
-  // майбутні дні місяця рахувались і як "дохід досі", і ще раз як прогноз,
-  // роздуваючи число в рази.
-  const elapsedIncome = inMonth.filter(b => b.date <= todayStr).reduce((s, b) => s + bkIncome(b, svcs), 0);
-  const knownTotal     = inMonth.reduce((s, b) => s + bkIncome(b, svcs), 0);
-  const extrapolated   = Math.round((elapsedIncome / dayOfMonth) * daysInMonth);
-  // Прогноз не може бути меншим за вже підтверджені/заплановані записи на місяць.
-  return Math.max(extrapolated, knownTotal);
-}
-
-function computeYearForecast(bookings, svcs) {
-  const now = new Date();
-  const dayOfYear = Math.floor((now - new Date(now.getFullYear(), 0, 0)) / 86400000);
-  if (dayOfYear < 10) return null;
-  const todayStr = getDateStr(now);
-  const inYear = bookings.filter(b => (b.status === 'confirmed' || b.status === 'pending') && (b.date||'').startsWith(`${now.getFullYear()}`));
-  const elapsedIncome = inYear.filter(b => b.date <= todayStr).reduce((s, b) => s + bkIncome(b, svcs), 0);
-  const knownTotal     = inYear.reduce((s, b) => s + bkIncome(b, svcs), 0);
-  const extrapolated   = Math.round((elapsedIncome / dayOfYear) * 365);
-  return Math.max(extrapolated, knownTotal);
-}
 
 function periodSum(data) {
   return {
@@ -236,112 +229,6 @@ function exportCSV(bookings, svcs) {
   URL.revokeObjectURL(url);
 }
 
-// ─── INSET ───────────────────────────────────────────────────────
-const Inset = ({children, style={}}) => {
-  const { SURF_HI, SURFACE, SI } = useContext(ThemeContext);
-  return (
-    <div style={{background:`linear-gradient(155deg,${SURF_HI},${SURFACE})`, borderRadius:10, boxShadow:SI, ...style}}>{children}</div>
-  );
-};
-
-// ─── SVG LINE CHART ──────────────────────────────────────────────
-function LineChart({ data, valueKey, color, height=120 }) {
-  const { FAINT } = useContext(ThemeContext);
-  const { ink } = useFX();
-  const W=320, H=height, P=12;
-  if (data.length < 2) return <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={height}/>;
-  const vals = data.map(d => d[valueKey]);
-  const max = Math.max(...vals), min = Math.min(...vals);
-  const range = max - min || 1;
-  const pts = vals.map((v, i) => ({
-    x: P + (i / (vals.length - 1)) * (W - P*2),
-    y: H - P - ((v - min) / range) * (H - P*2 - 10),
-  }));
-  const path = pts.map((p, i) => i===0 ? `M${p.x},${p.y}` : `L${p.x},${p.y}`).join(" ");
-  const area = `${path} L${pts[pts.length-1].x},${H-P} L${pts[0].x},${H-P} Z`;
-  const len  = pts.reduce((s, p, i) => i===0 ? 0 : s + Math.hypot(p.x - pts[i-1].x, p.y - pts[i-1].y), 0);
-  const gid  = `g${color.replace(/[^a-z0-9]/gi, "")}`;
-  return (
-    <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={height} style={{overflow:"visible"}}>
-      <defs>
-        <linearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={color} stopOpacity=".28"/>
-          <stop offset="100%" stopColor={color} stopOpacity=".01"/>
-        </linearGradient>
-      </defs>
-      {[0,.25,.5,.75,1].map(t=>(
-        <line key={t} x1={P} y1={P+(1-t)*(H-P*2-10)} x2={W-P} y2={P+(1-t)*(H-P*2-10)} stroke={ink(0.06)} strokeWidth="1"/>
-      ))}
-      <path d={area} fill={`url(#${gid})`}/>
-      <path className="line-anim" d={path} fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
-        style={{"--len":len, strokeDasharray:len}}/>
-      {pts.map((p, i) => (
-        <circle key={i} cx={p.x} cy={p.y} r="3.5" fill={color} style={{filter:`drop-shadow(0 0 4px ${color}88)`}}/>
-      ))}
-      {data.map((d, i) => (
-        <text key={i} x={pts[i].x} y={H} textAnchor="middle" fill={FAINT} fontSize="9" fontWeight="700">{d.label}</text>
-      ))}
-    </svg>
-  );
-}
-
-// ─── SVG BAR CHART ───────────────────────────────────────────────
-function BarChart({ data, valueKey, color, height=120 }) {
-  const { FAINT } = useContext(ThemeContext);
-  const { ink } = useFX();
-  const W=320, H=height, P=12;
-  const vals = data.map(d => d[valueKey]);
-  const max  = Math.max(...vals) || 1;
-  const gap  = (W - P*2) / data.length;
-  const bW   = gap * .6;
-  return (
-    <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={height} style={{overflow:"visible"}}>
-      <defs>
-        {data.map((_, i) => (
-          <linearGradient key={i} id={`bg${i}`} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={color} stopOpacity=".85"/>
-            <stop offset="100%" stopColor={color} stopOpacity=".35"/>
-          </linearGradient>
-        ))}
-      </defs>
-      {[0,.5,1].map(t=>(
-        <line key={t} x1={P} y1={P+(1-t)*(H-P*2-10)} x2={W-P} y2={P+(1-t)*(H-P*2-10)} stroke={ink(0.06)} strokeWidth="1"/>
-      ))}
-      {data.map((d, i) => {
-        const bH = ((d[valueKey]||0) / max) * (H - P*2 - 10);
-        const x  = P + i*gap + gap*.2;
-        const y  = H - P - 10 - bH;
-        return (
-          <g key={i}>
-            <rect x={x} y={y} width={bW} height={bH} rx="4" fill={`url(#bg${i})`}
-              style={{filter:`drop-shadow(0 2px 5px ${color}44)`}}/>
-            <text x={x+bW/2} y={H} textAnchor="middle" fill={FAINT} fontSize="9" fontWeight="700">{d.label}</text>
-          </g>
-        );
-      })}
-    </svg>
-  );
-}
-
-// ─── DONUT ───────────────────────────────────────────────────────
-function Donut({ school, total, size=76 }) {
-  const { SURF_LO, GREEN, GOLD, TEXT } = useContext(ThemeContext);
-  const pct = total ? school/total : 0;
-  const r=26, cx=size/2, cy=size/2, c=2*Math.PI*r;
-  return (
-    <svg width={size} height={size}>
-      <circle cx={cx} cy={cy} r={r} fill="none" stroke={SURF_LO} strokeWidth="9"/>
-      <circle cx={cx} cy={cy} r={r} fill="none" stroke={GREEN} strokeWidth="9"
-        strokeDasharray={`${pct*c} ${c}`} strokeDashoffset={c*.75} strokeLinecap="round"
-        style={{filter:`drop-shadow(0 0 5px ${GREEN}66)`}}/>
-      <circle cx={cx} cy={cy} r={r} fill="none" stroke={GOLD} strokeWidth="9"
-        strokeDasharray={`${(1-pct)*c} ${c}`} strokeDashoffset={c*(.75+pct)} strokeLinecap="round"
-        style={{filter:`drop-shadow(0 0 5px ${GOLD}66)`}}/>
-      <text x={cx} y={cy} textAnchor="middle" dominantBaseline="middle" fill={TEXT} fontSize="12" fontWeight="800">{Math.round(pct*100)}%</text>
-    </svg>
-  );
-}
-
 // ─── CHIP ────────────────────────────────────────────────────────
 const Chip = ({label, active, onClick, color}) => {
   const { ACC_HI, ACCENT, SURF_HI, SURFACE, DIM, SO } = useContext(ThemeContext);
@@ -360,8 +247,6 @@ export default function StatsView() {
   const lang = useContext(LangContext);
   const t = createT(lang);
   const [period,     setPeriod]    = useState("month");
-  const [chartType,  setChartType] = useState("line");
-  const [metric,     setMetric]    = useState("income");
   const [bookings,   setBookings]  = useState([]);
   const [services,   setServices]  = useState([]);
   const [topBy,      setTopBy]     = useState("paid");
@@ -420,30 +305,14 @@ export default function StatsView() {
   const totalLessons = cur.lessons;
   const totalSchool  = data.reduce((s, d) => s + d.school,  0);
   const totalPrivate = data.reduce((s, d) => s + d.private, 0);
-  const totalNoshow  = cur.noshow;
-  const totalCancel  = data.reduce((s, d) => s + (d.cancel||0), 0);
   const avgCheck     = totalLessons ? Math.round(totalIncome / totalLessons) : 0;
-  const noshowPct    = totalLessons ? Math.round((totalNoshow / totalLessons) * 100) : 0;
   const prevAvgCheck = prev.lessons ? Math.round(prev.income / prev.lessons) : 0;
 
   const customDiffDays = customFrom && customTo ? Math.round((new Date(customTo) - new Date(customFrom)) / 86400000) + 1 : 0;
   const periodBookings = filterByPeriod(bookings, data, period, customFrom, customTo);
   const topStudents  = computeTopStudents(periodBookings, topBy, services);
   const popularSlots = computePopularSlots(periodBookings, services);
-  const forecast     = period === "year" ? computeYearForecast(bookings, services) : period === "custom" ? null : computeMonthForecast(bookings, services);
-  const slotsPerBucket = period === "day" ? 10 : 8;
-  const occupancy    = data.length ? Math.min(100, Math.round((cur.lessons / (data.length * slotsPerBucket)) * 100)) : 0;
-  const occupancySub = period === "day" ? "сьогодні" : period === "week" ? "цей тиждень" : period === "month" ? "цей місяць" : period === "custom" ? "інтервал" : "рік";
-  const forecastSub  = period === "year" ? "рік (прогноз)" : period === "custom" ? "—" : "місяць (прогноз)";
   const byPeriodLabel= period === "day" ? "По годинах" : period === "week" || period === "month" ? "По днях" : period === "custom" && customDiffDays <= 62 ? "По днях" : "По місяцях";
-
-  const METRICS = [
-    {id:"income",  label:t('income')+' ₴', color:GOLD},
-    {id:"lessons", label:t('lessons'),      color:BLUE},
-    {id:"school",  label:t('school'),       color:GREEN},
-    {id:"private", label:t('private'),      color:PURPLE},
-  ];
-  const curMetric = METRICS.find(m => m.id === metric);
 
   return (
     <>
@@ -470,78 +339,33 @@ export default function StatsView() {
           <div style={{textAlign:"center",color:FAINT,fontSize:12,padding:"8px 0"}}>Оберіть початкову та кінцеву дату</div>
         )}
 
-        {/* ── KPI 2×3 ── */}
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7}}>
+        {/* ── KPI 3 ── */}
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:7}}>
           {[
-            {label:"Дохід",        value:fmtK(totalIncome),               sub:"за період",                         color:GOLD,                                       trend:trendPct(cur.income,  prev.income)},
-            {label:"Уроків",       value:totalLessons,                    sub:`${totalSchool}а · ${totalPrivate}п`, color:BLUE,                                       trend:trendPct(cur.lessons, prev.lessons)},
-            {label:"Серед. чек",   value:fmtK(avgCheck),                  sub:"дохід / урок",                      color:GREEN,                                      trend:trendPct(avgCheck, prevAvgCheck)},
-            {label:"No-show",      value:`${noshowPct}%`,                 sub:`скасувань: ${totalCancel}`,          color:noshowPct>5?RED:DIM,                        trend: trendPct(cur.noshow, prev.noshow) == null ? null : trendPct(cur.noshow, prev.noshow) * -1},
-            {label:"Заповненість", value:`${occupancy}%`,               sub:occupancySub,                        color:occupancy<50?RED:occupancy<80?GOLD:GREEN, trend:0},
-            {label:"Прогноз",      value:forecast!=null?fmtK(forecast):"—", sub:forecastSub,                      color:PURPLE,                                   trend:0},
+            {label:"Дохід",        value:fmtK(totalIncome),               sub:"за період",                         color:GOLD,  trend:trendPct(cur.income,  prev.income)},
+            {label:"Уроків",       value:totalLessons,                    sub:`${totalSchool}а · ${totalPrivate}п`, color:BLUE,  trend:trendPct(cur.lessons, prev.lessons)},
+            {label:"Серед. чек",   value:fmtK(avgCheck),                  sub:"дохід / урок",                      color:GREEN, trend:trendPct(avgCheck, prevAvgCheck)},
           ].map((k, i) => (
             <Card key={i} className="fu" style={{
-              padding:"12px 13px",
+              padding:"10px 9px",
               background:`linear-gradient(155deg,color-mix(in srgb,${k.color} 20%,${BG_DEEP}),color-mix(in srgb,${k.color} 6%,${BG_DEEP}))`,
               border:`1px solid color-mix(in srgb,${k.color} 30%,transparent)`,
             }}>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:6}}>
-                <div style={{fontSize:9,color:"rgba(255,255,255,0.6)",letterSpacing:1,textTransform:"uppercase",fontWeight:700}}>{k.label}</div>
+              <div style={{fontSize:8,color:"rgba(255,255,255,0.6)",letterSpacing:0.6,textTransform:"uppercase",fontWeight:700,marginBottom:6}}>{k.label}</div>
+              <div style={{fontSize:18,fontWeight:900,color:"#fff",letterSpacing:-0.3,marginBottom:3,lineHeight:1.05}}>{k.value}</div>
+              <div style={{display:"flex",alignItems:"center",gap:5,flexWrap:"wrap"}}>
+                <div style={{fontSize:9,color:"rgba(255,255,255,0.5)"}}>{k.sub}</div>
                 {k.trend != null && k.trend !== 0 && (
                   <span style={{
-                    fontSize:9, fontWeight:800, padding:"2px 6px", borderRadius:6,
+                    fontSize:8, fontWeight:800, padding:"1px 5px", borderRadius:5,
                     color:k.trend>=0?GREEN:RED,
                     background:k.trend>=0?`${GREEN}1f`:`${RED}1f`,
                   }}>{k.trend>=0?"+":""}{k.trend}%</span>
                 )}
               </div>
-              <div style={{fontSize:22,fontWeight:900,color:"#fff",letterSpacing:-0.5,marginBottom:2}}>{k.value}</div>
-              <div style={{fontSize:10,color:"rgba(255,255,255,0.5)"}}>{k.sub}</div>
             </Card>
           ))}
         </div>
-
-        {/* ── CHART ── */}
-        <Card className="fu" style={{
-          padding:"14px",
-          background:`linear-gradient(155deg,color-mix(in srgb,${curMetric.color} 14%,${BG_DEEP}),color-mix(in srgb,${curMetric.color} 3%,${BG_DEEP}))`,
-          border:`1px solid color-mix(in srgb,${curMetric.color} 24%,transparent)`,
-        }}>
-          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10,flexWrap:"wrap",gap:6}}>
-            <span style={{fontSize:13,fontWeight:800,color:"#fff"}}>Динаміка</span>
-            <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
-              {METRICS.map(m=>(
-                <button key={m.id} onClick={()=>setMetric(m.id)} style={{
-                  padding:"4px 8px", borderRadius:7, border:"none", cursor:"pointer", fontSize:10, fontWeight:700, fontFamily:"inherit",
-                  background:metric===m.id?m.color:`linear-gradient(145deg,${SURF_HI},${SURFACE})`,
-                  color:metric===m.id?"#fff":FAINT, boxShadow:SO,
-                }}>{m.label}</button>
-              ))}
-              <button onClick={()=>setChartType(t=>t==="line"?"bar":"line")} style={{
-                padding:"4px 10px", borderRadius:7, border:"none", cursor:"pointer", fontSize:11, fontFamily:"inherit",
-                background:`linear-gradient(145deg,${SURF_HI},${SURFACE})`, color:DIM, boxShadow:SO,
-              }}>{chartType==="line"?"📊":"📈"}</button>
-            </div>
-          </div>
-          <Inset style={{padding:"10px 8px 4px"}}>
-            {chartType==="line"
-              ? <LineChart data={data} valueKey={metric} color={curMetric.color} height={120}/>
-              : <BarChart  data={data} valueKey={metric} color={curMetric.color} height={120}/>
-            }
-          </Inset>
-          <div style={{display:"flex",gap:14,marginTop:9,justifyContent:"center",flexWrap:"wrap"}}>
-            {METRICS.map(m=>(
-              <div key={m.id} onClick={()=>setMetric(m.id)} style={{display:"flex",alignItems:"center",gap:5,cursor:"pointer"}}>
-                <div style={{
-                  width:7, height:7, borderRadius:4, background:m.color,
-                  boxShadow:`0 0 5px ${m.color}88`,
-                  transform:metric===m.id?"scale(1.5)":"scale(1)", transition:"transform .15s",
-                }}/>
-                <span style={{fontSize:10,color:metric===m.id?m.color:FAINT,fontWeight:700}}>{m.label}</span>
-              </div>
-            ))}
-          </div>
-        </Card>
 
         {/* ── РОЗПОДІЛ + ПО ДНЯХ ── */}
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7}}>
@@ -551,18 +375,30 @@ export default function StatsView() {
             border:`1px solid color-mix(in srgb,${GREEN} 24%,transparent)`,
           }}>
             <div style={{fontSize:9,color:"rgba(255,255,255,0.6)",letterSpacing:1,textTransform:"uppercase",fontWeight:700,marginBottom:9}}>Розподіл</div>
-            <div style={{display:"flex",alignItems:"center",gap:8}}>
-              <Donut school={totalSchool} total={totalSchool+totalPrivate}/>
-              <div style={{flex:1}}>
-                {[[GREEN,"Автошкола",totalSchool],[GOLD,"Приватний",totalPrivate]].map(([c,l,v])=>(
-                  <div key={l} style={{display:"flex",alignItems:"center",gap:5,marginBottom:6}}>
-                    <div style={{width:7,height:7,borderRadius:4,background:c,flexShrink:0}}/>
-                    <span style={{fontSize:10,color:"rgba(255,255,255,0.65)",flex:1}}>{l}</span>
-                    <span style={{fontSize:12,fontWeight:800,color:"#fff"}}>{v}</span>
+            {(() => {
+              const totalRatio = totalSchool + totalPrivate;
+              const schoolPct = totalRatio ? Math.round((totalSchool/totalRatio)*100) : 0;
+              return (
+                <>
+                  <div style={{display:"flex",gap:8,marginBottom:9}}>
+                    {[[GREEN,"Автошкола",totalSchool],[GOLD,"Приватний",totalPrivate]].map(([c,l,v])=>(
+                      <div key={l} style={{flex:1,textAlign:"center"}}>
+                        <div style={{fontSize:19,fontWeight:900,color:c,lineHeight:1}}>{v}</div>
+                        <div style={{fontSize:9,color:"rgba(255,255,255,0.6)",marginTop:3}}>{l}</div>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-            </div>
+                  <div style={{display:"flex",height:8,borderRadius:5,overflow:"hidden",boxShadow:SI}}>
+                    <div style={{width:`${totalRatio?schoolPct:50}%`,background:GREEN,transition:"width .5s ease"}}/>
+                    <div style={{width:`${totalRatio?100-schoolPct:50}%`,background:GOLD,transition:"width .5s ease"}}/>
+                  </div>
+                  <div style={{display:"flex",justifyContent:"space-between",marginTop:5}}>
+                    <span style={{fontSize:9,color:GREEN,fontWeight:700}}>{schoolPct}%</span>
+                    <span style={{fontSize:9,color:GOLD,fontWeight:700}}>{100-schoolPct}%</span>
+                  </div>
+                </>
+              );
+            })()}
           </Card>
 
           <Card className="fu" style={{
