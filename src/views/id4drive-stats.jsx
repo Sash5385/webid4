@@ -1,4 +1,4 @@
-import { useState, useEffect, useContext } from "react";
+import { useState, useEffect, useContext, useRef } from "react";
 import { ref, onValue } from "firebase/database";
 import { db } from "../firebase";
 import { LangContext } from "../App";
@@ -132,42 +132,24 @@ function computeYearData(bookings, offsetYears = 0, svcs) {
   return aggregateBuckets(buckets, bookings, b => (b.date||"").slice(0, 7), svcs);
 }
 
-function filterByPeriod(bookings, data, period, cfrom, cto) {
-  if (period === 'custom') return bookings.filter(b => cfrom && cto && b.date >= cfrom && b.date <= cto);
+function filterByPeriod(bookings, data, period) {
   const keys = new Set(data.map(b => b.key));
   return bookings.filter(b => {
     if (period === 'day') return keys.has(`${b.date}_${parseInt((b.time||'').split(':')[0], 10)}`);
-    if (period === 'week' || period === 'month') return keys.has(b.date||'');
+    if (period === 'week' || period === 'month' || period === 'custom') return keys.has(b.date||'');
     return keys.has((b.date||'').slice(0, 7));
   });
 }
 
-function parseLocalDate(str) {
-  const [y, m, d] = str.split('-').map(Number);
-  return new Date(y, m - 1, d);
-}
-
-function computeCustomData(bookings, from, to, svcs) {
-  if (!from || !to || from > to) return [];
-  const fromD = parseLocalDate(from), toD = parseLocalDate(to);
-  const diffDays = Math.round((toD - fromD) / 86400000) + 1;
-  if (diffDays <= 62) {
-    const buckets = Array.from({length: diffDays}, (_, i) => {
-      const d = new Date(fromD.getFullYear(), fromD.getMonth(), fromD.getDate() + i);
-      const key = getDateStr(d);
-      return { key, label: `${d.getDate()}.${String(d.getMonth()+1).padStart(2,'0')}` };
-    });
-    return aggregateBuckets(buckets, bookings, b => b.date || '', svcs);
-  }
-  const arr = [];
-  const cur = new Date(fromD.getFullYear(), fromD.getMonth(), 1);
-  const end = new Date(toD.getFullYear(), toD.getMonth(), 1);
-  while (cur <= end) {
-    const key = `${cur.getFullYear()}-${String(cur.getMonth()+1).padStart(2,'0')}`;
-    arr.push({ key, label: UK_MONTHS[cur.getMonth()] });
-    cur.setMonth(cur.getMonth() + 1);
-  }
-  return aggregateBuckets(arr, bookings, b => (b.date||'').slice(0, 7), svcs);
+// Довільний набір обраних днів (не обов'язково суцільний діапазон) —
+// з календаря можна вибрати кілька окремих смуг днів довгим тапом+протяжкою.
+function computeSelectedDaysData(bookings, selectedDates, svcs) {
+  const sorted = [...selectedDates].sort();
+  const buckets = sorted.map(dateStr => {
+    const d = new Date(dateStr + "T00:00:00");
+    return { key: dateStr, label: `${d.getDate()}.${String(d.getMonth()+1).padStart(2,'0')}` };
+  });
+  return aggregateBuckets(buckets, bookings, b => b.date || '', svcs);
 }
 
 function computeTopStudents(bookings, sortBy = 'paid', svcs) {
@@ -255,11 +237,14 @@ export default function StatsView() {
   const [bookings,   setBookings]  = useState([]);
   const [services,   setServices]  = useState([]);
   const [topBy,      setTopBy]     = useState("paid");
-  const [customFrom, setCustomFrom] = useState('');
-  const [customTo,   setCustomTo]   = useState('');
+  const [selectedDays, setSelectedDays] = useState(() => new Set());
   const today0 = new Date();
   const [calViewY, setCalViewY] = useState(today0.getFullYear());
   const [calViewM, setCalViewM] = useState(today0.getMonth());
+  const [calDragPreview, setCalDragPreview] = useState(null); // { start, end } — дні поточного місяця під час протяжки
+  const calGridRef = useRef(null);
+  const calPressRef = useRef(null); // { day, startX, startY, longPressed, swiping }
+  const calHoldTimerRef = useRef(null);
 
   const css = `
 @keyframes bar-grow{from{height:0%}to{height:var(--h)}}
@@ -297,7 +282,7 @@ export default function StatsView() {
   const data     = period === "week"   ? computeWeekData(bookings, 0, services)
                  : period === "year"   ? computeYearData(bookings, 0, services)
                  : period === "day"    ? computeDayData(bookings, 0, services)
-                 : period === "custom" ? computeCustomData(bookings, customFrom, customTo, services)
+                 : period === "custom" ? computeSelectedDaysData(bookings, selectedDays, services)
                  :                       computeMonthData(bookings, 0, services);
 
   const prevData = period === "custom" ? data
@@ -316,11 +301,10 @@ export default function StatsView() {
   const avgCheck     = totalLessons ? Math.round(totalIncome / totalLessons) : 0;
   const prevAvgCheck = prev.lessons ? Math.round(prev.income / prev.lessons) : 0;
 
-  const customDiffDays = customFrom && customTo ? Math.round((new Date(customTo) - new Date(customFrom)) / 86400000) + 1 : 0;
-  const periodBookings = filterByPeriod(bookings, data, period, customFrom, customTo);
+  const periodBookings = filterByPeriod(bookings, data, period);
   const topStudents  = computeTopStudents(periodBookings, topBy, services);
   const popularSlots = computePopularSlots(periodBookings, services);
-  const byPeriodLabel= period === "day" ? "По годинах" : period === "week" || period === "month" ? "По днях" : period === "custom" && customDiffDays <= 62 ? "По днях" : "По місяцях";
+  const byPeriodLabel= period === "day" ? "По годинах" : period === "year" ? "По місяцях" : "По днях";
 
   // Календар завжди на екрані (замість модалки/полів дат) — швидкий вибір
   // місяця (тап на назву місяця), тижня чи конкретного дня (тап на день).
@@ -335,12 +319,100 @@ export default function StatsView() {
     setCalViewM(m); setCalViewY(y);
   };
   const calTierColor = (n) => n <= 3 ? RED : n <= 6 ? GOLD : GREEN;
-  const calPickDay = (dateStr) => { setCustomFrom(dateStr); setCustomTo(dateStr); setPeriod("custom"); };
+
+  // Швидкий тап на день — замінює вибір одним днем.
+  const calPickDay = (dateStr) => { setSelectedDays(new Set([dateStr])); setPeriod("custom"); };
+  // Тап на назву місяця — замінює вибір усім видимим місяцем.
   const calPickMonth = () => {
-    const first = getDateStr(new Date(calViewY, calViewM, 1));
-    const last  = getDateStr(new Date(calViewY, calViewM, calDaysInMonth));
-    setCustomFrom(first); setCustomTo(last); setPeriod("custom");
+    const set = new Set();
+    for (let d = 1; d <= calDaysInMonth; d++) set.add(getDateStr(new Date(calViewY, calViewM, d)));
+    setSelectedDays(set);
+    setPeriod("custom");
   };
+  // Довгий тап + протяжка додає ЦІЛУ смугу днів до вже обраних (не замінює —
+  // так можна зібрати кілька окремих смуг за кілька жестів поспіль).
+  const calCommitDragRange = (startDay, endDay) => {
+    const lo = Math.min(startDay, endDay), hi = Math.max(startDay, endDay);
+    setSelectedDays(prev => {
+      const next = new Set(prev);
+      for (let d = lo; d <= hi; d++) next.add(getDateStr(new Date(calViewY, calViewM, d)));
+      return next;
+    });
+    setPeriod("custom");
+  };
+  const calClearSelection = () => setSelectedDays(new Set());
+
+  const CAL_HOLD_MS = 380, CAL_MOVE_TOL = 10, CAL_SWIPE_MIN = 44;
+  const calDayFromPoint = (x, y) => {
+    const el = document.elementFromPoint(x, y)?.closest('[data-cal-day]');
+    return el ? parseInt(el.getAttribute('data-cal-day'), 10) : null;
+  };
+  const calOnPointerDown = (e) => {
+    const el = e.target.closest('[data-cal-day]');
+    if (!el) return;
+    const day = parseInt(el.getAttribute('data-cal-day'), 10);
+    calPressRef.current = { day, startX: e.clientX, startY: e.clientY, longPressed: false, swiping: false };
+    calHoldTimerRef.current = setTimeout(() => {
+      const p = calPressRef.current;
+      if (!p || p.swiping) return;
+      p.longPressed = true;
+      setCalDragPreview({ start: p.day, end: p.day });
+    }, CAL_HOLD_MS);
+  };
+  const calOnPointerMove = (e) => {
+    const p = calPressRef.current;
+    if (!p) return;
+    const dx = e.clientX - p.startX, dy = e.clientY - p.startY;
+    if (p.longPressed) {
+      const day = calDayFromPoint(e.clientX, e.clientY);
+      if (day != null) setCalDragPreview(prev => prev ? { ...prev, end: day } : { start: p.day, end: day });
+      return;
+    }
+    if (!p.swiping && (Math.abs(dx) > CAL_MOVE_TOL || Math.abs(dy) > CAL_MOVE_TOL)) {
+      if (Math.abs(dx) > Math.abs(dy) * 1.4) { p.swiping = true; clearTimeout(calHoldTimerRef.current); }
+      else { calPressRef.current = null; clearTimeout(calHoldTimerRef.current); }
+    }
+  };
+  const calEndGesture = (e) => {
+    clearTimeout(calHoldTimerRef.current);
+    const p = calPressRef.current;
+    calPressRef.current = null;
+    if (!p) { setCalDragPreview(null); return; }
+    if (p.longPressed) {
+      const preview = calDragPreview;
+      setCalDragPreview(null);
+      if (preview) calCommitDragRange(preview.start, preview.end);
+      return;
+    }
+    if (p.swiping) {
+      const dx = (e.clientX ?? p.startX) - p.startX;
+      if (dx <= -CAL_SWIPE_MIN) calGoMonth(1);
+      else if (dx >= CAL_SWIPE_MIN) calGoMonth(-1);
+      return;
+    }
+    const day = calDayFromPoint(e.clientX ?? p.startX, e.clientY ?? p.startY) ?? p.day;
+    calPickDay(getDateStr(new Date(calViewY, calViewM, day)));
+  };
+  const calOnPointerCancel = () => {
+    clearTimeout(calHoldTimerRef.current);
+    calPressRef.current = null;
+    setCalDragPreview(null);
+  };
+
+  const selectedStrips = (() => {
+    if (!selectedDays.size) return [];
+    const sorted = [...selectedDays].sort();
+    const strips = [];
+    let curStart = sorted[0], curEnd = sorted[0];
+    for (let i = 1; i < sorted.length; i++) {
+      const diff = Math.round((new Date(sorted[i]+"T00:00:00") - new Date(curEnd+"T00:00:00")) / 86400000);
+      if (diff === 1) { curEnd = sorted[i]; }
+      else { strips.push([curStart, curEnd]); curStart = sorted[i]; curEnd = sorted[i]; }
+    }
+    strips.push([curStart, curEnd]);
+    return strips;
+  })();
+  const fmtDM = (dateStr) => { const d = new Date(dateStr+"T00:00:00"); return `${d.getDate()}.${String(d.getMonth()+1).padStart(2,'0')}`; };
 
   return (
     <>
@@ -376,7 +448,15 @@ export default function StatsView() {
               <div key={d} style={{textAlign:"center",fontSize:8,color:FAINT,fontWeight:700,textTransform:"uppercase"}}>{d}</div>
             ))}
           </div>
-          <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:3}}>
+          <div
+            ref={calGridRef}
+            onPointerDown={calOnPointerDown}
+            onPointerMove={calOnPointerMove}
+            onPointerUp={calEndGesture}
+            onPointerCancel={calOnPointerCancel}
+            onPointerLeave={(e)=>{ if (calPressRef.current && !calPressRef.current.longPressed && !calPressRef.current.swiping) calOnPointerCancel(); }}
+            style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:3,touchAction:"pan-y",userSelect:"none"}}
+          >
             {Array.from({length:calFirstDow}, (_,i)=><div key={`b${i}`}/>)}
             {Array.from({length:calDaysInMonth}, (_,i)=>{
               const day = i+1;
@@ -384,15 +464,15 @@ export default function StatsView() {
               const bucket = calMonthData[i];
               const n = bucket ? bucket.lessons : 0;
               const isToday = dateStr === todayStr;
-              const inRange = period === "custom" && customFrom && customTo && customFrom !== customTo && dateStr >= customFrom && dateStr <= customTo;
-              const isSel = period === "custom" && customFrom === customTo && dateStr === customFrom;
+              const isSel = period === "custom" && selectedDays.has(dateStr);
+              const inPreview = calDragPreview && day >= Math.min(calDragPreview.start,calDragPreview.end) && day <= Math.max(calDragPreview.start,calDragPreview.end);
               let bg = SURF_HI, color = DIM;
               if (n > 0) { const tier = calTierColor(n); bg = `${tier}22`; color = tier; }
-              if (inRange) { bg = `${ACCENT}2a`; color = ACCENT; }
+              if (inPreview) { bg = `${ACCENT}45`; color = ACCENT; }
               return (
-                <button key={day} onClick={()=>calPickDay(dateStr)} style={{
-                  aspectRatio:"1", borderRadius:6, cursor:"pointer", fontFamily:"inherit",
-                  border: isToday ? `1.5px solid ${ACCENT}` : "none",
+                <button key={day} data-cal-day={day} style={{
+                  height:26, borderRadius:6, cursor:"pointer", fontFamily:"inherit",
+                  border: isToday ? `1.5px solid ${ACCENT}` : inPreview ? `1px solid ${ACCENT}` : "none",
                   background: isSel ? ACCENT : bg,
                   color: isSel ? "#04231f" : color,
                   fontSize:10, fontWeight:700,
@@ -407,9 +487,15 @@ export default function StatsView() {
               </span>
             ))}
           </div>
-          {period === "custom" && customFrom && (
-            <div style={{marginTop:9,textAlign:"center",fontSize:10.5,fontWeight:700,color:ACCENT,background:`${ACCENT}1a`,borderRadius:8,padding:"6px 0"}}>
-              {customFrom === customTo ? customFrom : `${customFrom} – ${customTo}`}
+          {period === "custom" && selectedStrips.length > 0 && (
+            <div style={{marginTop:9,display:"flex",alignItems:"center",gap:6}}>
+              <div style={{flex:1,textAlign:"center",fontSize:10.5,fontWeight:700,color:ACCENT,background:`${ACCENT}1a`,borderRadius:8,padding:"6px 8px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                {selectedStrips.map(([s,e])=> s===e ? fmtDM(s) : `${fmtDM(s)}–${fmtDM(e)}`).join(", ")}
+              </div>
+              <button onClick={calClearSelection} title="Скинути вибір" style={{
+                flexShrink:0, padding:"6px 9px", borderRadius:8, border:"none", cursor:"pointer", fontFamily:"inherit",
+                background:SURF_HI, color:FAINT, fontSize:10.5, fontWeight:700,
+              }}>✕</button>
             </div>
           )}
         </Card>
