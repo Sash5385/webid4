@@ -59,7 +59,7 @@ function markMergedContinuations(bookings) {
 
 function aggregateBuckets(buckets, bookings, getKey, svcs) {
   const map = {};
-  buckets.forEach(b => { map[b.key] = { ...b, income:0, lessons:0, school:0, private:0, noshow:0, cancel:0 }; });
+  buckets.forEach(b => { map[b.key] = { ...b, income:0, lessons:0, hours:0, school:0, private:0, noshow:0, cancel:0 }; });
   const continuations = markMergedContinuations(bookings);
   bookings.forEach(b => {
     const k = getKey(b);
@@ -67,6 +67,9 @@ function aggregateBuckets(buckets, bookings, getKey, svcs) {
     const st = b.status || "confirmed";
     if (st === "confirmed" || st === "pending") {
       map[k].income += bkIncome(b, svcs);
+      // Годин рахуємо по КОЖНОМУ запису (не по злитих уроках) — урок може
+      // тривати 2-3 години і складатись з кількох сусідніх записів.
+      map[k].hours += (b.durMin || (b.durationHours ? b.durationHours*60 : 60)) / 60;
       if (!continuations.has(b._key)) {
         map[k].lessons += 1;
         if (bkType(b) === "school") map[k].school++;
@@ -286,6 +289,7 @@ export default function StatsView() {
   const totalLessons = cur.lessons;
   const totalSchool  = data.reduce((s, d) => s + d.school,  0);
   const totalPrivate = data.reduce((s, d) => s + d.private, 0);
+  const totalHours   = Math.round(data.reduce((s, d) => s + (d.hours||0), 0) * 10) / 10;
   const avgCheck     = totalLessons ? Math.round(totalIncome / totalLessons) : 0;
   const prevAvgCheck = prev.lessons ? Math.round(prev.income / prev.lessons) : 0;
 
@@ -510,7 +514,7 @@ export default function StatsView() {
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:7}}>
           {[
             {label:"Дохід",        value:fmtK(totalIncome),               color:GOLD,  trend:trendPct(cur.income,  prev.income)},
-            {label:"Уроків",       value:totalLessons,                    color:BLUE,  trend:trendPct(cur.lessons, prev.lessons)},
+            {label:"Уроків",       value:totalLessons,  extra:`≈${totalHours} год`, color:BLUE,  trend:trendPct(cur.lessons, prev.lessons)},
             {label:"Серед. чек",   value:fmtK(avgCheck),                  color:GREEN, trend:trendPct(avgCheck, prevAvgCheck)},
           ].map((k, i) => (
             <Card key={i} className="fu" style={{
@@ -521,13 +525,16 @@ export default function StatsView() {
             }}>
               <div style={{fontSize:8,color:"rgba(255,255,255,0.6)",letterSpacing:0.6,textTransform:"uppercase",fontWeight:700,marginBottom:6}}>{k.label}</div>
               <div style={{fontSize:18,fontWeight:900,color:"#fff",letterSpacing:-0.3,lineHeight:1.05}}>{k.value}</div>
-              {k.trend != null && k.trend !== 0 && (
-                <div style={{display:"flex",justifyContent:"center",marginTop:5}}>
-                  <span style={{
-                    fontSize:8, fontWeight:800, padding:"1px 5px", borderRadius:5,
-                    color:k.trend>=0?GREEN:RED,
-                    background:k.trend>=0?`${GREEN}1f`:`${RED}1f`,
-                  }}>{k.trend>=0?"+":""}{k.trend}%</span>
+              {(k.extra || (k.trend != null && k.trend !== 0)) && (
+                <div style={{display:"flex",justifyContent:"center",alignItems:"center",gap:5,marginTop:5,flexWrap:"wrap"}}>
+                  {k.extra && <span style={{fontSize:9,color:"rgba(255,255,255,0.55)",fontWeight:700}}>{k.extra}</span>}
+                  {k.trend != null && k.trend !== 0 && (
+                    <span style={{
+                      fontSize:8, fontWeight:800, padding:"1px 5px", borderRadius:5,
+                      color:k.trend>=0?GREEN:RED,
+                      background:k.trend>=0?`${GREEN}1f`:`${RED}1f`,
+                    }}>{k.trend>=0?"+":""}{k.trend}%</span>
+                  )}
                 </div>
               )}
             </Card>
