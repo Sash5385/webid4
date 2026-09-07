@@ -292,8 +292,15 @@ export default function StatsView() {
   const totalHours   = Math.round(data.reduce((s, d) => s + (d.hours||0), 0) * 10) / 10;
   const prevHours    = Math.round(prevData.reduce((s, d) => s + (d.hours||0), 0) * 10) / 10;
 
-  const curMonthStr = new Date().toISOString().slice(0,7);
-  const curMonthIncome = bookings
+  const todayStr = getDateStr(new Date());
+  const curMonthStr = todayStr.slice(0,7);
+  // Поточний — дохід за вже минулі/сьогоднішні дні місяця (реально відбулось).
+  // Прогнозований — + вже заброньовані майбутні записи цього місяця (не
+  // статистична екстраполяція, а реальні записи, що йдуть наперед).
+  const curMonthCurrent = bookings
+    .filter(b => (b.status === "confirmed" || b.status === "pending") && (b.date||"").startsWith(curMonthStr) && (b.date||"") <= todayStr)
+    .reduce((s, b) => s + bkIncome(b, services), 0);
+  const curMonthForecast = bookings
     .filter(b => (b.status === "confirmed" || b.status === "pending") && (b.date||"").startsWith(curMonthStr))
     .reduce((s, b) => s + bkIncome(b, services), 0);
 
@@ -304,7 +311,6 @@ export default function StatsView() {
 
   // Календар завжди на екрані (замість модалки/полів дат) — швидкий вибір
   // місяця (тап на назву місяця), тижня чи конкретного дня (тап на день).
-  const todayStr = getDateStr(new Date());
   const calMonthData = computeCalendarMonthData(bookings, calViewY, calViewM, services);
   const calFirstDow  = (new Date(calViewY, calViewM, 1).getDay() + 6) % 7;
   const calDaysInMonth = new Date(calViewY, calViewM + 1, 0).getDate();
@@ -571,25 +577,38 @@ export default function StatsView() {
             </div>
           ) : incomeGoal > 0 ? (
             <>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:7}}>
-                <span style={{fontSize:20,fontWeight:900,color:curMonthIncome>=incomeGoal?GREEN:GOLD}}>{fmtK(curMonthIncome)}</span>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:2}}>
+                <span style={{fontSize:20,fontWeight:900,color:curMonthCurrent>=incomeGoal?GREEN:GOLD}}>{fmtK(curMonthCurrent)}</span>
                 <span style={{fontSize:11,color:FAINT}}>/ {fmtK(incomeGoal)}</span>
               </div>
-              <div style={{height:8,background:BG_DEEP,borderRadius:5,boxShadow:SI,overflow:"hidden",marginBottom:6}}>
+              <div style={{fontSize:9,color:FAINT,marginBottom:curMonthForecast>curMonthCurrent?2:7}}>поточний (до сьогодні)</div>
+              {curMonthForecast > curMonthCurrent && (
+                <div style={{fontSize:9,color:ACCENT,fontWeight:700,marginBottom:7}}>
+                  прогноз із записами наперед: {fmtK(curMonthForecast)}
+                </div>
+              )}
+              <div style={{height:8,background:BG_DEEP,borderRadius:5,boxShadow:SI,overflow:"hidden",marginBottom:6,position:"relative"}}>
+                {curMonthForecast > curMonthCurrent && (
+                  <div style={{
+                    position:"absolute", inset:0, borderRadius:5,
+                    width:`${Math.min(100,Math.round((curMonthForecast/incomeGoal)*100))}%`,
+                    background:`${ACCENT}40`,
+                  }}/>
+                )}
                 <div style={{
-                  height:"100%",
-                  width:`${Math.min(100,Math.round((curMonthIncome/incomeGoal)*100))}%`,
+                  position:"relative", height:"100%",
+                  width:`${Math.min(100,Math.round((curMonthCurrent/incomeGoal)*100))}%`,
                   borderRadius:5,
-                  background:curMonthIncome>=incomeGoal?`linear-gradient(90deg,${GREEN},#22c55e)`:`linear-gradient(90deg,${GOLD},${GREEN})`,
+                  background:curMonthCurrent>=incomeGoal?`linear-gradient(90deg,${GREEN},#22c55e)`:`linear-gradient(90deg,${GOLD},${GREEN})`,
                   transition:"width .6s ease",
                 }}/>
               </div>
               <div style={{display:"flex",justifyContent:"space-between"}}>
-                <span style={{fontSize:10,fontWeight:800,color:curMonthIncome>=incomeGoal?GREEN:FAINT}}>
-                  {Math.min(100,Math.round((curMonthIncome/incomeGoal)*100))}%
+                <span style={{fontSize:10,fontWeight:800,color:curMonthCurrent>=incomeGoal?GREEN:FAINT}}>
+                  {Math.min(100,Math.round((curMonthCurrent/incomeGoal)*100))}%
                 </span>
-                {curMonthIncome<incomeGoal
-                  ? <span style={{fontSize:10,color:FAINT}}>залишилось {fmtK(incomeGoal-curMonthIncome)}</span>
+                {curMonthCurrent<incomeGoal
+                  ? <span style={{fontSize:10,color:FAINT}}>залишилось {fmtK(incomeGoal-curMonthCurrent)}</span>
                   : <span style={{fontSize:10,color:GREEN,fontWeight:700}}>🎉 Ціль досягнута!</span>
                 }
               </div>
