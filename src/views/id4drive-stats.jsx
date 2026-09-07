@@ -106,15 +106,20 @@ function computeWeekData(bookings, offset = 0, svcs) {
   return aggregateBuckets(buckets, bookings, b => b.date || "", svcs);
 }
 
-function computeMonthData(bookings, offsetMonths = 0, svcs) {
-  const now = new Date();
-  const y = now.getFullYear(), m = now.getMonth() + offsetMonths;
-  const daysInMonth = new Date(y, m + 1, 0).getDate();
+// Бакети по днях довільного місяця (рік/місяць передаються напряму —
+// потрібно для навігації календаря вперед/назад, не лише "поточний ± offset").
+function computeCalendarMonthData(bookings, year, month, svcs) {
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
   const buckets = Array.from({length: daysInMonth}, (_, i) => {
-    const d = new Date(y, m, i + 1);
+    const d = new Date(year, month, i + 1);
     return { key: getDateStr(d), label: String(i + 1) };
   });
   return aggregateBuckets(buckets, bookings, b => b.date || "", svcs);
+}
+
+function computeMonthData(bookings, offsetMonths = 0, svcs) {
+  const now = new Date();
+  return computeCalendarMonthData(bookings, now.getFullYear(), now.getMonth() + offsetMonths, svcs);
 }
 
 function computeYearData(bookings, offsetYears = 0, svcs) {
@@ -252,6 +257,9 @@ export default function StatsView() {
   const [topBy,      setTopBy]     = useState("paid");
   const [customFrom, setCustomFrom] = useState('');
   const [customTo,   setCustomTo]   = useState('');
+  const today0 = new Date();
+  const [calViewY, setCalViewY] = useState(today0.getFullYear());
+  const [calViewM, setCalViewM] = useState(today0.getMonth());
 
   const css = `
 @keyframes bar-grow{from{height:0%}to{height:var(--h)}}
@@ -314,6 +322,26 @@ export default function StatsView() {
   const popularSlots = computePopularSlots(periodBookings, services);
   const byPeriodLabel= period === "day" ? "По годинах" : period === "week" || period === "month" ? "По днях" : period === "custom" && customDiffDays <= 62 ? "По днях" : "По місяцях";
 
+  // Календар завжди на екрані (замість модалки/полів дат) — швидкий вибір
+  // місяця (тап на назву місяця), тижня чи конкретного дня (тап на день).
+  const todayStr = getDateStr(new Date());
+  const calMonthData = computeCalendarMonthData(bookings, calViewY, calViewM, services);
+  const calFirstDow  = (new Date(calViewY, calViewM, 1).getDay() + 6) % 7;
+  const calDaysInMonth = new Date(calViewY, calViewM + 1, 0).getDate();
+  const calMonthLabel = new Date(calViewY, calViewM, 1).toLocaleDateString("uk-UA", { month: "long", year: "numeric" }).replace(/\s*р\.?$/i, "");
+  const calGoMonth = (delta) => {
+    let m = calViewM + delta, y = calViewY;
+    if (m < 0) { m = 11; y--; } else if (m > 11) { m = 0; y++; }
+    setCalViewM(m); setCalViewY(y);
+  };
+  const calTierColor = (n) => n <= 3 ? RED : n <= 6 ? GOLD : GREEN;
+  const calPickDay = (dateStr) => { setCustomFrom(dateStr); setCustomTo(dateStr); setPeriod("custom"); };
+  const calPickMonth = () => {
+    const first = getDateStr(new Date(calViewY, calViewM, 1));
+    const last  = getDateStr(new Date(calViewY, calViewM, calDaysInMonth));
+    setCustomFrom(first); setCustomTo(last); setPeriod("custom");
+  };
+
   return (
     <>
       <UICss/>
@@ -326,18 +354,65 @@ export default function StatsView() {
             <Chip key={k} label={l} active={period===k} onClick={()=>setPeriod(k)}/>
           ))}
         </div>
-        {period === "custom" && (
-          <div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}}>
-            <input type="date" value={customFrom} onChange={e=>setCustomFrom(e.target.value)}
-              style={{background:SURF_HI,border:`1px solid ${BORDER}`,borderRadius:9,padding:"7px 10px",color:TEXT,fontSize:12,fontFamily:"inherit",boxShadow:SI,flex:1,minWidth:130,colorScheme:"dark"}}/>
-            <span style={{color:FAINT,fontSize:14,fontWeight:700}}>—</span>
-            <input type="date" value={customTo} onChange={e=>setCustomTo(e.target.value)}
-              style={{background:SURF_HI,border:`1px solid ${BORDER}`,borderRadius:9,padding:"7px 10px",color:TEXT,fontSize:12,fontFamily:"inherit",boxShadow:SI,flex:1,minWidth:130,colorScheme:"dark"}}/>
+
+        {/* ── CALENDAR (завжди відкритий — швидкий вибір місяця/тижня/дня) ── */}
+        <Card className="fu" style={{padding:"12px"}}>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:9}}>
+            <button onClick={()=>calGoMonth(-1)} style={{
+              width:24,height:24,borderRadius:7,border:"none",cursor:"pointer",fontFamily:"inherit",
+              background:SURF_HI,color:DIM,fontSize:12,fontWeight:700,
+            }}>‹</button>
+            <button onClick={calPickMonth} title="Обрати весь місяць" style={{
+              border:"none",cursor:"pointer",fontFamily:"inherit",background:"transparent",
+              fontSize:13,fontWeight:800,color:TEXT,textTransform:"capitalize",padding:"4px 10px",borderRadius:8,
+            }}>{calMonthLabel}</button>
+            <button onClick={()=>calGoMonth(1)} style={{
+              width:24,height:24,borderRadius:7,border:"none",cursor:"pointer",fontFamily:"inherit",
+              background:SURF_HI,color:DIM,fontSize:12,fontWeight:700,
+            }}>›</button>
           </div>
-        )}
-        {period === "custom" && (!customFrom || !customTo) && (
-          <div style={{textAlign:"center",color:FAINT,fontSize:12,padding:"8px 0"}}>Оберіть початкову та кінцеву дату</div>
-        )}
+          <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:3,marginBottom:4}}>
+            {["Пн","Вт","Ср","Чт","Пт","Сб","Нд"].map(d=>(
+              <div key={d} style={{textAlign:"center",fontSize:8,color:FAINT,fontWeight:700,textTransform:"uppercase"}}>{d}</div>
+            ))}
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:3}}>
+            {Array.from({length:calFirstDow}, (_,i)=><div key={`b${i}`}/>)}
+            {Array.from({length:calDaysInMonth}, (_,i)=>{
+              const day = i+1;
+              const dateStr = getDateStr(new Date(calViewY, calViewM, day));
+              const bucket = calMonthData[i];
+              const n = bucket ? bucket.lessons : 0;
+              const isToday = dateStr === todayStr;
+              const inRange = period === "custom" && customFrom && customTo && customFrom !== customTo && dateStr >= customFrom && dateStr <= customTo;
+              const isSel = period === "custom" && customFrom === customTo && dateStr === customFrom;
+              let bg = SURF_HI, color = DIM;
+              if (n > 0) { const tier = calTierColor(n); bg = `${tier}22`; color = tier; }
+              if (inRange) { bg = `${ACCENT}2a`; color = ACCENT; }
+              return (
+                <button key={day} onClick={()=>calPickDay(dateStr)} style={{
+                  aspectRatio:"1", borderRadius:6, cursor:"pointer", fontFamily:"inherit",
+                  border: isToday ? `1.5px solid ${ACCENT}` : "none",
+                  background: isSel ? ACCENT : bg,
+                  color: isSel ? "#04231f" : color,
+                  fontSize:10, fontWeight:700,
+                }}>{day}</button>
+              );
+            })}
+          </div>
+          <div style={{display:"flex",gap:10,justifyContent:"center",marginTop:8}}>
+            {[[RED,"мало"],[GOLD,"середньо"],[GREEN,"багато"]].map(([c,l])=>(
+              <span key={l} style={{fontSize:8,color:FAINT,fontWeight:700,display:"flex",alignItems:"center",gap:3}}>
+                <i style={{width:6,height:6,borderRadius:2,background:c,display:"inline-block"}}/>{l}
+              </span>
+            ))}
+          </div>
+          {period === "custom" && customFrom && (
+            <div style={{marginTop:9,textAlign:"center",fontSize:10.5,fontWeight:700,color:ACCENT,background:`${ACCENT}1a`,borderRadius:8,padding:"6px 0"}}>
+              {customFrom === customTo ? customFrom : `${customFrom} – ${customTo}`}
+            </div>
+          )}
+        </Card>
 
         {/* ── KPI 3 ── */}
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:7}}>
