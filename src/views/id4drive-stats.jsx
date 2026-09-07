@@ -320,8 +320,16 @@ export default function StatsView() {
   };
   const calTierColor = (n) => n <= 3 ? RED : n <= 6 ? GOLD : GREEN;
 
-  // Швидкий тап на день — замінює вибір одним днем.
-  const calPickDay = (dateStr) => { setSelectedDays(new Set([dateStr])); setPeriod("custom"); };
+  // Швидкий тап на день — перемикає ЛИШЕ цей день (додає/прибирає з вибору),
+  // інші раніше обрані дні залишаються — скинути все можна кнопкою "✕ Скинути".
+  const calPickDay = (dateStr) => {
+    setSelectedDays(prev => {
+      const next = new Set(prev);
+      if (next.has(dateStr)) next.delete(dateStr); else next.add(dateStr);
+      return next;
+    });
+    setPeriod("custom");
+  };
   // Тап на назву місяця — замінює вибір усім видимим місяцем.
   const calPickMonth = () => {
     const set = new Set();
