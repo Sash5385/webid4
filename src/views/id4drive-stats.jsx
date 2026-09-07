@@ -290,8 +290,7 @@ export default function StatsView() {
   const totalSchool  = data.reduce((s, d) => s + d.school,  0);
   const totalPrivate = data.reduce((s, d) => s + d.private, 0);
   const totalHours   = Math.round(data.reduce((s, d) => s + (d.hours||0), 0) * 10) / 10;
-  const avgCheck     = totalLessons ? Math.round(totalIncome / totalLessons) : 0;
-  const prevAvgCheck = prev.lessons ? Math.round(prev.income / prev.lessons) : 0;
+  const prevHours    = Math.round(prevData.reduce((s, d) => s + (d.hours||0), 0) * 10) / 10;
 
   const curMonthStr = new Date().toISOString().slice(0,7);
   const curMonthIncome = bookings
@@ -514,8 +513,8 @@ export default function StatsView() {
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:7}}>
           {[
             {label:"Дохід",        value:fmtK(totalIncome),               color:GOLD,  trend:trendPct(cur.income,  prev.income)},
-            {label:"Уроків",       value:totalLessons,  extra:`≈${totalHours} год`, color:BLUE,  trend:trendPct(cur.lessons, prev.lessons)},
-            {label:"Серед. чек",   value:fmtK(avgCheck),                  color:GREEN, trend:trendPct(avgCheck, prevAvgCheck)},
+            {label:"Уроків",       value:totalLessons,                    color:BLUE,  trend:trendPct(cur.lessons, prev.lessons)},
+            {label:"Години",       value:totalHours,                      color:GREEN, trend:trendPct(totalHours, prevHours)},
           ].map((k, i) => (
             <Card key={i} className="fu" style={{
               padding:"10px 9px",
