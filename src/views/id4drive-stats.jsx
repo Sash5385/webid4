@@ -330,11 +330,16 @@ export default function StatsView() {
     });
     setPeriod("custom");
   };
-  // Тап на назву місяця — замінює вибір усім видимим місяцем.
+  // Тап на назву місяця — додає весь видимий місяць до вибору; повторний
+  // тап (коли місяць вже повністю обрано) прибирає ці дні назад.
   const calPickMonth = () => {
-    const set = new Set();
-    for (let d = 1; d <= calDaysInMonth; d++) set.add(getDateStr(new Date(calViewY, calViewM, d)));
-    setSelectedDays(set);
+    const monthDates = Array.from({length: calDaysInMonth}, (_, i) => getDateStr(new Date(calViewY, calViewM, i + 1)));
+    const allSelected = monthDates.every(d => selectedDays.has(d));
+    setSelectedDays(prev => {
+      const next = new Set(prev);
+      monthDates.forEach(d => allSelected ? next.delete(d) : next.add(d));
+      return next;
+    });
     setPeriod("custom");
   };
   // Довгий тап + протяжка додає ЦІЛУ смугу днів до вже обраних (не замінює —
