@@ -509,9 +509,9 @@ export default function StatsView() {
         {/* ── KPI 3 ── */}
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:7}}>
           {[
-            {label:"Дохід",        value:fmtK(totalIncome),               sub:"за період",                         color:GOLD,  trend:trendPct(cur.income,  prev.income)},
-            {label:"Уроків",       value:totalLessons,                    sub:`${totalSchool}а · ${totalPrivate}п`, color:BLUE,  trend:trendPct(cur.lessons, prev.lessons)},
-            {label:"Серед. чек",   value:fmtK(avgCheck),                  sub:"дохід / урок",                      color:GREEN, trend:trendPct(avgCheck, prevAvgCheck)},
+            {label:"Дохід",        value:fmtK(totalIncome),               color:GOLD,  trend:trendPct(cur.income,  prev.income)},
+            {label:"Уроків",       value:totalLessons,                    color:BLUE,  trend:trendPct(cur.lessons, prev.lessons)},
+            {label:"Серед. чек",   value:fmtK(avgCheck),                  color:GREEN, trend:trendPct(avgCheck, prevAvgCheck)},
           ].map((k, i) => (
             <Card key={i} className="fu" style={{
               padding:"10px 9px",
@@ -520,17 +520,16 @@ export default function StatsView() {
               textAlign:"center",
             }}>
               <div style={{fontSize:8,color:"rgba(255,255,255,0.6)",letterSpacing:0.6,textTransform:"uppercase",fontWeight:700,marginBottom:6}}>{k.label}</div>
-              <div style={{fontSize:18,fontWeight:900,color:"#fff",letterSpacing:-0.3,marginBottom:3,lineHeight:1.05}}>{k.value}</div>
-              <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:5,flexWrap:"wrap"}}>
-                <div style={{fontSize:9,color:"rgba(255,255,255,0.5)"}}>{k.sub}</div>
-                {k.trend != null && k.trend !== 0 && (
+              <div style={{fontSize:18,fontWeight:900,color:"#fff",letterSpacing:-0.3,lineHeight:1.05}}>{k.value}</div>
+              {k.trend != null && k.trend !== 0 && (
+                <div style={{display:"flex",justifyContent:"center",marginTop:5}}>
                   <span style={{
                     fontSize:8, fontWeight:800, padding:"1px 5px", borderRadius:5,
                     color:k.trend>=0?GREEN:RED,
                     background:k.trend>=0?`${GREEN}1f`:`${RED}1f`,
                   }}>{k.trend>=0?"+":""}{k.trend}%</span>
-                )}
-              </div>
+                </div>
+              )}
             </Card>
           ))}
         </div>
