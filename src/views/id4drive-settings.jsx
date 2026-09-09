@@ -238,6 +238,26 @@ select{color-scheme:${isKava?"light":"dark"}}
   const [showHint, setShowHint] = useState(false);
   const switchSection = (id) => { setActive(id); setShowHint(false); };
 
+  const [installPrompt, setInstallPrompt] = useState(null);
+  const [installed, setInstalled] = useState(false);
+  useEffect(() => {
+    setInstalled(window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true);
+    const handleBeforeInstall = (e) => { e.preventDefault(); setInstallPrompt(e); };
+    const handleInstalled = () => { setInstallPrompt(null); setInstalled(true); };
+    window.addEventListener('beforeinstallprompt', handleBeforeInstall);
+    window.addEventListener('appinstalled', handleInstalled);
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
+      window.removeEventListener('appinstalled', handleInstalled);
+    };
+  }, []);
+  const handleInstallClick = async () => {
+    if (!installPrompt) return;
+    installPrompt.prompt();
+    await installPrompt.userChoice;
+    setInstallPrompt(null);
+  };
+
   // Реальна висота самої пігулки SECTION RAIL — спейсер у потоці має бути
   // точно такий, інакше фіксована пігулка перекриває низ контенту секції
   // (накладка при скролі до кінця довгих секцій).
@@ -767,6 +787,13 @@ select{color-scheme:${isKava?"light":"dark"}}
         document.body
       )}
 
+      {installPrompt && !installed && (
+        <button onClick={handleInstallClick} style={{
+          display:"block", margin:"12px auto 0", background:"rgba(255,255,255,0.05)",
+          border:`1px solid ${BORDER}`, color:TEXT, cursor:"pointer",
+          padding:"10px 24px", borderRadius:14, fontSize:13, fontWeight:700,
+        }}>📲 Встановити додаток</button>
+      )}
       <div onClick={forceUpdate} style={{textAlign:"center",padding:"8px 0 2px",color:FAINT,fontSize:13,fontWeight:600,letterSpacing:0.5,cursor:"pointer"}}>
         {APP_VERSION}
       </div>

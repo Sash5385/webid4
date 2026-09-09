@@ -1,8 +1,8 @@
 {
   "rules": {
     "admins": {
-      ".read": "auth != null",
-      ".write": "auth != null"
+      ".read": "auth != null && auth.uid === 'IjyqouYBDUg5KGzs3U27PUcs8Uj1'",
+      ".write": "auth != null && auth.uid === 'IjyqouYBDUg5KGzs3U27PUcs8Uj1'"
     },
     "admin": {
       ".read": "auth != null && auth.uid === 'IjyqouYBDUg5KGzs3U27PUcs8Uj1'",
@@ -26,10 +26,17 @@
       ".write": "auth != null"
     },
     "bookings": {
-      ".read": "auth != null",
+      ".read": "auth != null && auth.uid === 'IjyqouYBDUg5KGzs3U27PUcs8Uj1'",
       "$uid": {
-        ".read": "auth != null && auth.uid === $uid",
+        ".read": "auth != null && (auth.uid === $uid || auth.uid === 'IjyqouYBDUg5KGzs3U27PUcs8Uj1')",
         ".write": "auth != null && (auth.uid === $uid || auth.uid === 'IjyqouYBDUg5KGzs3U27PUcs8Uj1')"
+      }
+    },
+    "bookings_by_phone": {
+      ".read": "auth != null && auth.uid === 'IjyqouYBDUg5KGzs3U27PUcs8Uj1'",
+      "$phone": {
+        ".read": "auth != null",
+        ".write": "auth != null && auth.uid === 'IjyqouYBDUg5KGzs3U27PUcs8Uj1'"
       }
     },
     "queue": {
@@ -45,9 +52,9 @@
       }
     },
     "users": {
-      ".read": "auth != null",
+      ".read": "auth != null && auth.uid === 'IjyqouYBDUg5KGzs3U27PUcs8Uj1'",
       "$uid": {
-        ".read": "auth != null && auth.uid === $uid",
+        ".read": "auth != null && (auth.uid === $uid || auth.uid === 'IjyqouYBDUg5KGzs3U27PUcs8Uj1')",
         ".write": "auth != null && (auth.uid === $uid || auth.uid === 'IjyqouYBDUg5KGzs3U27PUcs8Uj1')"
       }
     },
@@ -78,8 +85,8 @@
       }
     },
     "settings": {
-      ".read": "auth != null",
-      ".write": "auth != null"
+      ".read": "auth != null && auth.uid === 'IjyqouYBDUg5KGzs3U27PUcs8Uj1'",
+      ".write": "auth != null && auth.uid === 'IjyqouYBDUg5KGzs3U27PUcs8Uj1'"
     },
     "push_tasks": {
       ".read": "auth != null && auth.uid === 'IjyqouYBDUg5KGzs3U27PUcs8Uj1'",
