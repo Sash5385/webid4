@@ -20,12 +20,15 @@ messaging.onBackgroundMessage((payload) => {
   // Data-only push (без top-level/webpush "notification") — інакше браузер
   // додатково показав би те саме сповіщення сам, і виходив дубль.
   const title = payload.data?.title || 'ID4Drive'
+  const isAlarm = payload.data?.alarm === '1'
   const options = {
     body: payload.data?.body || '',
     icon: '/icon-192.png',
     badge: '/badge-96.png',
     tag: payload.data?.tag || 'admin',
-    data: payload.data || {}
+    data: payload.data || {},
+    requireInteraction: isAlarm,
+    vibrate: isAlarm ? [400, 200, 400, 200, 400, 200, 400] : undefined,
   }
   self.registration.showNotification(title, options)
 })

@@ -2501,9 +2501,12 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
       unblockPersonalSlots(oldDate, ev.startMin, ev.durMin);
       blockPersonalSlots(peEditDate, newStartMin, peEditDur);
     }
+    const reminderChanged = timeChanged || peEditReminderHours !== (ev.reminderHours || null);
     const patch = {
       date: peEditDate, time: peEditTime, startMin: newStartMin, durMin: peEditDur,
       studentName: peEditTitle.trim(), name: peEditTitle.trim(), note: peEditNote.trim(),
+      reminderHours: peEditReminderHours || null,
+      ...(reminderChanged ? { reminderSent: false } : {}),
     };
     const key = ev._fbKey || ev.id;
     update(ref(db, `bookings/personal/${key}`), patch).catch(() => {});
@@ -2543,10 +2546,11 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   const [ltmScatter, setLtmScatter] = useState(false);
   const [personalEventView, setPersonalEventView] = useState(null); // booking object for viewing
   // Поля форми редагування особистої події (заповнюються при відкритті personalEventView)
-  const [peEditTitle, setPeEditTitle] = useState("");
-  const [peEditDur,   setPeEditDur]   = useState(60);
-  const [peEditNote,  setPeEditNote]  = useState("");
-  const [peEditDate,  setPeEditDate]  = useState("");
+  const [peEditTitle,         setPeEditTitle]         = useState("");
+  const [peEditDur,           setPeEditDur]           = useState(60);
+  const [peEditNote,          setPeEditNote]          = useState("");
+  const [peEditDate,          setPeEditDate]          = useState("");
+  const [peEditReminderHours, setPeEditReminderHours] = useState(null);
   const [peEditTime,  setPeEditTime]  = useState("");
 
   const isStickySlot = (dateStr, time) => {
@@ -3320,6 +3324,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                           setPeEditNote(b.note || "");
                           setPeEditDate(b.date || absDayToDateStr(b.day));
                           setPeEditTime(fmtTime(b.startMin));
+                          setPeEditReminderHours(b.reminderHours || null);
                           return;
                         }
                         if(isCancelling){
@@ -4320,6 +4325,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
           startMin: b.startMin, durMin: b.durMin,
           studentName: b.name, name: b.name, note: b.note || "",
           type: "personal", status: "personal",
+          reminderHours: b.reminderHours || null, reminderSent: false,
           createdAt: Date.now(), createdBy: "admin",
         };
         update(ref(db, `bookings/personal/${b.id}`), fbData).catch(() => {});
@@ -4468,6 +4474,26 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                   color:TEXT,fontSize:13,outline:"none",boxSizing:"border-box",fontFamily:"inherit",
                 }}
               />
+            </div>
+            <div>
+              <div style={{fontSize:10,fontWeight:700,letterSpacing:1.2,color:FAINT,textTransform:"uppercase",marginBottom:6}}>⏰ Нагадування з будильником</div>
+              <select
+                value={peEditReminderHours ?? ""}
+                onChange={e=>setPeEditReminderHours(e.target.value === "" ? null : Number(e.target.value))}
+                style={{
+                  width:"100%",padding:"9px 11px",borderRadius:11,
+                  background:SURF_LO,border:`1px solid ${BORDER}`,
+                  color:TEXT,fontSize:13,outline:"none",boxSizing:"border-box",fontFamily:"inherit",
+                }}
+              >
+                <option value="">Без нагадування</option>
+                <option value="0.25">За 15 хв</option>
+                <option value="0.5">За 30 хв</option>
+                <option value="1">За 1 годину</option>
+                <option value="2">За 2 години</option>
+                <option value="4">За 4 години</option>
+                <option value="24">За 1 день</option>
+              </select>
             </div>
             <button
               disabled={!peEditTitle.trim()}
@@ -5207,16 +5233,17 @@ function PersonalEventModal({ data, onClose, onConfirm }) {
   const { BG_DEEP, SURF_HI, SURF_LO, BORDER, TEXT, DIM, FAINT } = useContext(ThemeContext);
   const { shade, ink } = useFX();
 
-  const [title,        setTitle]        = useState("");
-  const [durMin,       setDurMin]       = useState(60);
-  const [note,         setNote]         = useState("");
-  const [peDate,       setPeDate]       = useState("");
-  const [peTime,       setPeTime]       = useState("");
-  const [closing,      setClosing]      = useState(false);
-  const [pendingEvent, setPendingEvent] = useState(null);
+  const [title,          setTitle]          = useState("");
+  const [durMin,         setDurMin]         = useState(60);
+  const [note,           setNote]           = useState("");
+  const [peDate,         setPeDate]         = useState("");
+  const [peTime,         setPeTime]         = useState("");
+  const [reminderHours,  setReminderHours]  = useState(null);
+  const [closing,        setClosing]        = useState(false);
+  const [pendingEvent,   setPendingEvent]   = useState(null);
 
   useEffect(() => {
-    if (data) { setTitle(""); setDurMin(60); setNote(""); setPeDate(data.dateStr); setPeTime(data.time); }
+    if (data) { setTitle(""); setDurMin(60); setNote(""); setPeDate(data.dateStr); setPeTime(data.time); setReminderHours(null); }
   }, [!!data]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!data && !closing) return null;
@@ -5409,6 +5436,30 @@ function PersonalEventModal({ data, onClose, onConfirm }) {
               />
             </div>
 
+            <div style={{display:"flex",alignItems:"flex-start",gap:8}}>
+              <div style={{width:26,height:26,borderRadius:8,flexShrink:0,marginTop:18,background:"rgba(45,212,191,0.15)",color:"#2dd4bf",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12}}>⏰</div>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:10,fontWeight:700,letterSpacing:1.2,color:FAINT,textTransform:"uppercase",marginBottom:7}}>Нагадування з будильником</div>
+                <select
+                  value={reminderHours ?? ""}
+                  onChange={e=>setReminderHours(e.target.value === "" ? null : Number(e.target.value))}
+                  style={{
+                    width:"100%",padding:"10px 12px",borderRadius:12,
+                    background:SURF_LO,border:`1px solid ${BORDER}`,
+                    color:TEXT,fontSize:13,outline:"none",boxSizing:"border-box",fontFamily:"inherit",
+                  }}
+                >
+                  <option value="">Без нагадування</option>
+                  <option value="0.25">За 15 хв</option>
+                  <option value="0.5">За 30 хв</option>
+                  <option value="1">За 1 годину</option>
+                  <option value="2">За 2 години</option>
+                  <option value="4">За 4 години</option>
+                  <option value="24">За 1 день</option>
+                </select>
+              </div>
+            </div>
+
             <button
               disabled={!canSave}
               onClick={()=>{
@@ -5421,6 +5472,7 @@ function PersonalEventModal({ data, onClose, onConfirm }) {
                   note: note.trim(),
                   type: "personal",
                   status: "personal",
+                  reminderHours,
                   wasAdminBlocked: (peDate === data.dateStr && peTime === data.time) ? !!data.slot?.adminBlocked : false,
                   createdAt: Date.now(),
                   createdBy: "admin",

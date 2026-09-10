@@ -627,6 +627,42 @@ exports.sendLessonReminders = onSchedule(
   }
 );
 
+// Нагадування "з будильником" для особистих подій адміна (bookings/personal/*)
+// з полем reminderHours. Раз на 15 хв, щоб не проґавити коротші вікна (15/30 хв).
+exports.sendPersonalEventReminders = onSchedule(
+  { schedule: "every 15 minutes", region: "europe-west1" },
+  async () => {
+    const now = Date.now();
+    const snap = await db.ref("bookings/personal").get();
+    if (!snap.exists()) return;
+
+    const updates = {};
+    for (const [id, ev] of Object.entries(snap.val())) {
+      if (!ev || ev.status !== "personal" || ev.reminderSent || !ev.reminderHours) continue;
+      if (!ev.date || !ev.time) continue;
+
+      const startMs = new Date(`${ev.date}T${ev.time}:00+03:00`).getTime();
+      const diffMs = startMs - now;
+      if (diffMs <= 0) continue; // подія вже почалась
+
+      const thresholdMs = ev.reminderHours * 3600000;
+      if (diffMs <= thresholdMs) {
+        const dateFmt = new Date(ev.date + "T00:00:00").toLocaleDateString("uk", {
+          day: "numeric", month: "long", weekday: "short",
+        });
+        await pushAdmin(
+          `⏰ ${ev.name || "Нагадування"}`,
+          `${dateFmt} о ${ev.time}${ev.note ? " · " + ev.note : ""}`,
+          { url: `https://admin.id4drive.pro/?date=${ev.date}`, alarm: "1" }
+        );
+        updates[`bookings/personal/${id}/reminderSent`] = true;
+      }
+    }
+
+    if (Object.keys(updates).length) await db.ref("/").update(updates).catch(() => {});
+  }
+);
+
 // Ручна розсилка адміна → пуш УСІМ учням з увімкненими сповіщеннями
 // (раніше — лише активним за останні 30 днів; обмеження прибрано за
 // прямим запитом: розсилка про вільний слот має йти всім).
