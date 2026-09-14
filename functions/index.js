@@ -996,7 +996,7 @@ exports.flushDayNoteReminders = onSchedule(
       if (nowMin < note.startMin || nowMin > note.startMin + 5) continue;
       const title = "🔔 Нагадування";
       const body = note.text || `Нотатка на ${dateStr}`;
-      await pushAdmin(title, body, { url: `https://admin.id4drive.pro/?date=${dateStr}` });
+      await pushAdmin(title, body, { url: `https://admin.id4drive.pro/?date=${dateStr}`, alarm: "1" });
       await db.ref(`dayNotes/${dateStr}/notes/${key}/notified`).set(true).catch(() => {});
     }
   }
