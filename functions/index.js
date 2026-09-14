@@ -989,7 +989,11 @@ exports.flushDayNoteReminders = onSchedule(
 
     for (const [key, note] of Object.entries(notes)) {
       if (!note.notify || note.notified) continue;
-      if (note.startMin !== nowMin) continue;
+      // Толерантне вікно замість точної рівності хвилини — "every 1 minutes"
+      // у Cloud Scheduler іноді спрацьовує із затримкою (холодний старт,
+      // джиттер), і точна рівність могла "проскочити" цільову хвилину,
+      // назавжди залишаючи нагадування невідправленим.
+      if (nowMin < note.startMin || nowMin > note.startMin + 5) continue;
       const title = "🔔 Нагадування";
       const body = note.text || `Нотатка на ${dateStr}`;
       await pushAdmin(title, body, { url: `https://admin.id4drive.pro/?date=${dateStr}` });
