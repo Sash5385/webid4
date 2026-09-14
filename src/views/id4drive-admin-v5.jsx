@@ -2608,37 +2608,37 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
           display:"flex", flexDirection:"column",
           borderRight:`1px solid ${ink(0.07)}`,
         }}>
-          {/* Кнопка «Ключик» — генерувати/зняти всі слоти (перенесено з шапки, календар — тепер у шапці) */}
+          {/* Кнопка «Ключик» — генерувати/зняти всі слоти (перенесено з шапки, календар — тепер у шапці).
+              Стиль — та сама плашка, що й замочок знизу (11px-квадрат, градієнт, рамка), піктограма — сітка 2×2. */}
           <div style={{height:HEADER_H + 4, flexShrink:0, display:"flex", alignItems:"center", justifyContent:"center"}}>
             {(() => {
               const slotsOn = hasAnyGeneratedSlots();
-              const c = slotsOn ? "rgba(220,60,60,0.9)" : "rgba(99,211,120,0.9)";
-              const cBg = slotsOn ? "rgba(220,60,60,0.18)" : "rgba(99,211,120,0.18)";
-              const cPulse = slotsOn ? "rgba(220,60,60,1)" : "rgba(99,211,120,1)";
+              const c = slotsOn ? RED : GREEN;
               return (
-                <>
-                  <style>{`
-                    @keyframes _key-pulse{0%{transform:scale(0.8);opacity:0.35}100%{transform:scale(1.7);opacity:0}}
-                  `}</style>
-                  <button
-                    onClick={isGeneratingAll ? undefined : (slotsOn ? clearAllSlots : generateAllSlots)}
-                    title={slotsOn
-                      ? `Зняти всі слоти (${settings.slotGenDays||30} днів)`
-                      : `Згенерувати слоти на ${settings.slotGenDays||30} днів за графіком`}
-                    style={{
-                      position:"relative", width:32, height:32, border:"none", cursor: isGeneratingAll?"default":"pointer",
-                      background:"transparent", display:"flex", alignItems:"center", justifyContent:"center",
-                      flexShrink:0,
-                    }}>
-                    <div style={{position:"absolute", inset:0, borderRadius:"50%", background:cPulse, opacity:0.25, animation:"_key-pulse 1.6s ease-out infinite"}}/>
-                    <div style={{position:"relative", width:32, height:32, borderRadius:"50%", background:cBg, display:"flex", alignItems:"center", justifyContent:"center", transition:"background .15s"}}>
-                      {isGeneratingAll
-                        ? <div style={{width:14,height:14,borderRadius:"50%",border:`2px solid ${slotsOn?"rgba(220,60,60,0.3)":"rgba(99,211,120,0.3)"}`,borderTopColor:c,animation:"spin .7s linear infinite"}}/>
-                        : <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
-                      }
-                    </div>
-                  </button>
-                </>
+                <button
+                  onClick={isGeneratingAll ? undefined : (slotsOn ? clearAllSlots : generateAllSlots)}
+                  title={slotsOn
+                    ? `Зняти всі слоти (${settings.slotGenDays||30} днів)`
+                    : `Згенерувати слоти на ${settings.slotGenDays||30} днів за графіком`}
+                  style={{
+                    width:32, height:32, border:"none", cursor: isGeneratingAll?"default":"pointer",
+                    background:"transparent", display:"flex", alignItems:"center", justifyContent:"center",
+                    flexShrink:0,
+                  }}>
+                  <div style={{
+                    width:32, height:32, borderRadius:11, display:"flex", alignItems:"center", justifyContent:"center",
+                    background:`linear-gradient(135deg,color-mix(in srgb,${c} 42%,${BG_DEEP}) 0%,${BG_DEEP} 100%)`,
+                    border:`1px solid color-mix(in srgb,${c} 35%,transparent)`,
+                    transition:"background .15s",
+                  }}>
+                    {isGeneratingAll
+                      ? <div style={{width:14,height:14,borderRadius:"50%",border:`2px solid color-mix(in srgb,${c} 30%,transparent)`,borderTopColor:c,animation:"spin .7s linear infinite"}}/>
+                      : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <rect x="3" y="3" width="7" height="7" rx="1.2"/><rect x="14" y="3" width="7" height="7" rx="1.2"/><rect x="3" y="14" width="7" height="7" rx="1.2"/><rect x="14" y="14" width="7" height="7" rx="1.2"/>
+                        </svg>
+                    }
+                  </div>
+                </button>
               );
             })()}
           </div>
