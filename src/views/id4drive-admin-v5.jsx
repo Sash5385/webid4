@@ -2622,12 +2622,12 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                     ? `Зняти всі слоти (${settings.slotGenDays||30} днів)`
                     : `Згенерувати слоти на ${settings.slotGenDays||30} днів за графіком`}
                   style={{
-                    width:32, height:32, border:"none", cursor: isGeneratingAll?"default":"pointer",
+                    width:48, height:32, border:"none", cursor: isGeneratingAll?"default":"pointer",
                     background:"transparent", display:"flex", alignItems:"center", justifyContent:"center",
                     flexShrink:0,
                   }}>
                   <div style={{
-                    width:32, height:32, borderRadius:11, display:"flex", alignItems:"center", justifyContent:"center",
+                    width:48, height:32, borderRadius:11, display:"flex", alignItems:"center", justifyContent:"center",
                     background:`linear-gradient(135deg,color-mix(in srgb,${c} 42%,${BG_DEEP}) 0%,${BG_DEEP} 100%)`,
                     border:`1px solid color-mix(in srgb,${c} 35%,transparent)`,
                     transition:"background .15s",
