@@ -2635,7 +2635,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                     {isGeneratingAll
                       ? <div style={{width:14,height:14,borderRadius:"50%",border:`2px solid color-mix(in srgb,${c} 30%,transparent)`,borderTopColor:c,animation:"spin .7s linear infinite"}}/>
                       : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <rect x="4" y="4" width="16" height="16" rx="1.5"/>
+                          <rect x="3" y="3" width="7" height="7" rx="1.2"/><rect x="14" y="3" width="7" height="7" rx="1.2"/><rect x="3" y="14" width="7" height="7" rx="1.2"/><rect x="14" y="14" width="7" height="7" rx="1.2"/>
                         </svg>
                     }
                   </div>
