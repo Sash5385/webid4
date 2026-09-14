@@ -984,16 +984,19 @@ exports.flushDayNoteReminders = onSchedule(
     const nowMin = parseInt(kyivParts.hour, 10) * 60 + parseInt(kyivParts.minute, 10);
 
     const snap = await db.ref(`dayNotes/${dateStr}/notes`).get();
+    console.log(`flushDayNoteReminders: dateStr=${dateStr} nowMin=${nowMin} notesExist=${snap.exists()}`);
     if (!snap.exists()) return;
     const notes = snap.val();
 
     for (const [key, note] of Object.entries(notes)) {
+      console.log(`flushDayNoteReminders: note key=${key} startMin=${note.startMin} notify=${!!note.notify} notified=${!!note.notified}`);
       if (!note.notify || note.notified) continue;
       // Толерантне вікно замість точної рівності хвилини — "every 1 minutes"
       // у Cloud Scheduler іноді спрацьовує із затримкою (холодний старт,
       // джиттер), і точна рівність могла "проскочити" цільову хвилину,
       // назавжди залишаючи нагадування невідправленим.
       if (nowMin < note.startMin || nowMin > note.startMin + 5) continue;
+      console.log(`flushDayNoteReminders: sending push for key=${key}`);
       const title = "🔔 Нагадування";
       const body = note.text || `Нотатка на ${dateStr}`;
       await pushAdmin(title, body, { url: `https://admin.id4drive.pro/?date=${dateStr}`, alarm: "1" });
