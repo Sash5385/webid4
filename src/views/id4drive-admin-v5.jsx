@@ -3488,6 +3488,15 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                           filter:`drop-shadow(0 1px 3px ${shade(0.7)})`,
                         }}>👑</div>
                       )}
+                      {/* Бейдж будильника — показує, що на подію виставлено нагадування */}
+                      {isPersonal && b.reminderHours && height >= 14 && (
+                        <div style={{
+                          position:"absolute", top:3, right:3, zIndex:4,
+                          fontSize:9, lineHeight:1,
+                          filter:`drop-shadow(0 1px 2px ${shade(0.6)})`,
+                          pointerEvents:"none",
+                        }}>🔔</div>
+                      )}
                       {/* Queue badge */}
                       {queueCount > 0 && !isBlock && !isVipSlot && height >= 14 && (
                         <div style={{
