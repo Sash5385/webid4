@@ -168,8 +168,10 @@ exports.onBookingChanged = onValueWritten(
           url: "https://id4drive.pro/cabinet/bookings",
         });
         await saveNotification(uid, "📋 Урок заплановано", `${date} о ${time}`, "booking_confirmed");
-      } else if (after.createdBy !== "admin") {
+      } else if (after.createdBy !== "admin" && after.status !== "personal") {
         // Учень записався сам — сповіщаємо адміна
+        // (особисті події адміна не мають генерувати цей пуш — у них є власне
+        // нагадування-будильник через sendPersonalEventReminders)
         console.log(`onBookingChanged: new booking uid=${uid}`);
         await pushAdmin("📋 Новий запис", `${name} · ${date} о ${time}`, { url: adminLink() });
       }
