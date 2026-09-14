@@ -27,4 +27,7 @@ jobs:
         run: npm run build
 
       - name: Deploy to Firebase Hosting, Database Rules and all Cloud Functions
-        run: npx firebase-tools deploy --only hosting:admin,database,functions --token "${{ secrets.FIREBASE_TOKEN }}"
+        # --force: non-interactive CI can't answer the "delete stale functions?" prompt,
+        # so without it firebase-tools aborts the ENTIRE deploy (hosting release included)
+        # whenever a function was removed from source but still exists in the project.
+        run: npx firebase-tools deploy --only hosting:admin,database,functions --force --token "${{ secrets.FIREBASE_TOKEN }}"
