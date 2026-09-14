@@ -420,8 +420,11 @@ select{color-scheme:${isKava?"light":"dark"}}
               upd("weekSchedule", updated);
             }} min={0.5} max={24}/>
           </Row>
-          <Row label={t('set.schedule.days')} last>
+          <Row label={t('set.schedule.days')}>
             <NumInput value={settings.daysShown} onChange={v=>upd("daysShown",v)} min={1} max={30} suffix={` ${t('days')}`}/>
+          </Row>
+          <Row compact last color={svColor(settings.lockPastBookings)} label="Блокувати минулі записи" hint="Заборонити редагувати, переносити й скасовувати записи, що вже минули — вони підсвічуються тьмяніше">
+            <Toggle color={svColor(settings.lockPastBookings)} on={!!settings.lockPastBookings} onChange={v=>upd("lockPastBookings",v)}/>
           </Row>
           <div style={{paddingTop:8}}>
             <div style={{fontSize:9,color:"#fff",letterSpacing:1,textTransform:"uppercase",marginBottom:6,textAlign:"center"}}>Тижневий шаблон</div>

@@ -345,6 +345,7 @@ const DEFAULT_SETTINGS = {
   daysShown: 5,  // 1..30
   snapMin: 30,
   hourHeightPx: 60, // resizable via pinch
+  lockPastBookings: false, // заборонити редагувати/переносити/скасовувати минулі записи (вони підсвічуються тьмяніше)
   // breaks
   lunchEnabled: true,
   lunchStart: 12,
@@ -3296,7 +3297,9 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                 const isPersonal = b.type === "personal";
                 const slotTimeStr = String(Math.floor(b.startMin/60)).padStart(2,'0')+':'+String(b.startMin%60).padStart(2,'0');
                 const queueCount = b.date ? (queueMap[`${b.date}_${slotTimeStr}`] || 0) : 0;
-                const isDimmed = !isBlock && !isVipSlot && !isPersonal && (b.status==="noshow" || isCancelling);
+                const isPast = absDay < 0 || (absDay === 0 && b.startMin + b.durMin <= nowMin);
+                const isLockedPast = settings.lockPastBookings && !isBlock && !isVipSlot && !isPersonal && isPast;
+                const isDimmed = !isBlock && !isVipSlot && !isPersonal && (b.status==="noshow" || isCancelling || isLockedPast);
                 const price = b._mergedPrice != null ? b._mergedPrice : computeBookingPrice(b, settings.services);
                 return (
                   /* Обгортка — overflow:visible щоб значок не обрізався */
@@ -3310,7 +3313,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                     {/* Сам слот */}
                     <div
                       className={`slot-base ${(isBlock||isPersonal)?"":"slot-colored"} ${!isBlock&&!isPersonal&&isPending?"slot-pending-ring":""} ${!isBlock&&!isPersonal&&holdId===b.id?"slot-holding":""} ${!isBlock&&!isPersonal&&shineId===b.id&&!isDimmed?"shine-active":""}`}
-                      onPointerDown={e=>onPointerDown(e,b,"move")}
+                      onPointerDown={e=>{ if(isLockedPast) return; onPointerDown(e,b,"move"); }}
                       onContextMenu={e=>e.preventDefault()}
                       onClick={e=>{
                         e.stopPropagation();
@@ -3371,7 +3374,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                         transition:"opacity 0.4s, filter 0.4s",
                       }}>
                       {/* Ресайз відключений на об'єднаній картці — невідомо, який із поглинутих записів стискати/розтягувати */}
-                      {!b._mergedIds && <div className="slot-handle top" style={{height:handleH}} onPointerDown={e=>onPointerDown(e,b,"top")}/>}
+                      {!b._mergedIds && !isLockedPast && <div className="slot-handle top" style={{height:handleH}} onPointerDown={e=>onPointerDown(e,b,"top")}/>}
                       {!isBlock && !isVipSlot && !isPersonal && <div className="shine-layer"/>}
                       {isVipSlot && height >= 14 && (
                         <span style={{fontSize:11, lineHeight:1}}>👑</span>
@@ -3509,7 +3512,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                           <span style={{fontSize:7, fontWeight:800, color:GOLD, lineHeight:1}}>{queueCount}</span>
                         </div>
                       )}
-                      {!b._mergedIds && <div className="slot-handle bottom" style={{height:handleH}} onPointerDown={e=>onPointerDown(e,b,"bottom")}/>}
+                      {!b._mergedIds && !isLockedPast && <div className="slot-handle bottom" style={{height:handleH}} onPointerDown={e=>onPointerDown(e,b,"bottom")}/>}
 
                     </div>
 
@@ -4790,6 +4793,20 @@ function BookingModal({ booking, onClose, onAction, settings, bookings, onViewSt
   // не ламає — при звичайному закритті booking лишається до кінця анімації (onClose на animationEnd).
   if (!booking) return null;
 
+  // Минулий запис при увімкненому settings.lockPastBookings — заборонено
+  // редагувати ціну/тривалість і скасовувати (перенос теж заблокований —
+  // окремо, на рівні drag у ScheduleView).
+  const isPastLocked = (() => {
+    if (!settings.lockPastBookings) return false;
+    const dateStr = booking.date || (() => {
+      const d = new Date(); d.setHours(0,0,0,0);
+      d.setDate(d.getDate() + booking.day);
+      return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    })();
+    const endMs = new Date(dateStr + "T00:00:00").getTime() + (booking.startMin + (booking.durMin||60)) * 60000;
+    return endMs <= Date.now();
+  })();
+
   const bSvcs = settings.services || [];
   const bType = booking.serviceType || booking.type;
   const svc   = bSvcs.find(s => s.id === booking.serviceId)
@@ -4926,7 +4943,7 @@ function BookingModal({ booking, onClose, onAction, settings, bookings, onViewSt
           </div>
 
           {/* Кнопка редагування ціни/тривалості */}
-          {!editOpen && (
+          {!editOpen && !isPastLocked && (
             <div style={{padding:"10px 16px 0"}}>
               <button onClick={openEdit} style={{
                 width:"100%",padding:"10px",borderRadius:12,border:"none",cursor:"pointer",fontFamily:"inherit",
@@ -5138,12 +5155,21 @@ function BookingModal({ booking, onClose, onAction, settings, bookings, onViewSt
           </div>
 
           {/* Cancel link */}
-          <button onClick={() => { onAction("cancel", booking); _close(); }} style={{
-            width:"100%",padding:"10px",border:"none",cursor:"pointer",
-            background:"none",borderTop:`1px solid ${ink(0.05)}`,
-            color:"rgba(248,113,113,0.7)",fontSize:11,fontWeight:600,
-            marginTop:4,marginBottom:20,
-          }}>Скасувати запис</button>
+          {isPastLocked ? (
+            <div style={{
+              width:"100%",padding:"10px",textAlign:"center",
+              borderTop:`1px solid ${ink(0.05)}`,
+              color:TEXT_FAINT,fontSize:10.5,fontWeight:600,
+              marginTop:4,marginBottom:20,
+            }}>🔒 Минулий запис — редагування й скасування заблоковано</div>
+          ) : (
+            <button onClick={() => { onAction("cancel", booking); _close(); }} style={{
+              width:"100%",padding:"10px",border:"none",cursor:"pointer",
+              background:"none",borderTop:`1px solid ${ink(0.05)}`,
+              color:"rgba(248,113,113,0.7)",fontSize:11,fontWeight:600,
+              marginTop:4,marginBottom:20,
+            }}>Скасувати запис</button>
+          )}
 
         </div>
       </div>
