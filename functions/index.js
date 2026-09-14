@@ -49,8 +49,11 @@ async function pushStudent(uid, title, body, data = {}) {
   }
 }
 
-// Хелпер: запросити наступного в черзі для слота
-async function inviteNextInQueue(slotKey, excludeUids = []) {
+// Хелпер: запросити наступного в черзі для слота.
+// freedDurationHours — тривалість щойно скасованого уроку: якщо відома,
+// саме на неї треба записати учня з черги, а не на його власний вибір при
+// вступі в чергу (інакше 2-годинний урок звільняється, а бронюється лише 1 год).
+async function inviteNextInQueue(slotKey, excludeUids = [], freedDurationHours = null) {
   const entriesSnap = await db.ref(`queue/${slotKey}/entries`).get();
   if (!entriesSnap.exists()) return;
   const entries = Object.entries(entriesSnap.val())
@@ -59,7 +62,9 @@ async function inviteNextInQueue(slotKey, excludeUids = []) {
     .sort((a, b) => (a.addedAt || 0) - (b.addedAt || 0));
   if (!entries.length) return;
   const next = entries[0];
-  await db.ref(`queue/${slotKey}/entries/${next.uid}`).update({ status: "offered" });
+  const upd = { status: "offered" };
+  if (freedDurationHours) upd.offerDurationHours = freedDurationHours;
+  await db.ref(`queue/${slotKey}/entries/${next.uid}`).update(upd);
   // onQueueInvite спрацює автоматично
 }
 
@@ -179,7 +184,10 @@ exports.onBookingChanged = onValueWritten(
       const slotUpd = buildSlotUpdates(before, true);
       if (Object.keys(slotUpd).length) await db.ref("/").update(slotUpd).catch(() => {});
       await pushAdmin("❌ Урок скасовано", `${name} · ${date} о ${time}`, { url: adminLink() });
-      if (date !== "—" && time !== "—") await inviteNextInQueue(`${date}_${time}`).catch(() => {});
+      if (date !== "—" && time !== "—") {
+        const freedDurationHours = before.durationHours || (before.durMin ? before.durMin / 60 : 1);
+        await inviteNextInQueue(`${date}_${time}`, [], freedDurationHours).catch(() => {});
+      }
       return;
     }
 
@@ -202,7 +210,10 @@ exports.onBookingChanged = onValueWritten(
         url: "https://id4drive.pro/cabinet/bookings",
       });
       await saveNotification(uid, "❌ Урок скасовано", `${date} о ${time}`, "booking_cancelled");
-      if (date !== "—" && time !== "—") await inviteNextInQueue(`${date}_${time}`).catch(() => {});
+      if (date !== "—" && time !== "—") {
+        const freedDurationHours = before.durationHours || (before.durMin ? before.durMin / 60 : 1);
+        await inviteNextInQueue(`${date}_${time}`, [], freedDurationHours).catch(() => {});
+      }
       return;
     }
 
@@ -266,8 +277,13 @@ exports.onQueueInvite = onValueUpdated(
     const until = Date.now() + OFFER_WINDOW_MS;
     await db.ref(`timeslots/${date}/${slotId}/offeredTo/${uid}`).set({ until }).catch(() => {});
 
-    // In-app сповіщення: клієнт підписаний на цей шлях
-    await db.ref(`users/${uid}/queueOffers/${slotKey}`).set({ date, time, until, slotKey }).catch(() => {});
+    // In-app сповіщення: клієнт підписаний на цей шлях. Якщо запрошення
+    // прийшло від скасування конкретного уроку — offerDurationHours несе
+    // його тривалість, щоб бронювання з черги зайняло стільки ж часу.
+    await db.ref(`users/${uid}/queueOffers/${slotKey}`).set({
+      date, time, until, slotKey,
+      ...(after.offerDurationHours ? { durationHours: after.offerDurationHours } : {}),
+    }).catch(() => {});
 
     const url = `https://id4drive.pro/cabinet?date=${date}&time=${encodeURIComponent(time)}`;
     const pushTitle = "🎉 Слот зарезервовано для вас!";
