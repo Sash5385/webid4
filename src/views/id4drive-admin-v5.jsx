@@ -2626,7 +2626,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                     flexShrink:0,
                   }}>
                   <div style={{
-                    width:32, height:32, borderRadius:11, display:"flex", alignItems:"center", justifyContent:"center",
+                    width:32, height:32, borderRadius:0, display:"flex", alignItems:"center", justifyContent:"center",
                     background:`linear-gradient(135deg,color-mix(in srgb,${c} 42%,${BG_DEEP}) 0%,${BG_DEEP} 100%)`,
                     border:`1px solid color-mix(in srgb,${c} 35%,transparent)`,
                     transition:"background .15s",
