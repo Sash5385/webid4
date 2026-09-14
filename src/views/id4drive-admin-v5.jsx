@@ -4413,15 +4413,6 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                     ))}
                   </select>
                 </div>
-                <div style={{display:"flex",gap:4,marginTop:6}}>
-                  {["01","02","03","04","05"].map(h=>(
-                    <button key={h} onClick={()=>setPeEditTime(`${h}:${peEditTime.split(":")[1] || "00"}`)} style={{
-                      flex:1,padding:"5px 0",borderRadius:8,border:"none",cursor:"pointer",fontSize:11,fontWeight:700,fontFamily:"inherit",
-                      background: (peEditTime.split(":")[0]===h) ? "rgba(45,212,191,0.2)" : SURFACE,
-                      color: (peEditTime.split(":")[0]===h) ? "#2dd4bf" : DIM,
-                    }}>{h}</button>
-                  ))}
-                </div>
               </div>
             </div>
             <div>
@@ -5366,15 +5357,6 @@ function PersonalEventModal({ data, onClose, onConfirm }) {
                       <option key={m} value={m}>{m}</option>
                     ))}
                   </select>
-                </div>
-                <div style={{display:"flex",gap:4,marginTop:6}}>
-                  {["01","02","03","04","05"].map(h=>(
-                    <button key={h} onClick={()=>setPeTime(`${h}:${peTime.split(":")[1] || "00"}`)} style={{
-                      flex:1,padding:"5px 0",borderRadius:8,border:"none",cursor:"pointer",fontSize:11,fontWeight:700,fontFamily:"inherit",
-                      background: (peTime.split(":")[0]===h) ? "rgba(45,212,191,0.2)" : SURF_HI,
-                      color: (peTime.split(":")[0]===h) ? "#2dd4bf" : DIM,
-                    }}>{h}</button>
-                  ))}
                 </div>
               </div>
             </div>
