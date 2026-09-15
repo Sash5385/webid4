@@ -23,13 +23,18 @@ const PALETTE = [
   { id:"lime",   name:"Лайм",      color:"#a3e635" },
 ];
 
-// Мітки на записі — фіксований список, обираються в модалці бронювання
+// Мітки на записі — фіксований список, обираються в модалці бронювання.
+// "exam"/"first"/"debt" також можуть виставлятись автоматично (див. getAutoTag) —
+// але лише поки інструктор жодного разу не чіпав мітку цього запису вручну.
 const TAG_PRESETS = [
-  { id:"exam",   icon:"🚨", label:"Іспит",    color: RED },
-  { id:"first",  icon:"⭐", label:"1-й урок", color: BLUE },
-  { id:"debt",   icon:"💸", label:"Борг",     color: GOLD },
-  { id:"repeat", icon:"🔁", label:"Повтор",   color: GREEN },
+  { id:"exam",   icon:"🚨", label:"Іспит",     color: RED },
+  { id:"check",  icon:"🔍", label:"Перевірка", color: TEAL },
+  { id:"first",  icon:"⭐", label:"1-й урок",  color: BLUE },
+  { id:"debt",   icon:"💸", label:"Борг",      color: GOLD },
+  { id:"repeat", icon:"🔁", label:"Повтор",    color: GREEN },
 ];
+// Автотег за порядковим номером запису учня (серед усіх нескасованих, включно з майбутніми)
+const AUTO_TAG_BY_ORDER = { 1: "first", 20: "check", 40: "exam" };
 
 // Медалі за урок — присвоюються прямо в модалці бронювання (прив'язані до booking.id)
 const BADGE_PRESETS = [
@@ -1119,6 +1124,31 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
     });
     return map;
   }, [bookings]);
+  // Порядковий номер запису учня серед УСІХ його нескасованих записів (включно
+  // з майбутніми) — основа для автоматичних міток (1-й урок / перевірка / іспит).
+  const studentOrderMap = useMemo(() => {
+    const byStudent = {};
+    for (const b of bookings) {
+      if (b.type === "block" || b.type === "vip-slot" || b.type === "personal") continue;
+      if (b.status === "cancelled") continue;
+      const key = b.userId || b.phone;
+      if (!key) continue;
+      (byStudent[key] ||= []).push(b);
+    }
+    const map = {};
+    Object.values(byStudent).forEach(list => {
+      list.sort((a, b2) => a.day - b2.day || a.startMin - b2.startMin);
+      list.forEach((b, i) => { map[b.id] = i + 1; });
+    });
+    return map;
+  }, [bookings]);
+  // Автоматична мітка — лише поки інструктор жодного разу не чіпав мітку цього
+  // запису вручну (booking.tagManual); ручний вибір/зняття завжди має пріоритет.
+  const getAutoTag = (b) => {
+    if (b.debtAmount > 0) return "debt";
+    return AUTO_TAG_BY_ORDER[studentOrderMap[b.id]] || null;
+  };
+  const effectiveTag = (b) => (b.tagManual ? (b.tag || null) : (b.tag || getAutoTag(b)));
   // Сусідні (без розриву в часі) записи одного учня в один день — об'єднуємо
   // у вигляді ОДНІЄЇ картки в сітці: тривалість і ціна підсумовуються.
   // Дані в Firebase лишаються окремими записами — це лише відображення.
@@ -2521,11 +2551,13 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
     if (action === "viber")    window.location.href=`viber://chat?number=%2B${b.phone.replace(/\D/g,"")}`;
     if (action === "telegram") window.location.href=`https://t.me/${b.phone.replace(/\D/g,"")}`;
     if (action === "setTag") {
-      setBookings(bs=>bs.map(x=>x.id===b.id?{...x,tag:b.tag||null}:x));
-      setLocalSelectedBooking(prev=>prev?{...prev,tag:b.tag||null}:null);
+      // Ручний вибір/зняття мітки — позначаємо tagManual, щоб автоматична
+      // логіка (порядок уроку/борг) більше НІКОЛИ не перезаписувала цей запис.
+      setBookings(bs=>bs.map(x=>x.id===b.id?{...x,tag:b.tag||null,tagManual:true}:x));
+      setLocalSelectedBooking(prev=>prev?{...prev,tag:b.tag||null,tagManual:true}:null);
       if (b.userId) {
         const key = b._fbKey || b.id;
-        update(ref(db, `bookings/${b.userId}/${key}`), { tag: b.tag || null }).catch(()=>{});
+        update(ref(db, `bookings/${b.userId}/${key}`), { tag: b.tag || null, tagManual: true }).catch(()=>{});
       }
       return;
     }
@@ -3408,10 +3440,14 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                     background: BG_DEEP,
                     borderRadius: 8,
                   }}>
-                    {/* Мітка (іспит/1-й урок/борг/повтор) — стрічка над карткою */}
-                    {!isBlock && !isVipSlot && !isPersonal && b.tag && height >= 16 && (() => {
-                      const tp = TAG_PRESETS.find(t => t.id === b.tag);
+                    {/* Мітка (іспит/перевірка/1-й урок/борг/повтор) — стрічка над карткою.
+                        Автоматична (за порядком уроку/сумою боргу), поки не змінена вручну. */}
+                    {!isBlock && !isVipSlot && !isPersonal && height >= 16 && (() => {
+                      const curTag = effectiveTag(b);
+                      if (!curTag) return null;
+                      const tp = TAG_PRESETS.find(t => t.id === curTag);
                       if (!tp) return null;
+                      const label = curTag === "debt" && b.debtAmount > 0 ? `${tp.label} ${b.debtAmount}₴` : tp.label;
                       return (
                         <div style={{
                           position:"absolute", top:-8, left:4, zIndex:8,
@@ -3420,7 +3456,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                           background:`linear-gradient(135deg, color-mix(in srgb, ${tp.color} 90%, #fff), ${tp.color})`,
                           boxShadow:"0 2px 6px rgba(0,0,0,0.4)",
                           whiteSpace:"nowrap", pointerEvents:"none",
-                        }}>{tp.icon} {tp.label}</div>
+                        }}>{tp.icon} {label}</div>
                       );
                     })()}
                     {/* Сам слот */}
@@ -3785,6 +3821,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
 
     <BookingModal booking={localSelectedBooking} onClose={()=>setLocalSelectedBooking(null)}
       onAction={handleAction} settings={settings} bookings={bookings} onViewStudent={onViewStudent}
+      autoTag={localSelectedBooking ? getAutoTag(localSelectedBooking) : null}
       mergeInfo={(() => {
         const mi = localSelectedBooking && mergeInfoMap[localSelectedBooking.id];
         if (!mi?.mergedIds?.length) return null;
@@ -4807,7 +4844,7 @@ function computeBookingPrice(b, services) {
   return Math.max(0, Math.round(base + (b.surcharge || 0) - discount));
 }
 
-function BookingModal({ booking, onClose, onAction, settings, bookings, onViewStudent, mergeInfo }) {
+function BookingModal({ booking, onClose, onAction, settings, bookings, onViewStudent, mergeInfo, autoTag }) {
   const { BG, BG_DEEP, SURFACE, SURF_HI, SURF_LO, BORDER, TEXT, DIM, FAINT, ACCENT, ACC_HI, SO, SI , GLOW, SHADE, INK } = useContext(ThemeContext);
   const glow=a=>`rgba(${GLOW},${a})`,shade=a=>`rgba(${SHADE},${a})`,ink=a=>`rgba(${INK},${a})`;
   const SURFACE_HI = SURF_HI, SURFACE_LO = SURF_LO, TEXT_DIM = DIM, TEXT_FAINT = FAINT, ACCENT_HI = ACC_HI, SHADOW_OUT = SO, SHADOW_IN = SI;
@@ -5209,46 +5246,54 @@ function BookingModal({ booking, onClose, onAction, settings, bookings, onViewSt
             )}
           </div>
 
-          {/* Мітка */}
-          <div style={{padding:"10px 14px",borderBottom:`1px solid ${ink(0.06)}`}}>
-            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6}}>
-              <div style={{fontSize:9,fontWeight:700,letterSpacing:1,color:TEXT_FAINT,textTransform:"uppercase"}}>
-                🏷️ Мітка
-              </div>
-              <div onClick={() => setTagPickerOpen(o => !o)} style={{
-                fontSize:11,fontWeight:800,color:GOLD,cursor:"pointer",padding:"2px 8px",
-                borderRadius:8,background:`${GOLD}22`,
-              }}>{tagPickerOpen ? "Закрити" : (booking.tag ? "Змінити" : "+ Додати")}</div>
-            </div>
-            {booking.tag && !tagPickerOpen && (() => {
-              const tp = TAG_PRESETS.find(t=>t.id===booking.tag);
-              if (!tp) return null;
-              return (
-                <div onClick={()=>onAction("setTag",{...booking,tag:null})} title="Тап — прибрати" style={{
-                  display:"inline-flex",alignItems:"center",gap:5,padding:"5px 9px",borderRadius:20,
-                  background:`${tp.color}18`,border:`1px solid ${tp.color}44`,cursor:"pointer",
-                }}>
-                  <span style={{fontSize:14}}>{tp.icon}</span>
-                  <span style={{fontSize:11,fontWeight:700,color:TEXT}}>{tp.label}</span>
+          {/* Мітка — booking.tag/tagManual, якщо ручна; інакше показуємо автотег
+              (за порядком уроку/сумою боргу), рахований у батьківському компоненті. */}
+          {(() => {
+            const displayTag = booking.tagManual ? (booking.tag || null) : (booking.tag || autoTag || null);
+            const isAuto = !booking.tagManual && !booking.tag && !!autoTag;
+            return (
+              <div style={{padding:"10px 14px",borderBottom:`1px solid ${ink(0.06)}`}}>
+                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6}}>
+                  <div style={{fontSize:9,fontWeight:700,letterSpacing:1,color:TEXT_FAINT,textTransform:"uppercase"}}>
+                    🏷️ Мітка {isAuto && <span style={{color:TEXT_FAINT,textTransform:"none",letterSpacing:0}}>(авто)</span>}
+                  </div>
+                  <div onClick={() => setTagPickerOpen(o => !o)} style={{
+                    fontSize:11,fontWeight:800,color:GOLD,cursor:"pointer",padding:"2px 8px",
+                    borderRadius:8,background:`${GOLD}22`,
+                  }}>{tagPickerOpen ? "Закрити" : (displayTag ? "Змінити" : "+ Додати")}</div>
                 </div>
-              );
-            })()}
-            {tagPickerOpen && (
-              <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:7,paddingTop:booking.tag?8:0}}>
-                {TAG_PRESETS.map(tp=>(
-                  <button key={tp.id} onClick={()=>{ onAction("setTag",{...booking,tag: booking.tag===tp.id?null:tp.id}); setTagPickerOpen(false); }} style={{
-                    display:"flex",alignItems:"center",justifyContent:"center",gap:6,
-                    padding:"9px 4px",borderRadius:12,cursor:"pointer",fontFamily:"inherit",
-                    border: booking.tag===tp.id ? `1.5px solid ${tp.color}` : `1px solid ${ink(0.1)}`,
-                    background: booking.tag===tp.id ? `${tp.color}22` : BG_DEEP,
-                  }}>
-                    <span style={{fontSize:15}}>{tp.icon}</span>
-                    <span style={{fontSize:11,fontWeight:700,color:TEXT_DIM}}>{tp.label}</span>
-                  </button>
-                ))}
+                {displayTag && !tagPickerOpen && (() => {
+                  const tp = TAG_PRESETS.find(t=>t.id===displayTag);
+                  if (!tp) return null;
+                  const label = displayTag === "debt" && booking.debtAmount > 0 ? `${tp.label} ${booking.debtAmount}₴` : tp.label;
+                  return (
+                    <div onClick={()=>onAction("setTag",{...booking,tag:null})} title="Тап — прибрати" style={{
+                      display:"inline-flex",alignItems:"center",gap:5,padding:"5px 9px",borderRadius:20,
+                      background:`${tp.color}18`,border:`1px solid ${tp.color}44`,cursor:"pointer",
+                    }}>
+                      <span style={{fontSize:14}}>{tp.icon}</span>
+                      <span style={{fontSize:11,fontWeight:700,color:TEXT}}>{label}</span>
+                    </div>
+                  );
+                })()}
+                {tagPickerOpen && (
+                  <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:7,paddingTop:displayTag?8:0}}>
+                    {TAG_PRESETS.map(tp=>(
+                      <button key={tp.id} onClick={()=>{ onAction("setTag",{...booking,tag: displayTag===tp.id?null:tp.id}); setTagPickerOpen(false); }} style={{
+                        display:"flex",alignItems:"center",justifyContent:"center",gap:6,
+                        padding:"9px 4px",borderRadius:12,cursor:"pointer",fontFamily:"inherit",
+                        border: displayTag===tp.id ? `1.5px solid ${tp.color}` : `1px solid ${ink(0.1)}`,
+                        background: displayTag===tp.id ? `${tp.color}22` : BG_DEEP,
+                      }}>
+                        <span style={{fontSize:15}}>{tp.icon}</span>
+                        <span style={{fontSize:11,fontWeight:700,color:TEXT_DIM}}>{tp.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
-            )}
-          </div>
+            );
+          })()}
 
           {/* Queue */}
           {queueEntries.length > 0 && (
@@ -5698,6 +5743,7 @@ function NewBookingModal({ data, onClose, onConfirm, settings, bookings = [] }) 
   const [timeVal,    setTimeVal]    = useState(null);
   const [svcId,      setSvcId]      = useState(null);
   const [note,       setNote]       = useState("");
+  const [debtAmount, setDebtAmount] = useState("");
   const [students,   setStudents]   = useState([]);
   const [closing,    setClosing]    = useState(false);
 
@@ -5720,6 +5766,7 @@ function NewBookingModal({ data, onClose, onConfirm, settings, bookings = [] }) 
       setDateOffset(Math.max(0, data.day??0));
       setSearch(""); setSelStudent(null); setPhone("");
       setNewName(""); setNewPhone(""); setNote("");
+      setDebtAmount("");
       setSvcId(null);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -5777,6 +5824,7 @@ function NewBookingModal({ data, onClose, onConfirm, settings, bookings = [] }) 
       hoursDone:0, categoryId:null, isVipOnly:false,
       userId: (!isNewStudent && selStudent?.id) ? selStudent.id : null,
       ...(note.trim() && { note:note.trim() }),
+      ...(Number(debtAmount) > 0 && { debtAmount: Number(debtAmount) }),
     });
     _close();
   };
@@ -6009,6 +6057,21 @@ function NewBookingModal({ data, onClose, onConfirm, settings, bookings = [] }) 
             placeholder="Примітка (необов'язково)..."
             value={note}
             onChange={e=>setNote(e.target.value)}
+            style={{
+              padding:"10px 13px",borderRadius:12,
+              border:`1.5px solid ${BORDER}`,
+              background:SURFACE_LO,color:TEXT,fontSize:13,outline:"none",
+            }}
+          />
+
+          {/* СУМА БОРГУ — якщо вказано, запис автоматично отримає мітку "Борг" */}
+          <input
+            type="number"
+            inputMode="decimal"
+            min="0"
+            placeholder="Сума боргу, ₴ (необов'язково)..."
+            value={debtAmount}
+            onChange={e=>setDebtAmount(e.target.value)}
             style={{
               padding:"10px 13px",borderRadius:12,
               border:`1.5px solid ${BORDER}`,
@@ -7009,6 +7072,7 @@ export default function App() {
         status: b.status, tsc: b.tsc || "", hours: b.hoursDone || 0,
         createdAt: Date.now(), createdBy: "admin",
         ...(b.note && { note: b.note }),
+        ...(b.debtAmount > 0 && { debtAmount: b.debtAmount }),
       };
       if (b.userId) {
         update(ref(db, `bookings/${b.userId}/${b.id}`), fbData).catch(()=>{});
@@ -7156,7 +7220,8 @@ export default function App() {
 
         {/* MODALS */}
         <BookingModal booking={selectedBooking} onClose={()=>setSelectedBooking(null)}
-          onAction={handleAction} settings={settings}/>
+          onAction={handleAction} settings={settings}
+          autoTag={selectedBooking ? getAutoTag(selectedBooking) : null}/>
         <NewBookingModal data={newBookingData} onClose={()=>setNewBookingData(null)}
           onConfirm={handleNewBooking} bookings={bookings} settings={(() => {
             const sched = (settings.weekSchedule || []).filter(d => d.start != null);
