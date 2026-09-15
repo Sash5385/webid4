@@ -2571,11 +2571,15 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
     if (action === "setTag") {
       // Ручний вибір/зняття мітки — позначаємо tagManual, щоб автоматична
       // логіка (порядок уроку/борг) більше НІКОЛИ не перезаписувала цей запис.
-      setBookings(bs=>bs.map(x=>x.id===b.id?{...x,tag:b.tag||null,tagManual:true}:x));
-      setLocalSelectedBooking(prev=>prev?{...prev,tag:b.tag||null,tagManual:true}:null);
+      // debtAmount передається лише коли інструктор явно вписав/змінив суму
+      // боргу вручну — інакше залишаємо попереднє значення в Firebase як є.
+      const patch = { tag: b.tag || null, tagManual: true };
+      if (b.debtAmount !== undefined) patch.debtAmount = b.debtAmount || null;
+      setBookings(bs=>bs.map(x=>x.id===b.id?{...x,...patch}:x));
+      setLocalSelectedBooking(prev=>prev?{...prev,...patch}:null);
       if (b.userId) {
         const key = b._fbKey || b.id;
-        update(ref(db, `bookings/${b.userId}/${key}`), { tag: b.tag || null, tagManual: true }).catch(()=>{});
+        update(ref(db, `bookings/${b.userId}/${key}`), patch).catch(()=>{});
       }
       return;
     }
@@ -4889,6 +4893,8 @@ function BookingModal({ booking, onClose, onAction, settings, bookings, onViewSt
   const [allBadges, setAllBadges] = useState({});
   const [badgePickerOpen, setBadgePickerOpen] = useState(false);
   const [tagPickerOpen, setTagPickerOpen] = useState(false);
+  const [debtInput, setDebtInput] = useState("");
+  useEffect(() => { setDebtInput(booking?.debtAmount ? String(booking.debtAmount) : ""); }, [booking?.id]);
   const [filmingConsent, setFilmingConsent] = useState(null);
   useEffect(() => {
     if (!booking || !booking.userId) { setFilmingConsent(null); return; }
@@ -5305,6 +5311,26 @@ function BookingModal({ booking, onClose, onAction, settings, bookings, onViewSt
                     </div>
                   );
                 })()}
+                {displayTag === "debt" && !tagPickerOpen && (
+                  <div style={{display:"flex",alignItems:"center",gap:6,marginTop:7}}>
+                    <input
+                      type="number" inputMode="decimal" min="0"
+                      placeholder="Сума боргу, ₴"
+                      value={debtInput}
+                      onChange={e=>setDebtInput(e.target.value)}
+                      onKeyDown={e=>{ if(e.key==="Enter") onAction("setTag",{...booking,tag:"debt",debtAmount:Number(debtInput)||0}); }}
+                      style={{
+                        flex:1,padding:"7px 10px",borderRadius:10,
+                        border:`1px solid ${ink(0.1)}`,background:BG_DEEP,color:TEXT,
+                        fontSize:12,outline:"none",boxSizing:"border-box",
+                      }}
+                    />
+                    <button onClick={()=>onAction("setTag",{...booking,tag:"debt",debtAmount:Number(debtInput)||0})} style={{
+                      padding:"7px 12px",borderRadius:10,border:"none",cursor:"pointer",fontFamily:"inherit",
+                      background:`${GOLD}22`,color:GOLD,fontSize:12,fontWeight:800,
+                    }}>Зберегти</button>
+                  </div>
+                )}
                 {tagPickerOpen && (
                   <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:7,paddingTop:displayTag?8:0}}>
                     {TAG_PRESETS.map(tp=>(
