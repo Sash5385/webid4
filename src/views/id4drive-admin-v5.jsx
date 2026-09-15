@@ -3655,10 +3655,11 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                           pointerEvents:"none",
                         }}>{cumulativeHoursMap[b.id]}</div>
                       )}
-                      {/* Час початку уроку — праворуч зверху */}
+                      {/* Час початку уроку — праворуч зверху. Опущено нижче, якщо на картці
+                          є мітка (бейдж-пігулка), щоб час не перекривався нею. */}
                       {!isBlock && !isVipSlot && !isPersonal && height >= 14 && (
                         <div style={{
-                          position:"absolute", top:2, right:3, zIndex:4,
+                          position:"absolute", top:effectiveTag(b) ? 16 : 2, right:3, zIndex:4,
                           fontSize:Math.min(8, Math.max(6, height/9)),
                           fontWeight:800, lineHeight:1, color:"rgba(0,0,0,0.8)",
                           pointerEvents:"none",
