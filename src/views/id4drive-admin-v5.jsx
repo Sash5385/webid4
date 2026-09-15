@@ -3497,7 +3497,18 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                     {/* Сам слот */}
                     <div
                       className={`slot-base ${(isBlock||isPersonal)?"":"slot-colored"} ${!isBlock&&!isPersonal&&isPending?"slot-pending-ring":""} ${!isBlock&&!isPersonal&&holdId===b.id?"slot-holding":""} ${!isBlock&&!isPersonal&&shineId===b.id&&!isDimmed?"shine-active":""}`}
-                      onPointerDown={e=>{ if(isLockedPast) return; onPointerDown(e,b,"move"); }}
+                      onPointerDown={e=>{
+                        if (isLockedPast) {
+                          // Заблокований минулий запис — редагування/перенесення заборонено,
+                          // але свайп по картці все одно мусить гортати дні (як і по
+                          // порожньому місцю), інакше день з минулими уроками "мертвий"
+                          // для свайпу. Той самий шлях, що й для scheduleLocked.
+                          e.stopPropagation();
+                          pendingDragRef.current = { id:b.id, startClientY:e.clientY, startClientX:e.clientX, locked:true };
+                          return;
+                        }
+                        onPointerDown(e,b,"move");
+                      }}
                       onContextMenu={e=>e.preventDefault()}
                       onClick={e=>{
                         e.stopPropagation();
