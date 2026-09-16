@@ -2172,17 +2172,15 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
             (finalB.day !== draggedMeta.startDay || finalB.startMin !== draggedMeta.startMinutes)) {
           const oldDateStr = absDayToDateStr(draggedMeta.startDay);
           const newDateStr = absDayToDateStr(finalB.day);
-          // Старий час НЕ звільняємо — залишається заблокованим, як і був до
-          // переносу. Позначаємо adminBlocked, а не лише available:false —
-          // інакше рендер сітки (isBlocked = slot.adminBlocked) не бачить цей
-          // прапорець і малює слот як звичайний вільний (зелений), хоча він
-          // недоступний для запису.
+          // Старий час прибираємо повністю (а не звільняємо і не позначаємо
+          // заблокованим) — жодної кольорової клітинки там лишатись не має,
+          // ніби особистої події там ніколи й не було.
           const oldUpd = {};
           for (let i = 0; i < draggedMeta.startDur; i += 30) {
             const m = draggedMeta.startMinutes + i;
             const sh = String(Math.floor(m / 60)).padStart(2, "0");
             const sm = String(m % 60).padStart(2, "0");
-            oldUpd[`timeslots/${oldDateStr}/slot${sh}${sm}/adminBlocked`] = true;
+            oldUpd[`timeslots/${oldDateStr}/slot${sh}${sm}`] = null;
           }
           if (Object.keys(oldUpd).length) update(ref(db, "/"), oldUpd).catch(() => {});
           blockPersonalSlots(newDateStr, finalB.startMin, finalB.durMin);
