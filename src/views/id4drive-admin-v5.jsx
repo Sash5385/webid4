@@ -2665,8 +2665,11 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
     const timeChanged = peEditDate !== oldDate || newStartMin !== ev.startMin || peEditDur !== ev.durMin;
     if (timeChanged) {
       unblockPersonalSlots(oldDate, ev.startMin, ev.durMin);
-      blockPersonalSlots(peEditDate, newStartMin, peEditDur);
     }
+    // Завжди перезаписуємо (навіть без зміни часу) — так відкрити й зберегти
+    // подію без правок теж проставляє personal:true на її таймслоти, якщо
+    // вона була створена до появи цього прапорця.
+    blockPersonalSlots(peEditDate, newStartMin, peEditDur);
     const reminderChanged = timeChanged || peEditReminderHours !== (ev.reminderHours || null);
     const patch = {
       date: peEditDate, time: peEditTime, startMin: newStartMin, durMin: peEditDur,
