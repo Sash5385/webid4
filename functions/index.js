@@ -646,9 +646,12 @@ exports.sendLessonReminders = onSchedule(
 );
 
 // Нагадування "з будильником" для особистих подій адміна (bookings/personal/*)
-// з полем reminderHours. Раз на 15 хв, щоб не проґавити коротші вікна (15/30 хв).
+// з полем reminderHours. Раз на хвилину — при "За 15 хв"/"За 30 хв" вікно
+// [0, reminderHours] само по собі не ширше за 15/30 хв, і перевірка раз на
+// 15 хв (як було раніше) регулярно повністю проскакувала його між двома
+// тіками, залежно від фази — нагадування мовчки не приходило.
 exports.sendPersonalEventReminders = onSchedule(
-  { schedule: "every 15 minutes", region: "europe-west1" },
+  { schedule: "every 1 minutes", region: "europe-west1" },
   async () => {
     const now = Date.now();
     const snap = await db.ref("bookings/personal").get();
