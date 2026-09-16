@@ -1302,8 +1302,8 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
           if (slotTime) {
             // phantom-вузли (створені лише під запис) не належать сітці дня
             if (!slot.phantom) slotSet.add(slotTime);
-            if (slot.available !== false || slot.adminBlocked || slot.vipOnly || slot.privateOnly || slot.surcharge) {
-              slotMap[slotTime] = { available: slot.available !== false, adminBlocked: !!slot.adminBlocked, vipOnly: !!slot.vipOnly, privateOnly: !!slot.privateOnly, surcharge: slot.surcharge || null, durMin: slot.durMin || 60 };
+            if (slot.available !== false || slot.adminBlocked || slot.vipOnly || slot.privateOnly || slot.surcharge || slot.fixedPrice) {
+              slotMap[slotTime] = { available: slot.available !== false, adminBlocked: !!slot.adminBlocked, vipOnly: !!slot.vipOnly, privateOnly: !!slot.privateOnly, surcharge: slot.surcharge || null, fixedPrice: slot.fixedPrice || null, durMin: slot.durMin || 60 };
             }
           }
           if (slot.viewing && Object.keys(slot.viewing).length > 0) viewTimes.push(slotTime);
@@ -1594,12 +1594,23 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
       }
     } else if (option === "reset") {
       if (isClosed) {
-        update(ref(db, `timeslots/${dateStr}/${slotId}`), { vipOnly: false, privateOnly: false, surcharge: null }).catch(() => {});
+        update(ref(db, `timeslots/${dateStr}/${slotId}`), { vipOnly: false, privateOnly: false, surcharge: null, fixedPrice: null }).catch(() => {});
       } else {
-        update(ref(db, `timeslots/${dateStr}/${slotId}`), { available: true, adminBlocked: false, vipOnly: false, privateOnly: false, surcharge: null }).catch(() => {});
+        update(ref(db, `timeslots/${dateStr}/${slotId}`), { available: true, adminBlocked: false, vipOnly: false, privateOnly: false, surcharge: null, fixedPrice: null }).catch(() => {});
       }
     } else if (option === "surcharge_remove") {
       update(ref(db, `timeslots/${dateStr}/${slotId}`), { surcharge: null }).catch(() => {});
+    } else if (option && typeof option === "object" && option.fixedPrice != null) {
+      // Фіксована ціна повністю замінює тарифну — незалежна від VIP/Приватний слот,
+      // тому не чіпаємо ці прапорці, лише available/adminBlocked за тим самим
+      // патерном, що й VIP/Приватний слот.
+      if (isClosed) {
+        update(ref(db, `timeslots/${dateStr}/${slotId}`), { fixedPrice: option.fixedPrice }).catch(() => {});
+      } else {
+        update(ref(db, `timeslots/${dateStr}/${slotId}`), { available: true, adminBlocked: false, fixedPrice: option.fixedPrice }).catch(() => {});
+      }
+    } else if (option === "fixedPrice_remove") {
+      update(ref(db, `timeslots/${dateStr}/${slotId}`), { fixedPrice: null }).catch(() => {});
     } else {
       update(ref(db, `timeslots/${dateStr}/${slotId}`), { surcharge: option }).catch(() => {});
     }
@@ -2374,7 +2385,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
         const tm = h2 * 60 + m2;
         if (tm >= fd.newStart && tm < newEnd) {
           const s2 = daySlots[t];
-          const s2Free = s2 && s2.available && !s2.vipOnly && !s2.privateOnly && !s2.adminBlocked && !s2.surcharge;
+          const s2Free = s2 && s2.available && !s2.vipOnly && !s2.privateOnly && !s2.adminBlocked && !s2.surcharge && !s2.fixedPrice;
           if (s2Free) absorbedTimes.push(t); else blocked = true;
         }
       });
@@ -2709,6 +2720,8 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   const [vipSlotModalClosing, setVipSlotModalClosing] = useState(false);
   const [slotOptions, setSlotOptions] = useState(null); // { dateStr, time, startTime, slot }
   const [slotClosing, setSlotClosing] = useState(false);
+  const [fixedPriceEditing, setFixedPriceEditing] = useState(false);
+  const [fixedPriceInput, setFixedPriceInput] = useState("");
   const [personalEventData, setPersonalEventData] = useState(null); // { dateStr, time }
   const [longTapMenu, setLongTapMenu] = useState(null); // { dateStr, startMin, clientX, clientY }
   const [ltmClosing, setLtmClosing] = useState(false);
@@ -3125,16 +3138,17 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                 const isVip = slot.vipOnly;
                 const isBlocked = slot.adminBlocked;
                 const hasSurcharge = !!slot.surcharge;
+                const hasFixedPrice = !!slot.fixedPrice;
                 const isPrivateOnly = !!slot.privateOnly;
                 const hasViewer = (viewingSlots[dateStrCol] || []).includes(time);
-                const isSticky = (isVip || isBlocked || hasSurcharge || isPrivateOnly) ? true : isStickySlot(dateStrCol, time);
-                const bg = isVip ? "rgba(168,85,247,0.15)" : isBlocked ? "rgba(239,68,68,0.15)" : isPrivateOnly ? "rgba(234,179,8,0.15)" : hasSurcharge ? "rgba(247,201,72,0.15)" : isSticky ? STICKY_BG : FREE_BG;
-                const borderColor = isVip ? "rgba(168,85,247,0.55)" : isBlocked ? "rgba(239,68,68,0.5)" : isPrivateOnly ? (isLight ? "rgba(140,110,0,0.65)" : "rgba(234,179,8,0.6)") : hasSurcharge ? (isLight ? "rgba(140,110,0,0.65)" : "rgba(247,201,72,0.6)") : isSticky ? STICKY_BD : FREE_BD;
-                const color = isVip ? "rgba(168,85,247,0.9)" : isBlocked ? "rgba(239,68,68,0.85)" : isPrivateOnly ? (isLight ? "rgba(100,75,0,0.9)" : "rgba(234,179,8,0.95)") : hasSurcharge ? (isLight ? "rgba(100,75,0,0.9)" : "rgba(247,201,72,0.95)") : isSticky ? STICKY_CLR : FREE_CLR;
+                const isSticky = (isVip || isBlocked || hasSurcharge || isPrivateOnly || hasFixedPrice) ? true : isStickySlot(dateStrCol, time);
+                const bg = isVip ? "rgba(168,85,247,0.15)" : isBlocked ? "rgba(239,68,68,0.15)" : isPrivateOnly ? "rgba(234,179,8,0.15)" : hasSurcharge ? "rgba(247,201,72,0.15)" : hasFixedPrice ? "rgba(74,222,128,0.15)" : isSticky ? STICKY_BG : FREE_BG;
+                const borderColor = isVip ? "rgba(168,85,247,0.55)" : isBlocked ? "rgba(239,68,68,0.5)" : isPrivateOnly ? (isLight ? "rgba(140,110,0,0.65)" : "rgba(234,179,8,0.6)") : hasSurcharge ? (isLight ? "rgba(140,110,0,0.65)" : "rgba(247,201,72,0.6)") : hasFixedPrice ? "rgba(74,222,128,0.6)" : isSticky ? STICKY_BD : FREE_BD;
+                const color = isVip ? "rgba(168,85,247,0.9)" : isBlocked ? "rgba(239,68,68,0.85)" : isPrivateOnly ? (isLight ? "rgba(100,75,0,0.9)" : "rgba(234,179,8,0.95)") : hasSurcharge ? (isLight ? "rgba(100,75,0,0.9)" : "rgba(247,201,72,0.95)") : hasFixedPrice ? "rgba(74,222,128,0.95)" : isSticky ? STICKY_CLR : FREE_CLR;
                 const emptyShadow = isLight
                   ? "inset 2px 2px 5px rgba(0,0,0,0.16), inset -2px -2px 5px rgba(255,255,255,0.55)"
                   : "inset 2px 2px 5px rgba(0,0,0,0.45), inset -2px -2px 5px rgba(255,255,255,0.10)";
-                const isPlainFree = slot.available && !isVip && !isBlocked && !hasSurcharge && !isPrivateOnly;
+                const isPlainFree = slot.available && !isVip && !isBlocked && !hasSurcharge && !isPrivateOnly && !hasFixedPrice;
                 const isBeingDragged = freeDragPreview && freeDragPreview.dateStr===dateStrCol && freeDragPreview.time===time;
                 const displayStartMin = isBeingDragged ? freeDragPreview.newStart : startMin;
                 // Розтягування вниз може поглинати наступні вільні слоти підряд (без запису,
@@ -3147,7 +3161,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                     const hh2 = String(Math.floor(t / 60)).padStart(2, "0");
                     const mm2 = String(t % 60).padStart(2, "0");
                     const s2 = daySlots[`${hh2}:${mm2}`];
-                    const s2Free = s2 && s2.available && !s2.vipOnly && !s2.privateOnly && !s2.adminBlocked && !s2.surcharge;
+                    const s2Free = s2 && s2.available && !s2.vipOnly && !s2.privateOnly && !s2.adminBlocked && !s2.surcharge && !s2.fixedPrice;
                     if (!s2Free || slotCovered(t)) { resizeLimitMin = t; break; }
                   }
                 }
@@ -3272,7 +3286,9 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                       WebkitTouchCallout:"none", WebkitUserDrag:"none",
                       WebkitUserSelect:"none", userSelect:"none",
                     }}>
-                    {hasSurcharge && <span style={{position:"absolute", top:3, left:4, fontSize:9, fontWeight:800, color:"rgba(247,201,72,0.95)", lineHeight:1}}>+{slot.surcharge}₴</span>}
+                    {hasFixedPrice
+                      ? <span style={{position:"absolute", top:3, left:4, fontSize:9, fontWeight:800, color:"rgba(74,222,128,0.95)", lineHeight:1}}>{slot.fixedPrice}₴ фікс</span>
+                      : hasSurcharge && <span style={{position:"absolute", top:3, left:4, fontSize:9, fontWeight:800, color:"rgba(247,201,72,0.95)", lineHeight:1}}>+{slot.surcharge}₴</span>}
                     {(isVip || slot.vipOnly) && <span style={{position:"absolute", top:3, right:4, fontSize:10, lineHeight:1}}>👑</span>}
                     {isPrivateOnly && <span style={{position:"absolute", top:3, right:4, fontSize:10, lineHeight:1}}>🚗</span>}
 
@@ -4187,7 +4203,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
     {/* ── Меню опцій слота (довгий тап на вільний слот) — bottom sheet ── */}
     {(slotOptions || slotClosing) && (()=>{
       const _so = slotOptions || {};
-      const _closeSO = () => setSlotClosing(true);
+      const _closeSO = () => { setFixedPriceEditing(false); setSlotClosing(true); };
       const _soStartMin = _so.startTime
         ? (([h,m]) => h*60+m)(_so.startTime.split(":").map(Number))
         : 0;
@@ -4326,6 +4342,42 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                 <span>🚗</span> Приватний слот
                 {_so.slot?.privateOnly && <span style={{marginLeft:"auto",fontSize:11,color:"#eab308",opacity:0.7}}>✓ активний</span>}
               </button>
+              {/* Фіксована ціна — повністю замінює тарифну ціну послуги для цього слота */}
+              <button onClick={()=>{
+                setFixedPriceInput(_so.slot?.fixedPrice != null ? String(_so.slot.fixedPrice) : "");
+                setFixedPriceEditing(v=>!v);
+              }} style={{
+                width:"100%",padding:"13px 14px",border:"none",cursor:"pointer",
+                background:"rgba(74,222,128,0.09)",borderRadius:12,
+                color:GREEN,fontSize:15,fontWeight:700,
+                display:"flex",alignItems:"center",gap:10,
+              }}>
+                <span>💰</span> Фіксована ціна
+                {_so.slot?.fixedPrice != null && <span style={{marginLeft:"auto",fontSize:11,color:GREEN,opacity:0.8}}>{_so.slot.fixedPrice}₴</span>}
+              </button>
+              {fixedPriceEditing && (
+                <div style={{display:"flex",gap:8,padding:"2px 2px 6px"}}>
+                  <input type="number" min={0} step={50} autoFocus value={fixedPriceInput}
+                    onChange={e=>setFixedPriceInput(e.target.value)}
+                    placeholder="Сума, ₴"
+                    style={{flex:1,padding:"10px 12px",borderRadius:10,border:`1px solid ${ink(0.12)}`,background:BG_DEEP,color:TEXT,fontSize:14,fontWeight:700,fontFamily:"inherit"}}/>
+                  {_so.slot?.fixedPrice != null && (
+                    <button onClick={()=>{ applySlotOption(_so.dateStr, fmtTime(_soSelMin), "fixedPrice_remove"); setFixedPriceEditing(false); }} style={{
+                      padding:"10px 14px",borderRadius:10,border:"none",cursor:"pointer",fontFamily:"inherit",
+                      background:"rgba(239,68,68,0.12)",color:"#f87171",fontSize:13,fontWeight:700,
+                    }}>Скинути</button>
+                  )}
+                  <button onClick={()=>{
+                    const n = Math.max(0, parseInt(fixedPriceInput, 10) || 0);
+                    if (!fixedPriceInput || n <= 0) return;
+                    applySlotOption(_so.dateStr, fmtTime(_soSelMin), { fixedPrice: n });
+                    setFixedPriceEditing(false);
+                  }} style={{
+                    padding:"10px 16px",borderRadius:10,border:"none",cursor:"pointer",fontFamily:"inherit",
+                    background:GREEN,color:"#062910",fontSize:13,fontWeight:800,
+                  }}>Застосувати</button>
+                </div>
+              )}
               {/* Заблокувати / Розблокувати слот */}
               <button onClick={()=>{
                 toggleSlotFree(_so.dateStr, fmtTime(_soSelMin), _so.slot);
@@ -4376,7 +4428,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                 })}
               </div>
               {/* Скинути — тільки якщо є що скидати */}
-              {(_so.slot?.vipOnly || _so.slot?.privateOnly || _so.slot?.surcharge) && (
+              {(_so.slot?.vipOnly || _so.slot?.privateOnly || _so.slot?.surcharge || _so.slot?.fixedPrice) && (
                 <button onClick={()=>applySlotOption(_so.dateStr, fmtTime(_soSelMin), "reset")} style={{
                   width:"100%",padding:"12px 0 0",border:"none",cursor:"pointer",
                   background:"none",color:TEXT_FAINT,fontSize:13,fontWeight:600,
