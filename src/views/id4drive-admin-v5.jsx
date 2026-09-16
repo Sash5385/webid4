@@ -2939,6 +2939,10 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
             const isLoadingCol = genLoadingDays.has(absDay);
             const hasAnySlotsCol = !!(openSlots[dateStrCol] && Object.keys(openSlots[dateStrCol]).length);
             const isClosedDay = _ov?.type === 'closed';
+            // Робочий день за розкладом (не просто "будній/вихідний" по календарю) —
+            // той самий критерій, що й у computeDayUpdates: явно вимкнений день
+            // тижневого розкладу, або вихідний зі списку weekends без власних годин.
+            const isWorkDay = _ws.enabled !== false && !(!_ws.start && (settings.weekends || []).includes(_dow));
             return (
             <div key={absDay} style={{
               display:"flex", flexDirection:"column", flexShrink:0,
@@ -2978,15 +2982,16 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                   alignItems:"center", justifyContent:"center",
                   padding:"2px 4px", borderRadius:10, cursor: isPastDay ? "default" : "pointer",
                   opacity: isPastDay ? 0.35 : 1, overflow:"visible",
-                  // Будні — зелені, вихідні — червоні (day.wk = субота/неділя).
+                  // Робочі дні за розкладом — зелені, неробочі — червоні (isWorkDay,
+                  // не просто субота/неділя по календарю).
                   // Заблокований день — та сама діагональна штриховка, що й у заблокованих
                   // слотах сітки (STRIPE_A/STRIPE_B) — узгоджена мова "заблоковано" в межах UI.
-                  background: isClosedDay ? `repeating-linear-gradient(45deg,${STRIPE_A},${STRIPE_A} 5px,${STRIPE_B} 5px,${STRIPE_B} 10px)` : `linear-gradient(155deg, color-mix(in srgb, color-mix(in srgb, ${day.wk ? RED : GREEN} 22%, ${BG_DEEP}) 78%, transparent) 0%, color-mix(in srgb, ${BG_DEEP} 78%, transparent) 100%)`,
+                  background: isClosedDay ? `repeating-linear-gradient(45deg,${STRIPE_A},${STRIPE_A} 5px,${STRIPE_B} 5px,${STRIPE_B} 10px)` : `linear-gradient(155deg, color-mix(in srgb, color-mix(in srgb, ${isWorkDay ? GREEN : RED} 22%, ${BG_DEEP}) 78%, transparent) 0%, color-mix(in srgb, ${BG_DEEP} 78%, transparent) 100%)`,
                   backdropFilter:"blur(10px)", WebkitBackdropFilter:"blur(10px)",
                   boxShadow: `3px 3px 7px rgba(${SHADE},0.4), -2px -2px 6px rgba(${GLOW},0.06)${isToday ? `, inset 0 0 0 1.5px ${GOLD}99` : isClosedDay ? `, inset 0 0 0 1.5px rgba(220,60,60,0.8)` : ""}`,
                 }}>
                 <div style={{fontSize:8.5, fontWeight:700, lineHeight:1.2,
-                  color: day.wk ? RED : GREEN,
+                  color: isWorkDay ? GREEN : RED,
                   letterSpacing:0.3, overflow:"hidden", whiteSpace:"nowrap",
                   maxWidth:"100%", textOverflow:"ellipsis",
                 }}>{day.fullLabel}</div>
