@@ -1261,9 +1261,6 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   const pendingSlotSnapTimerRef = useRef(null);
   const [genLoadingDays, setGenLoadingDays] = useState(new Set());
   const [isGeneratingAll, setIsGeneratingAll] = useState(false);
-  const [genToast, setGenToast] = useState(null); // { absDay, free, blocked }
-  const genToastTimer = useRef(null);
-  useEffect(() => () => clearTimeout(genToastTimer.current), []);
   const [queueMap, setQueueMap] = useState({}); // { "YYYY-MM-DD_HH:MM": count }
 
   useEffect(() => {
@@ -1467,9 +1464,6 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
       if (result && Object.keys(result.updates).length) {
         await update(ref(db, "/"), result.updates);
       }
-      clearTimeout(genToastTimer.current);
-      setGenToast({ absDay, free: result?.free ?? 0, blocked: result?.blocked ?? 0 });
-      genToastTimer.current = setTimeout(() => setGenToast(null), 3000);
     } finally {
       setGenLoadingDays(s => { const ns = new Set(s); ns.delete(absDay); return ns; });
     }
@@ -3028,15 +3022,6 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                     <svg width="8.5" height="8.5" viewBox="0 0 24 24" fill="none" stroke="#3a2800" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M14 3v5h5"/><path d="M6 3h8l5 5v13H6z"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/>
                     </svg>
-                  </div>
-                )}
-                {genToast?.absDay === absDay && (
-                  <div style={{position:"absolute", bottom:-18, left:"50%", transform:"translateX(-50%)",
-                    background: genToast.free > 0 ? "rgba(99,211,120,0.92)" : "rgba(220,80,80,0.92)",
-                    color:"#fff", fontSize:9, fontWeight:700, borderRadius:6, padding:"2px 5px",
-                    whiteSpace:"nowrap", zIndex:20, pointerEvents:"none",
-                  }}>
-                    {genToast.free > 0 ? `+${genToast.free}` : `0 / ${genToast.blocked}б`}
                   </div>
                 )}
               </div>
