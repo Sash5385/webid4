@@ -2187,7 +2187,10 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
           const hh = String(Math.floor(finalB.startMin / 60)).padStart(2, "0");
           const mm = String(finalB.startMin % 60).padStart(2, "0");
           const key = finalB._fbKey || finalB.id;
-          update(ref(db, `bookings/personal/${key}`), { date: newDateStr, time: `${hh}:${mm}`, startMin: finalB.startMin }).catch(() => {});
+          // Час змінився — старе "reminderSent" від попереднього часу більше
+          // не діє, інакше нагадування-будильник на новий час взагалі не
+          // прийде (sendPersonalEventReminders пропускає reminderSent:true).
+          update(ref(db, `bookings/personal/${key}`), { date: newDateStr, time: `${hh}:${mm}`, startMin: finalB.startMin, reminderSent: false }).catch(() => {});
         }
       }
 
