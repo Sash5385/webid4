@@ -2997,7 +2997,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                 </div>
                 {!isPastDay && !isClosedDay && !isLoadingCol && (
                   <div style={{
-                    position:"absolute", top:-4, right:-4, width:14, height:14, borderRadius:"50%",
+                    position:"absolute", top:2, right:2, width:14, height:14, borderRadius:"50%",
                     background: isOpenCol ? `linear-gradient(155deg,#a6e888,${GREEN})` : `linear-gradient(145deg,${SURF_HI},${SURFACE})`,
                     boxShadow:"0 1px 3px rgba(0,0,0,0.5)",
                     display:"flex", alignItems:"center", justifyContent:"center",
@@ -3014,7 +3014,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                 )}
                 {dayNotes[dateStrCol] && (
                   <div style={{
-                    position:"absolute", top:-4, left:-4, width:14, height:14, borderRadius:"50%",
+                    position:"absolute", top:2, left:2, width:14, height:14, borderRadius:"50%",
                     background:`linear-gradient(155deg,#ffe28a,${GOLD})`,
                     boxShadow:"0 1px 3px rgba(0,0,0,0.5)",
                     display:"flex", alignItems:"center", justifyContent:"center",
