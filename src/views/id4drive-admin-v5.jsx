@@ -2170,9 +2170,10 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
         const finalB = (bookingsRef.current || []).find(b => b.id === draggedMeta.id);
         if (finalB && finalB.type === "personal" &&
             (finalB.day !== draggedMeta.startDay || finalB.startMin !== draggedMeta.startMinutes)) {
-          const oldDateStr = absDayToDateStr(draggedMeta.startDay);
           const newDateStr = absDayToDateStr(finalB.day);
-          unblockPersonalSlots(oldDateStr, draggedMeta.startMinutes, draggedMeta.startDur);
+          // Старий час НЕ звільняємо — залишається заблокованим, як і був до
+          // переносу (на прохання: перенесення особистої події не має саме
+          // собою "викроювати" нові вільні слоти для студентів).
           blockPersonalSlots(newDateStr, finalB.startMin, finalB.durMin);
           const hh = String(Math.floor(finalB.startMin / 60)).padStart(2, "0");
           const mm = String(finalB.startMin % 60).padStart(2, "0");
