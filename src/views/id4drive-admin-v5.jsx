@@ -3286,9 +3286,17 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                       WebkitTouchCallout:"none", WebkitUserDrag:"none",
                       WebkitUserSelect:"none", userSelect:"none",
                     }}>
-                    {hasFixedPrice
-                      ? <span style={{position:"absolute", top:3, left:4, fontSize:9, fontWeight:800, color:"rgba(74,222,128,0.95)", lineHeight:1}}>{slot.fixedPrice}₴ фікс</span>
-                      : hasSurcharge && <span style={{position:"absolute", top:3, left:4, fontSize:9, fontWeight:800, color:"rgba(247,201,72,0.95)", lineHeight:1}}>+{slot.surcharge}₴</span>}
+                    {hasFixedPrice ? (
+                      <div style={{position:"absolute", top:0, left:0, width:34, height:34, overflow:"hidden", pointerEvents:"none"}}>
+                        <div style={{
+                          position:"absolute", top:6, left:-11, width:56, textAlign:"center",
+                          transform:"rotate(-45deg)",
+                          background:"rgba(74,222,128,0.95)", color:"#062910",
+                          fontSize:8, fontWeight:800, lineHeight:1.5,
+                          boxShadow:"0 1px 3px rgba(0,0,0,0.3)",
+                        }}>{slot.fixedPrice}₴</div>
+                      </div>
+                    ) : hasSurcharge && <span style={{position:"absolute", top:3, left:4, fontSize:9, fontWeight:800, color:"rgba(247,201,72,0.95)", lineHeight:1}}>+{slot.surcharge}₴</span>}
                     {(isVip || slot.vipOnly) && <span style={{position:"absolute", top:3, right:4, fontSize:10, lineHeight:1}}>👑</span>}
                     {isPrivateOnly && <span style={{position:"absolute", top:3, right:4, fontSize:10, lineHeight:1}}>🚗</span>}
 
