@@ -5037,6 +5037,16 @@ function BookingModal({ booking, onClose, onAction, settings, bookings, onViewSt
   const discountAmtDisplay = booking.discount ? Math.round(booking.discount * booking.durMin / 60) : 0;
   const price = mergeInfo ? mergeInfo.price : computeBookingPrice(booking, settings.services);
   const ini   = booking.name.trim().split(" ").slice(0, 2).map(w => w[0]).join("");
+  // Порядковий номер цього уроку серед усіх уроків учня (без особистих подій
+  // і скасованих) — бейдж у шапці картки запису.
+  const lessonNumber = (() => {
+    if (booking.type === "personal") return null;
+    const studentLessons = (bookings || [])
+      .filter(x => x.userId === booking.userId && x.status !== "cancelled" && x.type !== "personal")
+      .sort((a, b) => (a.date || "").localeCompare(b.date || "") || (a.startMin - b.startMin));
+    const idx = studentLessons.findIndex(x => x.id === booking.id);
+    return idx >= 0 ? idx + 1 : studentLessons.length + 1;
+  })();
   const typeLabel = booking.type === "school" ? "🎓 Автошкола" : "🚗 Приватний";
 
   const sameDayBookings = (bookings || []).filter(x =>
@@ -5133,7 +5143,15 @@ function BookingModal({ booking, onClose, onAction, settings, bookings, onViewSt
                 fontSize:15,fontWeight:900,color:"#fff",
               }}>{ini}</div>
               <div style={{flex:1,minWidth:0}}>
-                <div style={{fontSize:15,fontWeight:800,color:TEXT,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{booking.name}</div>
+                <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
+                  <div style={{fontSize:15,fontWeight:800,color:TEXT,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{booking.name}</div>
+                  {lessonNumber != null && (
+                    <span style={{
+                      fontSize:9,fontWeight:800,padding:"2px 7px",borderRadius:99,flexShrink:0,
+                      background:`${BLUE}1f`,color:BLUE,
+                    }}>🚗 {lessonNumber}-й урок</span>
+                  )}
+                </div>
                 <div style={{fontSize:10,color:c,fontWeight:700,marginTop:1}}>{typeLabel}</div>
               </div>
             </div>
