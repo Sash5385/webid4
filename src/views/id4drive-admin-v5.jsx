@@ -2636,6 +2636,10 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
       upd[`timeslots/${dateStr}/slot${sh}${sm}/available`] = false;
       upd[`timeslots/${dateStr}/slot${sh}${sm}/time`] = `${sh}:${sm}`;
       upd[`timeslots/${dateStr}/slot${sh}${sm}/bookingStart`] = i === 0;
+      // Позначаємо, що зайнятість — від особистої події адміна, а не уроку:
+      // клієнтський календар (classifyDay) виключає такі слоти з підрахунку,
+      // щоб особиста подія не "підсвічувала" день як зайнятий учням.
+      upd[`timeslots/${dateStr}/slot${sh}${sm}/personal`] = true;
     }
     update(ref(db, "/"), upd).catch(() => {});
   };
@@ -2647,6 +2651,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
       upd[`timeslots/${dateStr}/slot${sh}${sm}/available`] = true;
       upd[`timeslots/${dateStr}/slot${sh}${sm}/time`] = `${sh}:${sm}`;
       upd[`timeslots/${dateStr}/slot${sh}${sm}/phantom`] = null;
+      upd[`timeslots/${dateStr}/slot${sh}${sm}/personal`] = null;
     }
     update(ref(db, "/"), upd).catch(() => {});
   };
