@@ -62,8 +62,14 @@ function computeRange(booking) {
 function buildEvent(booking, bookingId, uid) {
   const range = computeRange(booking);
   if (!range) return null;
+  // Особисті події адміна (bookings/personal/*) — це не урок водіння, тож
+  // назва в Google Calendar має бути власною назвою події, без префіксу.
+  const isPersonal = booking.type === "personal" || booking.status === "personal";
+  const summary = isPersonal
+    ? (booking.name || booking.studentName || "Особиста подія")
+    : `Урок водіння — ${booking.studentName || "Учень"}`;
   return {
-    summary: `Урок водіння — ${booking.studentName || "Учень"}`,
+    summary,
     start: { dateTime: range.startDateTime, timeZone: CALENDAR_TIMEZONE },
     end: { dateTime: range.endDateTime, timeZone: CALENDAR_TIMEZONE },
     extendedProperties: {
