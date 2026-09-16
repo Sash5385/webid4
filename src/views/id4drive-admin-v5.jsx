@@ -2170,10 +2170,21 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
         const finalB = (bookingsRef.current || []).find(b => b.id === draggedMeta.id);
         if (finalB && finalB.type === "personal" &&
             (finalB.day !== draggedMeta.startDay || finalB.startMin !== draggedMeta.startMinutes)) {
+          const oldDateStr = absDayToDateStr(draggedMeta.startDay);
           const newDateStr = absDayToDateStr(finalB.day);
           // Старий час НЕ звільняємо — залишається заблокованим, як і був до
-          // переносу (на прохання: перенесення особистої події не має саме
-          // собою "викроювати" нові вільні слоти для студентів).
+          // переносу. Позначаємо adminBlocked, а не лише available:false —
+          // інакше рендер сітки (isBlocked = slot.adminBlocked) не бачить цей
+          // прапорець і малює слот як звичайний вільний (зелений), хоча він
+          // недоступний для запису.
+          const oldUpd = {};
+          for (let i = 0; i < draggedMeta.startDur; i += 30) {
+            const m = draggedMeta.startMinutes + i;
+            const sh = String(Math.floor(m / 60)).padStart(2, "0");
+            const sm = String(m % 60).padStart(2, "0");
+            oldUpd[`timeslots/${oldDateStr}/slot${sh}${sm}/adminBlocked`] = true;
+          }
+          if (Object.keys(oldUpd).length) update(ref(db, "/"), oldUpd).catch(() => {});
           blockPersonalSlots(newDateStr, finalB.startMin, finalB.durMin);
           const hh = String(Math.floor(finalB.startMin / 60)).padStart(2, "0");
           const mm = String(finalB.startMin % 60).padStart(2, "0");
