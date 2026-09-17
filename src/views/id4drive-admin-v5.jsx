@@ -2542,20 +2542,33 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
     if (action === "confirm") { setBookings(bs=>bs.map(x=>x.id===b.id?{...x,status:"confirmed"}:x)); return; }
     if (action === "cancel") {
       // Відновити timeslots
-      const cancelOne = (mb) => {
+      const cancelOne = async (mb) => {
         if (mb.startMin !== undefined && mb.durMin) {
           const dateStr = mb.date || absDayToDateStr(mb.day);
-          // Відновлюємо ВСІ слоти запису як вільні (включно з phantom — раніше
-          // такі видалялись, через що адмінка переставала показувати їх
-          // взагалі, хоча клієнт продовжував бачити цей час відкритим).
-          const upd = {};
-          for (let i = 0; i < mb.durMin; i += 30) {
-            const sm = mb.startMin + i;
-            const hh = String(Math.floor(sm/60)).padStart(2,'0'), mm = String(sm%60).padStart(2,'0');
-            const path = `timeslots/${dateStr}/slot${hh}${mm}`;
-            upd[`${path}/available`] = true; upd[`${path}/time`] = `${hh}:${mm}`; upd[`${path}/phantom`] = null;
-          }
-          update(ref(db,'/'), upd).catch(()=>{});
+          // Позиції, де вже існував реальний слот-документ до бронювання
+          // (напр. сам розтягнутий на кілька годин слот), відновлюємо вільними
+          // з їхньою власною тривалістю. А phantom-документи — створені лише
+          // під це бронювання (markSlotsUnavailable ставить phantom:true для
+          // позицій без свого доку) — прибираємо повністю, а не робимо
+          // окремим вільним слотом: інакше розтягнутий слот після скасування
+          // розпадається на кілька коротших замість одного, як було раніше.
+          try {
+            const daySnap = await get(ref(db, `timeslots/${dateStr}`));
+            const day = daySnap.val() || {};
+            const upd = {};
+            for (let i = 0; i < mb.durMin; i += 30) {
+              const sm = mb.startMin + i;
+              const hh = String(Math.floor(sm/60)).padStart(2,'0'), mm = String(sm%60).padStart(2,'0');
+              const slotId = `slot${hh}${mm}`;
+              const path = `timeslots/${dateStr}/${slotId}`;
+              if (day[slotId]?.phantom) {
+                upd[path] = null;
+              } else {
+                upd[`${path}/available`] = true; upd[`${path}/time`] = `${hh}:${mm}`; upd[`${path}/phantom`] = null;
+              }
+            }
+            await update(ref(db,'/'), upd);
+          } catch {}
         }
         // Позначити cancelled у Firebase (обидва можливих ключі)
         if (mb.userId) {
