@@ -18,35 +18,76 @@ async function saveNotification(uid, title, body, type = "system") {
   await db.ref(`notifications/${uid}`).push({ title, body, type, ts, time, date }).catch(() => {});
 }
 
-// Хелпер: відправити push студенту
+// Android-канал зі звуком, створюється клієнтом при реєстрації нативного push
+// (див. src/firebase/push.js). Тут лише referens для payload.
+const NATIVE_NOTIFICATION_CHANNEL_ID = "booking_alerts_v1";
+
+// Хелпер: відправити push студенту (web-токен і/або нативний Android/iOS-токен)
 async function pushStudent(uid, title, body, data = {}) {
-  const snap = await db.ref(`users/${uid}/fcmTokens/web/token`).get();
-  const token = snap.val();
-  if (!token) return false;
   const link = data.url || "https://id4drive.pro/cabinet";
-  try {
-    // Data-only push — title/body/url у data (клієнт читає payload.data),
-    // без notification, щоб браузер не показав дубль поверх showNotification().
-    await admin.messaging().send({
-      token,
-      data: Object.fromEntries(Object.entries({ title, body, url: link, ...data }).map(([k,v]) => [k, String(v)])),
-      webpush: {
-        fcmOptions: { link },
-      },
-    });
-    return true;
-  } catch (e) {
-    if (e.code === "messaging/registration-token-not-registered" ||
-        e.code === "messaging/invalid-registration-token") {
-      // Чистимо ОБИДВІ копії токена — studentTokens це окремий індекс для
-      // broadcast-розсилок (flushSlotFreedQueue, unlockVipSlots), і якщо його
-      // не чистити тут, студент назавжди лишається у списку розсилки, хоча
-      // реальний токен вже видалено — пуш мовчки не відправляється щоразу.
-      await db.ref(`users/${uid}/fcmTokens/web/token`).remove().catch(() => {});
-      await db.ref(`studentTokens/${uid}`).remove().catch(() => {});
+  const dataPayload = Object.fromEntries(Object.entries({ title, body, url: link, ...data }).map(([k, v]) => [k, String(v)]));
+
+  const [webSnap, nativeSnap] = await Promise.all([
+    db.ref(`users/${uid}/fcmTokens/web/token`).get(),
+    db.ref(`users/${uid}/fcmTokens/native/token`).get(),
+  ]);
+  const webToken = webSnap.val();
+  const nativeToken = nativeSnap.val();
+  if (!webToken && !nativeToken) return false;
+
+  let sent = false;
+
+  if (webToken) {
+    try {
+      // Data-only push — title/body/url у data (клієнт читає payload.data),
+      // без notification, щоб браузер не показав дубль поверх showNotification().
+      await admin.messaging().send({
+        token: webToken,
+        data: dataPayload,
+        webpush: {
+          fcmOptions: { link },
+        },
+      });
+      sent = true;
+    } catch (e) {
+      if (e.code === "messaging/registration-token-not-registered" ||
+          e.code === "messaging/invalid-registration-token") {
+        // Чистимо ОБИДВІ копії токена — studentTokens це окремий індекс для
+        // broadcast-розсилок (flushSlotFreedQueue, unlockVipSlots), і якщо його
+        // не чистити тут, студент назавжди лишається у списку розсилки, хоча
+        // реальний токен вже видалено — пуш мовчки не відправляється щоразу.
+        await db.ref(`users/${uid}/fcmTokens/web/token`).remove().catch(() => {});
+        await db.ref(`studentTokens/${uid}`).remove().catch(() => {});
+      }
     }
-    return false;
   }
+
+  if (nativeToken) {
+    try {
+      // Тут НЕ data-only: top-level notification+android.notification потрібен,
+      // щоб система показала пуш і зіграла звук з каналу навіть коли застосунок
+      // закритий/екран вимкнений (клієнт у такому разі взагалі не запускається).
+      await admin.messaging().send({
+        token: nativeToken,
+        notification: { title, body },
+        data: dataPayload,
+        android: {
+          notification: {
+            channelId: NATIVE_NOTIFICATION_CHANNEL_ID,
+            sound: "notification_sound",
+          },
+        },
+      });
+      sent = true;
+    } catch (e) {
+      if (e.code === "messaging/registration-token-not-registered" ||
+          e.code === "messaging/invalid-registration-token") {
+        await db.ref(`users/${uid}/fcmTokens/native/token`).remove().catch(() => {});
+      }
+    }
+  }
+
+  return sent;
 }
 
 // Хелпер: запросити наступного в черзі для слота.
@@ -79,31 +120,66 @@ function buildAdminLink(base, { date, time, uid, bookingId } = {}) {
   return qs ? `${base}/?${qs}` : `${base}/`;
 }
 
-// Хелпер: відправити push адміну
+// Хелпер: відправити push адміну (web-токен і/або нативний Android/iOS-токен)
 async function pushAdmin(title, body, data = {}) {
-  const snap = await db.ref("admin/fcmToken").get();
-  const token = snap.val();
-  console.log(`pushAdmin: token exists=${!!token}, title="${title}"`);
-  if (!token) { console.warn("pushAdmin: no token at admin/fcmToken"); return; }
   const link = data.url || "https://admin.id4drive.pro";
-  try {
-    // Data-only push — адмінка читає payload.data (App.jsx + SW), без
-    // notification, щоб не було дубля поверх showNotification().
-    const result = await admin.messaging().send({
-      token,
-      data: Object.fromEntries(Object.entries({ title, body, url: link, ...data }).map(([k, v]) => [k, String(v)])),
-      webpush: {
-        fcmOptions: { link },
-      },
-    });
-    console.log(`pushAdmin OK: ${title} messageId=${result}`);
-  } catch (e) {
-    console.error(`pushAdmin error: code=${e.code} msg=${e.message}`);
-    // Якщо токен протухнув — очищаємо щоб не повторювати помилку
-    if (e.code === "messaging/registration-token-not-registered" ||
-        e.code === "messaging/invalid-registration-token") {
-      await db.ref("admin/fcmToken").remove().catch(() => {});
-      console.warn("pushAdmin: stale token removed from admin/fcmToken");
+  const dataPayload = Object.fromEntries(Object.entries({ title, body, url: link, ...data }).map(([k, v]) => [k, String(v)]));
+
+  const [webSnap, nativeSnap] = await Promise.all([
+    db.ref("admin/fcmToken").get(),
+    db.ref("admin/fcmTokens/native/token").get(),
+  ]);
+  const webToken = webSnap.val();
+  const nativeToken = nativeSnap.val();
+  console.log(`pushAdmin: webToken=${!!webToken} nativeToken=${!!nativeToken}, title="${title}"`);
+  if (!webToken && !nativeToken) { console.warn("pushAdmin: no tokens"); return; }
+
+  if (webToken) {
+    try {
+      // Data-only push — адмінка читає payload.data (App.jsx + SW), без
+      // notification, щоб не було дубля поверх showNotification().
+      const result = await admin.messaging().send({
+        token: webToken,
+        data: dataPayload,
+        webpush: {
+          fcmOptions: { link },
+        },
+      });
+      console.log(`pushAdmin web OK: ${title} messageId=${result}`);
+    } catch (e) {
+      console.error(`pushAdmin web error: code=${e.code} msg=${e.message}`);
+      if (e.code === "messaging/registration-token-not-registered" ||
+          e.code === "messaging/invalid-registration-token") {
+        await db.ref("admin/fcmToken").remove().catch(() => {});
+        console.warn("pushAdmin: stale web token removed from admin/fcmToken");
+      }
+    }
+  }
+
+  if (nativeToken) {
+    try {
+      // Тут НЕ data-only: top-level notification+android.notification потрібен,
+      // щоб система показала пуш і зіграла звук з каналу навіть коли застосунок
+      // закритий/екран вимкнений.
+      const result = await admin.messaging().send({
+        token: nativeToken,
+        notification: { title, body },
+        data: dataPayload,
+        android: {
+          notification: {
+            channelId: NATIVE_NOTIFICATION_CHANNEL_ID,
+            sound: "notification_sound",
+          },
+        },
+      });
+      console.log(`pushAdmin native OK: ${title} messageId=${result}`);
+    } catch (e) {
+      console.error(`pushAdmin native error: code=${e.code} msg=${e.message}`);
+      if (e.code === "messaging/registration-token-not-registered" ||
+          e.code === "messaging/invalid-registration-token") {
+        await db.ref("admin/fcmTokens/native/token").remove().catch(() => {});
+        console.warn("pushAdmin: stale native token removed");
+      }
     }
   }
 }

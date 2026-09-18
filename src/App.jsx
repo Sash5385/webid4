@@ -1,6 +1,7 @@
 import React, { useState, useEffect, lazy, Suspense, createContext, useContext } from "react";
 import { ref, onValue, update, push, remove, get } from "firebase/database";
-import { db, registerAdminFCM, onAdminForegroundMessage } from "./firebase";
+import { db, registerAdminFCM, onAdminForegroundMessage, requestAdminNativeNotificationPermission, onAdminNativePushReceived } from "./firebase";
+import { Capacitor } from "@capacitor/core";
 import { useAdminAuth, LoginScreen } from "./AdminAuth";
 import { useAppUpdate } from "./hooks/useAppUpdate"
 import { setGlobalLang, createT } from "./lang";
@@ -559,6 +560,10 @@ export default function App() {
   // Register FCM token on login and every time tab becomes visible (handles token rotation)
   useEffect(() => {
     if (!adminUser) return;
+    if (Capacitor.isNativePlatform()) {
+      requestAdminNativeNotificationPermission().catch(() => {});
+      return;
+    }
     registerAdminFCM().catch(() => {});
     const onVisible = () => {
       if (document.visibilityState === "visible") registerAdminFCM().catch(() => {});
@@ -569,12 +574,13 @@ export default function App() {
 
   // Show foreground push notifications (when admin tab is open)
   useEffect(() => {
-    if (!adminUser) return;
+    if (!adminUser || Capacitor.isNativePlatform()) return;
     return onAdminForegroundMessage((payload) => {
       // Data-only push — див. firebase-messaging-sw.js чому без "notification"
       const title = payload.data?.title || "ID4Drive";
       const body  = payload.data?.body  || "";
       const isAlarm = payload.data?.alarm === "1";
+      new Audio("/notification-sound.wav").play().catch(() => {});
       if (Notification.permission === "granted" && "serviceWorker" in navigator) {
         navigator.serviceWorker.ready.then(reg => {
           reg.showNotification(title, {
@@ -587,6 +593,15 @@ export default function App() {
           });
         });
       }
+    });
+  }, [adminUser]);
+
+  // Нативний push (Android/iOS): фонові/закриті сповіщення система показує сама
+  // (звук з каналу booking_alerts_v1), тут лише звук поки застосунок відкритий.
+  useEffect(() => {
+    if (!adminUser || !Capacitor.isNativePlatform()) return;
+    return onAdminNativePushReceived(() => {
+      new Audio("/notification-sound.wav").play().catch(() => {});
     });
   }, [adminUser]);
 
