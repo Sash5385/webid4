@@ -2196,6 +2196,27 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
           // не діє, інакше нагадування-будильник на новий час взагалі не
           // прийде (sendPersonalEventReminders пропускає reminderSent:true).
           update(ref(db, `bookings/personal/${key}`), { date: newDateStr, time: `${hh}:${mm}`, startMin: finalB.startMin, reminderSent: false }).catch(() => {});
+        } else if (finalB && finalB.type !== "personal") {
+          // Реальний запис учня — перетягування раніше міняло лише локальний
+          // React-стан і НІЧОГО не писало в Firebase, тому onBookingChanged
+          // на бекенді (пуш студенту + блокування нового слоту) не спрацьовував.
+          // Синхронізацію timeslots і сам пуш бере на себе бекенд — тут
+          // достатньо записати нові date/time/startMin для кожного
+          // переміщеного сегмента (merged-блок може містити кілька записів).
+          const segIds = draggedMeta.mergedIds && draggedMeta.mergedIds.length
+            ? [draggedMeta.id, ...draggedMeta.mergedIds]
+            : [draggedMeta.id];
+          segIds.forEach(segId => {
+            const seg = (bookingsRef.current || []).find(b => b.id === segId);
+            const orig = draggedMeta.origPositions?.find(o => o.id === segId);
+            if (!seg || !orig || !seg.userId) return;
+            if (seg.day === orig.day && seg.startMin === orig.startMin) return;
+            const newDateStr = absDayToDateStr(seg.day);
+            const key = seg._fbKey || seg.id;
+            update(ref(db, `bookings/${seg.userId}/${key}`), {
+              date: newDateStr, time: fmtTime(seg.startMin), startMin: seg.startMin,
+            }).catch(() => {});
+          });
         }
       }
 
