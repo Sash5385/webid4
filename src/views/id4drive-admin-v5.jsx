@@ -1406,9 +1406,12 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
     const ov = (overridesParam ?? settings.dateOverrides ?? []).find(o => o.date === dateStr);
     if (ov?.type === "closed") return null;
     const ws = (settings.weekSchedule || [])[dow] || {};
-    if (!force && ws.enabled === false) return null;
+    // Явний override на конкретну дату (напр. "custom", доданий при відкритті
+    // шаблонно-закритого дня) має пріоритет над тижневим шаблоном — інакше
+    // масова регенерація (generateAllSlots, force=false) знову закриє день.
+    if (!force && !ov && ws.enabled === false) return null;
     // When no per-day weekSchedule, fall back to global weekends list
-    if (!force && !ws.start && (settings.weekends || []).includes(dow)) return null;
+    if (!force && !ov && !ws.start && (settings.weekends || []).includes(dow)) return null;
     const start        = ov?.start ?? ws.start ?? settings.workStart ?? 9;
     const end          = ov?.end   ?? ws.end   ?? settings.workEnd   ?? 18;
     const lunchEnabled = ov?.lunchEnabled ?? ws.lunchEnabled ?? settings.lunchEnabled ?? true;
@@ -1691,9 +1694,22 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   const toggleDayBlocked = (dateStr) => {
     const overrides = settings.dateOverrides || [];
     const existing  = overrides.find(o => o.date === dateStr);
-    const wasClosed = existing?.type === 'closed';
+    // Ефективний статус "закрито" має враховувати не лише явний override,
+    // а й тижневий шаблон (weekSchedule.enabled / weekends) — інакше день,
+    // вимкнений лише шаблоном (напр. неділя за замовчуванням), на перший
+    // дубль-тап помилково йшов гілкою "закрити" (без override це no-op:
+    // слотів і так немає), і реально відкривався лише з другого разу.
+    const dow = (new Date(dateStr + "T12:00:00").getDay() + 6) % 7;
+    const ws  = (settings.weekSchedule || [])[dow] || {};
+    const templateClosed = ws.enabled === false || (!ws.start && (settings.weekends || []).includes(dow));
+    const wasClosed = existing ? existing.type === 'closed' : templateClosed;
     const newOverrides = wasClosed
-      ? overrides.filter(o => o.date !== dateStr)
+      ? (!existing && templateClosed
+          // Відкриваємо шаблонно-закритий день без override — фіксуємо явний
+          // "custom" override, інакше подальша масова регенерація (force=false)
+          // знову закриє день за шаблоном.
+          ? [...overrides.filter(o => o.date !== dateStr), { date: dateStr, type: 'custom' }]
+          : overrides.filter(o => o.date !== dateStr))
       : [...overrides.filter(o => o.date !== dateStr), { date: dateStr, type: 'closed' }];
     setSettings(s => ({ ...s, dateOverrides: newOverrides }));
     if (wasClosed) {
