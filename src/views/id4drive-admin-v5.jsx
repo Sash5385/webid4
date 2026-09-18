@@ -1154,42 +1154,11 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
     return AUTO_TAG_BY_ORDER[studentOrderMap[b.id]] || null;
   };
   const effectiveTag = (b) => (b.tagManual ? (b.tag || null) : (b.tag || getAutoTag(b)));
-  // Сусідні (без розриву в часі) записи одного учня в один день — об'єднуємо
-  // у вигляді ОДНІЄЇ картки в сітці: тривалість і ціна підсумовуються.
-  // Дані в Firebase лишаються окремими записами — це лише відображення.
-  // map[id] = { mergedIds, mergedDurMin, mergedPrice } для першого запису групи,
-  // map[id] = { hidden:true } для "поглинутих" (не рендеряться окремо).
-  const mergeInfoMap = useMemo(() => {
-    const byGroup = {};
-    for (const b of bookings) {
-      if (b.status === "cancelled") continue;
-      if (b.type === "block" || b.type === "vip-slot" || b.type === "personal") continue;
-      if (!b.userId) continue;
-      const key = `${b.day}_${b.userId}`;
-      (byGroup[key] ||= []).push(b);
-    }
-    const map = {};
-    Object.values(byGroup).forEach(list => {
-      list.sort((a, b2) => a.startMin - b2.startMin);
-      let i = 0;
-      while (i < list.length) {
-        let j = i;
-        while (j + 1 < list.length && list[j + 1].startMin === list[j].startMin + list[j].durMin) j++;
-        if (j > i) {
-          const group = list.slice(i, j + 1);
-          const primary = group[0];
-          map[primary.id] = {
-            mergedIds: group.slice(1).map(g => g.id),
-            mergedDurMin: group.reduce((s, g) => s + g.durMin, 0),
-            mergedPrice: group.reduce((s, g) => s + computeBookingPrice(g, settings.services), 0),
-          };
-          for (let k = i + 1; k <= j; k++) map[list[k].id] = { hidden: true };
-        }
-        i = j + 1;
-      }
-    });
-    return map;
-  }, [bookings, settings.services]);
+  // Сусідні записи одного учня раніше об'єднувались в одну картку — вимкнено
+  // на прямий запит: кожен запис тепер своя окрема картка (можна тягати й
+  // ресайзити кожну годину окремо). Дані в Firebase й завжди були окремими
+  // записами, тут міняється лише відображення.
+  const mergeInfoMap = {};
   const [windowW, setWindowW] = useState(window.innerWidth);
   const [windowH, setWindowH] = useState(window.innerHeight);
   const PAST_DAYS = 365;
