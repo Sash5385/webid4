@@ -3136,7 +3136,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                   width:COL_W, height:gridHeight,
                   position:"relative", padding:"0 4px",
                   background: isLight ? `linear-gradient(135deg,${SURF_LO},${BG_DEEP})` : `linear-gradient(135deg,color-mix(in srgb,${BG_DEEP} 50%,transparent),rgba(0,0,0,0.275))`,
-                  borderRadius:14, boxShadow:SHADOW_IN, cursor: isPastDay || isClosedDay ? "default" : "cell",
+                  borderRadius:14, boxShadow:SHADOW_IN, cursor: isPastDay ? "default" : "cell",
                   userSelect:"none", WebkitUserSelect:"none", WebkitTouchCallout:"none",
                   opacity: isPastDay ? 0.38 : 1,
                 }}>
@@ -3150,8 +3150,13 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                 }}/>
               )}
 
-              {/* Open/blocked/surcharge/VIP slot indicators */}
-              {!isClosedDay && (()=>{
+              {/* Open/blocked/surcharge/VIP slot indicators — рендеримо і на
+                  закритому дні: якщо там є реальні слоти (адмін вручну відкрив
+                  один слот через довгий тап → "Вільний слот"), вони мають бути
+                  видні й керовані, а не "невидимі" в адмінці попри те, що клієнт
+                  їх все одно бачить (timeslots/{date} читається без фільтра по
+                  статусу дня). На звичайному закритому дні тут просто пусто. */}
+              {(()=>{
                 const daySlots = openSlots[dateStrCol] || {};
                 const sortedMins = Object.keys(daySlots)
                   .map(t => { const [hh, mm] = t.split(':').map(Number); return hh*60+mm; })
@@ -3203,7 +3208,12 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                 return (
                   <div key={`os-${time}`}
                     onPointerDown={e=>{
-                      if (isPastDay || isClosedDay) return;
+                      // isClosedDay НЕ блокує тут: слот, який реально існує на
+                      // закритому дні (адмін відкрив вручну через довгий тап →
+                      // "Вільний слот"), має лишатись керованим — інакше його
+                      // неможливо було б ні скасувати, ні відредагувати без
+                      // повного відкриття всього дня.
+                      if (isPastDay) return;
                       // Заявляємо дотик БЕЗ stopPropagation — він, судячи з усього,
                       // заважає нативному touch-action панорамуванню на реальних
                       // мобільних браузерах (так само, як і в кейсі з заблокованим
@@ -3290,7 +3300,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                     onPointerCancel={()=>{ clearTimeout(slotHoldTimerRef.current); slotPressRef.current = null; }}
                     onClick={e=>{
                       e.stopPropagation();
-                      if (isPastDay || isClosedDay || slotHoldFiredRef.current || isPlainFree) return;
+                      if (isPastDay || slotHoldFiredRef.current || isPlainFree) return;
                       toggleSlotFree(dateStrCol, time, slot);
                     }}
                     style={{
@@ -3309,12 +3319,13 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                       // touch-action:none — нативне panning тут показало себе ненадійним
                       // (несистемно то скролило, то ні на тій самій білдці). "Смиканий"
                       // без інерції ручний JS-скрол, зате завжди детерміновано працює.
-                      // На минулих/закритих днях onPointerDown одразу виходить
-                      // (isPastDay || isClosedDay) — ні drag/resize, ні ручний скрол там не
-                      // вмикаються, тож touch-action:none лишав дотик по порожньому слоту
-                      // "мертвим": ні нативне panning, ні ручний скрол. Тому там дозволяємо
-                      // нативне panning як завжди.
-                      touchAction: (isPlainFree && !isPastDay && !isClosedDay) ? "none" : "manipulation",
+                      // На минулих днях onPointerDown одразу виходить (isPastDay) —
+                      // drag/resize там не вмикаються, тож touch-action:none лишав би
+                      // дотик по порожньому слоту "мертвим": ні нативне panning, ні
+                      // ручний скрол. Тому там дозволяємо нативне panning як завжди.
+                      // Закритий день (isClosedDay) тут НЕ виключаємо — слот, вручну
+                      // відкритий на закритому дні, має лишатись повністю керованим.
+                      touchAction: (isPlainFree && !isPastDay) ? "none" : "manipulation",
                       WebkitTouchCallout:"none", WebkitUserDrag:"none",
                       WebkitUserSelect:"none", userSelect:"none",
                     }}>
@@ -3360,7 +3371,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                         <span>{_fmtHM(displayStartMin + displayHeightMin)}</span>
                       </div>
                     )}
-                    {isPlainFree && !isPastDay && !isClosedDay && (
+                    {isPlainFree && !isPastDay && (
                       <div
                         onPointerDown={e=>{
                           if (scheduleLocked) return;
@@ -4186,8 +4197,10 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
             </div>}
             {/* buttons row */}
             {!ltmClosing && <div style={{display:"flex",gap:10}}>
-              {!_menu.isClosedDay && (
-                <button onClick={()=>{
+              {/* "Вільний слот" доступна і на закритому дні — адмін може вручну
+                  відкрити окремий слот, не відкриваючи весь день: клієнт бачить
+                  слоти напряму з timeslots/{date} незалежно від статусу дня. */}
+              <button onClick={()=>{
                   const _sm = _menu.selectedMin ?? _menu.startMin;
                   const _hh = String(Math.floor(_sm/60)).padStart(2,'0');
                   const _mm = String(_sm%60).padStart(2,'0');
@@ -4204,7 +4217,6 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                   <span style={{fontSize:24}}>🕐</span>
                   Вільний слот
                 </button>
-              )}
               <button onClick={()=>{
                 setPersonalEventData({ dateStr: _menu.dateStr, time: fmtTime(_menu.selectedMin ?? _menu.startMin) });
                 _scatterLtm();
