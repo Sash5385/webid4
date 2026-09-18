@@ -2988,11 +2988,14 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
             const isPastDay = absDay < 0;
             const isLoadingCol = genLoadingDays.has(absDay);
             const hasAnySlotsCol = !!(openSlots[dateStrCol] && Object.keys(openSlots[dateStrCol]).length);
-            const isClosedDay = _ov?.type === 'closed';
-            // Робочий день за розкладом (не просто "будній/вихідний" по календарю) —
-            // той самий критерій, що й у computeDayUpdates: явно вимкнений день
-            // тижневого розкладу, або вихідний зі списку weekends без власних годин.
-            const isWorkDay = _ws.enabled !== false && !(!_ws.start && (settings.weekends || []).includes(_dow));
+            // Ефективний статус дня: явний dateOverride головніший за тижневий
+            // шаблон (той самий критерій, що й у computeDayUpdates/toggleDayBlocked).
+            // Раніше isClosedDay дивився лише на override, тому шаблонно-закритий
+            // день без override (напр. неділя) вважався "не закритим" для кліків,
+            // контекстного меню та кольору заголовка, а override, що відкриває
+            // такий день, і далі показувався б червоним.
+            const isWorkDay = _ov ? _ov.type !== 'closed' : (_ws.enabled !== false && !(!_ws.start && (settings.weekends || []).includes(_dow)));
+            const isClosedDay = !isWorkDay;
             return (
             <div key={absDay} style={{
               display:"flex", flexDirection:"column", flexShrink:0,
