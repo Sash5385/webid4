@@ -2196,27 +2196,32 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
           // не діє, інакше нагадування-будильник на новий час взагалі не
           // прийде (sendPersonalEventReminders пропускає reminderSent:true).
           update(ref(db, `bookings/personal/${key}`), { date: newDateStr, time: `${hh}:${mm}`, startMin: finalB.startMin, reminderSent: false }).catch(() => {});
-        } else if (finalB && finalB.type !== "personal") {
-          // Реальний запис учня — перетягування раніше міняло лише локальний
-          // React-стан і НІЧОГО не писало в Firebase, тому onBookingChanged
-          // на бекенді (пуш студенту + блокування нового слоту) не спрацьовував.
-          // Синхронізацію timeslots і сам пуш бере на себе бекенд — тут
-          // достатньо записати нові date/time/startMin для кожного
-          // переміщеного сегмента (merged-блок може містити кілька записів).
-          const segIds = draggedMeta.mergedIds && draggedMeta.mergedIds.length
-            ? [draggedMeta.id, ...draggedMeta.mergedIds]
-            : [draggedMeta.id];
-          segIds.forEach(segId => {
-            const seg = (bookingsRef.current || []).find(b => b.id === segId);
-            const orig = draggedMeta.origPositions?.find(o => o.id === segId);
-            if (!seg || !orig || !seg.userId) return;
-            if (seg.day === orig.day && seg.startMin === orig.startMin) return;
+        } else if (finalB && finalB.type !== "personal" &&
+                   !(draggedMeta.mergedIds && draggedMeta.mergedIds.length)) {
+          // Реальний одиночний запис учня (НЕ злитий merged-блок з кількох
+          // записів — для тих поки лишаємо стару поведінку, див. нижче чому) —
+          // перетягування раніше міняло лише локальний React-стан і НІЧОГО не
+          // писало в Firebase, тому onBookingChanged на бекенді (пуш студенту
+          // + блокування нового слоту) не спрацьовував. Синхронізацію
+          // timeslots і сам пуш бере на себе бекенд — тут достатньо записати
+          // нові date/time/startMin.
+          //
+          // Merged-блок (кілька окремих бронювань, злитих візуально в одну
+          // картку — напр. учень бронював 3 окремі години поспіль) свідомо
+          // НЕ зберігаємо тут: запис одразу в кілька bookingId одночасно
+          // запускає onBookingChanged кілька разів паралельно, і в проді це
+          // одного разу залишило по собі купу сирітських заблокованих
+          // 30-хвилинних слотів на весь вечір. Поки не протестовано safely —
+          // для merged drag міняється лише локальний стан, як було раніше.
+          const seg = (bookingsRef.current || []).find(b => b.id === draggedMeta.id);
+          if (seg && seg.userId &&
+              (seg.day !== draggedMeta.startDay || seg.startMin !== draggedMeta.startMinutes)) {
             const newDateStr = absDayToDateStr(seg.day);
             const key = seg._fbKey || seg.id;
             update(ref(db, `bookings/${seg.userId}/${key}`), {
               date: newDateStr, time: fmtTime(seg.startMin), startMin: seg.startMin,
             }).catch(() => {});
-          });
+          }
         }
       }
 
