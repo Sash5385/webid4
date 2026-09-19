@@ -5519,7 +5519,10 @@ function BookingModal({ booking, onClose, onAction, settings, bookings, onViewSt
                     const mm = String(booking.startMin%60).padStart(2,'0');
                     const slotKey = `${dateStr}_${hh}:${mm}`;
                     return (
-                      <button onClick={() => remove(ref(db, `queue/${slotKey}/entries/${e.uid}`)).catch(()=>{})}
+                      <button onClick={() => update(ref(db, '/'), {
+                        [`queue/${slotKey}/entries/${e.uid}`]: null,
+                        [`userQueue/${e.uid}/${slotKey}`]: null,
+                      }).catch(()=>{})}
                         style={{width:22,height:22,borderRadius:7,border:"none",cursor:"pointer",flexShrink:0,
                           background:"rgba(239,68,68,0.15)",color:"rgba(248,113,113,0.9)",fontSize:11,fontWeight:800,
                           display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
