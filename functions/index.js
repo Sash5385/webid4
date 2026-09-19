@@ -18,35 +18,46 @@ async function saveNotification(uid, title, body, type = "system") {
   await db.ref(`notifications/${uid}`).push({ title, body, type, ts, time, date }).catch(() => {});
 }
 
-// Хелпер: відправити push студенту
+// Хелпер: зібрати токени всіх пристроїв з вузла { deviceId: token, ... }
+function collectDeviceTokens(devicesVal) {
+  if (!devicesVal || typeof devicesVal !== "object") return [];
+  return Object.entries(devicesVal).filter(([, t]) => !!t);
+}
+
+// Хелпер: відправити push студенту (на всі зареєстровані пристрої —
+// студент міг заходити і з ПК, і з телефону, кожен пристрій має свій токен)
 async function pushStudent(uid, title, body, data = {}) {
-  const snap = await db.ref(`users/${uid}/fcmTokens/web/token`).get();
-  const token = snap.val();
-  if (!token) return false;
+  const snap = await db.ref(`users/${uid}/fcmTokens`).get();
+  const devices = collectDeviceTokens(snap.val());
+  if (!devices.length) return false;
   const link = data.url || "https://id4drive.pro/cabinet";
-  try {
-    // Data-only push — title/body/url у data (клієнт читає payload.data),
-    // без notification, щоб браузер не показав дубль поверх showNotification().
-    await admin.messaging().send({
-      token,
-      data: Object.fromEntries(Object.entries({ title, body, url: link, ...data }).map(([k,v]) => [k, String(v)])),
-      webpush: {
-        fcmOptions: { link },
-      },
-    });
-    return true;
-  } catch (e) {
-    if (e.code === "messaging/registration-token-not-registered" ||
-        e.code === "messaging/invalid-registration-token") {
-      // Чистимо ОБИДВІ копії токена — studentTokens це окремий індекс для
-      // broadcast-розсилок (flushSlotFreedQueue, unlockVipSlots), і якщо його
-      // не чистити тут, студент назавжди лишається у списку розсилки, хоча
-      // реальний токен вже видалено — пуш мовчки не відправляється щоразу.
-      await db.ref(`users/${uid}/fcmTokens/web/token`).remove().catch(() => {});
-      await db.ref(`studentTokens/${uid}`).remove().catch(() => {});
+  let sent = false;
+  for (const [deviceId, token] of devices) {
+    try {
+      // Data-only push — title/body/url у data (клієнт читає payload.data),
+      // без notification, щоб браузер не показав дубль поверх showNotification().
+      await admin.messaging().send({
+        token,
+        data: Object.fromEntries(Object.entries({ title, body, url: link, ...data }).map(([k,v]) => [k, String(v)])),
+        webpush: {
+          fcmOptions: { link },
+        },
+      });
+      sent = true;
+    } catch (e) {
+      if (e.code === "messaging/registration-token-not-registered" ||
+          e.code === "messaging/invalid-registration-token") {
+        // Чистимо ОБИДВІ копії токена цього пристрою — studentTokens це окремий
+        // індекс для broadcast-розсилок (flushSlotFreedQueue, unlockVipSlots), і
+        // якщо його не чистити тут, студент назавжди лишається у списку
+        // розсилки, хоча реальний токен вже видалено — пуш мовчки не
+        // відправляється щоразу.
+        await db.ref(`users/${uid}/fcmTokens/${deviceId}`).remove().catch(() => {});
+        await db.ref(`studentTokens/${uid}/${deviceId}`).remove().catch(() => {});
+      }
     }
-    return false;
   }
+  return sent;
 }
 
 // Хелпер: запросити наступного в черзі для слота.
@@ -79,31 +90,33 @@ function buildAdminLink(base, { date, time, uid, bookingId } = {}) {
   return qs ? `${base}/?${qs}` : `${base}/`;
 }
 
-// Хелпер: відправити push адміну
+// Хелпер: відправити push адміну (на всі зареєстровані пристрої)
 async function pushAdmin(title, body, data = {}) {
-  const snap = await db.ref("admin/fcmToken").get();
-  const token = snap.val();
-  console.log(`pushAdmin: token exists=${!!token}, title="${title}"`);
-  if (!token) { console.warn("pushAdmin: no token at admin/fcmToken"); return; }
+  const snap = await db.ref("admin/fcmTokens").get();
+  const devices = collectDeviceTokens(snap.val());
+  console.log(`pushAdmin: devices=${devices.length}, title="${title}"`);
+  if (!devices.length) { console.warn("pushAdmin: no tokens at admin/fcmTokens"); return; }
   const link = data.url || "https://admin.id4drive.pro";
-  try {
-    // Data-only push — адмінка читає payload.data (App.jsx + SW), без
-    // notification, щоб не було дубля поверх showNotification().
-    const result = await admin.messaging().send({
-      token,
-      data: Object.fromEntries(Object.entries({ title, body, url: link, ...data }).map(([k, v]) => [k, String(v)])),
-      webpush: {
-        fcmOptions: { link },
-      },
-    });
-    console.log(`pushAdmin OK: ${title} messageId=${result}`);
-  } catch (e) {
-    console.error(`pushAdmin error: code=${e.code} msg=${e.message}`);
-    // Якщо токен протухнув — очищаємо щоб не повторювати помилку
-    if (e.code === "messaging/registration-token-not-registered" ||
-        e.code === "messaging/invalid-registration-token") {
-      await db.ref("admin/fcmToken").remove().catch(() => {});
-      console.warn("pushAdmin: stale token removed from admin/fcmToken");
+  for (const [deviceId, token] of devices) {
+    try {
+      // Data-only push — адмінка читає payload.data (App.jsx + SW), без
+      // notification, щоб не було дубля поверх showNotification().
+      const result = await admin.messaging().send({
+        token,
+        data: Object.fromEntries(Object.entries({ title, body, url: link, ...data }).map(([k, v]) => [k, String(v)])),
+        webpush: {
+          fcmOptions: { link },
+        },
+      });
+      console.log(`pushAdmin OK: ${title} messageId=${result}`);
+    } catch (e) {
+      console.error(`pushAdmin error: code=${e.code} msg=${e.message}`);
+      // Якщо токен протухнув — очищаємо щоб не повторювати помилку
+      if (e.code === "messaging/registration-token-not-registered" ||
+          e.code === "messaging/invalid-registration-token") {
+        await db.ref(`admin/fcmTokens/${deviceId}`).remove().catch(() => {});
+        console.warn(`pushAdmin: stale token removed for device=${deviceId}`);
+      }
     }
   }
 }
@@ -396,7 +409,9 @@ exports.unlockVipSlots = onSchedule("every 1 hours", async () => {
   await db.ref().update(updates);
 
   const tokenSnap = await db.ref("studentTokens").get();
-  const tokens = Object.values(tokenSnap.val() || {}).filter(Boolean);
+  const tokens = Object.values(tokenSnap.val() || {})
+    .flatMap(devices => Object.values(devices || {}))
+    .filter(Boolean);
   if (!tokens.length) return;
 
   for (let i = 0; i < tokens.length; i += 500) {
@@ -697,7 +712,9 @@ exports.onPushTask = onValueCreated(
 
     const tokenSnap = await db.ref("studentTokens").get();
     const tokened = tokenSnap.exists()
-      ? Object.entries(tokenSnap.val()).filter(([, token]) => !!token).map(([uid, token]) => ({ uid, token }))
+      ? Object.entries(tokenSnap.val()).flatMap(([uid, devices]) =>
+          Object.values(devices || {}).filter(Boolean).map(token => ({ uid, token }))
+        )
       : [];
 
     if (!tokened.length) {
@@ -727,7 +744,8 @@ exports.onPushTask = onValueCreated(
       sentCount += res?.successCount || 0;
     }
 
-    await Promise.all(tokened.map(({ uid }) => saveNotification(uid, title, body, "slot_broadcast").catch(() => {})));
+    const notifiedUids = [...new Set(tokened.map(({ uid }) => uid))];
+    await Promise.all(notifiedUids.map(uid => saveNotification(uid, title, body, "slot_broadcast").catch(() => {})));
     await db.ref(`push_tasks/${taskId}`).update({ status: "sent", sentCount, sentAt: Date.now() });
   }
 );

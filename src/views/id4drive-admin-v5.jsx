@@ -1154,42 +1154,11 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
     return AUTO_TAG_BY_ORDER[studentOrderMap[b.id]] || null;
   };
   const effectiveTag = (b) => (b.tagManual ? (b.tag || null) : (b.tag || getAutoTag(b)));
-  // Сусідні (без розриву в часі) записи одного учня в один день — об'єднуємо
-  // у вигляді ОДНІЄЇ картки в сітці: тривалість і ціна підсумовуються.
-  // Дані в Firebase лишаються окремими записами — це лише відображення.
-  // map[id] = { mergedIds, mergedDurMin, mergedPrice } для першого запису групи,
-  // map[id] = { hidden:true } для "поглинутих" (не рендеряться окремо).
-  const mergeInfoMap = useMemo(() => {
-    const byGroup = {};
-    for (const b of bookings) {
-      if (b.status === "cancelled") continue;
-      if (b.type === "block" || b.type === "vip-slot" || b.type === "personal") continue;
-      if (!b.userId) continue;
-      const key = `${b.day}_${b.userId}`;
-      (byGroup[key] ||= []).push(b);
-    }
-    const map = {};
-    Object.values(byGroup).forEach(list => {
-      list.sort((a, b2) => a.startMin - b2.startMin);
-      let i = 0;
-      while (i < list.length) {
-        let j = i;
-        while (j + 1 < list.length && list[j + 1].startMin === list[j].startMin + list[j].durMin) j++;
-        if (j > i) {
-          const group = list.slice(i, j + 1);
-          const primary = group[0];
-          map[primary.id] = {
-            mergedIds: group.slice(1).map(g => g.id),
-            mergedDurMin: group.reduce((s, g) => s + g.durMin, 0),
-            mergedPrice: group.reduce((s, g) => s + computeBookingPrice(g, settings.services), 0),
-          };
-          for (let k = i + 1; k <= j; k++) map[list[k].id] = { hidden: true };
-        }
-        i = j + 1;
-      }
-    });
-    return map;
-  }, [bookings, settings.services]);
+  // Сусідні записи одного учня раніше об'єднувались в одну картку — вимкнено
+  // на прямий запит: кожен запис тепер своя окрема картка (можна тягати й
+  // ресайзити кожну годину окремо). Дані в Firebase й завжди були окремими
+  // записами, тут міняється лише відображення.
+  const mergeInfoMap = {};
   const [windowW, setWindowW] = useState(window.innerWidth);
   const [windowH, setWindowH] = useState(window.innerHeight);
   const PAST_DAYS = 365;
@@ -2212,6 +2181,32 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
           // не діє, інакше нагадування-будильник на новий час взагалі не
           // прийде (sendPersonalEventReminders пропускає reminderSent:true).
           update(ref(db, `bookings/personal/${key}`), { date: newDateStr, time: `${hh}:${mm}`, startMin: finalB.startMin, reminderSent: false }).catch(() => {});
+        } else if (finalB && finalB.type !== "personal" &&
+                   !(draggedMeta.mergedIds && draggedMeta.mergedIds.length)) {
+          // Реальний одиночний запис учня (НЕ злитий merged-блок з кількох
+          // записів — для тих поки лишаємо стару поведінку, див. нижче чому) —
+          // перетягування раніше міняло лише локальний React-стан і НІЧОГО не
+          // писало в Firebase, тому onBookingChanged на бекенді (пуш студенту
+          // + блокування нового слоту) не спрацьовував. Синхронізацію
+          // timeslots і сам пуш бере на себе бекенд — тут достатньо записати
+          // нові date/time/startMin.
+          //
+          // Merged-блок (кілька окремих бронювань, злитих візуально в одну
+          // картку — напр. учень бронював 3 окремі години поспіль) свідомо
+          // НЕ зберігаємо тут: запис одразу в кілька bookingId одночасно
+          // запускає onBookingChanged кілька разів паралельно, і в проді це
+          // одного разу залишило по собі купу сирітських заблокованих
+          // 30-хвилинних слотів на весь вечір. Поки не протестовано safely —
+          // для merged drag міняється лише локальний стан, як було раніше.
+          const seg = (bookingsRef.current || []).find(b => b.id === draggedMeta.id);
+          if (seg && seg.userId &&
+              (seg.day !== draggedMeta.startDay || seg.startMin !== draggedMeta.startMinutes)) {
+            const newDateStr = absDayToDateStr(seg.day);
+            const key = seg._fbKey || seg.id;
+            update(ref(db, `bookings/${seg.userId}/${key}`), {
+              date: newDateStr, time: fmtTime(seg.startMin), startMin: seg.startMin,
+            }).catch(() => {});
+          }
         }
       }
 
