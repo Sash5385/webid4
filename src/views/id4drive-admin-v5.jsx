@@ -4204,7 +4204,11 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                   const _sm = _menu.selectedMin ?? _menu.startMin;
                   const _hh = String(Math.floor(_sm/60)).padStart(2,'0');
                   const _mm = String(_sm%60).padStart(2,'0');
-                  update(ref(db, `timeslots/${_menu.dateStr}/slot${_hh}${_mm}`), { available: true, time: `${_hh}:${_mm}` }).catch(()=>{});
+                  // lunchOverride — сигнал клієнтському застосунку не ховати
+                  // цей слот своїм окремим фільтром обідньої перерви (він
+                  // фільтрує за часом незалежно від того, чи слот реально
+                  // існує в базі) — адмін відкрив його вручну саме на цей час.
+                  update(ref(db, `timeslots/${_menu.dateStr}/slot${_hh}${_mm}`), { available: true, time: `${_hh}:${_mm}`, lunchOverride: true }).catch(()=>{});
                   _closeLtm();
                 }} style={{
                   flex:1,padding:"16px 8px",borderRadius:16,border:"none",cursor:"pointer",fontFamily:"inherit",
