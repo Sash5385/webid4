@@ -1,7 +1,7 @@
 import { useState, useContext, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { ref, get, update } from "firebase/database";
-import { db } from "../firebase";
+import { db, sendTestPush } from "../firebase";
 import { LangContext } from "../App";
 import { APP_VERSION } from "../version.js";
 import { ThemeContext } from "../theme.js";
@@ -239,6 +239,7 @@ select{color-scheme:${isKava?"light":"dark"}}
   const switchSection = (id) => { setActive(id); setShowHint(false); };
 
   const [installPrompt, setInstallPrompt] = useState(null);
+  const [testPushMsg, setTestPushMsg] = useState("");
   const [installed, setInstalled] = useState(false);
   useEffect(() => {
     setInstalled(window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true);
@@ -688,6 +689,16 @@ select{color-scheme:${isKava?"light":"dark"}}
 
   const activeSec = SECTIONS.find(s => s.id === active);
 
+  const handleTestPush = async () => {
+    setTestPushMsg("Надсилаю…");
+    try {
+      const res = await sendTestPush();
+      setTestPushMsg(res.ok ? "✅ Пуш надіслано" : "⚠️ Токен не знайдено — онови сторінку й дозволь сповіщення");
+    } catch (e) {
+      setTestPushMsg("❌ " + (e.message || "помилка"));
+    }
+  };
+
   const forceUpdate = async () => {
     try {
       const regs = await navigator.serviceWorker?.getRegistrations?.() || [];
@@ -796,6 +807,16 @@ select{color-scheme:${isKava?"light":"dark"}}
           border:`1px solid ${BORDER}`, color:TEXT, cursor:"pointer",
           padding:"10px 24px", borderRadius:14, fontSize:13, fontWeight:700,
         }}>📲 Встановити додаток</button>
+      )}
+      <button onClick={handleTestPush} style={{
+        display:"block", margin:"12px auto 0", background:"rgba(255,255,255,0.05)",
+        border:`1px solid ${BORDER}`, color:TEXT, cursor:"pointer",
+        padding:"10px 24px", borderRadius:14, fontSize:13, fontWeight:700,
+      }}>🧪 Тест пуш</button>
+      {testPushMsg && (
+        <div style={{textAlign:"center",padding:"6px 0 0",color:FAINT,fontSize:12,fontWeight:600}}>
+          {testPushMsg}
+        </div>
       )}
       <div onClick={forceUpdate} style={{textAlign:"center",padding:"8px 0 2px",color:FAINT,fontSize:13,fontWeight:600,letterSpacing:0.5,cursor:"pointer"}}>
         {APP_VERSION}
