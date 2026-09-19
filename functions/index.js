@@ -10,6 +10,23 @@ const db = admin.database();
 
 const OFFER_WINDOW_MS = 30 * 60 * 1000; // 30 хвилин
 
+// Хелпер: перевести "YYYY-MM-DDTHH:MM" за київським часом у абсолютні мс.
+// На відміну від фіксованого зсуву "+03:00", коректно враховує DST
+// (Київ — UTC+2 взимку, UTC+3 влітку).
+function kyivLocalToMs(dateStr, timeStr) {
+  const guessMs = new Date(`${dateStr}T${timeStr}:00Z`).getTime();
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Europe/Kiev", hour12: false,
+    year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", second: "2-digit",
+  }).formatToParts(guessMs).reduce((acc, p) => { acc[p.type] = p.value; return acc; }, {});
+  const asUtcIfKyivPartsWereUtc = Date.UTC(
+    parts.year, parts.month - 1, parts.day, parts.hour === "24" ? 0 : parts.hour, parts.minute, parts.second
+  );
+  const offsetMs = asUtcIfKyivPartsWereUtc - guessMs;
+  return guessMs - offsetMs;
+}
+
 // Хелпер: зберегти сповіщення в RTDB для студента
 async function saveNotification(uid, title, body, type = "system") {
   const ts = Date.now();
@@ -400,7 +417,7 @@ exports.unlockVipSlots = onSchedule("every 1 hours", async () => {
       if (!slot.vipOnly || slot.available === false) continue;
       const time = slot.time;
       if (!time) continue;
-      const slotMs = new Date(`${date}T${time}:00`).getTime();
+      const slotMs = kyivLocalToMs(date, time);
       if (slotMs > now && slotMs <= threshold) {
         updates[`timeslots/${date}/${slotId}/vipOnly`] = false;
         unlocked = true;
@@ -629,7 +646,7 @@ exports.sendLessonReminders = onSchedule(
         if (!b || b.status === "cancelled" || b.cancelledBy) continue;
         if (!b.date || !b.time) continue;
 
-        const lessonMs = new Date(`${b.date}T${b.time}:00+03:00`).getTime();
+        const lessonMs = kyivLocalToMs(b.date, b.time);
         const diffMs = lessonMs - now;
         if (diffMs <= 0) continue;
 
@@ -687,7 +704,7 @@ exports.sendPersonalEventReminders = onSchedule(
       if (!ev || ev.status !== "personal" || ev.reminderSent || !ev.reminderHours) continue;
       if (!ev.date || !ev.time) continue;
 
-      const startMs = new Date(`${ev.date}T${ev.time}:00+03:00`).getTime();
+      const startMs = kyivLocalToMs(ev.date, ev.time);
       const diffMs = startMs - now;
       if (diffMs <= 0) continue; // подія вже почалась
 
