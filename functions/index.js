@@ -641,20 +641,27 @@ exports.sendLessonReminders = onSchedule(
         // 24г нагадування (вікно 23–25г, не в тихі години)
         if (!sent.r24 && !(kyivHour >= 23 || kyivHour < 6)
             && diffMs >= 23 * 3600000 && diffMs <= 25 * 3600000) {
-          await pushStudent(uid, "🚗 Нагадування про урок", `Завтра о ${b.time} — ${dateFmt}`, {
+          // Позначаємо "відправлено" лише якщо push реально дійшов — інакше
+          // (немає токена/помилка) прапорець назавжди блокував би повторні
+          // спроби на наступних годинних запусках.
+          const pushed = await pushStudent(uid, "🚗 Нагадування про урок", `Завтра о ${b.time} — ${dateFmt}`, {
             url: "https://id4drive.pro/cabinet/bookings",
-          });
-          await saveNotification(uid, "🚗 Нагадування про урок", `Завтра о ${b.time} — ${dateFmt}`, "reminder");
-          updates[`sentReminders/${uid}/${bookingId}/r24`] = true;
+          }).catch(() => false);
+          if (pushed) {
+            await saveNotification(uid, "🚗 Нагадування про урок", `Завтра о ${b.time} — ${dateFmt}`, "reminder");
+            updates[`sentReminders/${uid}/${bookingId}/r24`] = true;
+          }
         }
 
         // 2г нагадування (вікно 1.5–2.5г, завжди)
         if (!sent.r2 && diffMs >= 90 * 60000 && diffMs <= 150 * 60000) {
-          await pushStudent(uid, "⏰ Урок через 2 години", `о ${b.time} — ${dateFmt}`, {
+          const pushed = await pushStudent(uid, "⏰ Урок через 2 години", `о ${b.time} — ${dateFmt}`, {
             url: "https://id4drive.pro/cabinet/bookings",
-          });
-          await saveNotification(uid, "⏰ Урок через 2 години", `о ${b.time} — ${dateFmt}`, "reminder");
-          updates[`sentReminders/${uid}/${bookingId}/r2`] = true;
+          }).catch(() => false);
+          if (pushed) {
+            await saveNotification(uid, "⏰ Урок через 2 години", `о ${b.time} — ${dateFmt}`, "reminder");
+            updates[`sentReminders/${uid}/${bookingId}/r2`] = true;
+          }
         }
       }
     }
