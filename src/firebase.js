@@ -2,7 +2,6 @@ import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getDatabase, ref, set } from "firebase/database";
 import { getMessaging, getToken, onMessage } from "firebase/messaging";
-import { getFunctions, httpsCallable } from "firebase/functions";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDO6-LTuBoNHi6uS5KcOpmBuyvgJSouYpk",
@@ -19,14 +18,6 @@ const VAPID_KEY = "BFT1t7hXhEcSsHdotLlG5xoIFNrdS11vU_jsHiD1UUMsskVINBW2het8ogOKi
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getDatabase(app);
-
-// Тестовий пуш (кнопка в Налаштуваннях) — перевірити канал доставки push
-// окремо від бізнес-логіки (без реального запису/переносу).
-export async function sendTestPush() {
-  const call = httpsCallable(getFunctions(app, "europe-west1"), "testPush");
-  const res = await call();
-  return res.data;
-}
 
 // Стабільний id цього браузера/пристрою — щоб токени з різних пристроїв
 // (ПК і телефон адміна) не перезаписували один одного в БД.

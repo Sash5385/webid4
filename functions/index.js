@@ -1,6 +1,5 @@
 const { onSchedule } = require("firebase-functions/v2/scheduler");
 const { onValueCreated, onValueUpdated, onValueWritten } = require("firebase-functions/v2/database");
-const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const admin = require("firebase-admin");
 const {
   CALENDAR_SECRETS, getCalendarClient, buildEvent, getBookingSchedule, fromCalendarEvent, isIgnorableCalendarError,
@@ -124,21 +123,6 @@ async function pushAdmin(title, body, data = {}) {
   }
   return sent;
 }
-
-// Тестовий пуш — кнопка в адмінці/кабінеті учня для діагностики (шле пуш
-// собі: адміну, якщо викликає адмін, або поточному учню), без потреби
-// створювати справжній запис чи переносити урок, щоб перевірити сам канал
-// доставки (токен → FCM → showNotification) окремо від бізнес-логіки.
-exports.testPush = onCall({ region: "europe-west1" }, async (request) => {
-  if (!request.auth) throw new HttpsError("unauthenticated", "Потрібна авторизація");
-  const uid = request.auth.uid;
-  if (uid === "IjyqouYBDUg5KGzs3U27PUcs8Uj1") {
-    const sent = await pushAdmin("🧪 Тестовий пуш", "Адмінка: якщо бачиш і чуєш це — канал доставки працює");
-    return { ok: sent, target: "admin" };
-  }
-  const sent = await pushStudent(uid, "🧪 Тестовий пуш", "Кабінет: якщо бачиш і чуєш це — канал доставки працює");
-  return { ok: sent, target: "student" };
-});
 
 // Хелпер: заблокувати / звільнити timeslots для букінгу
 function buildSlotUpdates(bookingData, available) {
