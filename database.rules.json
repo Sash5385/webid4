@@ -140,6 +140,12 @@
     "dayNotes": {
       ".read": "auth != null",
       ".write": "auth != null && auth.uid === 'IjyqouYBDUg5KGzs3U27PUcs8Uj1'"
+    },
+    "reviews": {
+      ".read": true,
+      "$uid": {
+        ".write": "auth != null && (auth.uid === $uid || auth.uid === 'IjyqouYBDUg5KGzs3U27PUcs8Uj1')"
+      }
     }
   }
 }

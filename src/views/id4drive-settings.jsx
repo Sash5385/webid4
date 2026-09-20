@@ -1,6 +1,6 @@
 import { useState, useContext, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import { ref, get, update } from "firebase/database";
+import { ref, get, update, onValue, off } from "firebase/database";
 import { db } from "../firebase";
 import { LangContext } from "../App";
 import { APP_VERSION } from "../version.js";
@@ -23,6 +23,7 @@ const SEC_ICON_SVG = {
   auto:       <><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></>,
   surcharges: <><circle cx="12" cy="12" r="9"/><path d="M12 7.5v9M15 9.7c0-1.1-1.2-2-3-2s-3 .9-3 1.9 1.3 1.5 3 1.8c1.7.3 3 .8 3 1.9s-1.2 1.9-3 1.9-3-.9-3-2"/></>,
   push:       <><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></>,
+  reviews:    <><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></>,
 };
 function SecIcon({ id, color, active, isKava, size=34 }) {
   const gr = active ? color : (isKava ? SEC_INACTIVE_GR.kava : SEC_INACTIVE_GR.dark);
@@ -238,6 +239,25 @@ select{color-scheme:${isKava?"light":"dark"}}
   const [showHint, setShowHint] = useState(false);
   const switchSection = (id) => { setActive(id); setShowHint(false); };
 
+  // ── відгуки учнів ────────────────────────────────────────────
+  const [reviews, setReviews] = useState([]);
+  useEffect(() => {
+    const r = ref(db, "reviews");
+    const handler = onValue(r, snap => {
+      const data = snap.val() || {};
+      const list = [];
+      Object.entries(data).forEach(([uid, userReviews]) => {
+        Object.entries(userReviews || {}).forEach(([id, v]) => list.push({ id, uid, ...v }));
+      });
+      list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+      setReviews(list);
+    });
+    return () => off(r, "value", handler);
+  }, []);
+  const toggleReviewHidden = (review) => {
+    update(ref(db, `reviews/${review.uid}/${review.id}`), { status: review.status === "hidden" ? "approved" : "hidden" }).catch(() => {});
+  };
+
   const [installPrompt, setInstallPrompt] = useState(null);
   const [installed, setInstalled] = useState(false);
   useEffect(() => {
@@ -394,6 +414,7 @@ select{color-scheme:${isKava?"light":"dark"}}
     { id:"auto",       icon:"📨", color:GOLD,   title:t('set.auto.title'),     label:uk?"Авто":"Auto"    },
     { id:"surcharges", icon:"💰", color:GOLD,   title:"Надбавки",              label:uk?"Збори":"Fees"   },
     { id:"push",       icon:"🔔", color:GREEN,  title:"Сповіщення",            label:"Сповіщення"        },
+    { id:"reviews",    icon:"⭐", color:GOLD,   title:"Відгуки учнів",         label:"Відгуки"           },
   ];
 
   function renderSection(id) {
@@ -685,6 +706,34 @@ select{color-scheme:${isKava?"light":"dark"}}
             <Toggle color={svColor(settings.slotFreedPushEnabled !== false)} on={settings.slotFreedPushEnabled !== false} onChange={v=>upd("slotFreedPushEnabled",v)}/>
           </Row>
           <PushDiag />
+        </div>
+      );
+
+      case "reviews": return (
+        <div>
+          {showHint && <Info color={GOLD} title="Відгуки учнів" text="Учні лишають відгук автоматично після завершеного уроку. Відгук одразу зʼявляється на сайті — сховати можна кнопкою нижче, видалити не можна."/>}
+          {reviews.length === 0 ? (
+            <div style={{textAlign:"center",padding:"24px 12px",color:DIM,fontSize:12}}>Поки що немає відгуків</div>
+          ) : reviews.map(rv => (
+            <div key={`${rv.uid}_${rv.id}`} style={{
+              padding:"10px 12px",borderRadius:11,marginBottom:6,
+              background:SURF_LO,boxShadow:SI,opacity:rv.status==="hidden"?0.5:1,
+            }}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
+                <div style={{fontSize:13,fontWeight:800,color:TEXT}}>{rv.studentName || "Учень"}</div>
+                <div style={{color:GOLD,fontSize:12,letterSpacing:1}}>{"★".repeat(rv.rating||0)}{"☆".repeat(5-(rv.rating||0))}</div>
+              </div>
+              {rv.text && <div style={{fontSize:12,color:DIM,lineHeight:1.5,marginBottom:6}}>{rv.text}</div>}
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <div style={{fontSize:10,color:FAINT}}>{rv.createdAt ? new Date(rv.createdAt).toLocaleDateString("uk-UA") : ""}</div>
+                <button onClick={()=>toggleReviewHidden(rv)} style={{
+                  padding:"4px 10px",borderRadius:8,border:"none",cursor:"pointer",fontSize:11,fontWeight:700,
+                  background:rv.status==="hidden"?`linear-gradient(145deg,${GREEN},${GREEN})`:`linear-gradient(145deg,${SURF_HI},${SURFACE})`,
+                  color:rv.status==="hidden"?"#fff":DIM,boxShadow:rv.status==="hidden"?"none":SO,
+                }}>{rv.status==="hidden"?"Показати":"Сховати"}</button>
+              </div>
+            </div>
+          ))}
         </div>
       );
 
