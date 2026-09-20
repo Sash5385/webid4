@@ -54,9 +54,9 @@ const TRIGGERS = [
 const VARS = ["{ім'я}","{дата}","{час}","{послуга}","{ціна}","{ТСЦ}","{інструктор}"];
 
 const INIT_TEMPLATES = [
-  { id:"t1", catId:"reminder", title:"Нагадування за 24 год", channel:"chat", trigger:"auto_reminder", active:true,
+  { id:"t1", catId:"reminder", title:"Нагадування за 24 год", channel:"chat", trigger:"auto_reminder", reminderHours:24, active:true,
     body:"Привіт, {ім'я}! 🔔 Нагадуємо про урок завтра {дата} о {час}. Чекаємо на тебе! Якщо потрібно перенести — напиши нам." },
-  { id:"t2", catId:"reminder", title:"Нагадування за 2 год",  channel:"sms",  trigger:"auto_reminder", active:true,
+  { id:"t2", catId:"reminder", title:"Нагадування за 2 год",  channel:"sms",  trigger:"auto_reminder", reminderHours:2, active:true,
     body:"ID4Drive: урок сьогодні о {час}. Адреса: Верховинна 44. Інструктор: {інструктор}" },
   { id:"t3", catId:"confirm",  title:"Підтвердження запису",  channel:"chat", trigger:"auto_confirm",  active:true,
     body:"✅ {ім'я}, твій урок підтверджено!\n📅 {дата} о {час}\n🚗 {послуга} — {ціна} ₴\nЧекаємо!" },
@@ -265,6 +265,23 @@ function EditModal({ tpl, onSave, onClose }) {
           ))}
         </div>
       </div>
+
+      {/* reminder hours — тільки для auto_reminder: за скільки годин слати */}
+      {form.trigger==="auto_reminder" && (
+        <div style={{marginBottom:14}}>
+          <div style={{fontSize:10,color:"rgba(255,255,255,0.55)",letterSpacing:1,marginBottom:8}}>ЗА СКІЛЬКИ ГОДИН ДО УРОКУ</div>
+          <div style={{display:"flex",gap:6}}>
+            {[24,2].map(h=>(
+              <button key={h} onClick={()=>upd("reminderHours",h)} style={{
+                padding:"10px 14px",borderRadius:12,border:"none",cursor:"pointer",fontFamily:"inherit",flex:1,
+                background:(form.reminderHours??24)===h?`linear-gradient(135deg,${BLUE}33,${BLUE}14)`:`linear-gradient(135deg,${SURF_HI},${SURFACE})`,
+                color:(form.reminderHours??24)===h?BLUE:DIM,fontSize:12,fontWeight:700,
+                borderLeft:(form.reminderHours??24)===h?`3px solid ${BLUE}`:"3px solid transparent"
+              }}>{h===24?"За 24 год":"За 2 год"}</button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* body */}
       <div style={{marginBottom:10}}>

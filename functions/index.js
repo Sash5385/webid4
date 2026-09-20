@@ -141,6 +141,60 @@ async function pushAdmin(title, body, data = {}) {
   return sent;
 }
 
+// ─── Шаблони повідомлень (admin_data/templates) ───────────────────
+// Хелпер: підставити {ім'я}/{дата}/{час}/... у текст шаблону
+function renderTemplateBody(body, vars = {}) {
+  return (body || "").replace(/\{[^}]+\}/g, (m) => {
+    const key = m.slice(1, -1);
+    return vars[key] != null && vars[key] !== "" ? String(vars[key]) : m;
+  });
+}
+
+// Хелпер: для auto_reminder — 24г чи 2г "кошик" шаблону за полем reminderHours
+// (без поля — типово вважаємо шаблон "за 24 год", як і було раніше)
+function matchesReminderBucket(tpl, targetHours) {
+  const h = Number(tpl.reminderHours);
+  const hours = Number.isFinite(h) ? h : 24;
+  return targetHours === 24 ? hours >= 12 : hours > 0 && hours < 12;
+}
+
+// Хелпер: надіслати учню ВСІ активні шаблони заданого тригера — чат-
+// повідомлення (як ручна відправка з вкладки "Шаблони") + push. Повертає
+// true якщо хоч один активний шаблон знайдено (щоб виклик міг НЕ відправляти
+// старий хардкодний текст-фолбек — уникаємо дубля).
+async function sendActiveTemplates(uid, triggerId, vars = {}, filterFn = null) {
+  const snap = await db.ref("admin_data/templates").get();
+  const list = snap.val();
+  if (!Array.isArray(list)) return false;
+  let matches = list.filter(t => t && t.trigger === triggerId && t.active && (t.body || "").trim());
+  if (filterFn) matches = matches.filter(filterFn);
+  if (!matches.length) return false;
+
+  for (const tpl of matches) {
+    const text = renderTemplateBody(tpl.body, vars);
+    const time = new Date().toLocaleTimeString("uk", { hour: "2-digit", minute: "2-digit" });
+    const ts = Date.now();
+    await db.ref(`chats/${uid}`).push({ from: "admin", text, time, ts }).catch(() => {});
+    await db.ref(`chatMeta/${uid}`).update({
+      unreadForStudent: admin.database.ServerValue.increment(1), lastMsg: text, lastTs: ts,
+    }).catch(() => {});
+    const pushed = await pushStudent(uid, tpl.title || "Повідомлення", text, {}).catch(() => false);
+    if (pushed) await saveNotification(uid, tpl.title || "Повідомлення", text, "template").catch(() => {});
+  }
+  return true;
+}
+
+// Хелпер: для масових розсилок (auto_queue) — тільки текст першого активного
+// шаблону, БЕЗ запису в чат (уникаємо спаму чату при broadcast на всіх учнів)
+async function getActiveTemplateText(triggerId, vars = {}) {
+  const snap = await db.ref("admin_data/templates").get();
+  const list = snap.val();
+  if (!Array.isArray(list)) return null;
+  const tpl = list.find(t => t && t.trigger === triggerId && t.active && (t.body || "").trim());
+  if (!tpl) return null;
+  return { title: tpl.title || "Повідомлення", body: renderTemplateBody(tpl.body, vars) };
+}
+
 // Хелпер: заблокувати / звільнити timeslots для букінгу
 function buildSlotUpdates(bookingData, available) {
   const { date, time, durationHours, durMin, startMin } = bookingData || {};
@@ -229,10 +283,14 @@ exports.onBookingChanged = onValueWritten(
     // Адмін підтвердив
     if (after.status === "confirmed" && before.status !== "confirmed") {
       console.log(`onBookingChanged: admin confirmed uid=${uid}`);
-      await pushStudent(uid, "✅ Урок підтверджено", `${date} о ${time}`, {
-        url: "https://id4drive.pro/cabinet/bookings",
-      });
-      await saveNotification(uid, "✅ Урок підтверджено", `${date} о ${time}`, "booking_confirmed");
+      const vars = { "ім'я": name, "дата": date, "час": time, "послуга": after.serviceName || after.service || "", "ціна": after.price != null ? String(after.price) : "" };
+      const usedTpl = await sendActiveTemplates(uid, "auto_confirm", vars).catch(() => false);
+      if (!usedTpl) {
+        await pushStudent(uid, "✅ Урок підтверджено", `${date} о ${time}`, {
+          url: "https://id4drive.pro/cabinet/bookings",
+        });
+        await saveNotification(uid, "✅ Урок підтверджено", `${date} о ${time}`, "booking_confirmed");
+      }
       return;
     }
 
@@ -241,10 +299,14 @@ exports.onBookingChanged = onValueWritten(
       console.log(`onBookingChanged: admin cancelled uid=${uid}`);
       const slotUpd = buildSlotUpdates(before, true);
       if (Object.keys(slotUpd).length) await db.ref("/").update(slotUpd).catch(() => {});
-      await pushStudent(uid, "❌ Урок скасовано", `${date} о ${time}`, {
-        url: "https://id4drive.pro/cabinet/bookings",
-      });
-      await saveNotification(uid, "❌ Урок скасовано", `${date} о ${time}`, "booking_cancelled");
+      const cancelVars = { "ім'я": name, "дата": date, "час": time };
+      const usedCancelTpl = await sendActiveTemplates(uid, "auto_cancel", cancelVars).catch(() => false);
+      if (!usedCancelTpl) {
+        await pushStudent(uid, "❌ Урок скасовано", `${date} о ${time}`, {
+          url: "https://id4drive.pro/cabinet/bookings",
+        });
+        await saveNotification(uid, "❌ Урок скасовано", `${date} о ${time}`, "booking_cancelled");
+      }
       if (date !== "—" && time !== "—") {
         const freedDurationHours = before.durationHours || (before.durMin ? before.durMin / 60 : 1);
         await inviteNextInQueue(`${date}_${time}`, [], freedDurationHours).catch(() => {});
@@ -289,6 +351,7 @@ exports.onNewStudentRegistered = onValueCreated(
     await pushAdmin("🎉 Новий учень", phone ? `${name} · ${phone}` : name, {
       url: buildAdminLink("https://admin.id4drive.pro", { uid }),
     });
+    await sendActiveTemplates(uid, "auto_welcome", { "ім'я": name }).catch(() => {});
   }
 );
 
@@ -536,8 +599,11 @@ exports.flushSlotFreedQueue = onSchedule(
 
       const slotDate = new Date(date + "T00:00:00");
       const dateFormatted = slotDate.toLocaleDateString("uk", { day: "numeric", month: "long", weekday: "short" });
-      const title = "🚗 Звільнився слот!";
-      const body  = `${dateFormatted} о ${time} — є вільне місце`;
+      // Broadcast на всіх учнів — беремо текст першого активного шаблону
+      // auto_queue (без запису в чат, щоб не заспамити чат усіх учнів)
+      const tpl = await getActiveTemplateText("auto_queue", { "дата": dateFormatted, "час": time }).catch(() => null);
+      const title = tpl?.title || "🚗 Звільнився слот!";
+      const body  = tpl?.body  || `${dateFormatted} о ${time} — є вільне місце`;
       const url   = `https://id4drive.pro/cabinet?date=${date}`;
 
       for (const uid of notifyUids) {
@@ -655,29 +721,41 @@ exports.sendLessonReminders = onSchedule(
           day: "numeric", month: "long", weekday: "short",
         });
 
+        const reminderVars = { "ім'я": b.studentName || "Учень", "дата": dateFmt, "час": b.time };
+
         // 24г нагадування (вікно 23–25г, не в тихі години)
         if (!sent.r24 && !(kyivHour >= 23 || kyivHour < 6)
             && diffMs >= 23 * 3600000 && diffMs <= 25 * 3600000) {
           // Позначаємо "відправлено" лише якщо push реально дійшов — інакше
           // (немає токена/помилка) прапорець назавжди блокував би повторні
           // спроби на наступних годинних запусках.
-          const pushed = await pushStudent(uid, "🚗 Нагадування про урок", `Завтра о ${b.time} — ${dateFmt}`, {
-            url: "https://id4drive.pro/cabinet/bookings",
-          }).catch(() => false);
-          if (pushed) {
-            await saveNotification(uid, "🚗 Нагадування про урок", `Завтра о ${b.time} — ${dateFmt}`, "reminder");
+          const usedTpl24 = await sendActiveTemplates(uid, "auto_reminder", reminderVars, t => matchesReminderBucket(t, 24)).catch(() => false);
+          if (usedTpl24) {
             updates[`sentReminders/${uid}/${bookingId}/r24`] = true;
+          } else {
+            const pushed = await pushStudent(uid, "🚗 Нагадування про урок", `Завтра о ${b.time} — ${dateFmt}`, {
+              url: "https://id4drive.pro/cabinet/bookings",
+            }).catch(() => false);
+            if (pushed) {
+              await saveNotification(uid, "🚗 Нагадування про урок", `Завтра о ${b.time} — ${dateFmt}`, "reminder");
+              updates[`sentReminders/${uid}/${bookingId}/r24`] = true;
+            }
           }
         }
 
         // 2г нагадування (вікно 1.5–2.5г, завжди)
         if (!sent.r2 && diffMs >= 90 * 60000 && diffMs <= 150 * 60000) {
-          const pushed = await pushStudent(uid, "⏰ Урок через 2 години", `о ${b.time} — ${dateFmt}`, {
-            url: "https://id4drive.pro/cabinet/bookings",
-          }).catch(() => false);
-          if (pushed) {
-            await saveNotification(uid, "⏰ Урок через 2 години", `о ${b.time} — ${dateFmt}`, "reminder");
+          const usedTpl2 = await sendActiveTemplates(uid, "auto_reminder", reminderVars, t => matchesReminderBucket(t, 2)).catch(() => false);
+          if (usedTpl2) {
             updates[`sentReminders/${uid}/${bookingId}/r2`] = true;
+          } else {
+            const pushed = await pushStudent(uid, "⏰ Урок через 2 години", `о ${b.time} — ${dateFmt}`, {
+              url: "https://id4drive.pro/cabinet/bookings",
+            }).catch(() => false);
+            if (pushed) {
+              await saveNotification(uid, "⏰ Урок через 2 години", `о ${b.time} — ${dateFmt}`, "reminder");
+              updates[`sentReminders/${uid}/${bookingId}/r2`] = true;
+            }
           }
         }
       }
