@@ -160,8 +160,12 @@ function matchesReminderBucket(tpl, targetHours) {
 
 // Хелпер: надіслати учню ВСІ активні шаблони заданого тригера — чат-
 // повідомлення (як ручна відправка з вкладки "Шаблони") + push. Повертає
-// true якщо хоч один активний шаблон знайдено (щоб виклик міг НЕ відправляти
-// старий хардкодний текст-фолбек — уникаємо дубля).
+// true лише якщо хоч одне повідомлення РЕАЛЬНО дійшло (чат-запис або push) —
+// а не просто "знайдено активний шаблон". Виклик використовує це, щоб
+// вирішити, чи ставити sentReminders / не слати хардкодний фолбек — якщо
+// повернути true при провалі обох каналів, прапорець "відправлено"
+// назавжди заблокував би повторні спроби (той самий клас багу, що вже
+// фіксився для 24г/2г нагадувань).
 async function sendActiveTemplates(uid, triggerId, vars = {}, filterFn = null) {
   const snap = await db.ref("admin_data/templates").get();
   const list = snap.val();
@@ -170,18 +174,23 @@ async function sendActiveTemplates(uid, triggerId, vars = {}, filterFn = null) {
   if (filterFn) matches = matches.filter(filterFn);
   if (!matches.length) return false;
 
+  let delivered = false;
   for (const tpl of matches) {
     const text = renderTemplateBody(tpl.body, vars);
     const time = new Date().toLocaleTimeString("uk", { hour: "2-digit", minute: "2-digit" });
     const ts = Date.now();
-    await db.ref(`chats/${uid}`).push({ from: "admin", text, time, ts }).catch(() => {});
-    await db.ref(`chatMeta/${uid}`).update({
-      unreadForStudent: admin.database.ServerValue.increment(1), lastMsg: text, lastTs: ts,
-    }).catch(() => {});
+    const chatSent = await db.ref(`chats/${uid}`).push({ from: "admin", text, time, ts })
+      .then(() => true).catch(() => false);
+    if (chatSent) {
+      await db.ref(`chatMeta/${uid}`).update({
+        unreadForStudent: admin.database.ServerValue.increment(1), lastMsg: text, lastTs: ts,
+      }).catch(() => {});
+    }
     const pushed = await pushStudent(uid, tpl.title || "Повідомлення", text, {}).catch(() => false);
     if (pushed) await saveNotification(uid, tpl.title || "Повідомлення", text, "template").catch(() => {});
+    if (chatSent || pushed) delivered = true;
   }
-  return true;
+  return delivered;
 }
 
 // Хелпер: для масових розсилок (auto_queue) — тільки текст першого активного
