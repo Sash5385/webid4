@@ -675,6 +675,12 @@ select{color-scheme:${isKava?"light":"dark"}}
 
       case "push": return (
         <div>
+          {showHint && <Info color={GREEN}
+            title={lang==="en"?"Student notifications":"Сповіщення учням"}
+            text={lang==="en"
+              ? "When a slot frees up within the next 10 days (a student cancelled or rescheduled), every student with notifications enabled gets one. Turn off the toggle below to stop these broadcasts. The \"Test notification\" button checks whether this browser can show notifications on this device at all."
+              : "Коли в найближчі 10 днів звільняється слот (учень скасував або переніс запис), усім учням з увімкненими сповіщеннями надсилається сповіщення. Вимкни тумблер нижче, щоб зупинити ці розсилки. Кнопка «Тест повідомлення» перевіряє, чи браузер взагалі показує сповіщення на цьому пристрої."}
+          />}
           <Row color={svColor(settings.slotFreedPushEnabled !== false)} label={lang==="en"?"Notify on freed slot":"Сповіщення при звільненні слоту"} hint={lang==="en"?"Notify all students when a slot within the next 10 days becomes free":"Сповіщення усім учням, коли в найближчі 10 днів звільняється слот"} last>
             <Toggle color={svColor(settings.slotFreedPushEnabled !== false)} on={settings.slotFreedPushEnabled !== false} onChange={v=>upd("slotFreedPushEnabled",v)}/>
           </Row>
