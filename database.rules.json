@@ -71,7 +71,8 @@
       ".read": "auth != null && auth.uid === 'IjyqouYBDUg5KGzs3U27PUcs8Uj1'",
       "$uid": {
         ".read": "auth != null && (auth.uid === $uid || auth.uid === 'IjyqouYBDUg5KGzs3U27PUcs8Uj1')",
-        ".write": "auth != null && (auth.uid === $uid || auth.uid === 'IjyqouYBDUg5KGzs3U27PUcs8Uj1')"
+        ".write": "auth != null && (auth.uid === $uid || auth.uid === 'IjyqouYBDUg5KGzs3U27PUcs8Uj1')",
+        "customPrice": { ".validate": "auth.uid === 'IjyqouYBDUg5KGzs3U27PUcs8Uj1' || newData.val() === data.val()" }
       }
     },
     "chats": {

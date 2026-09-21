@@ -109,6 +109,7 @@ function StudentForm({ initial, onSave, onCancel, saveLabel="Зберегти" }
           </div>
         </div>
       </div>
+      <Field label="Індивідуальна фікс. ціна ₴/год" value={d.customPrice||""} onChange={v=>upd("customPrice",v.replace(/[^\d]/g,""))} placeholder="Стандартна ціна послуги" type="text" inputMode="numeric" style={{marginBottom:0}}/>
       <div onClick={()=>upd("isVip",!d.isVip)} style={{
         display:"flex",alignItems:"center",justifyContent:"space-between",
         padding:"10px 12px",borderRadius:10,cursor:"pointer",
@@ -347,8 +348,11 @@ function StudentDetailSheet({ s, onClose, onUpdate, onDelete, onBlock, onRemoveB
 
             {editMode ? (
               <StudentForm
-                initial={{name:s.name,phone:s.phone,discount:s.discount??0,notes:s.notes||"",type:s.type,isVip:s.isVip||false,noIntervalLimit:s.noIntervalLimit||false}}
-                onSave={patch=>{onUpdate(s.id,patch);setEditMode(false);}}
+                initial={{name:s.name,phone:s.phone,discount:s.discount??0,customPrice:s.customPrice??"",notes:s.notes||"",type:s.type,isVip:s.isVip||false,noIntervalLimit:s.noIntervalLimit||false}}
+                onSave={patch=>{
+                  onUpdate(s.id,{...patch, customPrice:patch.customPrice?Number(patch.customPrice):null});
+                  setEditMode(false);
+                }}
                 onCancel={()=>setEditMode(false)}
               />
             ) : confirmDel ? (
@@ -389,6 +393,14 @@ function StudentDetailSheet({ s, onClose, onUpdate, onDelete, onBlock, onRemoveB
                     <div style={{fontSize:18,fontWeight:900,color:s.discount>0?GOLD:DIM}}>{s.discount||0}₴</div>
                   </div>
                 </div>
+
+                {/* Individual fixed price — показуємо тільки якщо задана */}
+                {s.customPrice > 0 && (
+                  <div style={{background:"rgba(234,179,8,0.10)",border:"1px solid rgba(234,179,8,0.35)",borderRadius:10,padding:"9px 12px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                    <div style={{fontSize:11,fontWeight:700,color:"#eab308"}}>💰 Індивідуальна ціна</div>
+                    <div style={{fontSize:14,fontWeight:900,color:"#eab308"}}>{s.customPrice}₴/год</div>
+                  </div>
+                )}
 
                 {/* Registration date */}
                 {s.createdAt && (() => {
@@ -651,7 +663,7 @@ export default function StudentsView({ studentJump, onStudentJumpHandled, bookin
           id:uid, name:p.name||u.name||"Учень", phone:p.phone||u.phone||"",
           type:p.type||u.type||"private",
           hours:u.hours||0, hoursOffset:u.hoursOffset||0,
-          discount:u.discount||0, notes:u.notes||"", blocked:u.blocked||false, isVip:u.isVip||false,
+          discount:u.discount||0, customPrice:u.customPrice??null, notes:u.notes||"", blocked:u.blocked||false, isVip:u.isVip||false,
           noIntervalLimit:u.noIntervalLimit||false,
           filmingConsent:p.filmingConsent,
           experience:p.experience||u.experience||null,
@@ -715,6 +727,7 @@ export default function StudentsView({ studentJump, onStudentJumpHandled, bookin
       name:data.name.trim(), phone:data.phone.trim(), type:data.type,
       discount:Number(data.discount)||0, notes:data.notes.trim(), blocked:false,
       isVip:data.isVip||false, hours:0,
+      ...(data.customPrice ? {customPrice:Number(data.customPrice)} : {}),
       createdAt:Date.now(),
     });
     setShowNew(false);
@@ -848,7 +861,7 @@ export default function StudentsView({ studentJump, onStudentJumpHandled, bookin
             <div style={{width:38,height:4,borderRadius:2,background:ink(0.12),margin:"0 auto 14px"}}/>
             <div style={{fontSize:14,fontWeight:800,color:TEXT,marginBottom:12}}>Новий учень</div>
             <StudentForm
-              initial={{name:"",phone:"+380",discount:0,notes:"",type:"private",isVip:false,noIntervalLimit:false}}
+              initial={{name:"",phone:"+380",discount:0,customPrice:"",notes:"",type:"private",isVip:false,noIntervalLimit:false}}
               onSave={createStudent} onCancel={()=>setShowNew(false)} saveLabel="Додати"
             />
           </div>

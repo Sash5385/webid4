@@ -4987,6 +4987,13 @@ function effectivePrice(svc, dateStr) {
 
 function computeBookingPrice(b, services) {
   if (b.manualPrice != null) return b.manualPrice;
+  // Індивідуальна фікс. ціна учня (₴/год у картці учня) — виставляється
+  // адміном вручну і діє на всі уроки цього учня замість тарифу послуги;
+  // знижка при цьому не застосовується (ціна вже персональна).
+  if (b.customPrice != null) {
+    const base = Math.round((b.customPrice / 60) * b.durMin);
+    return Math.max(0, Math.round(base + (b.surcharge || 0)));
+  }
   const svc = services.find(s => s.id === b.serviceId)
            || services.find(s => s.active && s.type===(b.serviceType||b.type) && Number(s.duration)===b.durMin);
   const dateStr = b.date || (() => {
@@ -5137,7 +5144,7 @@ function BookingModal({ booking, onClose, onAction, settings, bookings, onViewSt
   // сумарну ціну й тривалість (booking сам лишається одним "чесним" записом
   // для дій: скасувати/неявка/повтор/редагування діють лише на нього).
   const durMinDisplay = mergeInfo ? mergeInfo.durMin : booking.durMin;
-  const discountAmtDisplay = booking.discount ? Math.round(booking.discount * booking.durMin / 60) : 0;
+  const discountAmtDisplay = (booking.discount && booking.customPrice == null) ? Math.round(booking.discount * booking.durMin / 60) : 0;
   const price = mergeInfo ? mergeInfo.price : computeBookingPrice(booking, settings.services);
   const ini   = booking.name.trim().split(" ").slice(0, 2).map(w => w[0]).join("");
   // Порядковий номер цього уроку серед усіх уроків учня (без особистих подій
@@ -7194,6 +7201,7 @@ export default function App() {
           categoryId: raw.categoryId || null,
           isVipOnly:  raw.isVipOnly || false,
           discount: usersMapRef.current[uid]?.discount || 0,
+          customPrice: usersMapRef.current[uid]?.customPrice ?? null,
         });
       });
     });
