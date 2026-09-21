@@ -37,6 +37,7 @@ const ICONS = {
   trash:    Svg(<><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></>, 18, "white", 2),
   bell:     Svg(<><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></>),
   history:  Svg(<><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 14"/></>),
+  link:     Svg(<><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></>),
 };
 
 // ─── ACTION BUTTON ───────────────────────────────────────────────
@@ -109,6 +110,7 @@ function StudentForm({ initial, onSave, onCancel, saveLabel="Зберегти" }
           </div>
         </div>
       </div>
+      <Field label="Індивідуальна фікс. ціна ₴/год" value={d.customPrice||""} onChange={v=>upd("customPrice",v.replace(/[^\d]/g,""))} placeholder="Стандартна ціна послуги" type="text" inputMode="numeric" style={{marginBottom:0}}/>
       <div onClick={()=>upd("isVip",!d.isVip)} style={{
         display:"flex",alignItems:"center",justifyContent:"space-between",
         padding:"10px 12px",borderRadius:10,cursor:"pointer",
@@ -217,6 +219,10 @@ function StudentDetailSheet({ s, onClose, onUpdate, onDelete, onBlock, onRemoveB
   const [historyOpen,    setHistoryOpen]    = useState(false);
   const [history,        setHistory]        = useState(null); // null = ще не завантажено
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [inviteOpen,      setInviteOpen]      = useState(false);
+  const [inviteLink,      setInviteLink]      = useState("");
+  const [inviteGenerating,setInviteGenerating]= useState(false);
+  const [inviteError,     setInviteError]     = useState(null);
 
   const toggleHistory = () => {
     if (historyOpen) { setHistoryOpen(false); return; }
@@ -250,6 +256,24 @@ function StudentDetailSheet({ s, onClose, onUpdate, onDelete, onBlock, onRemoveB
     if (autoOpenHistory && s && !historyOpen) toggleHistory();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoOpenHistory, s?.id]);
+
+  // Посилання-запрошення: учень переходить по ньому, реєструється сам —
+  // Cloud Function onNewStudentRegistered (webid4/functions/index.js)
+  // зливає знижку/фікс.ціну/нотатки/години з цієї (створеної вручну)
+  // картки у щойно зареєстрований акаунт учня.
+  const generateInvite = async () => {
+    if (inviteGenerating) return;
+    setInviteGenerating(true); setInviteError(null);
+    try {
+      const inviteRef = await push(ref(db, "invites"), { studentKey: s.id, createdAt: Date.now() });
+      setInviteLink(`https://id4drive.pro/auth?invite=${inviteRef.key}`);
+      setInviteOpen(true);
+    } catch (e) {
+      setInviteError("Помилка: " + e.message);
+    } finally {
+      setInviteGenerating(false);
+    }
+  };
 
   // Персональне повідомлення учню: пишемо запит у adminPush/{id}, cloud function onAdminPush
   // читає токен учня й шле FCM (плюс внутрішнє сповіщення в NotifTab).
@@ -347,8 +371,11 @@ function StudentDetailSheet({ s, onClose, onUpdate, onDelete, onBlock, onRemoveB
 
             {editMode ? (
               <StudentForm
-                initial={{name:s.name,phone:s.phone,discount:s.discount??0,notes:s.notes||"",type:s.type,isVip:s.isVip||false,noIntervalLimit:s.noIntervalLimit||false}}
-                onSave={patch=>{onUpdate(s.id,patch);setEditMode(false);}}
+                initial={{name:s.name,phone:s.phone,discount:s.discount??0,customPrice:s.customPrice??"",notes:s.notes||"",type:s.type,isVip:s.isVip||false,noIntervalLimit:s.noIntervalLimit||false}}
+                onSave={patch=>{
+                  onUpdate(s.id,{...patch, customPrice:patch.customPrice?Number(patch.customPrice):null});
+                  setEditMode(false);
+                }}
                 onCancel={()=>setEditMode(false)}
               />
             ) : confirmDel ? (
@@ -376,6 +403,23 @@ function StudentDetailSheet({ s, onClose, onUpdate, onDelete, onBlock, onRemoveB
                     style={{flex:1,padding:"10px",borderRadius:10,border:"none",cursor:"pointer",background:`linear-gradient(145deg,${SURF_HI},${SURFACE})`,color:DIM,fontSize:13,fontWeight:700,boxShadow:SO,fontFamily:"inherit"}}>Назад</button>
                 </div>
               </div>
+            ) : inviteOpen ? (
+              <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                <div style={{fontSize:13,fontWeight:800,color:GOLD}}>🔗 Запросити: {s.name}</div>
+                <div style={{fontSize:11,color:DIM,lineHeight:1.5}}>Учень переходить за посиланням, сам реєструється — знижка/фікс.ціна/нотатки з цієї картки автоматично перенесуться на його акаунт.</div>
+                <div style={{background:glow(0.04),border:`1px solid ${BORDER}`,borderRadius:10,padding:"9px 12px",fontSize:12,color:TEXT,wordBreak:"break-all"}}>{inviteLink}</div>
+                {inviteError && <div style={{fontSize:12,color:"#fca5a5"}}>{inviteError}</div>}
+                <div style={{display:"flex",gap:7}}>
+                  <button onClick={()=>navigator.clipboard?.writeText(inviteLink).catch(()=>{})}
+                    style={{flex:1,padding:"10px",borderRadius:10,border:"none",cursor:"pointer",background:`linear-gradient(145deg,${GOLD}cc,${GOLD}88)`,color:"#1a1a1a",fontSize:13,fontWeight:800,boxShadow:SO,fontFamily:"inherit"}}>Копіювати</button>
+                  <button onClick={()=>{window.location.href=`viber://forward?text=${encodeURIComponent(inviteLink)}`;}}
+                    style={{flex:1,padding:"10px",borderRadius:10,border:"none",cursor:"pointer",background:`linear-gradient(145deg,${SURF_HI},${SURFACE})`,color:TEXT,fontSize:13,fontWeight:700,boxShadow:SO,fontFamily:"inherit"}}>Вайбер</button>
+                  <button onClick={()=>{window.open(`https://t.me/share/url?url=${encodeURIComponent(inviteLink)}`,"_blank");}}
+                    style={{flex:1,padding:"10px",borderRadius:10,border:"none",cursor:"pointer",background:`linear-gradient(145deg,${SURF_HI},${SURFACE})`,color:TEXT,fontSize:13,fontWeight:700,boxShadow:SO,fontFamily:"inherit"}}>Телеграм</button>
+                </div>
+                <button onClick={()=>{setInviteOpen(false);setInviteError(null);}}
+                  style={{padding:"10px",borderRadius:10,border:"none",cursor:"pointer",background:`linear-gradient(145deg,${SURF_HI},${SURFACE})`,color:DIM,fontSize:13,fontWeight:700,boxShadow:SO,fontFamily:"inherit"}}>Назад</button>
+              </div>
             ) : (
               <>
                 {/* Phone + discount */}
@@ -389,6 +433,14 @@ function StudentDetailSheet({ s, onClose, onUpdate, onDelete, onBlock, onRemoveB
                     <div style={{fontSize:18,fontWeight:900,color:s.discount>0?GOLD:DIM}}>{s.discount||0}₴</div>
                   </div>
                 </div>
+
+                {/* Individual fixed price — показуємо тільки якщо задана */}
+                {s.customPrice > 0 && (
+                  <div style={{background:"rgba(234,179,8,0.10)",border:"1px solid rgba(234,179,8,0.35)",borderRadius:10,padding:"9px 12px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                    <div style={{fontSize:11,fontWeight:700,color:"#eab308"}}>💰 Індивідуальна ціна</div>
+                    <div style={{fontSize:14,fontWeight:900,color:"#eab308"}}>{s.customPrice}₴/год</div>
+                  </div>
+                )}
 
                 {/* Registration date */}
                 {s.createdAt && (() => {
@@ -442,6 +494,7 @@ function StudentDetailSheet({ s, onClose, onUpdate, onDelete, onBlock, onRemoveB
                   <ActBtn icon={ICONS.telegram} label="Телеграм"   onClick={()=>{window.open(`https://t.me/+${phone}`,"_blank");}}            color="#5b9bff"/>
                   <ActBtn icon={ICONS.chat}     label="Чат"        onClick={()=>{navTo("chats");_close();}}                                   color={BLUE}/>
                   <ActBtn icon={ICONS.bell}     label="Повідомлення" onClick={()=>{setPushOpen(true);setPushSent(false);setPushError(null);}} color={GOLD}/>
+                  <ActBtn icon={ICONS.link}     label="Запросити"  onClick={generateInvite} color={GOLD}/>
                   <ActBtn icon={ICONS.history}  label="Історія"    onClick={toggleHistory} color={BLUE}/>
                   <ActBtn icon={ICONS.edit}     label="Редагувати" onClick={()=>setEditMode(true)}/>
                   <ActBtn icon={s.blocked?ICONS.unban:ICONS.ban} label={s.blocked?"Розблок.":"Заблок."} onClick={()=>onBlock(s.id)} danger={!s.blocked}/>
@@ -651,7 +704,7 @@ export default function StudentsView({ studentJump, onStudentJumpHandled, bookin
           id:uid, name:p.name||u.name||"Учень", phone:p.phone||u.phone||"",
           type:p.type||u.type||"private",
           hours:u.hours||0, hoursOffset:u.hoursOffset||0,
-          discount:u.discount||0, notes:u.notes||"", blocked:u.blocked||false, isVip:u.isVip||false,
+          discount:u.discount||0, customPrice:u.customPrice??null, notes:u.notes||"", blocked:u.blocked||false, isVip:u.isVip||false,
           noIntervalLimit:u.noIntervalLimit||false,
           filmingConsent:p.filmingConsent,
           experience:p.experience||u.experience||null,
@@ -715,6 +768,7 @@ export default function StudentsView({ studentJump, onStudentJumpHandled, bookin
       name:data.name.trim(), phone:data.phone.trim(), type:data.type,
       discount:Number(data.discount)||0, notes:data.notes.trim(), blocked:false,
       isVip:data.isVip||false, hours:0,
+      ...(data.customPrice ? {customPrice:Number(data.customPrice)} : {}),
       createdAt:Date.now(),
     });
     setShowNew(false);
@@ -848,7 +902,7 @@ export default function StudentsView({ studentJump, onStudentJumpHandled, bookin
             <div style={{width:38,height:4,borderRadius:2,background:ink(0.12),margin:"0 auto 14px"}}/>
             <div style={{fontSize:14,fontWeight:800,color:TEXT,marginBottom:12}}>Новий учень</div>
             <StudentForm
-              initial={{name:"",phone:"+380",discount:0,notes:"",type:"private",isVip:false,noIntervalLimit:false}}
+              initial={{name:"",phone:"+380",discount:0,customPrice:"",notes:"",type:"private",isVip:false,noIntervalLimit:false}}
               onSave={createStudent} onCancel={()=>setShowNew(false)} saveLabel="Додати"
             />
           </div>
