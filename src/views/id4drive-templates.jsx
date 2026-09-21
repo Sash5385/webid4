@@ -38,8 +38,6 @@ const CATEGORIES = [
 
 const CHANNELS = [
   { id:"chat",  label:"Чат",  emoji:"💬", color:BLUE   },
-  { id:"sms",   label:"SMS",  emoji:"📱", color:GREEN  },
-  { id:"viber", label:"Viber",emoji:"📲", color:PURPLE },
 ];
 
 const TRIGGERS = [
@@ -56,7 +54,7 @@ const VARS = ["{ім'я}","{дата}","{час}","{послуга}","{ціна}
 const INIT_TEMPLATES = [
   { id:"t1", catId:"reminder", title:"Нагадування за 24 год", channel:"chat", trigger:"auto_reminder", reminderHours:24, active:true,
     body:"Привіт, {ім'я}! 🔔 Нагадуємо про урок завтра {дата} о {час}. Чекаємо на тебе! Якщо потрібно перенести — напиши нам." },
-  { id:"t2", catId:"reminder", title:"Нагадування за 2 год",  channel:"sms",  trigger:"auto_reminder", reminderHours:2, active:true,
+  { id:"t2", catId:"reminder", title:"Нагадування за 2 год",  channel:"chat", trigger:"auto_reminder", reminderHours:2, active:true,
     body:"ID4Drive: урок сьогодні о {час}. Адреса: Верховинна 44. Інструктор: {інструктор}" },
   { id:"t3", catId:"confirm",  title:"Підтвердження запису",  channel:"chat", trigger:"auto_confirm",  active:true,
     body:"✅ {ім'я}, твій урок підтверджено!\n📅 {дата} о {час}\n🚗 {послуга} — {ціна} ₴\nЧекаємо!" },
@@ -66,7 +64,7 @@ const INIT_TEMPLATES = [
     body:"👋 Привіт, {ім'я}! Раді бачити тебе в ID4Drive!\nЯ — {інструктор}, твій інструктор.\nЗаписуйся на перший урок і побачимось на дорозі! 🚗" },
   { id:"t6", catId:"queue",    title:"Пропозиція вільного слоту", channel:"chat", trigger:"auto_queue", active:true,
     body:"⏳ {ім'я}, з'явився вільний урок {дата} о {час}! Підтвердити запис → відкрий додаток." },
-  { id:"t7", catId:"custom",   title:"Прохання про відгук",   channel:"sms",  trigger:"manual",        active:true,
+  { id:"t7", catId:"custom",   title:"Прохання про відгук",   channel:"chat", trigger:"manual",        active:true,
     body:"Привіт, {ім'я}! Як пройшов урок {дата}? Буду вдячний за відгук 🙏" },
   { id:"t8", catId:"custom",   title:"Особливі умови",        channel:"chat", trigger:"manual",        active:false,
     body:"Привіт! Для тебе діє спеціальна пропозиція: {послуга} за {ціна} ₴. Діє тільки цього тижня!" },
@@ -102,11 +100,10 @@ function SendModal({ tpl, onClose }) {
   const { DIM, FAINT, SURF_HI, SURFACE, ACC_HI, ACCENT, SO, TEXT, GREEN } = useContext(ThemeContext);
   const [students,  setStudents]  = useState([]);
   const [selected,  setSelected]  = useState([]);
-  const [channel,   setChannel]   = useState(tpl.channel);
   const [preview,   setPreview]   = useState(tpl.body);
   const [sending,   setSending]   = useState(false);
   const [sent,      setSent]      = useState(false);
-  const ch = chOf(channel);
+  const ch = chOf(tpl.channel);
 
   useEffect(() => {
     get(ref(db, "users")).then(snap => {
@@ -151,18 +148,6 @@ function SendModal({ tpl, onClose }) {
         </Btn>
       </>}>
       <div style={{fontSize:12,color:DIM,marginTop:-12,marginBottom:18}}>«{tpl.title}»</div>
-
-      {/* channel select */}
-      <div style={{fontSize:10,color:FAINT,letterSpacing:1,marginBottom:8}}>КАНАЛ</div>
-      <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:16}}>
-        {CHANNELS.map(c=>(
-          <button key={c.id} onClick={()=>setChannel(c.id)} style={{
-            padding:"7px 12px",borderRadius:12,border:"none",cursor:"pointer",fontSize:12,fontWeight:700,fontFamily:"inherit",
-            background:channel===c.id?`linear-gradient(165deg,${c.color}99,${c.color}55)`:`linear-gradient(135deg,${SURF_HI},${SURFACE})`,
-            color:channel===c.id?c.color:DIM,boxShadow:SO
-          }}>{c.emoji} {c.label}</button>
-        ))}
-      </div>
 
       {/* students */}
       <div style={{fontSize:10,color:FAINT,letterSpacing:1,marginBottom:8}}>КОМУ НАДІСЛАТИ</div>
@@ -235,16 +220,6 @@ function EditModal({ tpl, onSave, onClose }) {
         <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:6}}>
           {CATEGORIES.map(c=>(
             <Chip key={c.id} active={form.catId===c.id} color={c.color} onClick={()=>upd("catId",c.id)}>{c.emoji} {c.label}</Chip>
-          ))}
-        </div>
-      </div>
-
-      {/* channel */}
-      <div style={{marginBottom:14}}>
-        <div style={{fontSize:10,color:"rgba(255,255,255,0.55)",letterSpacing:1,marginBottom:8}}>КАНАЛ</div>
-        <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:6}}>
-          {CHANNELS.map(c=>(
-            <Chip key={c.id} active={form.channel===c.id} color={c.color} onClick={()=>upd("channel",c.id)}>{c.emoji} {c.label}</Chip>
           ))}
         </div>
       </div>
