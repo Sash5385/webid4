@@ -348,12 +348,66 @@ exports.onBookingChanged = onValueWritten(
   }
 );
 
+// Нормалізує телефон до самих цифр для порівняння (+380 67 123-45-67 -> 380671234567)
+function normPhone(p) {
+  return (p || "").replace(/\D/g, "");
+}
+
+// Учень, доданий вручну адміном (картка учня без .profile), запросив
+// себе через посилання ("🔗 Запросити" в картці учня) або просто
+// самостійно зареєструвався з тим самим номером телефону — зливаємо
+// операційні поля (знижку/фікс.ціну/нотатки/години/VIP/медалі) в щойно
+// зареєстрований акаунт. Історію записів/чатів навмисно НЕ переносимо —
+// це критичний модуль, ризик вищий за користь для типового кейсу
+// (запрошення надсилають ДО першого уроку).
+async function mergeInvitedStudentRecord(uid, profile) {
+  try {
+    let oldKey = null;
+    const token = profile?.inviteToken;
+    if (token) {
+      const invite = (await db.ref(`invites/${token}`).get()).val();
+      if (invite?.studentKey) oldKey = invite.studentKey;
+    }
+    if (!oldKey) {
+      const phone = normPhone(profile?.phone);
+      if (phone) {
+        const usersVal = (await db.ref("users").get()).val() || {};
+        const matches = Object.entries(usersVal).filter(([key, u]) =>
+          key !== uid && !u.profile && normPhone(u.phone) === phone
+        );
+        if (matches.length === 1) oldKey = matches[0][0];
+      }
+    }
+    if (token) await db.ref(`invites/${token}`).remove().catch(() => {});
+    if (!oldKey || oldKey === uid) return;
+
+    const old = (await db.ref(`users/${oldKey}`).get()).val();
+    // Захист: зливаємо тільки із "заглушки" адміна (без .profile) —
+    // ніколи не чіпаємо чужий реальний зареєстрований акаунт.
+    if (!old || old.profile) return;
+
+    const patch = {};
+    [
+      "discount", "customPrice", "notes", "hours", "hoursOffset",
+      "isVip", "noIntervalLimit", "blocked", "badges",
+      "maneuverCounts", "maneuverSuccessCounts", "createdAt",
+    ].forEach((f) => { if (old[f] !== undefined) patch[`users/${uid}/${f}`] = old[f]; });
+    patch[`users/${oldKey}`] = null;
+    patch[`users/${uid}/profile/inviteToken`] = null;
+    await db.ref().update(patch);
+    console.log(`mergeInvitedStudentRecord: merged ${oldKey} -> ${uid}`);
+  } catch (e) {
+    console.error("mergeInvitedStudentRecord failed:", e);
+  }
+}
+
 // Новий учень зареєструвався (заповнив анкету) — сповіщаємо адміна
 exports.onNewStudentRegistered = onValueCreated(
   { ref: "users/{uid}/profile", region: "europe-west1" },
   async (event) => {
     const profile = event.data.val();
     const { uid } = event.params;
+    await mergeInvitedStudentRecord(uid, profile);
     const name  = profile?.name  || "Новий учень";
     const phone = profile?.phone || "";
     console.log(`onNewStudentRegistered: uid=${uid} name="${name}"`);
