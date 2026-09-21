@@ -1195,3 +1195,26 @@ exports.flushDayNoteReminders = onSchedule(
     }
   }
 );
+
+// Раз на добу: якщо триває пробний період/підписка і термін вийшов —
+// призупиняємо доступ (license/status → suspended) і сповіщаємо вендора.
+// Якщо вузла license нема — нічого не робимо (фіча вимкнена для цього інстансу).
+exports.checkLicenseExpiry = onSchedule(
+  { schedule: "every 24 hours", region: "europe-west1" },
+  async () => {
+    const snap = await db.ref("license").get();
+    const license = snap.val();
+    if (!license || license.status === "suspended") return;
+
+    const now = Date.now();
+    const untilTs = license.status === "trial" ? license.trialEndsAt : license.expiresAt;
+    if (!untilTs || now <= untilTs) return;
+
+    await db.ref("license/status").set("suspended");
+    await pushAdmin(
+      "⛔ Підписку призупинено",
+      "Термін дії ліцензії вийшов — доступ для інструктора заблоковано.",
+      { url: "https://admin.id4drive.pro" }
+    ).catch(() => {});
+  }
+);

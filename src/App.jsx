@@ -3,6 +3,7 @@ import { ref, onValue, update, push, remove, get } from "firebase/database";
 import { db, registerAdminFCM, onAdminForegroundMessage } from "./firebase";
 import { useAdminAuth, LoginScreen } from "./AdminAuth";
 import { useAppUpdate } from "./hooks/useAppUpdate"
+import { useLicense, isLicenseBlocked } from "./hooks/useLicense"
 import { setGlobalLang, createT } from "./lang";
 import { ThemeContext, getTheme } from "./theme.js";
 import { APP_VERSION } from "./version.js";
@@ -369,6 +370,23 @@ function TopBar({ tab, onChange, settings, setSettings }) {
   );
 }
 
+function LicenseLockedScreen({ theme }) {
+  return (
+    <div style={{
+      minHeight:"100dvh", background:theme.BG_DEEP, display:"flex",
+      alignItems:"center", justifyContent:"center", padding:20,
+    }}>
+      <div style={{ maxWidth:340, textAlign:"center", color:theme.TEXT }}>
+        <div style={{ fontSize:40, marginBottom:12 }}>🔒</div>
+        <div style={{ fontSize:18, fontWeight:800, marginBottom:8 }}>Доступ призупинено</div>
+        <div style={{ fontSize:14, color:theme.DIM, lineHeight:1.5 }}>
+          Підписку призупинено або закінчився пробний період. Зв'яжіться з адміністратором ID4Drive для продовження доступу.
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const INITIAL_BOOKINGS = [];
 
 const DEFAULT_SETTINGS = {
@@ -431,6 +449,7 @@ function dayIdxToDate(dayIdx) {
 // ─── MAIN APP ────────────────────────────────────────────────────
 export default function App() {
   const adminUser = useAdminAuth();
+  const license = useLicense();
   const { needRefresh, updateServiceWorker, isUpdating } = useAppUpdate()
   // Deep-link з push-сповіщення (?date=&time=&uid=&bookingId=) — одразу відкриваємо розклад на потрібній даті
   const [jumpTarget, setJumpTarget] = useState(() => {
@@ -1025,6 +1044,7 @@ const pendingDeletesRef = React.useRef(new Set());
 
   if (adminUser === undefined) return null;
   if (adminUser === null) return <LoginScreen/>;
+  if (isLicenseBlocked(license)) return <LicenseLockedScreen theme={theme}/>;
 
   return (
     <ThemeContext.Provider value={theme}>

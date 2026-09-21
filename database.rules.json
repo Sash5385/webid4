@@ -151,6 +151,10 @@
     "invites": {
       ".read": "auth != null && auth.uid === 'IjyqouYBDUg5KGzs3U27PUcs8Uj1'",
       ".write": "auth != null && auth.uid === 'IjyqouYBDUg5KGzs3U27PUcs8Uj1'"
+    },
+    "license": {
+      ".read": "auth != null",
+      ".write": "auth != null && auth.token.email === 'sash5385@gmail.com'"
     }
   }
 }
