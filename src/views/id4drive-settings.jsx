@@ -654,6 +654,12 @@ select{color-scheme:${isKava?"light":"dark"}}
 
       case "surcharges": return (
         <div>
+          {showHint && <Info color={GOLD}
+            title={lang==="en"?"Surcharges & payment":"Надбавки і оплата"}
+            text={lang==="en"
+              ? "Configure extra paid add-ons the instructor can attach to a booking right from the schedule slot menu (e.g. \"driving range\", \"harder route\", etc.) — the student then sees the total price including the surcharge. \"Payment card\" is the card number shown to the student in \"My bookings\" with a copy button, so they can pay by transfer. Each \"Surcharge\" below is a fixed amount in UAH that can be quickly added to a lesson's price — add as many as you need, or remove one with the \"×\" button."
+              : "Тут налаштовуються додаткові платні опції, які інструктор може додати до запису прямо в меню слота розкладу (наприклад, «виїзд на автодром», «складніший маршрут» тощо) — учень одразу бачить підсумкову суму з надбавкою. «Картка для оплати» — реквізити, які показуються учню в розділі «Мої записи» з кнопкою копіювання, щоб він міг оплатити переказом. Кожна «Надбавка» нижче — це фіксована сума в гривнях, яку можна швидко додати до вартості уроку; додай стільки варіантів, скільки потрібно, або видали кнопкою «×»."}
+          />}
           <Row label="Картка для оплати" hint="Показується учням у «Моїх записах» з кнопкою копіювання">
             <input
               value={settings.paymentCard || ""}
