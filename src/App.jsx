@@ -575,7 +575,13 @@ export default function App() {
     return () => window.removeEventListener('focus', onFocus);
   }, [tab]);
 
-  // Register FCM token on login and every time tab becomes visible (handles token rotation)
+  // Register FCM token on login, every time tab becomes visible, and every 15
+  // хвилин поки вкладка відкрита — FCM може протухнути токен сам по собі
+  // (pushAdmin тоді видаляє мертвий запис з admin/fcmTokens), а якщо адмінку
+  // весь цей час просто тримають відкритою й не перемикають вкладки —
+  // visibilitychange жодного разу не спрацює, і admin/fcmTokens лишається
+  // порожнім аж до наступного перезавантаження/перемикання (звідси випадки
+  // "пуш не прийшов", хоча дозвіл виданий і версія актуальна).
   useEffect(() => {
     if (!adminUser) return;
     registerAdminFCM().catch(() => {});
@@ -583,7 +589,11 @@ export default function App() {
       if (document.visibilityState === "visible") registerAdminFCM().catch(() => {});
     };
     document.addEventListener("visibilitychange", onVisible);
-    return () => document.removeEventListener("visibilitychange", onVisible);
+    const interval = setInterval(() => registerAdminFCM().catch(() => {}), 15 * 60 * 1000);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      clearInterval(interval);
+    };
   }, [adminUser]);
 
   // Show foreground push notifications (when admin tab is open)
