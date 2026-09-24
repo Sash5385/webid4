@@ -1846,8 +1846,13 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
       autoScrollToMinRef.current = minStart;
       return { ...s, hourHeightPx: targetHpx };
     });
+  // windowH — критично: без нього ефект не перераховує висоту рядка, коли
+  // реальна видима область міняється БЕЗ зміни visDayRange/autoSpanKey —
+  // напр. коли iOS Safari згортає/розгортає адресний рядок і насправді
+  // доступного місця стає більше/менше. На Android рядок window.innerHeight
+  // здебільшого стабільний одразу, тому там ця похибка непомітна.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visDayRange.s, visDayRange.e, settings.autoHourHeight, autoSpanKey]);
+  }, [visDayRange.s, visDayRange.e, settings.autoHourHeight, autoSpanKey, windowH]);
 
   // Прокрутка до першого запису — спрацьовує тільки після авто-перерахунку
   // висоти (autoScrollToMinRef виставляється лише вище), не після ручного
@@ -2275,11 +2280,18 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
     window.addEventListener("pointerup", onUp);
     window.addEventListener("pointercancel", onUp);
     window.addEventListener("resize", onResize);
+    // iOS Safari не завжди шле звичайний "resize", коли адресний рядок
+    // згортається/розгортається (реальна видима висота міняється без
+    // зміни window.innerHeight-події) — visualViewport.resize ловить це
+    // надійно. Без цього windowH лишався застарілим, і авто-висота рядка
+    // в розкладі (нижче, ефект з windowH у залежностях) не перераховувалась.
+    window.visualViewport?.addEventListener("resize", onResize);
     return () => {
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
       window.removeEventListener("pointercancel", onUp);
       window.removeEventListener("resize", onResize);
+      window.visualViewport?.removeEventListener("resize", onResize);
       clearTimeout(holdTimerRef.current);
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
