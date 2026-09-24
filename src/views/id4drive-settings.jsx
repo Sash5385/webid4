@@ -208,6 +208,22 @@ export default function SettingsView({ settings, setSettings }) {
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
+
+  // Реально виміряна висота скрол-контейнера вкладки (.tab-anim з App.jsx) —
+  // minHeight:"100%" на дочірньому блоці не завжди коректно резолвиться
+  // (залежить від display/box-sizing по ланцюжку предків), тому берем
+  // фактичний clientHeight батьківського елемента напряму, як і для navH/railH.
+  const containerRef = useRef(null);
+  const [containerH, setContainerH] = useState(0);
+  useEffect(() => {
+    const el = containerRef.current?.parentElement;
+    if (!el) return;
+    const measure = () => setContainerH(el.clientHeight);
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
   const css = `
 input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:4px;border-radius:2px;background:${BG_DEEP};outline:none;box-shadow:${SI}}
 input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:9px;background:linear-gradient(145deg,${ACC_HI},${ACCENT});cursor:pointer;box-shadow:0 2px 6px rgba(255,90,60,0.5)}
@@ -770,8 +786,8 @@ select{color-scheme:${isKava?"light":"dark"}}
     <>
       <UICss/>
       <style>{css}</style>
-      <div style={{
-        display:"flex", flexDirection:"column", gap:10, minHeight:"100%",
+      <div ref={containerRef} style={{
+        display:"flex", flexDirection:"column", gap:10, minHeight:containerH || "100%",
         fontFamily:"ui-sans-serif,-apple-system,system-ui,sans-serif", color:TEXT,
       }}>
 
