@@ -786,7 +786,7 @@ select{color-scheme:${isKava?"light":"dark"}}
       <UICss/>
       <style>{css}</style>
       <div ref={containerRef} style={{
-        display:"flex", flexDirection:"column", gap:10, minHeight:containerH || "100%",
+        position:"relative", minHeight: containerH > 0 ? containerH : undefined,
         fontFamily:"ui-sans-serif,-apple-system,system-ui,sans-serif", color:TEXT,
       }}>
 
@@ -832,47 +832,51 @@ select{color-scheme:${isKava?"light":"dark"}}
             після PANEL, версія й 40px-спейсер підуть услід за ним і
             опиняться рівно під фіксованою пігулкою, невидимі. */}
 
-        {/* Гнучкий розпірник — коли вміст короткої секції не заповнює екран,
-            притискає install/підписку/версію до низу (над рейлом) замість
-            того, щоб лишати порожнечу під ними. Для довгих секцій просто
-            стискається до 0 і нічого не змінює. */}
-        <div style={{flex:1}}/>
-
-        {installPrompt && !installed && (
-          <button onClick={handleInstallClick} style={{
-            display:"block", margin:"12px auto 0", background:"rgba(255,255,255,0.05)",
-            border:`1px solid ${BORDER}`, color:TEXT, cursor:"pointer",
-            padding:"10px 24px", borderRadius:14, fontSize:13, fontWeight:700,
-          }}>📲 Встановити додаток</button>
-        )}
-        {license && (() => {
-          // eslint-disable-next-line react-hooks/purity -- лише для відображення "днів залишилось", не впливає на логіку
-          const now = Date.now();
-          const untilTs = license.status === "trial" ? license.trialEndsAt : license.expiresAt;
-          const daysLeft = untilTs ? Math.ceil((untilTs - now) / 86400000) : null;
-          const blocked = license.status === "suspended" || (daysLeft != null && daysLeft < 0);
-          const statusColor = blocked ? RED : (daysLeft != null && daysLeft <= 3 ? GOLD : GREEN);
-          const statusLabel = blocked ? "Призупинено" : license.status === "trial" ? "Пробний період" : "Активна";
-          return (
-            <div style={{
-              margin:"12px 14px 0", padding:"12px 14px", borderRadius:14,
-              background:SURF_HI, border:`1px solid ${BORDER}`, boxShadow:SI,
-            }}>
-              <div style={{fontSize:11, fontWeight:800, color:DIM, textTransform:"uppercase", letterSpacing:0.5, marginBottom:4}}>Підписка</div>
-              <div style={{fontSize:14, fontWeight:700, color:statusColor}}>{statusLabel}</div>
-              {daysLeft != null && !blocked && (
-                <div style={{fontSize:12, color:DIM, marginTop:2}}>Залишилось днів: {daysLeft}</div>
-              )}
-              {blocked && (
-                <div style={{fontSize:12, color:DIM, marginTop:2}}>Зверніться до ID4Drive для продовження доступу.</div>
-              )}
-            </div>
-          );
-        })()}
-        <div onClick={forceUpdate} style={{textAlign:"center",padding:"8px 0 2px",color:FAINT,fontSize:13,fontWeight:600,letterSpacing:0.5,cursor:"pointer"}}>
-          {APP_VERSION}
+        {/* Install/підписка/версія прибиті до низу wrapper'а (position:absolute
+            + bottom:0), а не звичайним потоком чи flex-розпірником — так
+            надійніше: не залежить від того, чи резолвиться відсоткова/
+            flex-grow висота крізь ланцюжок предків. Wrapper вище має
+            minHeight = реально виміряна висота .tab-anim (containerH), тому
+            для коротких секцій ця група опиняється прямо над рейлом; для
+            довгих секцій wrapper природно вищий за containerH, і ця група
+            просто йде одразу після PANEL (як і було раніше). */}
+        <div style={{position:"absolute", left:0, right:0, bottom:0, display:"flex", flexDirection:"column", gap:10}}>
+          {installPrompt && !installed && (
+            <button onClick={handleInstallClick} style={{
+              display:"block", margin:"12px auto 0", background:"rgba(255,255,255,0.05)",
+              border:`1px solid ${BORDER}`, color:TEXT, cursor:"pointer",
+              padding:"10px 24px", borderRadius:14, fontSize:13, fontWeight:700,
+            }}>📲 Встановити додаток</button>
+          )}
+          {license && (() => {
+            // eslint-disable-next-line react-hooks/purity -- лише для відображення "днів залишилось", не впливає на логіку
+            const now = Date.now();
+            const untilTs = license.status === "trial" ? license.trialEndsAt : license.expiresAt;
+            const daysLeft = untilTs ? Math.ceil((untilTs - now) / 86400000) : null;
+            const blocked = license.status === "suspended" || (daysLeft != null && daysLeft < 0);
+            const statusColor = blocked ? RED : (daysLeft != null && daysLeft <= 3 ? GOLD : GREEN);
+            const statusLabel = blocked ? "Призупинено" : license.status === "trial" ? "Пробний період" : "Активна";
+            return (
+              <div style={{
+                margin:"12px 14px 0", padding:"12px 14px", borderRadius:14,
+                background:SURF_HI, border:`1px solid ${BORDER}`, boxShadow:SI,
+              }}>
+                <div style={{fontSize:11, fontWeight:800, color:DIM, textTransform:"uppercase", letterSpacing:0.5, marginBottom:4}}>Підписка</div>
+                <div style={{fontSize:14, fontWeight:700, color:statusColor}}>{statusLabel}</div>
+                {daysLeft != null && !blocked && (
+                  <div style={{fontSize:12, color:DIM, marginTop:2}}>Залишилось днів: {daysLeft}</div>
+                )}
+                {blocked && (
+                  <div style={{fontSize:12, color:DIM, marginTop:2}}>Зверніться до ID4Drive для продовження доступу.</div>
+                )}
+              </div>
+            );
+          })()}
+          <div onClick={forceUpdate} style={{textAlign:"center",padding:"8px 0 2px",color:FAINT,fontSize:13,fontWeight:600,letterSpacing:0.5,cursor:"pointer"}}>
+            {APP_VERSION}
+          </div>
+          <div style={{height:railH + 16, flexShrink:0}}/>
         </div>
-        <div style={{height:railH + 16, flexShrink:0}}/>
       </div>
 
       {createPortal(
