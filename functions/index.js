@@ -179,7 +179,7 @@ async function sendActiveTemplates(uid, triggerId, vars = {}, filterFn = null) {
     const text = renderTemplateBody(tpl.body, vars);
     const time = new Date().toLocaleTimeString("uk", { hour: "2-digit", minute: "2-digit" });
     const ts = Date.now();
-    const chatSent = await db.ref(`chats/${uid}`).push({ from: "admin", text, time, ts })
+    const chatSent = await db.ref(`chats/${uid}`).push({ from: "admin", text, time, ts, auto: true })
       .then(() => true).catch(() => false);
     if (chatSent) {
       await db.ref(`chatMeta/${uid}`).update({
@@ -725,6 +725,29 @@ exports.onStudentMessage = onValueCreated(
 
     const text = msg.text || "";
     await pushAdmin(`💬 ${name}`, text.length > 100 ? text.slice(0, 100) + "…" : text);
+  }
+);
+
+// Адмін надіслав повідомлення (ручний чат, розсилка, ручна відправка
+// шаблону з вкладки "Шаблони") → пуш учню. Раніше такого тригера не було
+// взагалі — ці повідомлення лише записувались у chats/{uid}, а push
+// студенту ніколи не йшов. auto:true пропускаємо — ті повідомлення вже
+// отримали власний push з sendActiveTemplates (auto_confirm/auto_cancel),
+// інакше учень отримав би два пуші на одне й те саме повідомлення.
+exports.onInstructorMessage = onValueCreated(
+  { ref: "chats/{uid}/{msgId}", region: "europe-west1" },
+  async (event) => {
+    const msg = event.data.val();
+    if (!msg || msg.from !== "admin" || msg.auto) return;
+
+    const { uid } = event.params;
+    if (uid === "general") return;
+
+    const text = msg.text || "";
+    if (!text) return;
+    await pushStudent(uid, "💬 Інструктор", text.length > 100 ? text.slice(0, 100) + "…" : text, {
+      url: "https://id4drive.pro/cabinet/chat",
+    });
   }
 );
 
