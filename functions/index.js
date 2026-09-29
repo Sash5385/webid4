@@ -179,12 +179,16 @@ async function sendActiveTemplates(uid, triggerId, vars = {}, filterFn = null) {
     const text = renderTemplateBody(tpl.body, vars);
     const time = new Date().toLocaleTimeString("uk", { hour: "2-digit", minute: "2-digit" });
     const ts = Date.now();
-    const chatSent = await db.ref(`chats/${uid}`).push({ from: "admin", text, time, ts, auto: true })
-      .then(() => true).catch(() => false);
-    if (chatSent) {
-      await db.ref(`chatMeta/${uid}`).update({
-        unreadForStudent: admin.database.ServerValue.increment(1), lastMsg: text, lastTs: ts,
-      }).catch(() => {});
+    // channel:"push" — шаблон налаштований як лише сповіщення, без запису в чат.
+    let chatSent = false;
+    if (tpl.channel !== "push") {
+      chatSent = await db.ref(`chats/${uid}`).push({ from: "admin", text, time, ts, auto: true })
+        .then(() => true).catch(() => false);
+      if (chatSent) {
+        await db.ref(`chatMeta/${uid}`).update({
+          unreadForStudent: admin.database.ServerValue.increment(1), lastMsg: text, lastTs: ts,
+        }).catch(() => {});
+      }
     }
     const pushed = await pushStudent(uid, tpl.title || "Повідомлення", text, {}).catch(() => false);
     if (pushed) await saveNotification(uid, tpl.title || "Повідомлення", text, "template").catch(() => {});
@@ -748,6 +752,22 @@ exports.onInstructorMessage = onValueCreated(
     await pushStudent(uid, "💬 Інструктор", text.length > 100 ? text.slice(0, 100) + "…" : text, {
       url: "https://id4drive.pro/cabinet/chat",
     });
+  }
+);
+
+// Ручна відправка шаблону з каналом "push" (вкладка "Шаблони") — учень
+// отримує лише push-сповіщення, без запису повідомлення в чат. Клієнт
+// пише в цей тимчасовий вузол, функція шле push і одразу прибирає запис.
+exports.onTemplatePush = onValueCreated(
+  { ref: "templatePush/{uid}/{pushId}", region: "europe-west1" },
+  async (event) => {
+    const req = event.data.val();
+    const { uid, pushId } = event.params;
+    if (req && req.title) {
+      await pushStudent(uid, req.title, req.body || "", {});
+      await saveNotification(uid, req.title, req.body || "", "template").catch(() => {});
+    }
+    await db.ref(`templatePush/${uid}/${pushId}`).remove().catch(() => {});
   }
 );
 
