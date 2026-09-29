@@ -1,6 +1,7 @@
 const { onSchedule } = require("firebase-functions/v2/scheduler");
 const { onValueCreated, onValueUpdated, onValueWritten } = require("firebase-functions/v2/database");
 const admin = require("firebase-admin");
+const { blockRangeUpdates, restoreRangeUpdates, rangeSlotIds } = require("./slotRules");
 const {
   CALENDAR_SECRETS, getCalendarClient, buildEvent, getBookingSchedule, fromCalendarEvent, isIgnorableCalendarError,
 } = require("./googleCalendar");
@@ -218,11 +219,10 @@ async function getActiveTemplateText(triggerId, vars = {}) {
   return { title: tpl.title || "Повідомлення", body: renderTemplateBody(tpl.body, vars) };
 }
 
-// Хелпер: заблокувати / звільнити timeslots для букінгу
-async function buildSlotUpdates(bookingData, available) {
+// Діапазон запису в хвилинах від півночі (або null, якщо даних замало)
+function bookingRange(bookingData) {
   const { date, time, durationHours, durMin, startMin } = bookingData || {};
-  if (!date || (!time && startMin == null)) return {};
-  const INTERVAL = 30;
+  if (!date || (!time && startMin == null)) return null;
   let start;
   if (startMin != null) {
     start = startMin;
@@ -230,38 +230,46 @@ async function buildSlotUpdates(bookingData, available) {
     const [h, m] = (time || "0:0").split(":").map(Number);
     start = h * 60 + m;
   }
-  const dur = durMin ?? ((durationHours || 1) * 60);
+  return { date, start, dur: durMin ?? ((durationHours || 1) * 60) };
+}
+
+async function readSlotDay(date) {
+  const snap = await db.ref(`timeslots/${date}`).get().catch(() => null);
+  return snap?.val() || {};
+}
+
+// Хелпер: заблокувати / звільнити timeslots для запису за єдиними правилами
+// (див. slotRules.js): блокування ставить phantom на позиції без власного
+// документа; звільнення видаляє phantom, справжні повертає вільними, а
+// відсутні НЕ створює — тому повторне/паралельне звільнення безпечне і день
+// повертається рівно до стану ДО запису.
+async function buildSlotUpdates(bookingData, available) {
+  const r = bookingRange(bookingData);
+  if (!r) return {};
+  const day = await readSlotDay(r.date);
+  const prefix = `timeslots/${r.date}/`;
+  return available
+    ? restoreRangeUpdates(day, prefix, r.start, r.dur)
+    : blockRangeUpdates(day, prefix, r.start, r.dur);
+}
+
+// Перенесення запису: заблокувати нове місце і звільнити старе (крім позицій,
+// що одразу знову блокуються новим місцем).
+async function buildRescheduleSlotUpdates(before, after) {
+  const oldR = bookingRange(before);
+  const newR = bookingRange(after);
   const updates = {};
-  // Читаємо реальний стан дня і в обох напрямках: при блокуванні (available=
-  // false) — щоб позначити phantom:true позиції, під якими нема свого
-  // документа (напр. букінг на 2 год впритул зачіпає :00/:30, а генерація
-  // була кроком 60 — проміжна позиція створюється лише під цей букінг). При
-  // звільненні (available=true) — щоб не вважати :30-позицію phantom лише за
-  // парністю (адмін міг вручну відкрити "Вільний слот" саме на :30) і
-  // дивитись на цей самий прапорець, як і клієнтський код скасування.
-  // Без phantom на блокуванні звільнення не могло відрізнити такий
-  // проміжний документ від реального — відновлювало його як "справжній"
-  // окремий вільний слот, і злитий годинний слот розпадався на 30-хв
-  // фрагменти замість повернення до вихідного вигляду.
-  const daySnap = await db.ref(`timeslots/${date}`).get().catch(() => null);
-  const day = daySnap?.val() || {};
-  for (let cur = start; cur < start + dur; cur += INTERVAL) {
-    const hh = String(Math.floor(cur / 60)).padStart(2, "0");
-    const mm = String(cur % 60).padStart(2, "0");
-    const slotId = `slot${hh}${mm}`;
-    if (available) {
-      if (day[slotId]?.phantom) {
-        updates[`timeslots/${date}/${slotId}`] = null;
-      } else {
-        updates[`timeslots/${date}/${slotId}/available`] = true;
-        updates[`timeslots/${date}/${slotId}/time`] = `${hh}:${mm}`;
-        updates[`timeslots/${date}/${slotId}/phantom`] = null;
-      }
-    } else {
-      if (!day[slotId]) updates[`timeslots/${date}/${slotId}/phantom`] = true;
-      updates[`timeslots/${date}/${slotId}/available`] = false;
-      updates[`timeslots/${date}/${slotId}/time`] = `${hh}:${mm}`;
-    }
+  let newDay = null;
+  if (newR) {
+    newDay = await readSlotDay(newR.date);
+    Object.assign(updates, blockRangeUpdates(newDay, `timeslots/${newR.date}/`, newR.start, newR.dur));
+  }
+  if (oldR) {
+    const sameDay = newR && newR.date === oldR.date;
+    const oldDay = sameDay ? newDay : await readSlotDay(oldR.date);
+    Object.assign(updates, restoreRangeUpdates(oldDay, `timeslots/${oldR.date}/`, oldR.start, oldR.dur, {
+      skipIds: sameDay ? rangeSlotIds(newR.start, newR.dur) : null,
+    }));
   }
   return updates;
 }
@@ -366,11 +374,11 @@ exports.onBookingChanged = onValueWritten(
       return;
     }
 
-    // Перенесено — тільки блокуємо нове місце (старе залишається blocked до ручної генерації)
+    // Перенесено — блокуємо нове місце і звільняємо старе
     const rescheduled = after.status !== "cancelled" &&
       (after.date !== before.date || after.time !== before.time);
     if (rescheduled) {
-      const blockUpd = await buildSlotUpdates(after, false);
+      const blockUpd = await buildRescheduleSlotUpdates(before, after);
       if (Object.keys(blockUpd).length) await db.ref("/").update(blockUpd).catch(() => {});
       const oldDate = before.date || "—";
       const oldTime = before.time || "—";
