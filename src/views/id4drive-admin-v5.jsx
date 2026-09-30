@@ -20,6 +20,7 @@ const blockSlotRange = async (dateStr, startMin, durMin, opts) => {
 
 import { ThemeContext, GREEN, BLUE, PURPLE, GOLD, RED, TEAL, ACCENT, ACC_HI, SURFACE, SURF_HI, TEXT } from "../theme.js";
 import { useFX } from "../ui";
+import { MANUAL_DEFAULT_COLOR } from "../studentColors";
 // module-level aliases for vars used in ICONS (arrow fns, cannot use hooks)
 const ACCENT_HI  = ACC_HI;
 const SURFACE_HI = SURF_HI;
@@ -2594,7 +2595,20 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
     keys.forEach((k, i) => { map[k] = STUDENT_PALETTE[i % STUDENT_PALETTE.length]; });
     return map;
   }, [bookings]);
+  // Ручний режим (тумблер "Автокольори учнів" вимкнено): колір бере з картки учня
+  // (users/{uid}/slotColor); без призначеного — нейтральний.
+  const [manualStudentColors, setManualStudentColors] = useState({});
+  useEffect(() => {
+    const r = ref(db, "users");
+    const h = onValue(r, snap => {
+      const m = {};
+      Object.entries(snap.val() || {}).forEach(([uid, u]) => { if (u && u.slotColor) m[uid] = u.slotColor; });
+      setManualStudentColors(m);
+    });
+    return () => off(r, "value", h);
+  }, []);
   const studentColor = (b) => {
+    if (settings.autoStudentColors === false) return manualStudentColors[b.userId] || MANUAL_DEFAULT_COLOR;
     const key = b.userId || b.phone || b.name || b.id;
     return studentColorMap[key] || STUDENT_PALETTE[0];
   };
