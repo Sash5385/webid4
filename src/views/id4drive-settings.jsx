@@ -189,13 +189,14 @@ function TimeInput({ value, onChange, min=0, max=24, compact=false }) {
 }
 
 // ─── БАРАБАН ЧАСУ — крупний вибір часу прокруткою (scroll-snap) ──────────
-const WHEEL_ITEM = 36;
+// Крок хвилин 30: календар (сітка, підписи, лінії) побудований на півгодинних
+// рядках, дробові 15/10/5 хв зламали б вирівнювання сітки.
+const WHEEL_ITEM = 40;
 const WHEEL_H = Array.from({length:25},(_,i)=>String(i).padStart(2,"0"));
 const WHEEL_M = ["00","30"];
 
-function WheelCol({ items, index, onIndex, rows = 5, width = 56, color }) {
-  const { TEXT, FAINT, GREEN, BG_DEEP } = useContext(ThemeContext);
-  const c = color || GREEN;
+function WheelCol({ items, index, onIndex, rows = 5, width = 48 }) {
+  const { TEXT, FAINT } = useContext(ThemeContext);
   const ref = useRef(null);
   const timer = useRef(null);
   const [live, setLive] = useState(index);
@@ -215,13 +216,10 @@ function WheelCol({ items, index, onIndex, rows = 5, width = 56, color }) {
     clearTimeout(timer.current);
     timer.current = setTimeout(() => { if (i !== index) onIndex(i); setTick(t => t + 1); }, 140);
   };
-  const mask = "linear-gradient(transparent,#000 30%,#000 70%,transparent)";
+  const mask = "linear-gradient(transparent,#000 28%,#000 72%,transparent)";
   return (
-    <div style={{position:"relative",width,height:rows*WHEEL_ITEM,flexShrink:0}}>
+    <div style={{position:"relative",zIndex:1,width,height:rows*WHEEL_ITEM,flexShrink:0}}>
       <style>{`.wheel-col::-webkit-scrollbar{display:none}`}</style>
-      <div style={{position:"absolute",left:0,right:0,top:pad,height:WHEEL_ITEM,pointerEvents:"none",
-        borderTop:`2px solid ${c}`,borderBottom:`2px solid ${c}`,
-        background:`color-mix(in srgb,${c} 10%,transparent)`}}/>
       <div ref={ref} className="wheel-col" onScroll={onScroll} style={{
         height:"100%",overflowY:"scroll",scrollSnapType:"y mandatory",scrollbarWidth:"none",
         overscrollBehavior:"contain",WebkitOverflowScrolling:"touch",
@@ -229,12 +227,15 @@ function WheelCol({ items, index, onIndex, rows = 5, width = 56, color }) {
       }}>
         <div style={{height:pad}}/>
         {items.map((it, i) => {
-          const o = Math.abs(i - live);
+          const o = i - live;
+          const a = Math.abs(o);
           return (
             <div key={i} onClick={()=>ref.current?.scrollTo({top:i*WHEEL_ITEM,behavior:"smooth"})} style={{
               height:WHEEL_ITEM,scrollSnapAlign:"center",display:"flex",alignItems:"center",justifyContent:"center",
-              fontSize:o===0?24:o===1?19:16,fontWeight:800,cursor:"pointer",userSelect:"none",
-              color:o===0?TEXT:FAINT,opacity:o===0?1:o===1?0.55:0.25,
+              fontSize:a===0?30:a===1?22:18,fontWeight:800,cursor:"pointer",userSelect:"none",
+              fontVariantNumeric:"tabular-nums",
+              transform:`perspective(240px) rotateX(${Math.max(-70,Math.min(70,-o*28))}deg)`,
+              color:a===0?TEXT:FAINT,opacity:a===0?1:a===1?0.6:0.28,
             }}>{it}</div>
           );
         })}
@@ -245,81 +246,116 @@ function WheelCol({ items, index, onIndex, rows = 5, width = 56, color }) {
 }
 
 function TimeWheel({ label, value, onChange, min = 0, max = 24, rows = 5, color }) {
-  const { DIM, TEXT } = useContext(ThemeContext);
+  const { DIM, TEXT, GREEN, BG_DEEP } = useContext(ThemeContext);
+  const c = color || GREEN;
   const v = Math.min(max, Math.max(min, Number(value) || 0));
   const h = Math.floor(v);
   const m = v % 1 >= 0.5 ? 1 : 0;
   const set = (nh, nm) => onChange(Math.min(max, Math.max(min, nh + nm * 0.5)));
+  const pad = ((rows - 1) / 2) * WHEEL_ITEM;
   return (
     <div style={{textAlign:"center"}}>
-      <div style={{fontSize:11,fontWeight:800,letterSpacing:1,color:color||DIM,marginBottom:4}}>{label}</div>
-      <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:2}}>
-        <WheelCol items={WHEEL_H} index={h} onIndex={i=>set(i,m)} rows={rows} color={color}/>
-        <span style={{fontSize:24,fontWeight:800,color:TEXT}}>:</span>
-        <WheelCol items={WHEEL_M} index={m} onIndex={i=>set(h,i)} rows={rows} color={color}/>
+      <div style={{display:"inline-block",fontSize:11,fontWeight:800,letterSpacing:1.2,color:c,marginBottom:6,
+        padding:"3px 12px",borderRadius:999,background:`color-mix(in srgb,${c} 14%,transparent)`}}>{label}</div>
+      <div style={{position:"relative",display:"flex",alignItems:"center",justifyContent:"center",gap:2,padding:"0 4px"}}>
+        <div style={{position:"absolute",left:0,right:0,top:pad,height:WHEEL_ITEM,pointerEvents:"none",borderRadius:14,
+          background:`linear-gradient(135deg,color-mix(in srgb,${c} 32%,${BG_DEEP}),color-mix(in srgb,${c} 10%,${BG_DEEP}))`,
+          border:`1px solid color-mix(in srgb,${c} 55%,transparent)`,
+          boxShadow:`0 0 18px color-mix(in srgb,${c} 28%,transparent), inset 0 1px 0 rgba(255,255,255,.12)`}}/>
+        <WheelCol items={WHEEL_H} index={h} onIndex={i=>set(i,m)} rows={rows}/>
+        <span style={{position:"relative",zIndex:1,fontSize:28,fontWeight:800,color:TEXT,marginTop:-3}}>:</span>
+        <WheelCol items={WHEEL_M} index={m} onIndex={i=>set(h,i)} rows={rows}/>
       </div>
     </div>
   );
 }
 
 function WeekScheduleEditor({ weekSchedule, updDay, setWeek }) {
-  const { BG_DEEP, TEXT, DIM, FAINT, GREEN, RED, GOLD, ACCENT, SI } = useContext(ThemeContext);
+  const { BG_DEEP, SURF_HI, SURFACE, TEXT, DIM, FAINT, GREEN, RED, GOLD, ACCENT, SI, SO } = useContext(ThemeContext);
   const [sel, setSel] = useState(0);
   const day = weekSchedule[sel];
   const lS = day.lunchStart ?? 12, lE = day.lunchEnd ?? 13;
   const fmt = x => `${String(Math.floor(x)).padStart(2,"0")}:${x % 1 >= 0.5 ? "30" : "00"}`;
   const hrs = d => d.enabled ? Math.max(0, d.end - d.start - (d.lunchEnabled ? Math.max(0, (d.lunchEnd ?? 13) - (d.lunchStart ?? 12)) : 0)) : 0;
   const total = weekSchedule.reduce((s, d) => s + hrs(d), 0);
+  const pct = x => `${(Math.max(0, Math.min(24, x)) / 24) * 100}%`;
   const copyAll = () => setWeek(weekSchedule.map(d => d.enabled
     ? {...d, start: day.start, end: day.end, lunchEnabled: !!day.lunchEnabled, lunchStart: lS, lunchEnd: lE}
     : d));
   return (
-    <div style={{paddingTop:8}}>
-      <div style={{fontSize:11,color:"#fff",letterSpacing:1,textTransform:"uppercase",marginBottom:8,textAlign:"center"}}>Тижневий шаблон</div>
-      <div style={{display:"flex",gap:4,marginBottom:8}}>
+    <div style={{paddingTop:10}}>
+      <div style={{fontSize:11,color:"#fff",letterSpacing:1.2,textTransform:"uppercase",marginBottom:10,textAlign:"center"}}>Тижневий шаблон</div>
+      <div style={{display:"flex",gap:5,marginBottom:10}}>
         {DAY_NAMES.map((n, i) => {
           const d = weekSchedule[i];
           const col = d.enabled ? GREEN : RED;
+          const on = i === sel;
           return (
             <button key={i} onClick={()=>setSel(i)} style={{
-              flex:1,minWidth:0,padding:"11px 0",borderRadius:10,cursor:"pointer",fontSize:13,fontWeight:800,
-              color:d.enabled?"#fff":FAINT,
-              background:`linear-gradient(135deg,color-mix(in srgb,${col} ${d.enabled?38:22}%,${BG_DEEP}) 0%,${BG_DEEP} 100%)`,
-              border:`1px solid color-mix(in srgb,${col} 32%,transparent)`,
-              outline:i===sel?`2px solid ${TEXT}`:"none",outlineOffset:1,
-            }}>{n}</button>
+              flex:1,minWidth:0,padding:"9px 0 8px",borderRadius:14,cursor:"pointer",
+              display:"flex",flexDirection:"column",alignItems:"center",gap:2,
+              background:on
+                ?`linear-gradient(160deg,color-mix(in srgb,${col} 70%,#fff),${col})`
+                :`linear-gradient(160deg,color-mix(in srgb,${col} ${d.enabled?28:16}%,${BG_DEEP}),${BG_DEEP})`,
+              border:`1px solid color-mix(in srgb,${col} ${on?90:30}%,transparent)`,
+              boxShadow:on?`0 4px 14px color-mix(in srgb,${col} 45%,transparent)`:"none",
+              transform:on?"translateY(-2px)":"none",transition:"all .15s",
+            }}>
+              <span style={{fontSize:14,fontWeight:800,color:on?"#0b1a08":d.enabled?"#fff":FAINT}}>{n}</span>
+              <span style={{fontSize:10,fontWeight:700,color:on?"#0b1a08":FAINT}}>{d.enabled ? `${hrs(d)}г` : "—"}</span>
+            </button>
           );
         })}
       </div>
-      <div style={{borderRadius:14,padding:"12px 10px",background:BG_DEEP,boxShadow:SI}}>
-        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:day.enabled?10:0}}>
-          <span style={{fontSize:15,fontWeight:800,color:TEXT}}>{DAY_NAMES[sel]} · {day.enabled ? `${hrs(day)} год` : "Вихідний"}</span>
+      <div style={{borderRadius:20,padding:"14px 10px 12px",background:`linear-gradient(160deg,${SURF_HI},${SURFACE})`,boxShadow:SO,
+        border:"1px solid rgba(255,255,255,.06)"}}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"0 4px"}}>
+          <div>
+            <div style={{fontSize:day.enabled?28:20,fontWeight:800,color:day.enabled?TEXT:FAINT,letterSpacing:-.5,lineHeight:1.1}}>
+              {day.enabled ? <>{fmt(day.start)} <span style={{color:GREEN}}>→</span> {fmt(day.end)}</> : "Вихідний день"}
+            </div>
+            <div style={{fontSize:12,color:DIM,marginTop:3}}>
+              {DAY_NAMES[sel]}{day.enabled ? ` · ${hrs(day)} год роботи${day.lunchEnabled?` · перерва ${fmt(lS)}–${fmt(lE)}`:""}` : ""}
+            </div>
+          </div>
           <Toggle color={day.enabled?GREEN:RED} on={day.enabled} onChange={v=>updDay(sel,{enabled:v})}/>
         </div>
         {day.enabled && (<>
-          <div style={{display:"flex",justifyContent:"space-around",flexWrap:"wrap",gap:8}}>
-            <TimeWheel label="З" value={day.start} onChange={v=>updDay(sel,{start:v})} min={0} max={day.end-0.5}/>
-            <TimeWheel label="ДО" value={day.end} onChange={v=>updDay(sel,{end:v})} min={day.start+0.5} max={24}/>
+          <div style={{margin:"12px 4px 4px"}}>
+            <div style={{position:"relative",height:12,borderRadius:6,background:BG_DEEP,boxShadow:SI,overflow:"hidden"}}>
+              <div style={{position:"absolute",top:0,bottom:0,left:pct(day.start),width:`calc(${pct(day.end)} - ${pct(day.start)})`,
+                background:`linear-gradient(90deg,${GREEN},color-mix(in srgb,${GREEN} 60%,#34d399))`,borderRadius:6}}/>
+              {day.lunchEnabled && <div style={{position:"absolute",top:0,bottom:0,left:pct(lS),width:`calc(${pct(lE)} - ${pct(lS)})`,background:GOLD}}/>}
+            </div>
+            <div style={{display:"flex",justifyContent:"space-between",fontSize:9,color:FAINT,marginTop:3}}>
+              <span>00</span><span>06</span><span>12</span><span>18</span><span>24</span>
+            </div>
           </div>
-          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginTop:12,padding:"10px 12px",borderRadius:12,background:`color-mix(in srgb,${GOLD} 12%,transparent)`}}>
-            <span style={{fontSize:15,fontWeight:700,color:TEXT}}>🍽 Перерва{day.lunchEnabled?` · ${fmt(lS)}–${fmt(lE)}`:""}</span>
+          <div style={{display:"flex",justifyContent:"space-around",flexWrap:"wrap",gap:6,marginTop:6}}>
+            <TimeWheel label="ПОЧАТОК" value={day.start} onChange={v=>updDay(sel,{start:v})} min={0} max={day.end-0.5}/>
+            <TimeWheel label="КІНЕЦЬ" value={day.end} onChange={v=>updDay(sel,{end:v})} min={day.start+0.5} max={24}/>
+          </div>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginTop:14,padding:"11px 12px",borderRadius:14,
+            background:`linear-gradient(135deg,color-mix(in srgb,${GOLD} 22%,${BG_DEEP}),${BG_DEEP})`,border:`1px solid color-mix(in srgb,${GOLD} 35%,transparent)`}}>
+            <span style={{fontSize:15,fontWeight:800,color:TEXT}}>🍽 Перерва{day.lunchEnabled?` · ${fmt(lS)}–${fmt(lE)}`:""}</span>
             <Toggle color={day.lunchEnabled?GREEN:RED} on={!!day.lunchEnabled} onChange={v=>updDay(sel,{lunchEnabled:v})}/>
           </div>
           {day.lunchEnabled && (
-            <div style={{display:"flex",justifyContent:"space-around",flexWrap:"wrap",gap:8,marginTop:8}}>
+            <div style={{display:"flex",justifyContent:"space-around",flexWrap:"wrap",gap:6,marginTop:10}}>
               <TimeWheel label="ПЕРЕРВА З" color={GOLD} rows={3} value={lS} onChange={v=>updDay(sel,{lunchStart:v})} min={0} max={lE-0.5}/>
-              <TimeWheel label="ДО" color={GOLD} rows={3} value={lE} onChange={v=>updDay(sel,{lunchEnd:v})} min={lS+0.5} max={24}/>
+              <TimeWheel label="ПЕРЕРВА ДО" color={GOLD} rows={3} value={lE} onChange={v=>updDay(sel,{lunchEnd:v})} min={lS+0.5} max={24}/>
             </div>
           )}
         </>)}
       </div>
       {day.enabled && (
-        <button onClick={copyAll} style={{width:"100%",marginTop:8,padding:"12px",borderRadius:12,cursor:"pointer",fontSize:13,fontWeight:800,
-          background:"transparent",color:ACCENT,border:`1px dashed color-mix(in srgb,${ACCENT} 55%,transparent)`}}>
+        <button onClick={copyAll} style={{width:"100%",marginTop:10,padding:"13px",borderRadius:14,cursor:"pointer",fontSize:13,fontWeight:800,
+          color:"#fff",background:`linear-gradient(135deg,color-mix(in srgb,${ACCENT} 80%,#000),${ACCENT})`,border:"none",
+          boxShadow:`0 4px 14px color-mix(in srgb,${ACCENT} 35%,transparent)`}}>
           Копіювати {DAY_NAMES[sel]} на всі робочі дні
         </button>
       )}
-      <div style={{textAlign:"center",fontSize:12,color:DIM,marginTop:8}}>Усього {total} год на тиждень</div>
+      <div style={{textAlign:"center",fontSize:12,color:DIM,marginTop:10}}>Усього <b style={{color:TEXT}}>{total} год</b> на тиждень</div>
     </div>
   );
 }
