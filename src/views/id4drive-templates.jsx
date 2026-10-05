@@ -444,7 +444,7 @@ function SimpleEditModal({ tpl, onSave, onClose }) {
   const valid = body.trim().length > 0;
 
   return (
-    <Modal open onClose={onClose} sheet size="lg" title={title}
+    <Modal open onClose={onClose} sheet={false} size="lg" title={title}
       footer={<>
         <Btn variant="ghost" flex={1} onClick={onClose}>Скасувати</Btn>
         <Btn variant="primary" flex={1} disabled={!valid}
