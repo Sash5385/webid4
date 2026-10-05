@@ -71,6 +71,22 @@ const INIT_TEMPLATES = [
     body:"Привіт! Для тебе діє спеціальна пропозиція: {послуга} за {ціна} ₴. Діє тільки цього тижня!" },
 ];
 
+// ─── ПРОСТИЙ РЕЖИМ: стандартні шаблони t1–t7 показуємо як «ситуації» ───
+const STD_IDS = ["t1","t2","t3","t4","t5","t6","t7"];
+const STD_INFO = {
+  t3: { emoji:"✅", title:"Підтвердження запису",  hint:"Коли ви підтвердили запис учня",  color:GREEN  },
+  t4: { emoji:"❌", title:"Скасування запису",      hint:"Коли запис скасовано",            color:RED    },
+  t5: { emoji:"👋", title:"Вітання нового учня",    hint:"Після реєстрації учня в застосунку", color:TEAL },
+  t6: { emoji:"⏳", title:"Вільний слот із черги",  hint:"Коли слот звільнився і хтось чекає в черзі", color:PURPLE },
+  t7: { emoji:"⭐", title:"Прохання про відгук",    hint:"Надсилаєте вручну після уроку",   color:BLUE   },
+};
+const VAR_LABELS = [
+  { v:"{ім'я}", label:"Ім'я учня" }, { v:"{дата}", label:"Дата" }, { v:"{час}", label:"Час" },
+  { v:"{послуга}", label:"Послуга" }, { v:"{ціна}", label:"Ціна" }, { v:"{ТСЦ}", label:"ТСЦ" }, { v:"{інструктор}", label:"Інструктор" },
+];
+// приклад для попереднього перегляду
+const SAMPLE_VARS = { "ім'я":"Олексій", "дата":"5 жовтня, пн", "час":"14:00", "послуга":"Автошкола", "ціна":"900", "ТСЦ":"ТСЦ №1234", "інструктор":"Ваш інструктор" };
+
 // Hardcoded list removed — students are loaded from Firebase in SendModal
 
 // ─── HELPERS ────────────────────────────────────────────────────
@@ -406,6 +422,117 @@ function TemplateCard({ tpl, onEdit, onSend, onToggle, onDelete }) {
   );
 }
 
+// ─── ПРОСТИЙ РЕДАКТОР: лише години (де треба), текст, вставка змінних, перегляд ───
+function SimpleEditModal({ tpl, onSave, onClose }) {
+  const { DIM, SURF_HI, SURFACE, BG_DEEP, BLUE, TEXT, FAINT } = useContext(ThemeContext);
+  const [body, setBody] = useState(tpl.body || "");
+  const [hours, setHours] = useState(tpl.reminderHours ?? 24);
+  const taRef = useRef(null);
+  const isReminder = tpl.trigger === "auto_reminder";
+  const std = INIT_TEMPLATES.find(x => x.id === tpl.id);
+  const title = isReminder ? "Нагадування перед уроком" : (STD_INFO[tpl.id]?.title || tpl.title);
+  const accent = isReminder ? GOLD : (STD_INFO[tpl.id]?.color || BLUE);
+
+  const insertVar = v => {
+    const el = taRef.current;
+    const a = el ? el.selectionStart : body.length;
+    const b = el ? el.selectionEnd : body.length;
+    setBody(body.slice(0, a) + v + body.slice(b));
+    setTimeout(() => { if (el) { el.focus(); el.setSelectionRange(a + v.length, a + v.length); } }, 0);
+  };
+  const label = { fontSize:10, color:"rgba(255,255,255,0.55)", letterSpacing:1, marginBottom:8 };
+  const valid = body.trim().length > 0;
+
+  return (
+    <Modal open onClose={onClose} sheet size="lg" title={title}
+      footer={<>
+        <Btn variant="ghost" flex={1} onClick={onClose}>Скасувати</Btn>
+        <Btn variant="primary" flex={1} disabled={!valid}
+          onClick={()=>onSave({ ...tpl, body, ...(isReminder ? { reminderHours: hours } : {}) })}>Зберегти</Btn>
+      </>}>
+      <div style={{
+        margin:"-14px -20px 0",padding:"16px 20px 20px",
+        background:`linear-gradient(165deg,color-mix(in srgb,${accent} 26%,${BG_DEEP}) 0%,${BG_DEEP} 65%)`,
+      }}>
+        {isReminder && (
+          <div style={{marginBottom:14}}>
+            <div style={label}>ЗА СКІЛЬКИ ГОДИН ДО УРОКУ</div>
+            <div style={{display:"flex",gap:6}}>
+              {[24,2].map(h=>(
+                <button key={h} onClick={()=>setHours(h)} style={{
+                  padding:"10px 14px",borderRadius:12,border:"none",cursor:"pointer",fontFamily:"inherit",flex:1,
+                  background:hours===h?`linear-gradient(135deg,${BLUE}33,${BLUE}14)`:`linear-gradient(135deg,${SURF_HI},${SURFACE})`,
+                  color:hours===h?BLUE:DIM,fontSize:12,fontWeight:700,
+                  borderLeft:hours===h?`3px solid ${BLUE}`:"3px solid transparent"
+                }}>{h===24?"За 24 год":"За 2 год"}</button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div style={label}>ТЕКСТ ПОВІДОМЛЕННЯ</div>
+        <Inset style={{padding:"10px 14px",marginBottom:10}}>
+          <textarea ref={taRef} value={body} onChange={e=>setBody(e.target.value)} rows={5}
+            style={{width:"100%",background:"transparent",border:"none",outline:"none",color:TEXT,fontSize:13,resize:"none",fontFamily:"inherit",lineHeight:1.5}}/>
+        </Inset>
+
+        <div style={{fontSize:10.5,color:"rgba(255,255,255,0.55)",marginBottom:6}}>Натисніть, щоб вставити в текст — підставиться автоматично:</div>
+        <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:16}}>
+          {VAR_LABELS.map(x=>(
+            <span key={x.v} className="var-chip" onClick={()=>insertVar(x.v)}>{x.label}</span>
+          ))}
+        </div>
+
+        {body.trim() && (
+          <div style={{marginBottom:14}}>
+            <div style={{...label,marginBottom:6}}>ТАК ПОБАЧИТЬ УЧЕНЬ (приклад)</div>
+            <div className="bubble-preview" style={{whiteSpace:"pre-wrap"}}>{renderVars(body, SAMPLE_VARS)}</div>
+          </div>
+        )}
+
+        {std && std.body !== body && (
+          <button onClick={()=>setBody(std.body)} style={{
+            background:"none",border:"none",cursor:"pointer",color:FAINT,fontSize:11.5,fontWeight:700,
+            fontFamily:"inherit",padding:"4px 0",textDecoration:"underline",
+          }}>Повернути стандартний текст</button>
+        )}
+      </div>
+    </Modal>
+  );
+}
+
+// ─── РЯДОК «СИТУАЦІЇ» у простому режимі ────────────────────────────
+function SimpleRow({ emoji, title, hint, color, active, onToggle, onEdit, snippet, action, children }) {
+  const { shade, glow } = useFX();
+  const stop = e => e.stopPropagation();
+  return (
+    <div className="fade-in" onClick={onEdit} style={{
+      position:"relative",overflow:"hidden",borderRadius:14,padding:"11px 13px",cursor:"pointer",
+      background:`linear-gradient(155deg,color-mix(in srgb,${color} 38%,${BG_DEEP}) 0%,color-mix(in srgb,${color} 14%,${BG_DEEP}) 100%)`,
+      border:`1px solid color-mix(in srgb,${color} 40%,transparent)`,
+      boxShadow:`-2px 5px 13px ${shade(0.45)},inset 1px 1px 0 ${glow(0.15)}`,
+      opacity:active===false?0.6:1,
+    }}>
+      <div style={{display:"flex",alignItems:"center",gap:9}}>
+        <span style={{fontSize:20,flexShrink:0,lineHeight:1}}>{emoji}</span>
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{fontSize:14,fontWeight:800,color:"#fff"}}>{title}</div>
+          <div style={{fontSize:11,color:"rgba(255,255,255,0.7)",fontWeight:600,marginTop:1}}>{hint}</div>
+        </div>
+        {onToggle && <div onClick={stop}><Toggle on={active} onChange={onToggle}/></div>}
+        {action}
+      </div>
+      {snippet && (
+        <div style={{
+          marginTop:8,fontSize:11.5,lineHeight:1.4,color:"rgba(255,255,255,0.6)",
+          display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical",overflow:"hidden",
+        }}>{snippet}</div>
+      )}
+      {children}
+    </div>
+  );
+}
+
 // ─── MAIN ────────────────────────────────────────────────────────
 export default function TemplatesView() {
   const { TEXT, FAINT } = useContext(ThemeContext);
@@ -416,6 +543,8 @@ export default function TemplatesView() {
   const [loaded, setLoaded] = useState(false);
   const [editTpl, setEditTpl] = useState(null);
   const [sendTpl, setSendTpl] = useState(null);
+  const [simpleTpl, setSimpleTpl] = useState(null);
+  const [advOpen, setAdvOpen] = useState(false);
   const saveTimer = useRef(null);
 
   useEffect(() => {
@@ -445,7 +574,17 @@ export default function TemplatesView() {
   const onToggle = (id,v) => setTemplates(ts=>ts.map(t=>t.id===id?{...t,active:v}:t));
   const onDelete = (id)   => setTemplates(ts=>ts.filter(t=>t.id!==id));
 
-  const list = templates;
+  const list = templates.filter(Boolean);
+  const stdOf = id => list.find(x => x.id === id);
+  const customList = list.filter(x => !STD_IDS.includes(x.id));
+  const missingStd = INIT_TEMPLATES.filter(x => STD_IDS.includes(x.id) && !stdOf(x.id));
+  const restoreStd = () => setTemplates(ts => [...ts.filter(Boolean), ...missingStd]);
+  const onSimpleSave = (form) => {
+    setTemplates(ts => ts.map(x => x && x.id === form.id ? form : x));
+    setSimpleTpl(null);
+  };
+  const snip = tpl => renderVars(tpl.body, SAMPLE_VARS);
+  const reminders = ["t1","t2"].map(stdOf).filter(Boolean);
 
   return (
     <>
@@ -453,33 +592,95 @@ export default function TemplatesView() {
       <style>{css}</style>
       <div style={{display:"flex",flexDirection:"column",gap:8,fontFamily:"ui-sans-serif,-apple-system,system-ui,sans-serif",color:TEXT}}>
 
-        {/* ── LIST ── */}
-        {list.filter(Boolean).map(tpl=>(
-          <TemplateCard
-            key={tpl.id} tpl={tpl}
-            onEdit={setEditTpl} onSend={setSendTpl}
-            onToggle={onToggle} onDelete={onDelete}
-          />
-        ))}
+        {/* ── ПРОСТИЙ РЕЖИМ: що і коли надсилається ── */}
+        <div style={{fontSize:12,color:FAINT,padding:"0 2px 2px"}}>
+          Що і коли надсилається учням. Вимкніть непотрібне або натисніть, щоб змінити текст.
+        </div>
+        <div style={{display:"flex",flexDirection:"column",gap:8}}>
+          {reminders.length > 0 && (
+            <SimpleRow emoji="🔔" title="Нагадування перед уроком" color={GOLD}
+              hint="Надсилається автоматично перед кожним уроком"
+              onEdit={()=>setSimpleTpl(reminders[0])}>
+              <div style={{display:"flex",flexDirection:"column",gap:6,marginTop:9}} onClick={e=>e.stopPropagation()}>
+                {reminders.map(r=>(
+                  <div key={r.id} onClick={()=>setSimpleTpl(r)} style={{
+                    display:"flex",alignItems:"center",gap:8,padding:"7px 10px",borderRadius:10,cursor:"pointer",
+                    background:"rgba(0,0,0,0.22)",opacity:r.active?1:0.55,
+                  }}>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{fontSize:12.5,fontWeight:800,color:"#fff"}}>За {r.reminderHours ?? 24} год до уроку</div>
+                      <div style={{fontSize:11,color:"rgba(255,255,255,0.6)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{snip(r)}</div>
+                    </div>
+                    <div onClick={e=>e.stopPropagation()}><Toggle on={r.active} onChange={v=>onToggle(r.id,v)}/></div>
+                  </div>
+                ))}
+              </div>
+            </SimpleRow>
+          )}
+          {["t3","t4","t5","t6","t7"].map(stdOf).filter(Boolean).map(tpl=>{
+            const info = STD_INFO[tpl.id];
+            const manual = tpl.trigger === "manual";
+            return (
+              <SimpleRow key={tpl.id} emoji={info.emoji} title={info.title} hint={info.hint} color={info.color}
+                active={tpl.active} snippet={snip(tpl)}
+                onEdit={()=>setSimpleTpl(tpl)}
+                onToggle={manual ? undefined : (v=>onToggle(tpl.id,v))}
+                action={manual ? (
+                  <button onClick={e=>{e.stopPropagation();setSendTpl(tpl);}} style={{
+                    padding:"7px 11px",border:"none",borderRadius:9,cursor:"pointer",fontFamily:"inherit",
+                    background:"rgba(0,0,0,0.28)",color:"#fff",fontSize:11,fontWeight:800,flexShrink:0,
+                  }}>Надіслати</button>
+                ) : null}/>
+            );
+          })}
+        </div>
 
-        {list.length===0 && (
-          <div style={{textAlign:"center",padding:"40px 20px",color:FAINT}}>
-            <div style={{fontSize:32,marginBottom:10}}>📝</div>
-            <div style={{fontSize:14,fontWeight:700}}>Шаблонів не знайдено</div>
+        {/* ── ДОДАТКОВО: свої шаблони, канали, умови ── */}
+        <div style={{marginTop:6}}>
+          <div onClick={()=>setAdvOpen(o=>!o)} style={{
+            display:"flex",alignItems:"center",gap:9,padding:"12px 13px",borderRadius:14,cursor:"pointer",
+            background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.1)",
+          }}>
+            <span style={{fontSize:18}}>⚙️</span>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontSize:14,fontWeight:800,color:TEXT}}>Додатково</div>
+              <div style={{fontSize:11,color:FAINT,marginTop:1}}>Свої шаблони, канали, умови відправки</div>
+            </div>
+            <span style={{color:FAINT,fontSize:12}}>{advOpen?"▲":"▼"}</span>
           </div>
-        )}
 
-        {/* ── ADD ── */}
-        <Btn variant="primary" onClick={()=>setEditTpl(false)} style={{width:"100%",marginTop:4}}>
-          <div className="icon3d" style={{width:28,height:28,background:"rgba(255,255,255,0.2)",borderRadius:8}}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" style={{position:"relative",zIndex:1}}><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          </div>
-          Новий шаблон
-        </Btn>
+          {advOpen && (
+            <div style={{display:"flex",flexDirection:"column",gap:0,marginTop:8}}>
+              {customList.map(tpl=>(
+                <TemplateCard
+                  key={tpl.id} tpl={tpl}
+                  onEdit={setEditTpl} onSend={setSendTpl}
+                  onToggle={onToggle} onDelete={onDelete}
+                />
+              ))}
+              {customList.length===0 && (
+                <div style={{textAlign:"center",padding:"14px 10px",color:FAINT,fontSize:12}}>Своїх шаблонів ще немає</div>
+              )}
+              <Btn variant="primary" onClick={()=>setEditTpl(false)} style={{width:"100%",marginTop:4}}>
+                <div className="icon3d" style={{width:28,height:28,background:"rgba(255,255,255,0.2)",borderRadius:8}}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" style={{position:"relative",zIndex:1}}><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                </div>
+                Новий шаблон
+              </Btn>
+              {missingStd.length > 0 && (
+                <button onClick={restoreStd} style={{
+                  background:"none",border:"none",cursor:"pointer",color:FAINT,fontSize:11.5,fontWeight:700,
+                  fontFamily:"inherit",padding:"6px 0",textDecoration:"underline",
+                }}>Відновити стандартні шаблони ({missingStd.length})</button>
+              )}
+            </div>
+          )}
+        </div>
 
       </div>
 
       {editTpl !== null && <EditModal tpl={editTpl||null} onSave={onSave} onClose={()=>setEditTpl(null)}/>}
+      {simpleTpl && <SimpleEditModal tpl={simpleTpl} onSave={onSimpleSave} onClose={()=>setSimpleTpl(null)}/>}
       {sendTpl && <SendModal tpl={sendTpl} onClose={()=>setSendTpl(null)}/>}
     </>
   );
