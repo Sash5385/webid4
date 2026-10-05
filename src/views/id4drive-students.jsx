@@ -606,9 +606,9 @@ function StudentDetailSheet({ s, onClose, onUpdate, onDelete, onBlock, onRemoveB
 
                 {/* Медалі — видаються за конкретний урок у модалці бронювання */}
                 <div style={{background:glow(0.04),borderRadius:10,padding:"10px 12px",border:`1px solid ${BORDER}`}}>
-                  <div style={{fontSize:9,color:FAINT,letterSpacing:1,textTransform:"uppercase",marginBottom:8}}>🏅 Медалі</div>
+                  <div style={{fontSize:9,color:FAINT,letterSpacing:1,textTransform:"uppercase",marginBottom:8}}>🏅 Заохочення</div>
                   {Object.keys(s.badges||{}).length === 0 ? (
-                    <div style={{fontSize:11,color:FAINT}}>Ще немає медалей</div>
+                    <div style={{fontSize:11,color:FAINT}}>Ще немає заохочень</div>
                   ) : (
                     <div style={{display:"flex",flexWrap:"wrap",gap:7}}>
                       {Object.entries(s.badges).sort((a,b)=>(b[1].awardedAt||0)-(a[1].awardedAt||0)).map(([bid,b])=>(

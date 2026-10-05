@@ -1,5 +1,5 @@
 import { useState, useEffect, useContext } from "react";
-import { ref, onValue, update, push, remove } from "firebase/database";
+import { ref, onValue, update, remove } from "firebase/database";
 import { db } from "../firebase";
 
 import { ThemeContext } from "../theme.js";
@@ -20,41 +20,6 @@ const SERVICES = {
   sv3:{ name:"Приватний 1г", color:"#f7c948", type:"private" },
   sv4:{ name:"Приватний 2г", color:"#f7c948", type:"private" },
 };
-
-// ─── ADD TO QUEUE MODAL ─────────────────────────────────────────
-function AddToQueueModal({ onSave, onClose, svcs }) {
-  const { SURF_HI, SURFACE, PURPLE, DIM, SO } = useContext(ThemeContext);
-  const [form, setForm] = useState({ name:"", phone:"", svcId:"sv1" });
-  const upd = (k,v) => setForm(f=>({...f,[k]:v}));
-  const valid = form.name.trim() && form.phone.trim();
-  return (
-    <Modal open onClose={onClose} sheet size="md" title="⏳ Додати до черги"
-      footer={<>
-        <Btn variant="ghost" flex={1} onClick={onClose}>Скасувати</Btn>
-        <Btn variant="primary" accent={PURPLE} flex={1} disabled={!valid} onClick={()=>valid&&onSave(form)}>Додати до черги</Btn>
-      </>}>
-      {[{k:"name",label:"Ім'я учня",placeholder:"Ім'я Прізвище",type:"text"},{k:"phone",label:"Телефон",placeholder:"+380...",type:"tel"}].map(f=>(
-        <div key={f.k} style={{marginBottom:12}}>
-          <div style={{fontSize:10,color:"#5a5c62",letterSpacing:1,marginBottom:5}}>{f.label.toUpperCase()}</div>
-          <input type={f.type} value={form[f.k]} onChange={e=>upd(f.k,e.target.value)} placeholder={f.placeholder}
-            style={{width:"100%",background:"transparent",border:`1px solid rgba(255,255,255,0.08)`,borderRadius:10,padding:"10px 14px",color:"inherit",fontSize:14,outline:"none",boxSizing:"border-box",fontFamily:"inherit"}}/>
-        </div>
-      ))}
-      <div style={{marginBottom:0}}>
-        <div style={{fontSize:10,color:"#5a5c62",letterSpacing:1,marginBottom:5}}>ПОСЛУГА</div>
-        <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-          {Object.entries(svcs||SERVICES).map(([id,s])=>(
-            <button key={id} onClick={()=>upd("svcId",id)} style={{
-              padding:"6px 12px",borderRadius:9,border:"none",cursor:"pointer",fontSize:12,fontWeight:700,fontFamily:"inherit",
-              background:form.svcId===id?`linear-gradient(145deg,${s.color}44,${s.color}22)`:`linear-gradient(145deg,${SURF_HI},${SURFACE})`,
-              color:form.svcId===id?s.color:DIM,boxShadow:SO,
-            }}>{s.name}</button>
-          ))}
-        </div>
-      </div>
-    </Modal>
-  );
-}
 
 // ─── QUEUE OFFER MODAL ──────────────────────────────────────────
 function QueueOfferModal({ cancelledBk, waiting, queueMode, onInvite, onClose, svcsMap }) {
@@ -262,7 +227,6 @@ textarea{color-scheme:dark}
   const [svcsMap,      setSvcsMap]      = useState(SERVICES);
   const [queue,        setQueue]        = useState([]);
   const [queueOpen,    setQueueOpen]    = useState(true);
-  const [addQueueOpen, setAddQueueOpen] = useState(false);
   const [queueOffer,   setQueueOffer]   = useState(null);
   const [search,       setSearch]       = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -307,7 +271,6 @@ textarea{color-scheme:dark}
     },()=>{});
   }, []);
 
-  const addToQueue     = form => push(ref(db,"queue"),{...form,addedAt:Date.now(),status:"waiting"});
   const removeFromQueue= item => {
     if(typeof item==="string"){remove(ref(db,`queue/${item}`));return;}
     if(item._nested)remove(ref(db,`queue/${item._slotKey}/entries/${item._uid}`));
@@ -392,25 +355,18 @@ textarea{color-scheme:dark}
                 <div style={{textAlign:"center",padding:"22px 0 12px",color:FAINT}}>
                   <div style={{fontSize:30,marginBottom:6}}>⏳</div>
                   <div style={{fontSize:14,fontWeight:700,color:DIM}}>Черга порожня</div>
-                  <div style={{fontSize:12,marginTop:4}}>Додайте учнів кнопкою нижче</div>
+                  <div style={{fontSize:12,marginTop:4}}>Учні стають у чергу самі в застосунку</div>
                 </div>
               ) : activeQueue.map((q,i)=>(
                 <QCard key={q.id} q={q} pos={i+1} now={now} svc={(svcsMap||SERVICES)[q.svcId]||{}}
                   onInvite={()=>markOffered(q)} onRemove={()=>removeFromQueue(q)}/>
               ))}
-              <Btn variant="primary" accent={PURPLE} onClick={()=>setAddQueueOpen(true)} style={{width:"100%"}}>
-                <div className="icon3d" style={{width:26,height:26,background:`${PURPLE}33`,borderRadius:8}}>
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" style={{position:"relative",zIndex:1}}><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                </div>
-                Додати до черги
-              </Btn>
             </div>
           )}
         </div>
 
       </div>
 
-      {addQueueOpen && <AddToQueueModal onSave={form=>{addToQueue(form);setAddQueueOpen(false);}} onClose={()=>setAddQueueOpen(false)} svcs={svcsMap}/>}
       {queueOffer && <QueueOfferModal cancelledBk={queueOffer.cancelledBk} waiting={queueOffer.waiting} queueMode={queueMode} svcsMap={svcsMap} onInvite={items=>{items.forEach(item=>markOffered(item));setQueueOffer(null);}} onClose={()=>setQueueOffer(null)}/>}
     </>
   );

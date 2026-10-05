@@ -4081,7 +4081,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
       />
     )}
 
-    <BookingModal booking={localSelectedBooking} onClose={()=>setLocalSelectedBooking(null)}
+    <BookingModal booking={localSelectedBooking ? (bookings.find(x=>x.id===localSelectedBooking.id) || localSelectedBooking) : null} onClose={()=>setLocalSelectedBooking(null)}
       onAction={handleAction} settings={settings} bookings={bookings} onViewStudent={onViewStudent}
       autoTag={localSelectedBooking ? getAutoTag(localSelectedBooking) : null}
       mergeInfo={(() => {
@@ -5150,6 +5150,10 @@ function effectivePrice(svc, dateStr) {
 
 function computeBookingPrice(b, services) {
   if (b.manualPrice != null) return b.manualPrice;
+  // Ціна, записана в слот при бронюванні (клієнт: тариф + надбавка − знижка/індив. ціна) —
+  // джерело істини, поки тривалість не змінилась після запису.
+  const _hrs = b.durationHours != null ? b.durationHours : b.durMin / 60;
+  if (typeof b.price === "number" && b.price > 0 && Math.round(_hrs * 60) === b.durMin) return b.price;
   // Індивідуальна фікс. ціна учня (₴/год у картці учня) — виставляється
   // адміном вручну і діє на всі уроки цього учня замість тарифу послуги;
   // знижка при цьому не застосовується (ціна вже персональна).
@@ -5349,7 +5353,10 @@ function BookingModal({ booking, onClose, onAction, settings, bookings, onViewSt
   const saveEdit = () => {
     const p = Math.max(0, parseInt(draftPrice, 10) || 0);
     const d = Math.min(maxDurMin, Math.max(15, parseInt(draftDur, 10) || booking.durMin));
-    onAction("editBooking", { ...booking, manualPrice: p, durMin: d, durationHours: d / 60 });
+    // Ручну ціну фіксуємо лише якщо інструктор справді змінив суму; збіглася з розрахунковою (тариф, надбавка, знижка) — лишаємо авто,
+    // щоб ціна далі сама відстежувала знижку/зміну тарифу.
+    const autoP = computeBookingPrice({ ...booking, manualPrice: null, durMin: d }, settings.services);
+    onAction("editBooking", { ...booking, manualPrice: (p === autoP && d === booking.durMin) ? null : p, durMin: d, durationHours: d / 60 });
     setEditOpen(false);
   };
 
@@ -5445,6 +5452,32 @@ function BookingModal({ booking, onClose, onAction, settings, bookings, onViewSt
             )}
           </div>
 
+          {/* Action buttons */}
+          <div style={{padding:"10px 10px 0",display:"flex",gap:8}}>
+            <button onClick={() => onAction("call", booking)} style={{
+              flex:1,display:"flex",alignItems:"center",justifyContent:"center",gap:7,
+              padding:"11px",borderRadius:14,border:"none",cursor:"pointer",fontFamily:"inherit",
+              background:`${GREEN}1f`,color:GREEN,fontSize:13,fontWeight:800,
+            }}>{IcoPhone} Дзвонити</button>
+            <button onClick={() => onAction("chat", booking)} style={{
+              flex:1,display:"flex",alignItems:"center",justifyContent:"center",gap:7,
+              padding:"11px",borderRadius:14,border:"none",cursor:"pointer",fontFamily:"inherit",
+              background:`rgba(${GLOW},0.1)`,color:BLUE,fontSize:13,fontWeight:800,
+            }}>{IcoChat} Чат</button>
+          </div>
+          <div style={{padding:"8px 10px 4px",display:"flex",gap:8}}>
+            <button onClick={() => onViewStudent?.(booking.userId, false)} style={{
+              flex:1,display:"flex",alignItems:"center",justifyContent:"center",gap:7,
+              padding:"11px",borderRadius:14,border:"none",cursor:"pointer",fontFamily:"inherit",
+              background:`${PURPLE}1f`,color:PURPLE,fontSize:13,fontWeight:800,
+            }}>{IcoProfile} Профіль</button>
+            <button onClick={() => onViewStudent?.(booking.userId, true)} style={{
+              flex:1,display:"flex",alignItems:"center",justifyContent:"center",gap:7,
+              padding:"11px",borderRadius:14,border:"none",cursor:"pointer",fontFamily:"inherit",
+              background:`${GOLD}1f`,color:GOLD,fontSize:13,fontWeight:800,
+            }}>{IcoHistory} Історія</button>
+          </div>
+
           {/* Ціна/час — синя колірна картка (редагувати + дата/час/ціна разом) */}
           {booking.studentNote && (
             <div style={{
@@ -5518,106 +5551,6 @@ function BookingModal({ booking, onClose, onAction, settings, bookings, onViewSt
             </div>
           </div>
 
-          {/* Маневри — фіолетова колірна картка */}
-          <div style={{
-            margin:"10px 14px 0",padding:"12px 14px",borderRadius:16,
-            background:`linear-gradient(155deg,color-mix(in srgb,${PURPLE} 38%,${BG_DEEP}) 0%,${BG_DEEP} 100%)`,
-            border:`1px solid color-mix(in srgb,${PURPLE} 36%,transparent)`,
-          }}>
-            <div style={{fontSize:9,fontWeight:700,letterSpacing:1,color:"rgba(255,255,255,.75)",textTransform:"uppercase",marginBottom:8}}>
-              🚗 Маневри
-            </div>
-            <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8}}>
-              {[
-                { key:"rozvorot",   label:"Розворот" },
-                { key:"parking90",  label:"Паркування 90" },
-                { key:"parking45",  label:"Паркування 45" },
-              ].map(m => {
-                const active = !!maneuverState[m.key];
-                const count = maneuverCounts[m.key] || 0;
-                const isSuccess = (maneuverResults[m.key] || "success") === "success";
-                return (
-                  <div key={m.key} style={{position:"relative"}}>
-                    <button onClick={() => toggleManeuver(m.key)} style={{
-                      width:"100%", fontFamily:"inherit",
-                      background: active ? "linear-gradient(155deg,#fff3,rgba(0,0,0,0.15))" : "rgba(0,0,0,0.22)",
-                      border: active ? "1.5px solid rgba(255,255,255,0.55)" : "1.5px solid rgba(255,255,255,0.15)",
-                      borderRadius:12, padding:"10px 4px",
-                      textAlign:"center", fontSize:10.5, fontWeight:700,
-                      color: "#fff",
-                      cursor: active ? "default" : "pointer",
-                      boxShadow: active ? "0 3px 12px rgba(0,0,0,0.3)" : "none",
-                    }}>
-                      {m.label}
-                    </button>
-                    <div style={{
-                      position:"absolute", top:-7, right:-6,
-                      background:GOLD, color:"#1a1200", fontSize:9, fontWeight:900,
-                      width:18, height:18, borderRadius:"50%",
-                      display:"flex", alignItems:"center", justifyContent:"center",
-                      border:"2px solid rgba(0,0,0,0.4)", pointerEvents:"none",
-                    }}>{count}</div>
-                    {active && (
-                      <div onClick={() => toggleManeuverResult(m.key)} style={{
-                        position:"absolute", bottom:-7, right:-6,
-                        background: isSuccess ? GREEN : RED, color:"#fff", fontSize:10, fontWeight:900,
-                        width:18, height:18, borderRadius:"50%",
-                        display:"flex", alignItems:"center", justifyContent:"center",
-                        border:"2px solid rgba(0,0,0,0.4)", cursor:"pointer",
-                      }} title={isSuccess ? "Вдало (тап — позначити невдало)" : "Невдало (тап — позначити вдало)"}>
-                        {isSuccess ? "✓" : "✕"}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Медаль за урок — золота колірна картка (прив'язана до цього booking, видно учню біля завершеного запису) */}
-          <div style={{
-            margin:"10px 14px 0",padding:"12px 14px",borderRadius:16,
-            background:`linear-gradient(155deg,color-mix(in srgb,${GOLD} 38%,${BG_DEEP}) 0%,${BG_DEEP} 100%)`,
-            border:`1px solid color-mix(in srgb,${GOLD} 36%,transparent)`,
-          }}>
-            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6}}>
-              <div style={{fontSize:9,fontWeight:700,letterSpacing:1,color:"rgba(255,255,255,.8)",textTransform:"uppercase"}}>
-                🏅 Медаль за урок
-              </div>
-              <div onClick={() => setBadgePickerOpen(o => !o)} style={{
-                fontSize:11,fontWeight:800,color:"#fff",cursor:"pointer",padding:"2px 8px",
-                borderRadius:8,background:"rgba(0,0,0,0.25)",
-              }}>{badgePickerOpen ? "Закрити" : "+ Додати"}</div>
-            </div>
-            {Object.entries(allBadges).filter(([,b])=>b.bookingId===booking.id).length > 0 && (
-              <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:badgePickerOpen?8:0}}>
-                {Object.entries(allBadges).filter(([,b])=>b.bookingId===booking.id).map(([bid,b])=>(
-                  <div key={bid} onClick={()=>removeBookingBadge(bid)} title="Тап — прибрати" style={{
-                    display:"flex",alignItems:"center",gap:5,padding:"5px 9px",borderRadius:20,
-                    background:"rgba(0,0,0,0.22)",border:"1px solid rgba(255,255,255,0.25)",cursor:"pointer",
-                  }}>
-                    <span style={{fontSize:14}}>{b.icon}</span>
-                    <span style={{fontSize:11,fontWeight:700,color:"#fff"}}>{b.label}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-            {badgePickerOpen && (
-              <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:7,paddingBottom:4}}>
-                {BADGE_PRESETS.map((bp,i)=>(
-                  <button key={i} onClick={()=>awardBookingBadge(bp.icon,bp.label)} style={{
-                    display:"flex",flexDirection:"column",alignItems:"center",gap:4,
-                    padding:"9px 4px",borderRadius:12,border:"1px solid rgba(255,255,255,0.18)",cursor:"pointer",
-                    background:"rgba(0,0,0,0.22)",fontFamily:"inherit",
-                  }}>
-                    <span style={{fontSize:18}}>{bp.icon}</span>
-                    <span style={{fontSize:9,fontWeight:700,color:"rgba(255,255,255,.85)",textAlign:"center",lineHeight:1.2}}>{bp.label}</span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
           {/* Мітка — booking.tag/tagManual, якщо ручна; інакше показуємо автотег
               (за порядком уроку/сумою боргу), рахований у батьківському компоненті. */}
           {(() => {
@@ -5687,9 +5620,119 @@ function BookingModal({ booking, onClose, onAction, settings, bookings, onViewSt
                     ))}
                   </div>
                 )}
+                <div style={{marginTop:8,fontSize:10.5,lineHeight:1.4,color:"rgba(255,255,255,.55)"}}>
+                  Позначка на картці запису в розкладі (1-й урок, іспит, борг тощо). Перший урок ставиться автоматично, решту — вручну («Змінити»).
+                </div>
               </div>
             );
           })()}
+
+          {/* Маневри — фіолетова колірна картка */}
+          <div style={{
+            margin:"10px 14px 0",padding:"12px 14px",borderRadius:16,
+            background:`linear-gradient(155deg,color-mix(in srgb,${PURPLE} 38%,${BG_DEEP}) 0%,${BG_DEEP} 100%)`,
+            border:`1px solid color-mix(in srgb,${PURPLE} 36%,transparent)`,
+          }}>
+            <div style={{fontSize:9,fontWeight:700,letterSpacing:1,color:"rgba(255,255,255,.75)",textTransform:"uppercase",marginBottom:8}}>
+              🚗 Маневри
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8}}>
+              {[
+                { key:"rozvorot",   label:"Розворот" },
+                { key:"parking90",  label:"Паркування 90" },
+                { key:"parking45",  label:"Паркування 45" },
+              ].map(m => {
+                const active = !!maneuverState[m.key];
+                const count = maneuverCounts[m.key] || 0;
+                const isSuccess = (maneuverResults[m.key] || "success") === "success";
+                return (
+                  <div key={m.key} style={{position:"relative"}}>
+                    <button onClick={() => toggleManeuver(m.key)} style={{
+                      width:"100%", fontFamily:"inherit",
+                      background: active ? "linear-gradient(155deg,#fff3,rgba(0,0,0,0.15))" : "rgba(0,0,0,0.22)",
+                      border: active ? "1.5px solid rgba(255,255,255,0.55)" : "1.5px solid rgba(255,255,255,0.15)",
+                      borderRadius:12, padding:"10px 4px",
+                      textAlign:"center", fontSize:10.5, fontWeight:700,
+                      color: "#fff",
+                      cursor: active ? "default" : "pointer",
+                      boxShadow: active ? "0 3px 12px rgba(0,0,0,0.3)" : "none",
+                    }}>
+                      {m.label}
+                    </button>
+                    <div style={{
+                      position:"absolute", top:-7, right:-6,
+                      background:GOLD, color:"#1a1200", fontSize:9, fontWeight:900,
+                      width:18, height:18, borderRadius:"50%",
+                      display:"flex", alignItems:"center", justifyContent:"center",
+                      border:"2px solid rgba(0,0,0,0.4)", pointerEvents:"none",
+                    }}>{count}</div>
+                    {active && (
+                      <div onClick={() => toggleManeuverResult(m.key)} style={{
+                        position:"absolute", bottom:-7, right:-6,
+                        background: isSuccess ? GREEN : RED, color:"#fff", fontSize:10, fontWeight:900,
+                        width:18, height:18, borderRadius:"50%",
+                        display:"flex", alignItems:"center", justifyContent:"center",
+                        border:"2px solid rgba(0,0,0,0.4)", cursor:"pointer",
+                      }} title={isSuccess ? "Вдало (тап — позначити невдало)" : "Невдало (тап — позначити вдало)"}>
+                        {isSuccess ? "✓" : "✕"}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            <div style={{marginTop:8,fontSize:10.5,lineHeight:1.4,color:"rgba(255,255,255,.55)"}}>
+              Тап по маневру — відмітити, що його відпрацювали на цьому уроці. Золотий кружок — скільки разів учень відпрацював його за весь час. ✓ / ✕ — вдало чи невдало (тап — змінити).
+            </div>
+          </div>
+
+          {/* Медаль за урок — золота колірна картка (прив'язана до цього booking, видно учню біля завершеного запису) */}
+          <div style={{
+            margin:"10px 14px 0",padding:"12px 14px",borderRadius:16,
+            background:`linear-gradient(155deg,color-mix(in srgb,${GOLD} 38%,${BG_DEEP}) 0%,${BG_DEEP} 100%)`,
+            border:`1px solid color-mix(in srgb,${GOLD} 36%,transparent)`,
+          }}>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6}}>
+              <div style={{fontSize:9,fontWeight:700,letterSpacing:1,color:"rgba(255,255,255,.8)",textTransform:"uppercase"}}>
+                🏅 Заохочення за урок
+              </div>
+              <div onClick={() => setBadgePickerOpen(o => !o)} style={{
+                fontSize:11,fontWeight:800,color:"#fff",cursor:"pointer",padding:"2px 8px",
+                borderRadius:8,background:"rgba(0,0,0,0.25)",
+              }}>{badgePickerOpen ? "Закрити" : "+ Додати"}</div>
+            </div>
+            {Object.entries(allBadges).filter(([,b])=>b.bookingId===booking.id).length > 0 && (
+              <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:badgePickerOpen?8:0}}>
+                {Object.entries(allBadges).filter(([,b])=>b.bookingId===booking.id).map(([bid,b])=>(
+                  <div key={bid} onClick={()=>removeBookingBadge(bid)} title="Тап — прибрати" style={{
+                    display:"flex",alignItems:"center",gap:5,padding:"5px 9px",borderRadius:20,
+                    background:"rgba(0,0,0,0.22)",border:"1px solid rgba(255,255,255,0.25)",cursor:"pointer",
+                  }}>
+                    <span style={{fontSize:14}}>{b.icon}</span>
+                    <span style={{fontSize:11,fontWeight:700,color:"#fff"}}>{b.label}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            {badgePickerOpen && (
+              <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:7,paddingBottom:4}}>
+                {BADGE_PRESETS.map((bp,i)=>(
+                  <button key={i} onClick={()=>awardBookingBadge(bp.icon,bp.label)} style={{
+                    display:"flex",flexDirection:"column",alignItems:"center",gap:4,
+                    padding:"9px 4px",borderRadius:12,border:"1px solid rgba(255,255,255,0.18)",cursor:"pointer",
+                    background:"rgba(0,0,0,0.22)",fontFamily:"inherit",
+                  }}>
+                    <span style={{fontSize:18}}>{bp.icon}</span>
+                    <span style={{fontSize:9,fontWeight:700,color:"rgba(255,255,255,.85)",textAlign:"center",lineHeight:1.2}}>{bp.label}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+            <div style={{marginTop:8,fontSize:10.5,lineHeight:1.4,color:"rgba(255,255,255,.55)"}}>
+              Нагорода учню за цей урок. Учень побачить її у профілі в розділі «Мої заохочення» і отримає сповіщення. Тап по значку — прибрати.
+            </div>
+          </div>
+
 
           {/* Queue */}
           {queueEntries.length > 0 && (
@@ -5727,32 +5770,6 @@ function BookingModal({ booking, onClose, onAction, settings, bookings, onViewSt
               ))}
             </div>
           )}
-
-          {/* Action buttons */}
-          <div style={{padding:"10px 10px 0",display:"flex",gap:8}}>
-            <button onClick={() => onAction("call", booking)} style={{
-              flex:1,display:"flex",alignItems:"center",justifyContent:"center",gap:7,
-              padding:"11px",borderRadius:14,border:"none",cursor:"pointer",fontFamily:"inherit",
-              background:`${GREEN}1f`,color:GREEN,fontSize:13,fontWeight:800,
-            }}>{IcoPhone} Дзвонити</button>
-            <button onClick={() => onAction("chat", booking)} style={{
-              flex:1,display:"flex",alignItems:"center",justifyContent:"center",gap:7,
-              padding:"11px",borderRadius:14,border:"none",cursor:"pointer",fontFamily:"inherit",
-              background:`rgba(${GLOW},0.1)`,color:BLUE,fontSize:13,fontWeight:800,
-            }}>{IcoChat} Чат</button>
-          </div>
-          <div style={{padding:"8px 10px 4px",display:"flex",gap:8}}>
-            <button onClick={() => onViewStudent?.(booking.userId, false)} style={{
-              flex:1,display:"flex",alignItems:"center",justifyContent:"center",gap:7,
-              padding:"11px",borderRadius:14,border:"none",cursor:"pointer",fontFamily:"inherit",
-              background:`${PURPLE}1f`,color:PURPLE,fontSize:13,fontWeight:800,
-            }}>{IcoProfile} Профіль</button>
-            <button onClick={() => onViewStudent?.(booking.userId, true)} style={{
-              flex:1,display:"flex",alignItems:"center",justifyContent:"center",gap:7,
-              padding:"11px",borderRadius:14,border:"none",cursor:"pointer",fontFamily:"inherit",
-              background:`${GOLD}1f`,color:GOLD,fontSize:13,fontWeight:800,
-            }}>{IcoHistory} Історія</button>
-          </div>
 
           {/* Cancel link */}
           {isPastLocked ? (
@@ -7388,7 +7405,7 @@ export default function App() {
           hoursDone: raw.hours || raw.hoursDone || 0,
           categoryId: raw.categoryId || null,
           isVipOnly:  raw.isVipOnly || false,
-          discount: usersMapRef.current[uid]?.discount || 0,
+          discount: usersMapRef.current[uid]?.discount || raw.discountAmt || 0,
           customPrice: usersMapRef.current[uid]?.customPrice ?? null,
         });
       });
@@ -7619,7 +7636,7 @@ export default function App() {
         </div>
 
         {/* MODALS */}
-        <BookingModal booking={selectedBooking} onClose={()=>setSelectedBooking(null)}
+        <BookingModal booking={selectedBooking ? (bookings.find(x=>x.id===selectedBooking.id) || selectedBooking) : null} onClose={()=>setSelectedBooking(null)}
           onAction={handleAction} settings={settings}
           autoTag={selectedBooking ? getAutoTag(selectedBooking) : null}/>
         <NewBookingModal data={newBookingData} onClose={()=>setNewBookingData(null)}

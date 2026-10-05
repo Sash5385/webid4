@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef, useMemo, useContext } from "react";
-import { ref, onValue, update, push, remove } from "firebase/database";
+import { ref, onValue, update, remove } from "firebase/database";
 import { db } from "../firebase";
 import { ThemeContext } from "../theme.js";
-import { UICss, Modal, Field, Chip, Btn, Section, useFX } from "../ui";
+import { UICss, Section, useFX } from "../ui";
 
 const SERVICES = {
   sv1:{ name:"Автошкола 1г", color:"#7ed957"  },
@@ -60,33 +60,6 @@ function useDragReorder(items, onReorder) {
     onPointerUp: () => { dragIdx.current = null; overIdx.current = null; },
   });
   return { getHandlers };
-}
-
-// ─── ADD TO QUEUE MODAL ──────────────────────────────────────────
-function AddModal({ onSave, onClose }) {
-  const { PURPLE, FAINT } = useContext(ThemeContext);
-  const [form, setForm] = useState({ name:"", phone:"", svcId:"sv1", note:"" });
-  const upd = (k,v) => setForm(f=>({...f,[k]:v}));
-  const valid = form.name.trim() && form.phone.trim();
-  return (
-    <Modal open onClose={onClose} sheet size="lg" title="⏳ Додати до черги"
-      footer={<>
-        <Btn variant="ghost" flex={1} onClick={onClose}>Скасувати</Btn>
-        <Btn variant="primary" accent={PURPLE} flex={1} disabled={!valid} onClick={()=>valid&&onSave(form)}>Додати до черги</Btn>
-      </>}>
-      <Field label="Ім'я учня" value={form.name}  onChange={v=>upd("name",v)}  placeholder="Ім'я Прізвище"/>
-      <Field label="Телефон"   value={form.phone} onChange={v=>upd("phone",v)} placeholder="+380..."/>
-      <div style={{marginBottom:12}}>
-        <div style={{fontSize:10,color:FAINT,letterSpacing:1,marginBottom:6}}>ПОСЛУГА</div>
-        <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-          {Object.entries(SERVICES).map(([id,s])=>(
-            <Chip key={id} active={form.svcId===id} color={s.color} onClick={()=>upd("svcId",id)}>{s.name}</Chip>
-          ))}
-        </div>
-      </div>
-      <Field label="Нотатка" value={form.note} onChange={v=>upd("note",v)} placeholder="Побажання, зручний час…"/>
-    </Modal>
-  );
 }
 
 // ─── QUEUE ITEM ROW ──────────────────────────────────────────────
@@ -199,7 +172,6 @@ function QueueRow({ item, pos, onInvite, onBooked, onArchive, onDelete, dragHand
 export default function QueueView({ settings }) {
   const { DIM, FAINT, GOLD, GREEN, PURPLE, BLUE, ACCENT, TEAL, BG_DEEP } = useContext(ThemeContext);
   const [all,       setAll]       = useState([]);
-  const [showAdd,   setShowAdd]   = useState(false);
 
   const colorIdMap = useMemo(() => ({
     green: GREEN, yellow: GOLD, blue: BLUE, purple: PURPLE,
@@ -252,7 +224,6 @@ export default function QueueView({ settings }) {
   const booked    = id => setStatus(id,"booked");
   const archive   = id => setStatus(id,"archived");
   const del       = id => remove(ref(db,`queue/${id}`));
-  const add       = form => push(ref(db,"queue"),{...form,addedAt:Date.now(),status:"waiting",order:all.length});
 
   const queueMode = settings?.queueAutoFifo ? "fifo"
     : settings?.queueBroadcast ? "broadcast" : "manual";
@@ -321,14 +292,6 @@ export default function QueueView({ settings }) {
           ))}
         </div>
 
-        {/* ── ADD BUTTON ── */}
-        <Btn variant="primary" accent={PURPLE} onClick={()=>setShowAdd(true)} style={{width:"100%"}}>
-          <div className="icon3d" style={{width:26,height:26,background:`${PURPLE}33`,borderRadius:8}}>
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" style={{position:"relative",zIndex:1}}><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          </div>
-          Додати до черги
-        </Btn>
-
         {/* ── МИНУЛІ (час слота вже пройшов) ── */}
         {expired.length > 0 && (
           <Section title={`⏱ Минулі (${expired.length})`}>
@@ -363,7 +326,6 @@ export default function QueueView({ settings }) {
 
       </div>
 
-      {showAdd && <AddModal onSave={form=>{add(form);setShowAdd(false);}} onClose={()=>setShowAdd(false)}/>}
     </>
   );
 }
