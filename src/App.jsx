@@ -55,7 +55,7 @@ body,html{margin:0;padding:0;background:${theme.BG}${theme.BG_IMAGE ? `;backgrou
    після автоскролу до дати календар відкривався за межами екрана.
    transform:none знімає containing block — fixed знову рахується від вікна. */
 @keyframes fade-tab{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
-.tab-anim{animation:fade-tab .22s ease both}
+.tab-anim{animation:fade-tab .22s ease backwards}
 `;
 };
 
