@@ -115,6 +115,27 @@ body, html, #root { margin:0; padding:0; }
   50%     { box-shadow: 4px 4px 9px rgba(${SHADE},0.5), -3px -3px 8px rgba(${GLOW},0.28), 0 0 0 6px rgba(255,90,60,0); }
 }
 
+/* легке «дихання» жовтого куточка (коментар учня до запису) і значка нотатки дня — щоб їх було помітно */
+@keyframes note-corner-glow {
+  0%,100% { filter: drop-shadow(-1px -1px 2px rgba(0,0,0,0.35)) drop-shadow(0 0 0 rgba(247,201,72,0)); }
+  50%     { filter: drop-shadow(-1px -1px 2px rgba(0,0,0,0.35)) drop-shadow(0 0 2px rgba(247,201,72,1)) drop-shadow(0 0 4.5px rgba(247,201,72,0.9)) drop-shadow(0 0 8px rgba(247,201,72,0.7)); }
+}
+/* світла пляма у куті картки: сама картка обрізає тінь за межами, тож світло малюємо всередині */
+@keyframes note-corner-halo {
+  0%,100% { opacity: 0.12; }
+  50%     { opacity: 0.5; }
+}
+@keyframes note-icon-glow {
+  0%,100% { box-shadow: 0 1px 3px rgba(0,0,0,0.5), 0 0 0 0 rgba(247,201,72,0); }
+  50%     { box-shadow: 0 1px 3px rgba(0,0,0,0.5), 0 0 8px 2px rgba(247,201,72,0.85); }
+}
+.note-corner-glow { animation: note-corner-glow 2.6s ease-in-out infinite; }
+.note-corner-halo { animation: note-corner-halo 2.6s ease-in-out infinite; }
+.note-icon-glow   { animation: note-icon-glow 2.6s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .note-corner-glow, .note-corner-halo, .note-icon-glow { animation: none; }
+}
+
 /* resize handles — invisible hit area, no visual bar */
 .slot-handle {
   position: absolute; left: 0; right: 0; height: 12px;
@@ -3169,7 +3190,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                   <div style={{position:"absolute", top:3, right:4, fontSize:8, lineHeight:1, color:FAINT}}>…</div>
                 )}
                 {dayNotes[dateStrCol] && (
-                  <div style={{
+                  <div className="note-icon-glow" style={{
                     position:"absolute", top:2, left:2, width:14, height:14, borderRadius:"50%",
                     background:`linear-gradient(155deg,#ffe28a,${GOLD})`,
                     boxShadow:"0 1px 3px rgba(0,0,0,0.5)",
@@ -3922,7 +3943,13 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                           кут картки (верхній зайнятий часом/лічильником/короною,
                           нижньо-лівий — бейджем черги) */}
                       {b.studentNote && !isBlock && !isVipSlot && !isPersonal && height >= 14 && (
-                        <div style={{
+                        <>
+                        <div className="note-corner-halo" style={{
+                          position:"absolute", bottom:0, right:0, zIndex:3, width:24, height:24,
+                          background:"radial-gradient(circle at 100% 100%, rgba(255,255,255,0.98) 0%, rgba(255,244,190,0.7) 30%, rgba(255,244,190,0) 72%)",
+                          pointerEvents:"none",
+                        }}/>
+                        <div className="note-corner-glow" style={{
                           position:"absolute", bottom:0, right:0, zIndex:4,
                           width:0, height:0,
                           borderStyle:"solid", borderWidth:"0 0 9px 9px",
@@ -3931,6 +3958,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                           filter:`drop-shadow(-1px -1px 2px ${shade(0.35)})`,
                           pointerEvents:"none",
                         }}/>
+                        </>
                       )}
                       {!b._mergedIds && !isLockedPast && <div className="slot-handle bottom" style={{height:handleH}} onPointerDown={e=>onPointerDown(e,b,"bottom")}/>}
 
