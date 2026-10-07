@@ -2747,7 +2747,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
     if (action === "chat")     { navTo?.("chats"); return; }
     if (action === "call")     window.location.href=`tel:${b.phone}`;
     if (action === "sms")      window.location.href=`sms:${b.phone}`;
-    if (action === "viber")    window.location.href=`viber://chat?number=%2B${b.phone.replace(/\D/g,"")}`;
+    if (action === "viber")    window.open(`viber://chat?number=%2B${b.phone.replace(/\D/g,"")}`,"_blank");
     if (action === "telegram") window.location.href=`https://t.me/${b.phone.replace(/\D/g,"")}`;
     if (action === "setTag") {
       // Ручний вибір/зняття мітки — позначаємо tagManual, щоб автоматична

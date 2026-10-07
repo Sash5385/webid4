@@ -414,7 +414,7 @@ function StudentDetailSheet({ s, onClose, onUpdate, onDelete, onBlock, onRemoveB
                 <div style={{display:"flex",gap:7}}>
                   <button onClick={()=>navigator.clipboard?.writeText(inviteLink).catch(()=>{})}
                     style={{flex:1,padding:"10px",borderRadius:10,border:"none",cursor:"pointer",background:`linear-gradient(145deg,${GOLD}cc,${GOLD}88)`,color:"#1a1a1a",fontSize:13,fontWeight:800,boxShadow:SO,fontFamily:"inherit"}}>Копіювати</button>
-                  <button onClick={()=>{window.location.href=`viber://forward?text=${encodeURIComponent(inviteLink)}`;}}
+                  <button onClick={()=>{window.open(`viber://forward?text=${encodeURIComponent(inviteLink)}`,"_blank");}}
                     style={{flex:1,padding:"10px",borderRadius:10,border:"none",cursor:"pointer",background:`linear-gradient(145deg,${SURF_HI},${SURFACE})`,color:TEXT,fontSize:13,fontWeight:700,boxShadow:SO,fontFamily:"inherit"}}>Вайбер</button>
                   <button onClick={()=>{window.open(`https://t.me/share/url?url=${encodeURIComponent(inviteLink)}`,"_blank");}}
                     style={{flex:1,padding:"10px",borderRadius:10,border:"none",cursor:"pointer",background:`linear-gradient(145deg,${SURF_HI},${SURFACE})`,color:TEXT,fontSize:13,fontWeight:700,boxShadow:SO,fontFamily:"inherit"}}>Телеграм</button>
@@ -544,7 +544,7 @@ function StudentDetailSheet({ s, onClose, onUpdate, onDelete, onBlock, onRemoveB
                 {/* Action buttons */}
                 <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:7}}>
                   <ActBtn icon={ICONS.phone}    label="Дзвонити"   onClick={()=>{window.location.href=`tel:${s.phone}`;}}                    color={GREEN}/>
-                  <ActBtn icon={ICONS.viber}    label="Вайбер"     onClick={()=>{window.location.href=`viber://chat?number=%2B${phone}`;}}    color={BLUE}/>
+                  <ActBtn icon={ICONS.viber}    label="Вайбер"     onClick={()=>{window.open(`viber://chat?number=%2B${phone}`,"_blank");}}    color={BLUE}/>
                   <ActBtn icon={ICONS.telegram} label="Телеграм"   onClick={()=>{window.open(`https://t.me/+${phone}`,"_blank");}}            color="#5b9bff"/>
                   <ActBtn icon={ICONS.chat}     label="Чат"        onClick={()=>{navTo("chats");_close();}}                                   color={BLUE}/>
                   <ActBtn icon={ICONS.bell}     label="Повідомлення" onClick={()=>{setPushOpen(true);setPushSent(false);setPushError(null);}} color={GOLD}/>
