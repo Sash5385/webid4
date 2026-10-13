@@ -12,6 +12,18 @@ const M = ["","Січ","Лют","Бер","Кві","Тра","Чер","Лип","С
 const fmtS = d => { if(!d) return "—"; const [,m,day]=d.split("-"); return `${parseInt(day)} ${M[parseInt(m)]}`; };
 const navTo = tab => window.dispatchEvent(new CustomEvent("id4drive-nav", {detail:tab}));
 
+// Приводить телефон до того ж канонічного формату, що пише клієнтський
+// застосунок при реєстрації (webID4client/src/utils/format.js normalizePhone) —
+// інакше "0671234567" (як типово вводить адмін) і "+380671234567" (як завжди
+// пише клієнт) ніколи не збігаються в Cloud Function-мерджі дублікатів.
+function normalizePhoneUA(input) {
+  const digits = (input || "").replace(/\D/g, "");
+  if (digits.length === 9) return `+380${digits}`;
+  if (digits.length === 10 && digits.startsWith("0")) return `+380${digits.slice(1)}`;
+  if (digits.length === 12 && digits.startsWith("380")) return `+${digits}`;
+  return (input || "").trim();
+}
+
 // Мітки поля "Досвід водіння" — те саме, що учень бачить у себе в анкеті
 // (webID4client/src/pages/cabinet/ProfileTab.jsx), тут лише для показу адміну.
 const EXPERIENCE_LABELS = {
@@ -94,11 +106,16 @@ function StudentForm({ initial, onSave, onCancel, saveLabel="Зберегти" }
   const [d, setD] = useState(initial);
   const upd = (k,v) => setD(x=>({...x,[k]:v}));
   const valid = (d.name||"").trim();
+  const save = () => {
+    if (!valid) return;
+    onSave({ ...d, phone: normalizePhoneUA(d.phone), email: (d.email||"").trim() || null });
+  };
   return (
     <div style={{display:"flex",flexDirection:"column",gap:9}}>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7}}>
         <Field label="Ім'я"      value={d.name||""}     onChange={v=>upd("name",v)}     placeholder="Ім'я Прізвище" style={{marginBottom:0}}/>
         <Field label="Телефон"   value={d.phone||""}    onChange={v=>upd("phone",v)}    placeholder="+380..." style={{marginBottom:0}}/>
+        <Field label="Email"     value={d.email||""}    onChange={v=>upd("email",v)}    placeholder="учень@example.com" style={{marginBottom:0}}/>
         <Field label="Знижка ₴/год"  value={d.discount||""} onChange={v=>upd("discount",v.replace(/[^\d]/g,""))} placeholder="0" type="text" inputMode="numeric" style={{marginBottom:0}}/>
         <div>
           <div style={{fontSize:10,color:FAINT,letterSpacing:1,marginBottom:5}}>ТИП</div>
@@ -142,7 +159,7 @@ function StudentForm({ initial, onSave, onCancel, saveLabel="Зберегти" }
       </div>
       <Field label="Нотатки" value={d.notes||""} onChange={v=>upd("notes",v)} placeholder="Нотатки…" textarea rows={2} style={{marginBottom:0}}/>
       <div style={{display:"flex",gap:7}}>
-        <UIBtn variant="primary" flex={1} disabled={!valid} onClick={()=>valid&&onSave(d)}>{saveLabel}</UIBtn>
+        <UIBtn variant="primary" flex={1} disabled={!valid} onClick={save}>{saveLabel}</UIBtn>
         <UIBtn variant="ghost"   flex={1} onClick={onCancel}>Скасувати</UIBtn>
       </div>
     </div>
@@ -373,7 +390,7 @@ function StudentDetailSheet({ s, onClose, onUpdate, onDelete, onBlock, onRemoveB
 
             {editMode ? (
               <StudentForm
-                initial={{name:s.name,phone:s.phone,discount:s.discount??0,customPrice:s.customPrice??"",notes:s.notes||"",type:s.type,isVip:s.isVip||false,noIntervalLimit:s.noIntervalLimit||false}}
+                initial={{name:s.name,phone:s.phone,email:s.email||"",discount:s.discount??0,customPrice:s.customPrice??"",notes:s.notes||"",type:s.type,isVip:s.isVip||false,noIntervalLimit:s.noIntervalLimit||false}}
                 onSave={patch=>{
                   onUpdate(s.id,{...patch, customPrice:patch.customPrice?Number(patch.customPrice):null});
                   setEditMode(false);
@@ -755,7 +772,7 @@ export default function StudentsView({ studentJump, onStudentJumpHandled, bookin
       setStudents(Object.entries(data).map(([uid, u]) => {
         const p = u.profile || {};
         return {
-          id:uid, name:p.name||u.name||"Учень", phone:p.phone||u.phone||"",
+          id:uid, name:p.name||u.name||"Учень", phone:p.phone||u.phone||"", email:p.email||u.email||"",
           type:p.type||u.type||"private",
           hours:u.hours||0, hoursOffset:u.hoursOffset||0,
           discount:u.discount||0, customPrice:u.customPrice??null, notes:u.notes||"", blocked:u.blocked||false, isVip:u.isVip||false,
@@ -820,6 +837,7 @@ export default function StudentsView({ studentJump, onStudentJumpHandled, bookin
   const createStudent = async (data) => {
     const newRef = await push(ref(db,"users"),{
       name:data.name.trim(), phone:data.phone.trim(), type:data.type,
+      ...(data.email ? {email:data.email} : {}),
       discount:Number(data.discount)||0, notes:data.notes.trim(), blocked:false,
       isVip:data.isVip||false, hours:0,
       ...(data.customPrice ? {customPrice:Number(data.customPrice)} : {}),

@@ -418,18 +418,35 @@ exports.onBookingChanged = onValueWritten(
   }
 );
 
-// Нормалізує телефон до самих цифр для порівняння (+380 67 123-45-67 -> 380671234567)
+// Нормалізує телефон до того ж канонічного формату, що пише клієнт при
+// реєстрації (webID4client/src/utils/format.js normalizePhone) — порівняння
+// просто цифрами ("0671234567" vs "380671234567") false-negative не ловило,
+// бо адмін типово вводить номер у локальному форматі з 0, а не +380.
 function normPhone(p) {
-  return (p || "").replace(/\D/g, "");
+  const digits = (p || "").replace(/\D/g, "");
+  if (digits.length === 9) return `380${digits}`;
+  if (digits.length === 10 && digits.startsWith("0")) return `380${digits.slice(1)}`;
+  if (digits.length === 12 && digits.startsWith("380")) return digits;
+  return digits;
+}
+
+function normName(n) {
+  return (n || "").trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+function normEmail(e) {
+  return (e || "").trim().toLowerCase();
 }
 
 // Учень, доданий вручну адміном (картка учня без .profile), запросив
 // себе через посилання ("🔗 Запросити" в картці учня) або просто
-// самостійно зареєструвався з тим самим номером телефону — зливаємо
-// операційні поля (знижку/фікс.ціну/нотатки/години/VIP/медалі) в щойно
-// зареєстрований акаунт. Історію записів/чатів навмисно НЕ переносимо —
-// це критичний модуль, ризик вищий за користь для типового кейсу
-// (запрошення надсилають ДО першого уроку).
+// самостійно зареєструвався — зіставляємо з такою заглушкою по черзі:
+// invite-токен → телефон → email → ПІБ (лише коли збіг однозначний,
+// рівно 1 кандидат — інакше нічого не зливаємо, щоб не зачепити чужий
+// запис навмання). Далі зливаємо операційні поля (знижку/фікс.ціну/
+// нотатки/години/VIP/медалі) в щойно зареєстрований акаунт і переносимо
+// bookings/{oldKey}/* -> bookings/{uid}/* — інакше урок, записаний
+// адміном ДО реєстрації учня, лишався б невидимим у кабінеті клієнта.
 async function mergeInvitedStudentRecord(uid, profile) {
   try {
     let oldKey = null;
@@ -438,16 +455,30 @@ async function mergeInvitedStudentRecord(uid, profile) {
       const invite = (await db.ref(`invites/${token}`).get()).val();
       if (invite?.studentKey) oldKey = invite.studentKey;
     }
+
     if (!oldKey) {
+      const usersVal = (await db.ref("users").get()).val() || {};
+      const placeholders = Object.entries(usersVal).filter(([key, u]) => key !== uid && !u.profile);
+
+      const findUniqueMatch = (predicate) => {
+        const matches = placeholders.filter(([, u]) => predicate(u));
+        return matches.length === 1 ? matches[0][0] : null;
+      };
+
       const phone = normPhone(profile?.phone);
-      if (phone) {
-        const usersVal = (await db.ref("users").get()).val() || {};
-        const matches = Object.entries(usersVal).filter(([key, u]) =>
-          key !== uid && !u.profile && normPhone(u.phone) === phone
-        );
-        if (matches.length === 1) oldKey = matches[0][0];
+      if (phone) oldKey = findUniqueMatch((u) => normPhone(u.phone) === phone);
+
+      if (!oldKey) {
+        const email = normEmail(profile?.email);
+        if (email) oldKey = findUniqueMatch((u) => normEmail(u.email) === email);
+      }
+
+      if (!oldKey) {
+        const name = normName(profile?.name);
+        if (name) oldKey = findUniqueMatch((u) => normName(u.name) === name);
       }
     }
+
     if (token) await db.ref(`invites/${token}`).remove().catch(() => {});
     if (!oldKey || oldKey === uid) return;
 
@@ -464,8 +495,16 @@ async function mergeInvitedStudentRecord(uid, profile) {
     ].forEach((f) => { if (old[f] !== undefined) patch[`users/${uid}/${f}`] = old[f]; });
     patch[`users/${oldKey}`] = null;
     patch[`users/${uid}/profile/inviteToken`] = null;
+
+    // Переносимо (не копіюємо) усі бронювання заглушки на реальний акаунт.
+    const oldBookings = (await db.ref(`bookings/${oldKey}`).get()).val() || {};
+    Object.entries(oldBookings).forEach(([bookingId, booking]) => {
+      patch[`bookings/${uid}/${bookingId}`] = booking;
+      patch[`bookings/${oldKey}/${bookingId}`] = null;
+    });
+
     await db.ref().update(patch);
-    console.log(`mergeInvitedStudentRecord: merged ${oldKey} -> ${uid}`);
+    console.log(`mergeInvitedStudentRecord: merged ${oldKey} -> ${uid}, ${Object.keys(oldBookings).length} booking(s) moved`);
   } catch (e) {
     console.error("mergeInvitedStudentRecord failed:", e);
   }

@@ -466,7 +466,7 @@ const DEFAULT_SETTINGS = {
   workStart:7, workEnd:20, weekends:[6], daysShown:6, snapMin:30, slotCreateStep:30, hourHeightPx:60, autoHourHeight:false,
   lunchEnabled:true, lunchStart:12, lunchEnd:13, customBlocks:[], pendingEnabled:false, lockPastBookings:false,
   theme:"dark", language:"uk", queueAutoFifo:true, queueBroadcast:false, queueManual:false,
-  studentCanReschedule:true, studentCanCancel:true, bookCutoffHours:2, calendarOpenDays:30, schoolCalendarOpenDays:14, slotGenDays:30,
+  studentCanReschedule:true, studentCanCancel:true, bookCutoffHours:2, minChangeHours:24, calendarOpenDays:30, schoolCalendarOpenDays:14, slotGenDays:30,
   stickyTime:"both", notifLocation:"topbar", showCompleteBtn:true, showSlotTimes:true, autoStudentColors:true,
   navTabs:["schedule","journal","bookings","students","services","chats","templates","stats","settings"],
   autoReminders:[
@@ -767,6 +767,7 @@ export default function App() {
         studentCanReschedule: settings.studentCanReschedule ?? true,
         studentCanCancel:     settings.studentCanCancel     ?? true,
         bookCutoffHours:      settings.bookCutoffHours      ?? 2,
+        minChangeHours:       settings.minChangeHours       ?? 24,
         calendarOpenDays:     settings.calendarOpenDays     ?? 30,
         schoolCalendarOpenDays: settings.schoolCalendarOpenDays ?? 14,
         stickyTime:      settings.stickyTime      ?? "both",

@@ -756,6 +756,9 @@ select{color-scheme:${isKava?"light":"dark"}}
           <Row compact label={t('set.restr.cutoff')} hint={t('set.restr.cutoff_h')}>
             <NumInput compact value={settings.bookCutoffHours} onChange={v=>upd("bookCutoffHours",v)} min={0} max={48} suffix={` ${t('hr')}`}/>
           </Row>
+          <Row compact label={t('set.restr.minChange')} hint={t('set.restr.minChange_h')}>
+            <NumInput compact value={settings.minChangeHours ?? 24} onChange={v=>upd("minChangeHours",v)} min={0} max={168} suffix={` ${t('hr')}`}/>
+          </Row>
           <Row compact label={t('set.restr.slotGen')} hint={t('set.restr.slotGen_h')}>
             <NumInput compact value={settings.slotGenDays ?? 30} onChange={v=>upd("slotGenDays",v)} min={1} max={365} suffix={` ${t('days')}`}/>
           </Row>

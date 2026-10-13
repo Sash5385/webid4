@@ -195,6 +195,8 @@ const S = {
   'set.restr.cancel':     { uk:'Учень може скасовувати',       en:'Student can cancel'     },
   'set.restr.cutoff':     { uk:'Заборона запису',               en:'Booking cut-off'        },
   'set.restr.cutoff_h':   { uk:'Годин до уроку',                en:'Hours before lesson'    },
+  'set.restr.minChange':   { uk:'Заборона відміни/переносу',    en:'Cancel/reschedule lockout' },
+  'set.restr.minChange_h': { uk:'Учень не може сам скасувати чи перенести урок пізніше ніж за це число годин до початку', en:'Student cannot cancel or reschedule a lesson within this many hours before it starts' },
   'set.restr.slotGen':    { uk:'Горизонт генерації слотів',      en:'Slot generation horizon' },
   'set.restr.slotGen_h':  { uk:'На скільки днів вперед кнопка-ключик у розкладі розставляє вільні слоти', en:'How many days ahead the schedule key-button auto-fills free slots' },
   'set.restr.calendar':   { uk:'Календар наперед (приватні)',   en:'Calendar ahead (private)' },
