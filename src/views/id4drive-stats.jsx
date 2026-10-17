@@ -5,7 +5,6 @@ import { LangContext } from "../App";
 import { createT } from "../lang";
 
 import { ThemeContext } from "../theme.js";
-import { FOG_STYLE } from "../uiStyles";
 import { UICss, Card, useFX } from "../ui";
 
 const UK_MONTHS     = ["Січ","Лют","Бер","Кві","Тра","Чер","Лип","Сер","Вер","Жов","Лис","Гру"];
@@ -221,13 +220,7 @@ const Chip = ({label, active, onClick, color}) => {
 };
 
 // ─── MAIN ────────────────────────────────────────────────────────
-// «Туман»: скляна тема лише для сторінки статистики (вимикач — Налаштування → Графік, settings.statsFog)
-export default function StatsView({ fog = false }) {
-  if (!fog) return <StatsInner/>;
-  return <ThemeContext.Provider value={FOG_STYLE.theme}><StatsInner/></ThemeContext.Provider>;
-}
-
-function StatsInner() {
+export default function StatsView() {
   const { BG_DEEP, SURFACE, SURF_HI, BORDER, TEXT, DIM, FAINT, ACCENT, ACC_HI, GREEN, BLUE, PURPLE, GOLD, RED, SO, SI, FOG } = useContext(ThemeContext);
   const glass = FOG ? { backdropFilter:"blur(16px)", WebkitBackdropFilter:"blur(16px)" } : {};
   const lang = useContext(LangContext);

@@ -465,7 +465,7 @@ const INITIAL_BOOKINGS = [];
 const DEFAULT_SETTINGS = {
   profile: { name:"Олександр", phone:"+380989225442", address:"Київ", experience:8, photo:null },
   workStart:7, workEnd:20, weekends:[6], daysShown:6, snapMin:30, slotCreateStep:30, hourHeightPx:60, autoHourHeight:false,
-  lunchEnabled:true, lunchStart:12, lunchEnd:13, customBlocks:[], pendingEnabled:false, lockPastBookings:false, statsFog:true,
+  lunchEnabled:true, lunchStart:12, lunchEnd:13, customBlocks:[], pendingEnabled:false, lockPastBookings:false, uiFog:true,
   theme:"dark", language:"uk", queueAutoFifo:true, queueBroadcast:false, queueManual:false,
   studentCanReschedule:true, studentCanCancel:true, bookCutoffHours:2, minChangeHours:24, calendarOpenDays:30, schoolCalendarOpenDays:14, slotGenDays:30,
   stickyTime:"both", notifLocation:"topbar", showCompleteBtn:true, showSlotTimes:true, autoStudentColors:true,
@@ -500,7 +500,7 @@ function ViewRenderer({ tab, settings, setSettings, bookings, setBookings, onSlo
   if (tab === "services")  return <ServicesView/>;
   if (tab === "chats")     return <ChatsView/>;
   if (tab === "templates") return <TemplatesView/>;
-  if (tab === "stats")     return <StatsView fog={settings.statsFog !== false && settings.theme !== "light"}/>;
+  if (tab === "stats")     return <StatsView/>;
   if (tab === "journal")   return <JournalView/>;
   return null;
 }
@@ -790,7 +790,7 @@ export default function App() {
         slotFreedPushEnabled: settings.slotFreedPushEnabled ?? true,
         paymentCard:     settings.paymentCard      ?? "",
         lockPastBookings: settings.lockPastBookings ?? false,
-        statsFog:        settings.statsFog        ?? true,
+        uiFog:           settings.uiFog           ?? true,
       }).catch(() => {});
     }, 800);
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1133,7 +1133,10 @@ const pendingDeletesRef = React.useRef(new Set());
   const lang = settings.language || 'uk';
   useEffect(() => { setGlobalLang(lang); }, [lang]);
 
-  const theme = getTheme(settings.theme);
+  // «Туман» — глобальний скляний стиль (лише темна тема); вимикач у Налаштування → Графік (settings.uiFog)
+  const fogOn = settings.uiFog !== false && settings.theme !== "light";
+  const fogTheme = fogOn && displayedTab !== "schedule"; // розклад лишає темні токени (картки/кольори слотів), тло — «Туман»
+  const theme = fogTheme ? FOG_STYLE.theme : getTheme(settings.theme);
   const css = makeCSS(theme);
 
   if (adminUser === undefined) return null;
@@ -1145,7 +1148,8 @@ const pendingDeletesRef = React.useRef(new Set());
     <LangContext.Provider value={lang}>
     <>
       <style>{css}</style>
-      {!theme.BG_IMAGE && (
+      {fogOn && <div style={{position:"fixed", inset:0, zIndex:0, pointerEvents:"none", background:FOG_STYLE.wrap}}/>}
+      {!fogOn && !theme.BG_IMAGE && (
         <div style={{
           position:"fixed", inset:0, zIndex:0, pointerEvents:"none",
           background:
@@ -1153,9 +1157,6 @@ const pendingDeletesRef = React.useRef(new Set());
             `radial-gradient(circle at 95% 30%, ${theme.PURPLE}29, transparent 45%),`+
             `radial-gradient(circle at 20% 95%, ${theme.TEAL}24, transparent 45%)`,
         }}/>
-      )}
-      {displayedTab === "stats" && settings.statsFog !== false && settings.theme !== "light" && (
-        <div style={{position:"fixed", inset:0, zIndex:0, pointerEvents:"none", background:FOG_STYLE.wrap}}/>
       )}
       <div style={{
         height:"100dvh",background:"transparent",color:theme.TEXT,

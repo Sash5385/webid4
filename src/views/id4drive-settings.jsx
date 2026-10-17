@@ -66,9 +66,15 @@ function Toggle({ on, onChange, color }) {
 }
 
 function SmallToggle({ on, onChange, color }) {
-  const { ACC_HI, ACCENT, SURF_LO, BG_DEEP, SI } = useContext(ThemeContext);
+  const { ACCENT, SURF_LO, BG_DEEP, SI, FOG, SURF_HI, BORDER, DIM, BTN_GRAD } = useContext(ThemeContext);
   const { shade } = useFX();
   const c = color || ACCENT;
+  if (FOG) return (
+    <div onClick={()=>onChange(!on)} style={{width:38,height:22,borderRadius:99,cursor:"pointer",position:"relative",flexShrink:0,transition:"background .2s",
+      background:on?(BTN_GRAD||ACCENT):SURF_HI,border:`1px solid ${on?"transparent":BORDER}`}}>
+      <div style={{position:"absolute",top:2,left:on?18:2,width:16,height:16,borderRadius:"50%",background:on?"#fff":DIM,transition:"left .2s"}}/>
+    </div>
+  );
   return (
     <div onClick={()=>onChange(!on)} style={{
       width:32,height:18,borderRadius:9,cursor:"pointer",position:"relative",
@@ -84,9 +90,19 @@ function SmallToggle({ on, onChange, color }) {
   );
 }
 
-function NumInput({ value, onChange, min=0, max=999, suffix="", step=1, compact }) {
-  const { BG_DEEP, SURF_HI, SURFACE, TEXT, SO, SI } = useContext(ThemeContext);
+export function NumInput({ value, onChange, min=0, max=999, suffix="", step=1, compact }) {
+  const { BG_DEEP, SURF_HI, SURFACE, TEXT, SO, SI, FOG, ACC_HI } = useContext(ThemeContext);
   const bs = compact ? 22 : 26;
+  if (FOG) {
+    const fb = { width:36,height:36,border:"none",cursor:"pointer",background:"transparent",color:ACC_HI,fontSize:18,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,padding:0 };
+    return (
+      <div style={{display:"flex",alignItems:"center",background:SURF_HI,borderRadius:12}}>
+        <button onClick={()=>onChange(Math.max(min,value-step))} style={fb}>−</button>
+        <span style={{fontSize:14,fontWeight:700,color:TEXT,minWidth:54,textAlign:"center"}}>{value}{suffix}</span>
+        <button onClick={()=>onChange(Math.min(max,value+step))} style={fb}>+</button>
+      </div>
+    );
+  }
   return (
     <div style={{display:"flex",alignItems:"center",gap:4,background:BG_DEEP,borderRadius:9,boxShadow:SI,padding: compact ? "3px 5px" : "4px 6px"}}>
       <button onClick={()=>onChange(Math.max(min,value-step))} style={{
@@ -120,8 +136,17 @@ function Radio({ on, onChange }) {
 }
 
 function Row({ label, hint, children, last, color, compact }) {
-  const { BG_DEEP, ACCENT } = useContext(ThemeContext);
+  const { BG_DEEP, ACCENT, FOG, TEXT, DIM } = useContext(ThemeContext);
   const c = color || ACCENT;
+  if (FOG) return (
+    <div className="fog-row" style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,minHeight:56,padding:"9px 0"}}>
+      <div style={{flex:1,minWidth:0}}>
+        <div style={{fontSize:14,fontWeight:600,color:TEXT}}>{label}</div>
+        {hint && <div style={{fontSize:11.5,color:DIM,marginTop:2,lineHeight:1.35}}>{hint}</div>}
+      </div>
+      <div style={{flexShrink:0}}>{children}</div>
+    </div>
+  );
   return (
     <div style={{
       display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,
@@ -133,7 +158,7 @@ function Row({ label, hint, children, last, color, compact }) {
     }}>
       <div style={{flex:1,minWidth:0}}>
         <div style={{fontSize:compact?12:13,fontWeight:700,color:"#fff"}}>{label}</div>
-        {hint && <div style={{fontSize:compact?9:10,color:"rgba(255,255,255,0.6)",marginTop:compact?1:2,lineHeight:1.35}}>{hint}</div>}
+        {hint && <div style={{fontSize:compact?9:10,color:"rgba(255,255,255,0.74)",marginTop:compact?1:2,lineHeight:1.35}}>{hint}</div>}
       </div>
       <div style={{flexShrink:0}}>{children}</div>
     </div>
@@ -141,7 +166,11 @@ function Row({ label, hint, children, last, color, compact }) {
 }
 
 function Chip({ label, active, onClick }) {
-  const { ACC_HI, ACCENT, SURF_HI, SURFACE, DIM, SO } = useContext(ThemeContext);
+  const { ACC_HI, ACCENT, SURF_HI, SURFACE, DIM, SO, FOG, BORDER, BTN_TX } = useContext(ThemeContext);
+  if (FOG) return (
+    <button onClick={onClick} style={{flex:"1 1 auto",padding:"9px 13px",borderRadius:99,cursor:"pointer",fontSize:12,fontWeight:600,fontFamily:"inherit",
+      border:`1px solid ${active?"transparent":BORDER}`,background:active?`linear-gradient(145deg,${ACC_HI},${ACCENT})`:SURFACE,color:active?BTN_TX:DIM}}>{label}</button>
+  );
   return (
     <button onClick={onClick} style={{
       padding:"6px 12px",borderRadius:9,border:"none",cursor:"pointer",fontSize:11,fontWeight:700,
@@ -161,39 +190,54 @@ function Info({ title, text, color }) {
       borderRadius:10,padding:"10px 12px",marginTop:2,marginBottom:10,
     }}>
       <div style={{fontSize:11,fontWeight:700,color:c,marginBottom:4}}>💡 {title}</div>
-      <div style={{fontSize:11,color:DIM,lineHeight:1.6}}>{text}</div>
+      <div style={{fontSize:11,color:DIM,lineHeight:1.6,whiteSpace:"pre-line"}}>{text}</div>
     </div>
   );
 }
 
 function TimeInput({ value, onChange, min=0, max=24, compact=false }) {
-  const { BG_DEEP, TEXT, FAINT, SI } = useContext(ThemeContext);
-  const v = Number(value) || 0;
-  const h = Math.floor(v);
-  const m = (v % 1 >= 0.5) ? 30 : 0;
-  const disp = `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`;
-  const dec = () => { const n = Math.round((v - 0.5) * 2) / 2; onChange(Math.max(min, n)); };
-  const inc = () => { const n = Math.round((v + 0.5) * 2) / 2; onChange(Math.min(max, n)); };
+  const { BG_DEEP, TEXT, FAINT, SI, FOG, SURF_HI } = useContext(ThemeContext);
+  const tm = Math.round((Number(value) || 0) * 60);        // хвилини від півночі — точність 1 хв
+  const minM = Math.round(min * 60), maxM = Math.round(max * 60);
+  const disp = `${String(Math.floor(tm / 60)).padStart(2,"0")}:${String(tm % 60).padStart(2,"0")}`;
+  const setM = (n) => onChange(Math.min(maxM, Math.max(minM, n)) / 60);
+  // Утримання ‹ › повторює крок із прискоренням: по одній хвилині тапати довго
+  const hold = useRef(null);
+  const stop = () => { clearTimeout(hold.current); hold.current = null; };
+  const start = (dir) => {
+    let cur = tm, n = 0;
+    const step = () => { cur = Math.min(maxM, Math.max(minM, cur + dir)); onChange(cur / 60); };
+    const loop = () => { step(); n++; hold.current = setTimeout(loop, n > 12 ? 40 : 120); };
+    step(); hold.current = setTimeout(loop, 400); // перший крок одразу, повтор — лише при утриманні
+  };
+  useEffect(() => stop, []);
   const bW = compact ? 14 : 32;
   const bH = compact ? 20 : 38;
   const fS = compact ? 11 : 22;
   const dW = compact ? 28 : 64;
   const dS = compact ? 9 : 18;
+  const btn = (dir, ch) => (
+    <button onPointerDown={e=>{ e.preventDefault(); start(dir); }} onPointerUp={stop} onPointerLeave={stop} onPointerCancel={stop}
+      style={{width:bW,height:bH,border:"none",cursor:"pointer",background:"transparent",color:FAINT,fontSize:fS,padding:0,lineHeight:1,touchAction:"none"}}>{ch}</button>
+  );
   return (
-    <div style={{display:"flex",alignItems:"center",background:BG_DEEP,borderRadius:7,boxShadow:SI,overflow:"hidden"}}>
-      <button onClick={dec} style={{width:bW,height:bH,border:"none",cursor:"pointer",background:"transparent",color:FAINT,fontSize:fS,padding:0,lineHeight:1}}>‹</button>
-      <span style={{fontSize:dS,fontWeight:700,color:TEXT,minWidth:dW,textAlign:"center"}}>{disp}</span>
-      <button onClick={inc} style={{width:bW,height:bH,border:"none",cursor:"pointer",background:"transparent",color:FAINT,fontSize:fS,padding:0,lineHeight:1}}>›</button>
+    <div style={{display:"flex",alignItems:"center",background:FOG?SURF_HI:BG_DEEP,borderRadius:FOG?12:7,boxShadow:FOG?"none":SI,overflow:"hidden"}}>
+      {btn(-1,"‹")}
+      <label style={{position:"relative",fontSize:dS,fontWeight:700,color:TEXT,minWidth:dW,textAlign:"center",cursor:"pointer",alignSelf:"stretch",display:"flex",alignItems:"center",justifyContent:"center"}}>
+        {disp}
+        <input type="time" step={60} value={disp} onChange={e=>{ const [h,m] = String(e.target.value || "").split(":").map(Number); if (Number.isFinite(h) && Number.isFinite(m)) setM(h * 60 + m); }}
+          style={{position:"absolute",inset:0,width:"100%",height:"100%",opacity:0,cursor:"pointer"}}/>
+      </label>
+      {btn(1,"›")}
     </div>
   );
 }
 
 // ─── БАРАБАН ЧАСУ — крупний вибір часу прокруткою (scroll-snap) ──────────
-// Крок хвилин 30: календар (сітка, підписи, лінії) побудований на півгодинних
-// рядках, дробові 15/10/5 хв зламали б вирівнювання сітки.
+// Хвилини 00–59 (точність 1 хв): сітка розкладу вирівнюється по справжніх :00/:30, початок дня може бути будь-якою хвилиною.
 const WHEEL_ITEM = 40;
 const WHEEL_H = Array.from({length:25},(_,i)=>String(i).padStart(2,"0"));
-const WHEEL_M = ["00","30"];
+const WHEEL_M = Array.from({length:60},(_,i)=>String(i).padStart(2,"0"));
 
 function WheelCol({ items, index, onIndex, rows = 5, width = 48 }) {
   const { TEXT, FAINT } = useContext(ThemeContext);
@@ -249,13 +293,14 @@ function TimeWheel({ label, value, onChange, min = 0, max = 24, rows = 5, color 
   const { DIM, TEXT, GREEN, BG_DEEP } = useContext(ThemeContext);
   const c = color || GREEN;
   const v = Math.min(max, Math.max(min, Number(value) || 0));
-  const h = Math.floor(v);
-  const m = v % 1 >= 0.5 ? 1 : 0;
-  const set = (nh, nm) => onChange(Math.min(max, Math.max(min, nh + nm * 0.5)));
+  const tm = Math.round(v * 60);
+  const h = Math.floor(tm / 60);
+  const m = tm % 60;
+  const set = (nh, nm) => onChange(Math.min(max, Math.max(min, (nh * 60 + nm) / 60)));
   const pad = ((rows - 1) / 2) * WHEEL_ITEM;
   return (
     <div style={{textAlign:"center"}}>
-      <div style={{display:"inline-block",fontSize:11,fontWeight:800,letterSpacing:1.2,color:c,marginBottom:6,
+      <div style={{display:"inline-block",fontSize:11,fontWeight:800,letterSpacing:1.2,color:`color-mix(in srgb,${c} 60%,#fff)`,marginBottom:6,
         padding:"3px 12px",borderRadius:999,background:`color-mix(in srgb,${c} 14%,transparent)`}}>{label}</div>
       <div style={{position:"relative",display:"flex",alignItems:"center",justifyContent:"center",gap:2,padding:"0 4px"}}>
         <div style={{position:"absolute",left:0,right:0,top:pad,height:WHEEL_ITEM,pointerEvents:"none",borderRadius:14,
@@ -659,8 +704,8 @@ select{color-scheme:${isKava?"light":"dark"}}
           <Row compact color={svColor(settings.lockPastBookings)} label="Блокувати минулі записи" hint="Заборонити редагувати, переносити й скасовувати записи, що вже минули — вони підсвічуються тьмяніше">
             <Toggle color={svColor(settings.lockPastBookings)} on={!!settings.lockPastBookings} onChange={v=>upd("lockPastBookings",v)}/>
           </Row>
-          <Row compact last color={svColor(settings.statsFog !== false)} label="Статистика: стиль «Туман»" hint="Скляний фон і картки на сторінці «Статистика» (лише темна тема). Вимкніть, щоб повернути попередній вигляд">
-            <Toggle color={svColor(settings.statsFog !== false)} on={settings.statsFog !== false} onChange={v=>upd("statsFog",v)}/>
+          <Row compact last color={svColor(settings.uiFog !== false)} label="Стиль «Туман»" hint="Скляний фон і картки в усьому застосунку (лише темна тема). Вимкніть, щоб повернути попередній вигляд">
+            <Toggle color={svColor(settings.uiFog !== false)} on={settings.uiFog !== false} onChange={v=>upd("uiFog",v)}/>
           </Row>
           <WeekScheduleEditor weekSchedule={weekSchedule} updDay={updDay} setWeek={v=>upd("weekSchedule",v)}/>
         </div>
