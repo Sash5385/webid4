@@ -1135,8 +1135,7 @@ const pendingDeletesRef = React.useRef(new Set());
 
   // «Туман» — глобальний скляний стиль (лише темна тема); вимикач у Налаштування → Графік (settings.uiFog)
   const fogOn = settings.uiFog !== false && settings.theme !== "light";
-  const fogTheme = fogOn && displayedTab !== "schedule"; // розклад лишає темні токени (картки/кольори слотів), тло — «Туман»
-  const theme = fogTheme ? FOG_STYLE.theme : getTheme(settings.theme);
+  const theme = fogOn ? FOG_STYLE.theme : getTheme(settings.theme);
   const css = makeCSS(theme);
 
   if (adminUser === undefined) return null;

@@ -70,7 +70,7 @@ const BADGE_PRESETS = [
 // ═══════════════════════════════════════════════════════════════
 // GLOBAL CSS (slots from v4, rest v3)
 // ═══════════════════════════════════════════════════════════════
-const makeGlobalCSS = (SURFACE_LO, ACCENT, GLOW, SHADE, INK) => `
+const makeGlobalCSS = (SURFACE_LO, ACCENT, GLOW, SHADE, INK, FOG) => `
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
 body, html, #root { margin:0; padding:0; }
 
@@ -107,7 +107,15 @@ body, html, #root { margin:0; padding:0; }
     4px 4px 9px rgba(${SHADE},0.5),
     -3px -3px 8px rgba(${GLOW},0.28);
 }
-.slot-pending-ring {
+${FOG ? `/* «Туман»: скляні кольорові картки замість об'ємних «подушок» */
+.slot-colored {
+  background: color-mix(in srgb, var(--c) 36%, transparent);
+  border: 1px solid color-mix(in srgb, var(--c) 60%, transparent);
+  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+  box-shadow: 0 4px 14px rgba(0,0,0,0.22), inset 1px 1px 0 rgba(255,255,255,0.12);
+}
+.slot-colored::before, .slot-colored::after { display: none; }
+` : ""}.slot-pending-ring {
   animation: pulse-ring 2s infinite;
 }
 @keyframes pulse-ring {
@@ -669,9 +677,9 @@ function BroadcastModal({ initialDate, initialSlot, onClose }) {
 // MONTH CALENDAR SHEET — bottom-sheet monthly overview, tap a day to jump
 // ═══════════════════════════════════════════════════════════════
 function MonthCalendarSheet({ bookings, onClose, onPickDate }) {
-  const { BG, BG_DEEP, SURFACE, SURF_HI, TEXT, DIM, FAINT, GOLD, GREEN, BLUE, RED } = useContext(ThemeContext);
+  const { BG, BG_DEEP, SURFACE, SURF_HI, TEXT, DIM, FAINT, GOLD, GREEN, BLUE, RED, FOG } = useContext(ThemeContext);
   const { glow, shade, ink } = useFX();
-  const isLight = BG_DEEP !== "#161719";
+  const isLight = !FOG && BG_DEEP !== "#161719";
   const [closing, setClosing] = useState(false);
   const today0 = useRef((() => { const d = new Date(); d.setHours(12,0,0,0); return d; })()).current;
   const [viewY, setViewY] = useState(today0.getFullYear());
@@ -1146,8 +1154,8 @@ function VirtualCols({ vRangeRef, subRef, colW, nDays, renderCol }) {
 // SCHEDULE VIEW with drag/resize + pinch-to-zoom + day-count
 // ═══════════════════════════════════════════════════════════════
 function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bookings, setBookings, activeDragIds, navTo, slotExistsRef, openSlotsRef, jumpTarget, setJumpTarget, onViewStudent }) {
-  const { BG, BG_DEEP, SURFACE, SURF_HI, SURF_LO, BORDER, TEXT, DIM, FAINT, ACCENT, ACC_HI, BLUE, GREEN, RED, SO, SI, STRIPE_A, STRIPE_B, GLOW, SHADE, INK } = useContext(ThemeContext);
-  const isLight = BG !== "#1c1d21";
+  const { BG, BG_DEEP, SURFACE, SURF_HI, SURF_LO, BORDER, TEXT, DIM, FAINT, ACCENT, ACC_HI, BLUE, GREEN, RED, SO, SI, STRIPE_A, STRIPE_B, GLOW, SHADE, INK, FOG } = useContext(ThemeContext);
+  const isLight = !FOG && BG !== "#1c1d21";
   const { glow, shade, ink } = useFX();
   const GRID_H      = isLight ? "rgba(0,0,0,0.09)"        : "rgba(255,255,255,0.07)";
   const GRID_HH     = isLight ? "rgba(0,0,0,0.04)"        : "rgba(255,255,255,0.025)";
@@ -2899,7 +2907,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
 
   return (
     <>
-    <style>{makeGlobalCSS(SURF_LO, ACCENT, GLOW, SHADE, INK)}</style>
+    <style>{makeGlobalCSS(SURF_LO, ACCENT, GLOW, SHADE, INK, FOG)}</style>
     <Card style={{
       padding:"6px 3px 0", overflow:"hidden", flex:1, minHeight:0, display:"flex", flexDirection:"column",
       // Той самий скляний фон, що й у нижньому навбарі — замість суцільного SURFACE.
@@ -3840,7 +3848,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                       {!isBlock && !isVipSlot && !isPersonal && height >= 12 && (() => {
                         const [fName, ...lParts] = b.name.split(' ');
                         const lName = lParts.join(' ');
-                        const si = a => `rgba(${INK === "255,255,255" ? "0,0,0" : INK},${a})`;
+                        const si = a => FOG ? `rgba(255,255,255,${a})` : `rgba(${INK === "255,255,255" ? "0,0,0" : INK},${a})`;
                         const priceColor = b.surcharge ? GOLD : si(0.9);
                         const priceText = price > 0 ? `${price}₴` : null;
                         const typeLabel = b.type==="school" ? "Автошкола" : "Приватний";
@@ -3903,9 +3911,9 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                         <div style={{
                           position:"absolute", top:timeTop, right:3, zIndex:4,
                           fontSize:_timeFs,
-                          fontWeight:800, lineHeight:1, color:"rgba(0,0,0,0.8)",
+                          fontWeight:800, lineHeight:1, color:FOG?"rgba(255,255,255,0.85)":"rgba(0,0,0,0.8)",
                           pointerEvents:"none",
-                          textShadow:"0 0 3px rgba(255,255,255,0.9), 0 0 1px rgba(255,255,255,0.9)",
+                          textShadow:FOG?"none":"0 0 3px rgba(255,255,255,0.9), 0 0 1px rgba(255,255,255,0.9)",
                         }}>{b.time || fmtTime(b.startMin)}</div>
                       )}
                       {/* VIP crown badge for regular bookings marked as VIP — ліворуч зверху,
@@ -6587,7 +6595,7 @@ function NumInput({ value, onChange, min, max, suffix }) {
 // SETTINGS — все настройки
 // ═══════════════════════════════════════════════════════════════
 function SettingsView({ settings, setSettings }) {
-  const { BG, BG_DEEP, SURFACE, SURF_HI, SURF_LO, BORDER, TEXT, DIM, FAINT, ACCENT, ACC_HI, SO, SI , GLOW, SHADE, INK } = useContext(ThemeContext);
+  const { BG, BG_DEEP, SURFACE, SURF_HI, SURF_LO, BORDER, TEXT, DIM, FAINT, ACCENT, ACC_HI, SO, SI , GLOW, SHADE, INK, FOG } = useContext(ThemeContext);
   const glow=a=>`rgba(${GLOW},${a})`,shade=a=>`rgba(${SHADE},${a})`,ink=a=>`rgba(${INK},${a})`;
   const SURFACE_HI = SURF_HI, SURFACE_LO = SURF_LO, TEXT_DIM = DIM, TEXT_FAINT = FAINT, ACCENT_HI = ACC_HI, SHADOW_OUT = SO, SHADOW_IN = SI;
   const [broadcastOpen, setBroadcastOpen] = useState(false);
@@ -6608,7 +6616,7 @@ function SettingsView({ settings, setSettings }) {
 
   return (
     <>
-    <style>{makeGlobalCSS(SURF_LO, ACCENT, GLOW, SHADE, INK)}</style>
+    <style>{makeGlobalCSS(SURF_LO, ACCENT, GLOW, SHADE, INK, FOG)}</style>
     <div style={{display:"flex",flexDirection:"column",gap:14}}>
 
       {/* ── PROFILE ── */}
@@ -7374,10 +7382,10 @@ const TITLES = {
 };
 
 export default function App() {
-  const { BG, BG_DEEP, SURFACE, SURF_HI, SURF_LO, BORDER, TEXT, DIM, FAINT, ACCENT, ACC_HI, SO, SI , GLOW, SHADE, INK } = useContext(ThemeContext);
+  const { BG, BG_DEEP, SURFACE, SURF_HI, SURF_LO, BORDER, TEXT, DIM, FAINT, ACCENT, ACC_HI, SO, SI , GLOW, SHADE, INK, FOG } = useContext(ThemeContext);
   const glow=a=>`rgba(${GLOW},${a})`,shade=a=>`rgba(${SHADE},${a})`,ink=a=>`rgba(${INK},${a})`;
   const SURFACE_HI = SURF_HI, SURFACE_LO = SURF_LO, TEXT_DIM = DIM, TEXT_FAINT = FAINT, ACCENT_HI = ACC_HI, SHADOW_OUT = SO, SHADOW_IN = SI;
-  const css = makeGlobalCSS(SURF_LO, ACCENT, GLOW, SHADE, INK);
+  const css = makeGlobalCSS(SURF_LO, ACCENT, GLOW, SHADE, INK, FOG);
   const [tab, setTab] = useState("schedule");
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
   const [bookings, setBookings] = useState(initialBookings);
