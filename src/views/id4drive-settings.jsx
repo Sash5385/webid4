@@ -656,8 +656,11 @@ select{color-scheme:${isKava?"light":"dark"}}
           <Row label={t('set.schedule.days')}>
             <NumInput value={settings.daysShown} onChange={v=>upd("daysShown",v)} min={1} max={30} suffix={` ${t('days')}`}/>
           </Row>
-          <Row compact last color={svColor(settings.lockPastBookings)} label="Блокувати минулі записи" hint="Заборонити редагувати, переносити й скасовувати записи, що вже минули — вони підсвічуються тьмяніше">
+          <Row compact color={svColor(settings.lockPastBookings)} label="Блокувати минулі записи" hint="Заборонити редагувати, переносити й скасовувати записи, що вже минули — вони підсвічуються тьмяніше">
             <Toggle color={svColor(settings.lockPastBookings)} on={!!settings.lockPastBookings} onChange={v=>upd("lockPastBookings",v)}/>
+          </Row>
+          <Row compact last color={svColor(settings.statsFog !== false)} label="Статистика: стиль «Туман»" hint="Скляний фон і картки на сторінці «Статистика» (лише темна тема). Вимкніть, щоб повернути попередній вигляд">
+            <Toggle color={svColor(settings.statsFog !== false)} on={settings.statsFog !== false} onChange={v=>upd("statsFog",v)}/>
           </Row>
           <WeekScheduleEditor weekSchedule={weekSchedule} updDay={updDay} setWeek={v=>upd("weekSchedule",v)}/>
         </div>

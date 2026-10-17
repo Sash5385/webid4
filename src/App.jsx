@@ -6,6 +6,7 @@ import { useAppUpdate } from "./hooks/useAppUpdate"
 import { useLicense, isLicenseBlocked } from "./hooks/useLicense"
 import { setGlobalLang, createT } from "./lang";
 import { ThemeContext, getTheme } from "./theme.js";
+import { FOG_STYLE } from "./uiStyles";
 import { useMosaicSwitch, MosaicOverlay } from "./mosaic";
 import { APP_VERSION } from "./version.js";
 
@@ -464,7 +465,7 @@ const INITIAL_BOOKINGS = [];
 const DEFAULT_SETTINGS = {
   profile: { name:"Олександр", phone:"+380989225442", address:"Київ", experience:8, photo:null },
   workStart:7, workEnd:20, weekends:[6], daysShown:6, snapMin:30, slotCreateStep:30, hourHeightPx:60, autoHourHeight:false,
-  lunchEnabled:true, lunchStart:12, lunchEnd:13, customBlocks:[], pendingEnabled:false, lockPastBookings:false,
+  lunchEnabled:true, lunchStart:12, lunchEnd:13, customBlocks:[], pendingEnabled:false, lockPastBookings:false, statsFog:true,
   theme:"dark", language:"uk", queueAutoFifo:true, queueBroadcast:false, queueManual:false,
   studentCanReschedule:true, studentCanCancel:true, bookCutoffHours:2, minChangeHours:24, calendarOpenDays:30, schoolCalendarOpenDays:14, slotGenDays:30,
   stickyTime:"both", notifLocation:"topbar", showCompleteBtn:true, showSlotTimes:true, autoStudentColors:true,
@@ -499,7 +500,7 @@ function ViewRenderer({ tab, settings, setSettings, bookings, setBookings, onSlo
   if (tab === "services")  return <ServicesView/>;
   if (tab === "chats")     return <ChatsView/>;
   if (tab === "templates") return <TemplatesView/>;
-  if (tab === "stats")     return <StatsView/>;
+  if (tab === "stats")     return <StatsView fog={settings.statsFog !== false && settings.theme !== "light"}/>;
   if (tab === "journal")   return <JournalView/>;
   return null;
 }
@@ -789,6 +790,7 @@ export default function App() {
         slotFreedPushEnabled: settings.slotFreedPushEnabled ?? true,
         paymentCard:     settings.paymentCard      ?? "",
         lockPastBookings: settings.lockPastBookings ?? false,
+        statsFog:        settings.statsFog        ?? true,
       }).catch(() => {});
     }, 800);
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1151,6 +1153,9 @@ const pendingDeletesRef = React.useRef(new Set());
             `radial-gradient(circle at 95% 30%, ${theme.PURPLE}29, transparent 45%),`+
             `radial-gradient(circle at 20% 95%, ${theme.TEAL}24, transparent 45%)`,
         }}/>
+      )}
+      {displayedTab === "stats" && settings.statsFog !== false && settings.theme !== "light" && (
+        <div style={{position:"fixed", inset:0, zIndex:0, pointerEvents:"none", background:FOG_STYLE.wrap}}/>
       )}
       <div style={{
         height:"100dvh",background:"transparent",color:theme.TEXT,

@@ -5,6 +5,7 @@ import { LangContext } from "../App";
 import { createT } from "../lang";
 
 import { ThemeContext } from "../theme.js";
+import { FOG_STYLE } from "../uiStyles";
 import { UICss, Card, useFX } from "../ui";
 
 const UK_MONTHS     = ["Січ","Лют","Бер","Кві","Тра","Чер","Лип","Сер","Вер","Жов","Лис","Гру"];
@@ -203,7 +204,13 @@ function trendPct(cur, prev) {
 
 // ─── CHIP ────────────────────────────────────────────────────────
 const Chip = ({label, active, onClick, color}) => {
-  const { ACC_HI, ACCENT, SURF_HI, SURFACE, DIM, SO } = useContext(ThemeContext);
+  const { ACC_HI, ACCENT, SURF_HI, SURFACE, DIM, SO, FOG, TEXT } = useContext(ThemeContext);
+  if (FOG && !color) return (
+    <button onClick={onClick} style={{
+      flex:"1 1 0", minWidth:0, padding:"9px 0", borderRadius:11, border:"none", cursor:"pointer", fontSize:11, fontWeight:600, fontFamily:"inherit", textAlign:"center", whiteSpace:"nowrap",
+      background: active ? SURF_HI : "transparent", color: active ? TEXT : DIM, boxShadow: active ? "0 2px 8px rgba(0,0,0,.12)" : "none",
+    }}>{label}</button>
+  );
   return (
     <button onClick={onClick} style={{
       flex:1, padding:"7px 4px", borderRadius:9, border:"none", cursor:"pointer", fontSize:11, fontWeight:700, fontFamily:"inherit", textAlign:"center",
@@ -214,8 +221,15 @@ const Chip = ({label, active, onClick, color}) => {
 };
 
 // ─── MAIN ────────────────────────────────────────────────────────
-export default function StatsView() {
-  const { BG_DEEP, SURFACE, SURF_HI, BORDER, TEXT, DIM, FAINT, ACCENT, ACC_HI, GREEN, BLUE, PURPLE, GOLD, RED, SO, SI } = useContext(ThemeContext);
+// «Туман»: скляна тема лише для сторінки статистики (вимикач — Налаштування → Графік, settings.statsFog)
+export default function StatsView({ fog = false }) {
+  if (!fog) return <StatsInner/>;
+  return <ThemeContext.Provider value={FOG_STYLE.theme}><StatsInner/></ThemeContext.Provider>;
+}
+
+function StatsInner() {
+  const { BG_DEEP, SURFACE, SURF_HI, BORDER, TEXT, DIM, FAINT, ACCENT, ACC_HI, GREEN, BLUE, PURPLE, GOLD, RED, SO, SI, FOG } = useContext(ThemeContext);
+  const glass = FOG ? { backdropFilter:"blur(16px)", WebkitBackdropFilter:"blur(16px)" } : {};
   const lang = useContext(LangContext);
   const t = createT(lang);
   const [period,     setPeriod]    = useState("month");
@@ -437,17 +451,17 @@ export default function StatsView() {
       <div style={{display:"flex",flexDirection:"column",gap:8,fontFamily:"ui-sans-serif,-apple-system,system-ui,sans-serif",color:TEXT}}>
 
         {/* ── PERIOD ── */}
-        <div style={{display:"flex",gap:6}}>
+        <div style={FOG ? {display:"flex",gap:0,background:SURFACE,padding:3,borderRadius:14,border:`1px solid ${BORDER}`,...glass} : {display:"flex",gap:6}}>
           {[["day","День"],["week",t('st2.week')],["month",t('st2.month')],["year",t('st2.year')],["custom","Період"]].map(([k,l])=>(
             <Chip key={k} label={l} active={period===k} onClick={()=>setPeriod(k)}/>
           ))}
         </div>
 
         {/* ── CALENDAR (завжди відкритий — швидкий вибір місяця/тижня/дня) ── */}
-        <Card className="fu" style={{padding:"12px"}}>
+        <Card className="fu" style={{padding:"12px",...glass}}>
           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:9}}>
             <button onClick={()=>calGoMonth(-1)} style={{
-              width:34,height:34,borderRadius:9,border:"none",cursor:"pointer",fontFamily:"inherit",
+              width:FOG?36:34,height:FOG?36:34,borderRadius:FOG?99:9,border:FOG?`1px solid ${BORDER}`:"none",cursor:"pointer",fontFamily:"inherit",
               background:SURF_HI,color:DIM,fontSize:18,fontWeight:700,lineHeight:1,
             }}>‹</button>
             <button onClick={calPickMonth} title="Обрати весь місяць" style={{
@@ -455,13 +469,13 @@ export default function StatsView() {
               fontSize:13,fontWeight:800,color:TEXT,textTransform:"capitalize",padding:"4px 10px",borderRadius:8,
             }}>{calMonthLabel}</button>
             <button onClick={()=>calGoMonth(1)} style={{
-              width:34,height:34,borderRadius:9,border:"none",cursor:"pointer",fontFamily:"inherit",
+              width:FOG?36:34,height:FOG?36:34,borderRadius:FOG?99:9,border:FOG?`1px solid ${BORDER}`:"none",cursor:"pointer",fontFamily:"inherit",
               background:SURF_HI,color:DIM,fontSize:18,fontWeight:700,lineHeight:1,
             }}>›</button>
           </div>
           <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:3,marginBottom:4}}>
             {["Пн","Вт","Ср","Чт","Пт","Сб","Нд"].map(d=>(
-              <div key={d} style={{textAlign:"center",fontSize:8,color:FAINT,fontWeight:700,textTransform:"uppercase"}}>{d}</div>
+              <div key={d} style={{textAlign:"center",fontSize:FOG?11:8,color:FOG?DIM:FAINT,fontWeight:700,textTransform:"uppercase"}}>{d}</div>
             ))}
           </div>
           <div
@@ -483,34 +497,34 @@ export default function StatsView() {
               const isSel = period === "custom" && selectedDays.has(dateStr);
               const inPreview = calDragPreview && day >= Math.min(calDragPreview.start,calDragPreview.end) && day <= Math.max(calDragPreview.start,calDragPreview.end);
               let bg = SURF_HI, color = DIM;
-              if (n > 0) { const tier = calTierColor(n); bg = `${tier}22`; color = tier; }
+              if (n > 0) { const tier = calTierColor(n); bg = FOG ? `color-mix(in srgb,${tier} 22%,transparent)` : `${tier}22`; color = FOG ? `color-mix(in srgb,${tier} 55%,#fff)` : tier; }
               if (inPreview) { bg = `${ACCENT}45`; color = ACCENT; }
               return (
                 <button key={day} data-cal-day={day} style={{
-                  height:26, borderRadius:6, cursor:"pointer", fontFamily:"inherit",
-                  border: isToday ? `1.5px solid ${ACCENT}` : inPreview ? `1px solid ${ACCENT}` : "none",
-                  background: isSel ? ACCENT : bg,
+                  height:FOG?34:26, borderRadius:FOG?11:6, cursor:"pointer", fontFamily:"inherit",
+                  border: isToday ? `1.5px solid ${ACCENT}` : inPreview ? `1px solid ${ACCENT}` : FOG ? `1px solid ${BORDER}` : "none",
+                  background: isSel ? (FOG ? `linear-gradient(145deg,${ACC_HI},${ACCENT})` : ACCENT) : bg,
                   color: isSel ? "#04231f" : color,
-                  fontSize:10, fontWeight:700,
+                  fontSize:FOG?12:10, fontWeight:700,
                 }}>{day}</button>
               );
             })}
           </div>
           <div style={{display:"flex",gap:10,justifyContent:"center",marginTop:8}}>
             {[[RED,"мало"],[GOLD,"середньо"],[GREEN,"багато"]].map(([c,l])=>(
-              <span key={l} style={{fontSize:8,color:FAINT,fontWeight:700,display:"flex",alignItems:"center",gap:3}}>
+              <span key={l} style={{fontSize:FOG?11:8,color:FAINT,fontWeight:700,display:"flex",alignItems:"center",gap:3}}>
                 <i style={{width:6,height:6,borderRadius:2,background:c,display:"inline-block"}}/>{l}
               </span>
             ))}
           </div>
           {period === "custom" && selectedStrips.length > 0 && (
             <div style={{marginTop:9,display:"flex",alignItems:"center",gap:6}}>
-              <div style={{flex:1,textAlign:"center",fontSize:10.5,fontWeight:700,color:ACCENT,background:`${ACCENT}1a`,borderRadius:8,padding:"6px 8px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+              <div style={{flex:1,textAlign:"center",fontSize:FOG?11:10.5,fontWeight:700,color:ACCENT,background:`${ACCENT}1a`,borderRadius:8,padding:"6px 8px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
                 {selectedStrips.map(([s,e])=> s===e ? fmtDM(s) : `${fmtDM(s)}–${fmtDM(e)}`).join(", ")}
               </div>
               <button onClick={calClearSelection} title="Скинути вибір" style={{
                 flexShrink:0, padding:"6px 9px", borderRadius:8, border:"none", cursor:"pointer", fontFamily:"inherit",
-                background:SURF_HI, color:FAINT, fontSize:10.5, fontWeight:700,
+                background:SURF_HI, color:FAINT, fontSize:FOG?11:10.5, fontWeight:700,
               }}>✕</button>
             </div>
           )}
@@ -525,18 +539,18 @@ export default function StatsView() {
           ].map((k, i) => (
             <Card key={i} className="fu" style={{
               padding:"10px 9px",
-              background:`linear-gradient(155deg,color-mix(in srgb,${k.color} 20%,${BG_DEEP}),color-mix(in srgb,${k.color} 6%,${BG_DEEP}))`,
+              background:FOG?`color-mix(in srgb,${k.color} 18%,transparent)`:`linear-gradient(155deg,color-mix(in srgb,${k.color} 20%,${BG_DEEP}),color-mix(in srgb,${k.color} 6%,${BG_DEEP}))`,...glass,
               border:`1px solid color-mix(in srgb,${k.color} 30%,transparent)`,
               textAlign:"center",
             }}>
-              <div style={{fontSize:8,color:"rgba(255,255,255,0.6)",letterSpacing:0.6,textTransform:"uppercase",fontWeight:700,marginBottom:6}}>{k.label}</div>
+              <div style={{fontSize:FOG?11:8,color:"rgba(255,255,255,0.6)",letterSpacing:0.6,textTransform:"uppercase",fontWeight:700,marginBottom:6}}>{k.label}</div>
               <div style={{fontSize:18,fontWeight:900,color:"#fff",letterSpacing:-0.3,lineHeight:1.05}}>{k.value}</div>
               {(k.extra || (k.trend != null && k.trend !== 0)) && (
                 <div style={{display:"flex",justifyContent:"center",alignItems:"center",gap:5,marginTop:5,flexWrap:"wrap"}}>
-                  {k.extra && <span style={{fontSize:9,color:"rgba(255,255,255,0.55)",fontWeight:700}}>{k.extra}</span>}
+                  {k.extra && <span style={{fontSize:FOG?11:9,color:"rgba(255,255,255,0.55)",fontWeight:700}}>{k.extra}</span>}
                   {k.trend != null && k.trend !== 0 && (
                     <span style={{
-                      fontSize:8, fontWeight:800, padding:"1px 5px", borderRadius:5,
+                      fontSize:FOG?11:8, fontWeight:800, padding:FOG?"2px 7px":"1px 5px", borderRadius:FOG?99:5,
                       color:k.trend>=0?GREEN:RED,
                       background:k.trend>=0?`${GREEN}1f`:`${RED}1f`,
                     }}>{k.trend>=0?"+":""}{k.trend}%</span>
@@ -550,10 +564,10 @@ export default function StatsView() {
         {/* ── INCOME GOAL ── */}
         <Card className="fu" style={{padding:"12px 13px"}}>
           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:editingGoal?10:incomeGoal?9:4}}>
-            <div style={{fontSize:9,color:FAINT,letterSpacing:1,textTransform:"uppercase",fontWeight:700}}>🎯 Ціль місяця</div>
+            <div style={{fontSize:FOG?11:9,color:FAINT,letterSpacing:1,textTransform:"uppercase",fontWeight:700}}>🎯 Ціль місяця</div>
             {!editingGoal && (
               <button onClick={()=>{setGoalInput(String(incomeGoal||""));setEditingGoal(true);}} style={{
-                padding:"3px 8px",borderRadius:6,border:"none",cursor:"pointer",fontSize:10,fontWeight:700,fontFamily:"inherit",
+                padding:"3px 8px",borderRadius:6,border:"none",cursor:"pointer",fontSize:FOG?11:10,fontWeight:700,fontFamily:"inherit",
                 background:`${GOLD}22`,color:GOLD,
               }}>{incomeGoal?"✏️":"+ Встановити"}</button>
             )}
@@ -581,15 +595,15 @@ export default function StatsView() {
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-end",marginBottom:curMonthForecast>curMonthCurrent?7:11}}>
                 <div>
                   <div style={{fontSize:24,fontWeight:900,color:GOLD,lineHeight:1}}>{fmtK(incomeGoal)}</div>
-                  <div style={{fontSize:8,color:FAINT,marginTop:3}}>ціль місяця</div>
+                  <div style={{fontSize:FOG?11:8,color:FAINT,marginTop:3}}>ціль місяця</div>
                 </div>
                 <div style={{textAlign:"right"}}>
                   <div style={{fontSize:16,fontWeight:800,color:curMonthCurrent>=incomeGoal?GREEN:TEXT,lineHeight:1}}>{fmtK(curMonthCurrent)}</div>
-                  <div style={{fontSize:8,color:FAINT,marginTop:3}}>вже зароблено</div>
+                  <div style={{fontSize:FOG?11:8,color:FAINT,marginTop:3}}>вже зароблено</div>
                 </div>
               </div>
               {curMonthForecast > curMonthCurrent && (
-                <div style={{fontSize:9,color:ACCENT,fontWeight:700,marginBottom:7}}>
+                <div style={{fontSize:FOG?11:9,color:ACCENT,fontWeight:700,marginBottom:7}}>
                   прогноз із записами наперед: {fmtK(curMonthForecast)}
                 </div>
               )}
@@ -610,12 +624,12 @@ export default function StatsView() {
                 }}/>
               </div>
               <div style={{display:"flex",justifyContent:"space-between"}}>
-                <span style={{fontSize:10,fontWeight:800,color:curMonthCurrent>=incomeGoal?GREEN:FAINT}}>
+                <span style={{fontSize:FOG?11:10,fontWeight:800,color:curMonthCurrent>=incomeGoal?GREEN:FAINT}}>
                   {Math.min(100,Math.round((curMonthCurrent/incomeGoal)*100))}%
                 </span>
                 {curMonthCurrent<incomeGoal
-                  ? <span style={{fontSize:10,color:FAINT}}>залишилось {fmtK(incomeGoal-curMonthCurrent)}</span>
-                  : <span style={{fontSize:10,color:GREEN,fontWeight:700}}>🎉 Ціль досягнута!</span>
+                  ? <span style={{fontSize:FOG?11:10,color:FAINT}}>залишилось {fmtK(incomeGoal-curMonthCurrent)}</span>
+                  : <span style={{fontSize:FOG?11:10,color:GREEN,fontWeight:700}}>🎉 Ціль досягнута!</span>
                 }
               </div>
             </>
@@ -628,10 +642,10 @@ export default function StatsView() {
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7}}>
           <Card className="fu" style={{
             padding:"12px",
-            background:`linear-gradient(155deg,color-mix(in srgb,${GREEN} 14%,${BG_DEEP}),color-mix(in srgb,${GREEN} 3%,${BG_DEEP}))`,
+            background:FOG?`color-mix(in srgb,${GREEN} 18%,transparent)`:`linear-gradient(155deg,color-mix(in srgb,${GREEN} 14%,${BG_DEEP}),color-mix(in srgb,${GREEN} 3%,${BG_DEEP}))`,...glass,
             border:`1px solid color-mix(in srgb,${GREEN} 24%,transparent)`,
           }}>
-            <div style={{fontSize:9,color:"rgba(255,255,255,0.6)",letterSpacing:1,textTransform:"uppercase",fontWeight:700,marginBottom:7}}>Розподіл</div>
+            <div style={{fontSize:FOG?11:9,color:"rgba(255,255,255,0.6)",letterSpacing:1,textTransform:"uppercase",fontWeight:700,marginBottom:7}}>Розподіл</div>
             {(() => {
               const totalRatio = totalSchool + totalPrivate;
               const schoolPct = totalRatio ? Math.round((totalSchool/totalRatio)*100) : 0;
@@ -640,9 +654,9 @@ export default function StatsView() {
                   {[[GREEN,"Автошкола",totalSchool,schoolPct],[GOLD,"Приватний",totalPrivate,100-schoolPct]].map(([c,l,v,pct])=>(
                     <div key={l} style={{display:"flex",alignItems:"center",gap:5}}>
                       <i style={{width:7,height:7,borderRadius:2,background:c,flexShrink:0}}/>
-                      <span style={{flex:1,fontSize:9.5,color:"rgba(255,255,255,0.7)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{l}</span>
+                      <span style={{flex:1,fontSize:FOG?11:9.5,color:"rgba(255,255,255,0.7)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{l}</span>
                       <span style={{fontSize:12,fontWeight:900,color:c}}>{v}</span>
-                      <span style={{fontSize:8.5,color:"rgba(255,255,255,0.5)",width:26,textAlign:"right",flexShrink:0}}>{pct}%</span>
+                      <span style={{fontSize:FOG?11:8.5,color:"rgba(255,255,255,0.5)",width:26,textAlign:"right",flexShrink:0}}>{pct}%</span>
                     </div>
                   ))}
                   <div style={{display:"flex",height:6,borderRadius:4,overflow:"hidden",boxShadow:SI,marginTop:1}}>
@@ -656,21 +670,21 @@ export default function StatsView() {
 
           <Card className="fu" style={{
             padding:"12px",
-            background:`linear-gradient(155deg,color-mix(in srgb,${GOLD} 14%,${BG_DEEP}),color-mix(in srgb,${GOLD} 3%,${BG_DEEP}))`,
+            background:FOG?`color-mix(in srgb,${GOLD} 18%,transparent)`:`linear-gradient(155deg,color-mix(in srgb,${GOLD} 14%,${BG_DEEP}),color-mix(in srgb,${GOLD} 3%,${BG_DEEP}))`,...glass,
             border:`1px solid color-mix(in srgb,${GOLD} 24%,transparent)`,
           }}>
-            <div style={{fontSize:9,color:"rgba(255,255,255,0.6)",letterSpacing:1,textTransform:"uppercase",fontWeight:700,marginBottom:7}}>{byPeriodLabel}</div>
+            <div style={{fontSize:FOG?11:9,color:"rgba(255,255,255,0.6)",letterSpacing:1,textTransform:"uppercase",fontWeight:700,marginBottom:7}}>{byPeriodLabel}</div>
             <div style={{display:"flex",flexDirection:"column",gap:4,maxHeight:140,overflowY:"auto",paddingRight:2}}>
               {data.map((d, i) => {
                 const maxI = Math.max(...data.map(x => x.income), 1);
                 const pct  = d.income / maxI;
                 return (
                   <div key={i} style={{display:"flex",alignItems:"center",gap:6}}>
-                    <span style={{fontSize:8.5,color:"rgba(255,255,255,0.55)",fontWeight:700,width:16,textAlign:"right",flexShrink:0}}>{d.label}</span>
+                    <span style={{fontSize:FOG?11:8.5,color:"rgba(255,255,255,0.55)",fontWeight:700,width:16,textAlign:"right",flexShrink:0}}>{d.label}</span>
                     <div style={{flex:1,height:4,background:BG_DEEP,borderRadius:3,boxShadow:SI,overflow:"hidden"}}>
                       <div style={{height:"100%",width:`${pct*100}%`,borderRadius:3,background:`linear-gradient(90deg,${GOLD},${GREEN})`,transition:"width .5s ease"}}/>
                     </div>
-                    <span style={{fontSize:8.5,color:GOLD,fontWeight:800,width:32,textAlign:"right",flexShrink:0}}>{d.income ? fmtK(d.income) : <span style={{color:FAINT}}>—</span>}</span>
+                    <span style={{fontSize:FOG?11:8.5,color:GOLD,fontWeight:800,width:32,textAlign:"right",flexShrink:0}}>{d.income ? fmtK(d.income) : <span style={{color:FAINT}}>—</span>}</span>
                   </div>
                 );
               })}
@@ -682,10 +696,10 @@ export default function StatsView() {
         {popularSlots.length > 0 && (
           <Card className="fu" style={{
             padding:"12px 13px",
-            background:`linear-gradient(155deg,color-mix(in srgb,${GOLD} 14%,${BG_DEEP}),color-mix(in srgb,${GOLD} 3%,${BG_DEEP}))`,
+            background:FOG?`color-mix(in srgb,${GOLD} 18%,transparent)`:`linear-gradient(155deg,color-mix(in srgb,${GOLD} 14%,${BG_DEEP}),color-mix(in srgb,${GOLD} 3%,${BG_DEEP}))`,...glass,
             border:`1px solid color-mix(in srgb,${GOLD} 24%,transparent)`,
           }}>
-            <div style={{fontSize:9,color:"rgba(255,255,255,0.6)",letterSpacing:1,textTransform:"uppercase",fontWeight:700,marginBottom:10}}>Популярні слоти</div>
+            <div style={{fontSize:FOG?11:9,color:"rgba(255,255,255,0.6)",letterSpacing:1,textTransform:"uppercase",fontWeight:700,marginBottom:10}}>Популярні слоти</div>
             {popularSlots.map((s, i) => {
               const maxCount = popularSlots[0].count;
               const pct = s.count / maxCount;
@@ -697,7 +711,7 @@ export default function StatsView() {
                       background:i===0?`linear-gradient(90deg,${GOLD},${GREEN})`:`linear-gradient(90deg,${PURPLE},${ACCENT})`,
                       transition:"width .5s ease"}}/>
                   </div>
-                  <span style={{fontSize:10,color:i===0?GOLD:PURPLE,fontWeight:800,width:44,textAlign:"right",flexShrink:0}}>
+                  <span style={{fontSize:FOG?11:10,color:i===0?GOLD:PURPLE,fontWeight:800,width:44,textAlign:"right",flexShrink:0}}>
                     {s.count} ур.
                   </span>
                 </div>
@@ -710,11 +724,11 @@ export default function StatsView() {
         {topStudents.length > 0 && (
           <Card className="fu" style={{padding:"12px 13px 8px"}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
-              <div style={{fontSize:9,color:FAINT,letterSpacing:1,textTransform:"uppercase",fontWeight:700}}>Топ-5 учнів</div>
+              <div style={{fontSize:FOG?11:9,color:FAINT,letterSpacing:1,textTransform:"uppercase",fontWeight:700}}>Топ-5 учнів</div>
               <div style={{display:"flex",gap:5}}>
                 {[["paid","₴"],["lessons","год"]].map(([k,l])=>(
                   <button key={k} onClick={()=>setTopBy(k)} style={{
-                    padding:"3px 8px", borderRadius:6, border:"none", cursor:"pointer", fontSize:10, fontWeight:700, fontFamily:"inherit",
+                    padding:"3px 8px", borderRadius:6, border:"none", cursor:"pointer", fontSize:FOG?11:10, fontWeight:700, fontFamily:"inherit",
                     background:topBy===k?GOLD:`linear-gradient(145deg,${SURF_HI},${SURFACE})`,
                     color:topBy===k?"#1a1a1a":FAINT, boxShadow:SO,
                   }}>{l}</button>
@@ -738,13 +752,13 @@ export default function StatsView() {
                     width:24, height:24, borderRadius:7, flexShrink:0,
                     background: i<3 ? `linear-gradient(145deg,${medals[i]},${medals[i]}88)` : `linear-gradient(145deg,${SURF_HI},${SURFACE})`,
                     display:"flex", alignItems:"center", justifyContent:"center",
-                    fontSize:10, fontWeight:900, color:i<3?"#1a1a1a":"#fff", boxShadow:SO,
+                    fontSize:FOG?11:10, fontWeight:900, color:i<3?"#1a1a1a":"#fff", boxShadow:SO,
                   }}>{i+1}</div>
                   <div style={{
                     width:32, height:32, borderRadius:9, flexShrink:0,
                     background:`linear-gradient(145deg,hsl(${s.hue},60%,44%),hsl(${(s.hue+35)%360},70%,28%))`,
                     display:"flex", alignItems:"center", justifyContent:"center",
-                    fontSize:10, fontWeight:800, color:"#fff", boxShadow:`0 2px 8px hsla(${s.hue},50%,30%,.5)`,
+                    fontSize:FOG?11:10, fontWeight:800, color:"#fff", boxShadow:`0 2px 8px hsla(${s.hue},50%,30%,.5)`,
                   }}>{s.name.split(" ").map(w=>w[0]).join("")}</div>
                   <div style={{flex:1,minWidth:0}}>
                     <div style={{fontSize:12,fontWeight:700,color:TEXT,marginBottom:4,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{s.name}</div>
@@ -757,8 +771,8 @@ export default function StatsView() {
                   </div>
                   <div style={{flexShrink:0,textAlign:"right"}}>
                     {topBy === 'lessons'
-                      ? <><div style={{fontSize:12,fontWeight:800,color:BLUE}}>{s.hours} год</div><div style={{fontSize:9,color:FAINT}}>{fmtK(s.paid)}</div></>
-                      : <><div style={{fontSize:12,fontWeight:800,color:GOLD}}>{fmtK(s.paid)}</div><div style={{fontSize:9,color:FAINT}}>{s.hours} год</div></>
+                      ? <><div style={{fontSize:12,fontWeight:800,color:BLUE}}>{s.hours} год</div><div style={{fontSize:FOG?11:9,color:FAINT}}>{fmtK(s.paid)}</div></>
+                      : <><div style={{fontSize:12,fontWeight:800,color:GOLD}}>{fmtK(s.paid)}</div><div style={{fontSize:FOG?11:9,color:FAINT}}>{s.hours} год</div></>
                     }
                   </div>
                 </div>
