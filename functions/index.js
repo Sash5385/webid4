@@ -1,3 +1,5 @@
+const { onRequest } = require("firebase-functions/v2/https");
+const crypto = require("crypto");
 const { onSchedule } = require("firebase-functions/v2/scheduler");
 const { onValueCreated, onValueUpdated, onValueWritten } = require("firebase-functions/v2/database");
 const admin = require("firebase-admin");
@@ -1368,3 +1370,55 @@ exports.checkLicenseExpiry = onSchedule(
     ).catch(() => {});
   }
 );
+
+// ─── Моніторинг помилок ──────────────────────────────────────────────
+// POST /api/report-error (без авторизації — помилки можуть бути ще до входу). Захист: ліміт 20/хв
+// за хешем IP, обрізання довжин, групування за відбитком (повтор лише збільшує лічильник).
+// Дані — system/errorLog/{відбиток} (читає лише адмін, Налаштування → "Помилки").
+exports.reportError = onRequest({ region: "europe-west1", cors: true }, async (req, res) => {
+  if (req.method !== "POST") { res.status(405).json({ ok: false }); return; }
+  try {
+    let b = req.body || {};
+    if (typeof b === "string") { try { b = JSON.parse(b); } catch { b = {}; } }
+    const message = String(b.message || "").trim().slice(0, 300);
+    if (!message) { res.status(400).json({ ok: false }); return; }
+    const app = b.app === "client" ? "client" : "admin";
+    const stack = String(b.stack || "").slice(0, 1500);
+    const url = String(b.url || "").replace(/[?#].*$/, "").slice(0, 160);
+    const version = String(b.version || "").slice(0, 20);
+    const ua = String(b.ua || req.get("user-agent") || "").slice(0, 160);
+    const ip = String(req.headers["x-forwarded-for"] || req.ip || "").split(",")[0].trim();
+    const ipHash = crypto.createHash("sha256").update(ip).digest("hex").slice(0, 16);
+    const now = Date.now();
+    const rate = await db.ref(`system/errorRate/${ipHash}`).transaction(cur => {
+      const c = cur || { w: now, n: 0 };
+      if (now - c.w > 60000) { c.w = now; c.n = 0; }
+      if (c.n >= 20) return; // перевищено ліміт — скасовуємо транзакцію
+      c.n += 1;
+      return c;
+    });
+    if (!rate.committed) { res.status(429).json({ ok: false }); return; }
+    const fp = crypto.createHash("sha1").update(`${app}|${message}|${stack.split("\n").slice(0, 2).join("|")}`).digest("hex").slice(0, 16);
+    await db.ref(`system/errorLog/${fp}`).transaction(cur => (
+      cur
+        ? { ...cur, count: (cur.count || 1) + 1, last: now, version, url, ua }
+        : { app, message, stack, url, version, ua, count: 1, first: now, last: now }
+    ));
+    res.status(200).json({ ok: true });
+    console.error(`clientError [${app} ${version}] ${message}\n${stack}`);
+  } catch (e) {
+    console.error("reportError error:", e);
+    if (!res.headersSent) res.status(500).json({ ok: false });
+  }
+});
+
+// Щодня прибирає журнал помилок старше 14 діб і лічильники частоти
+exports.cleanupErrorLog = onSchedule({ schedule: "every 24 hours", region: "europe-west1" }, async () => {
+  const now = Date.now();
+  const log = (await db.ref("system/errorLog").get()).val() || {};
+  const upd = {};
+  for (const [k, v] of Object.entries(log)) if (!v || (v.last || 0) < now - 14 * 86400000) upd[`system/errorLog/${k}`] = null;
+  const rate = (await db.ref("system/errorRate").get()).val() || {};
+  for (const [k, v] of Object.entries(rate)) if (!v || (v.w || 0) < now - 3600000) upd[`system/errorRate/${k}`] = null;
+  if (Object.keys(upd).length) await db.ref().update(upd);
+});

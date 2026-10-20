@@ -1,6 +1,6 @@
 import { useState, useContext, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import { ref, get, update, onValue, off } from "firebase/database";
+import { ref, get, update, remove, onValue, off } from "firebase/database";
 import { db } from "../firebase";
 import { LangContext } from "../App";
 import { APP_VERSION } from "../version.js";
@@ -25,6 +25,7 @@ const SEC_ICON_SVG = {
   auto:       <><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></>,
   surcharges: <><circle cx="12" cy="12" r="9"/><path d="M12 7.5v9M15 9.7c0-1.1-1.2-2-3-2s-3 .9-3 1.9 1.3 1.5 3 1.8c1.7.3 3 .8 3 1.9s-1.2 1.9-3 1.9-3-.9-3-2"/></>,
   push:       <><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></>,
+  errors:     <><circle cx="12" cy="12" r="9"/><path d="M12 7v6"/><path d="M12 16.5v.01"/></>,
   reviews:    <><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></>,
 };
 function SecIcon({ id, color, active, isKava, size=34 }) {
@@ -511,6 +512,29 @@ select{color-scheme:${isKava?"light":"dark"}}
     });
     return () => off(r, "value", handler);
   }, []);
+  // ── журнал помилок (function reportError → system/errorLog) ──
+  const [errorLog, setErrorLog] = useState([]);
+  useEffect(() => {
+    const r = ref(db, "system/errorLog");
+    const handler = onValue(r, snap => {
+      const v = snap.val() || {};
+      setErrorLog(Object.entries(v).map(([id, e]) => ({ id, ...e, fresh: Date.now() - (e.last || 0) < 86400000 })).sort((a, b) => (b.last || 0) - (a.last || 0)));
+    }, () => {});
+    return () => off(r, "value", handler);
+  }, []);
+  const copyErrorsReport = async () => {
+    const text = errorLog.slice(0, 20).map((e, i) =>
+      `#${i + 1} [${e.app === "client" ? "учень" : "адмінка"}] ×${e.count || 1} ${e.message}\n  версія: ${e.version || "?"} · сторінка: ${e.url || "?"} · востаннє: ${new Date(e.last).toLocaleString("uk-UA")}\n  браузер: ${e.ua || "?"}${e.stack ? `\n  stack:\n${String(e.stack).split("\n").slice(0, 8).map(l => "    " + l).join("\n")}` : ""}`
+    ).join("\n\n");
+    try { await navigator.clipboard.writeText(text); }
+    catch {
+      const ta = document.createElement("textarea");
+      ta.value = text; ta.style.cssText = "position:fixed;opacity:0"; document.body.appendChild(ta); ta.select();
+      try { document.execCommand("copy"); } catch { /* ignore */ }
+      document.body.removeChild(ta);
+    }
+    alert("Скопійовано помилки (до 20 останніх). Вставте в чат із Claude.");
+  };
   const toggleReviewHidden = (review) => {
     update(ref(db, `reviews/${review.uid}/${review.id}`), { status: review.status === "hidden" ? "approved" : "hidden" }).catch(() => {});
   };
@@ -672,6 +696,7 @@ select{color-scheme:${isKava?"light":"dark"}}
     { id:"surcharges", icon:"💰", color:GOLD,   title:"Надбавки",              label:uk?"Збори":"Fees"   },
     { id:"push",       icon:"🔔", color:GREEN,  title:"Сповіщення",            label:"Сповіщення"        },
     { id:"reviews",    icon:"⭐", color:GOLD,   title:"Відгуки учнів",         label:"Відгуки"           },
+    { id:"errors",     icon:"🐞", color:RED,    title:"Помилки",               label:"Помилки"           },
   ];
 
   function renderSection(id) {
@@ -958,6 +983,36 @@ select{color-scheme:${isKava?"light":"dark"}}
             <Toggle color={svColor(settings.slotFreedPushEnabled !== false)} on={settings.slotFreedPushEnabled !== false} onChange={v=>upd("slotFreedPushEnabled",v)}/>
           </Row>
           <PushDiag />
+        </div>
+      );
+
+      case "errors": return (
+        <div>
+          {showHint && <Info color={RED} title="Помилки" text="Необроблені помилки з адмінки та застосунку учня. Однакові помилки групуються (×N). Журнал зберігається 14 днів."/>}
+          {errorLog.length === 0 ? (
+            <div style={{textAlign:"center",padding:"24px 12px",color:DIM,fontSize:12}}>Помилок немає 🎉</div>
+          ) : (
+            <>
+              <div style={{display:"flex",justifyContent:"flex-end",gap:8,marginBottom:10,flexWrap:"wrap"}}>
+                <button onClick={copyErrorsReport} style={{padding:"6px 12px",borderRadius:8,border:"none",cursor:"pointer",fontSize:11,fontWeight:700,background:`linear-gradient(145deg,${SURF_HI},${SURFACE})`,color:DIM,boxShadow:SO}}>📋 Копіювати для Claude</button>
+                <button onClick={()=>{ if (window.confirm("Очистити журнал помилок?")) remove(ref(db, "system/errorLog")).catch(() => {}); }} style={{padding:"6px 12px",borderRadius:8,border:"none",cursor:"pointer",fontSize:11,fontWeight:700,background:`linear-gradient(145deg,${SURF_HI},${SURFACE})`,color:RED,boxShadow:SO}}>Очистити все</button>
+              </div>
+              {errorLog.slice(0, 100).map(e => (
+                <div key={e.id} style={{padding:"10px 12px",borderRadius:11,marginBottom:6,background:SURF_LO,boxShadow:SI,opacity:e.fresh?1:0.6}}>
+                  <div style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"flex-start"}}>
+                    <div style={{minWidth:0,fontSize:13,fontWeight:800,color:TEXT,wordBreak:"break-word"}}>{e.message}</div>
+                    <div style={{fontSize:11,fontWeight:800,color:RED,flexShrink:0}}>×{e.count || 1}</div>
+                  </div>
+                  <div style={{fontSize:11,color:DIM,marginTop:4,wordBreak:"break-word"}}>
+                    {e.app === "client" ? "учень" : "адмінка"} · {e.version} · {e.url} · {new Date(e.last).toLocaleString("uk-UA")}
+                  </div>
+                  {e.stack && <pre style={{fontSize:10,color:FAINT,whiteSpace:"pre-wrap",wordBreak:"break-all",margin:"8px 0 0",maxHeight:120,overflow:"auto"}}>{e.stack}</pre>}
+                  <div style={{fontSize:10,color:FAINT,marginTop:6,wordBreak:"break-word"}}>{e.ua}</div>
+                  <button onClick={()=>remove(ref(db, `system/errorLog/${e.id}`)).catch(() => {})} style={{marginTop:8,padding:"4px 10px",borderRadius:8,border:"none",cursor:"pointer",fontSize:11,fontWeight:700,background:`linear-gradient(145deg,${SURF_HI},${SURFACE})`,color:DIM,boxShadow:SO}}>✓ Виправлено</button>
+                </div>
+              ))}
+            </>
+          )}
         </div>
       );
 
