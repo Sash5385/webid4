@@ -29,16 +29,56 @@
     },
     "timeslots": {
       ".read": true,
-      ".write": "auth != null",
+      ".write": "auth != null && auth.uid === 'IjyqouYBDUg5KGzs3U27PUcs8Uj1'",
       "$date": {
         "$slotId": {
-          "vipOnly":       { ".validate": "auth.uid === 'IjyqouYBDUg5KGzs3U27PUcs8Uj1' || newData.val() === data.val()" },
-          "adminBlocked":  { ".validate": "auth.uid === 'IjyqouYBDUg5KGzs3U27PUcs8Uj1' || newData.val() === data.val()" },
-          "privateOnly":   { ".validate": "auth.uid === 'IjyqouYBDUg5KGzs3U27PUcs8Uj1' || newData.val() === data.val()" },
-          "surcharge":     { ".validate": "auth.uid === 'IjyqouYBDUg5KGzs3U27PUcs8Uj1' || newData.val() === data.val()" },
-          "fixedPrice":    { ".validate": "auth.uid === 'IjyqouYBDUg5KGzs3U27PUcs8Uj1' || newData.val() === data.val()" },
-          "lunchOverride": { ".validate": "auth.uid === 'IjyqouYBDUg5KGzs3U27PUcs8Uj1' || newData.val() === data.val()" },
-          "durMin":        { ".validate": "auth.uid === 'IjyqouYBDUg5KGzs3U27PUcs8Uj1' || newData.val() === data.val()" }
+          ".write": "auth != null && (auth.uid === 'IjyqouYBDUg5KGzs3U27PUcs8Uj1' || ((data.exists() || (newData.child('available').val() === false && newData.child('phantom').val() === true)) && (newData.exists() || data.child('phantom').val() === true) && (!data.child('reservedFor').exists() || data.child('reservedFor').val() === auth.uid || data.child('reservedUntil').val() < now) && (newData.child('reservedFor').val() === data.child('reservedFor').val() || (data.child('reservedFor').val() === auth.uid && !newData.child('reservedFor').exists())) && (newData.child('reservedUntil').val() === data.child('reservedUntil').val() || (data.child('reservedFor').val() === auth.uid && !newData.child('reservedUntil').exists()))))",
+          "viewing": {
+            "$uid": {
+              ".write": "auth != null && auth.uid === $uid"
+            }
+          },
+          "offeredTo": {
+            "$uid": {
+              ".write": "auth != null && auth.uid === $uid && !newData.exists()"
+            }
+          },
+          "vipOnly": {
+            ".validate": "auth.uid === 'IjyqouYBDUg5KGzs3U27PUcs8Uj1' || newData.val() === data.val()"
+          },
+          "adminBlocked": {
+            ".validate": "auth.uid === 'IjyqouYBDUg5KGzs3U27PUcs8Uj1' || newData.val() === data.val()"
+          },
+          "privateOnly": {
+            ".validate": "auth.uid === 'IjyqouYBDUg5KGzs3U27PUcs8Uj1' || newData.val() === data.val()"
+          },
+          "surcharge": {
+            ".validate": "auth.uid === 'IjyqouYBDUg5KGzs3U27PUcs8Uj1' || newData.val() === data.val()"
+          },
+          "fixedPrice": {
+            ".validate": "auth.uid === 'IjyqouYBDUg5KGzs3U27PUcs8Uj1' || newData.val() === data.val()"
+          },
+          "lunchOverride": {
+            ".validate": "auth.uid === 'IjyqouYBDUg5KGzs3U27PUcs8Uj1' || newData.val() === data.val()"
+          },
+          "durMin": {
+            ".validate": "auth.uid === 'IjyqouYBDUg5KGzs3U27PUcs8Uj1' || newData.val() === data.val()"
+          },
+          "personal": {
+            ".validate": "auth.uid === 'IjyqouYBDUg5KGzs3U27PUcs8Uj1' || newData.val() === data.val()"
+          },
+          "available": {
+            ".validate": "auth.uid === 'IjyqouYBDUg5KGzs3U27PUcs8Uj1' || newData.isBoolean()"
+          },
+          "time": {
+            ".validate": "auth.uid === 'IjyqouYBDUg5KGzs3U27PUcs8Uj1' || (newData.isString() && newData.val().matches(/^[0-9][0-9]:[0-9][0-9]$/))"
+          },
+          "phantom": {
+            ".validate": "auth.uid === 'IjyqouYBDUg5KGzs3U27PUcs8Uj1' || newData.val() === true"
+          },
+          "bookingStart": {
+            ".validate": "auth.uid === 'IjyqouYBDUg5KGzs3U27PUcs8Uj1' || newData.isBoolean()"
+          }
         }
       }
     },
@@ -46,7 +86,31 @@
       ".read": "auth != null && auth.uid === 'IjyqouYBDUg5KGzs3U27PUcs8Uj1'",
       "$uid": {
         ".read": "auth != null && (auth.uid === $uid || auth.uid === 'IjyqouYBDUg5KGzs3U27PUcs8Uj1')",
-        ".write": "auth != null && (auth.uid === $uid || auth.uid === 'IjyqouYBDUg5KGzs3U27PUcs8Uj1')"
+        ".write": "auth != null && auth.uid === 'IjyqouYBDUg5KGzs3U27PUcs8Uj1'",
+        "$bookingId": {
+          ".write": "auth != null && auth.uid === $uid && root.child('users/'+$uid).exists() && (!data.exists() || (newData.exists() && (!data.child('price').exists() || newData.child('price').exists()) && (!data.child('debtAmount').exists() || newData.child('debtAmount').exists()) && (!data.child('manualPrice').exists() || newData.child('manualPrice').exists()) && (!data.child('status').exists() || newData.child('status').exists()) && (!data.child('createdBy').exists() || newData.child('createdBy').exists()) && (!data.child('date').exists() || newData.child('date').exists()) && (!data.child('time').exists() || newData.child('time').exists()) && (!data.child('durationHours').exists() || newData.child('durationHours').exists()) && (!data.child('tag').exists() || newData.child('tag').exists()) && (!data.child('serviceType').exists() || newData.child('serviceType').exists()) && (!data.child('serviceId').exists() || newData.child('serviceId').exists()) && (!data.child('serviceName').exists() || newData.child('serviceName').exists()) && (!data.child('surcharge').exists() || newData.child('surcharge').exists()) && (!data.child('discountAmt').exists() || newData.child('discountAmt').exists()) && (!data.child('studentName').exists() || newData.child('studentName').exists()) && (!data.child('phone').exists() || newData.child('phone').exists()) && (!data.child('createdAt').exists() || newData.child('createdAt').exists()))) && (data.exists() || (newData.child('status').val() === 'pending' && !newData.child('createdBy').exists() && root.child('users/'+$uid+'/blocked').val() !== true))",
+          "$key": {
+            ".validate": "auth.uid === 'IjyqouYBDUg5KGzs3U27PUcs8Uj1' || newData.val() === data.val() || (!data.parent().exists() && ($key === 'id' || $key === 'date' || $key === 'time' || $key === 'serviceType' || $key === 'serviceId' || $key === 'serviceName' || $key === 'price' || $key === 'manualPrice' || $key === 'surcharge' || $key === 'discountAmt' || $key === 'durationHours' || $key === 'studentName' || $key === 'phone' || $key === 'studentNote' || $key === 'rescheduledFrom' || $key === 'createdAt' || ($key === 'status' && newData.val() === 'pending'))) || (data.parent().exists() && ($key === 'studentConfirmed' || $key === 'studentNote' || $key === 'cancelledAt' || ($key === 'reviewed' && newData.val() === true) || ($key === 'cancelledBy' && (newData.val() === 'student' || newData.val() === 'reschedule')) || ($key === 'status' && newData.val() === 'cancelled' && (data.val() === 'pending' || data.val() === 'confirmed'))))"
+          },
+          "date": {
+            ".validate": "auth.uid === 'IjyqouYBDUg5KGzs3U27PUcs8Uj1' || newData.val() === data.val() || (!data.parent().exists() && newData.isString() && newData.val().matches(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/))"
+          },
+          "time": {
+            ".validate": "auth.uid === 'IjyqouYBDUg5KGzs3U27PUcs8Uj1' || newData.val() === data.val() || (!data.parent().exists() && newData.isString() && newData.val().matches(/^[0-9][0-9]:[0-9][0-9]$/))"
+          },
+          "durationHours": {
+            ".validate": "auth.uid === 'IjyqouYBDUg5KGzs3U27PUcs8Uj1' || newData.val() === data.val() || (!data.parent().exists() && newData.isNumber() && newData.val() > 0 && newData.val() <= 12)"
+          },
+          "price": {
+            ".validate": "auth.uid === 'IjyqouYBDUg5KGzs3U27PUcs8Uj1' || newData.val() === data.val() || (!data.parent().exists() && newData.isNumber() && newData.val() >= 0 && newData.val() <= 100000)"
+          },
+          "manualPrice": {
+            ".validate": "auth.uid === 'IjyqouYBDUg5KGzs3U27PUcs8Uj1' || newData.val() === data.val() || (!data.parent().exists() && newData.isNumber() && newData.val() >= 0 && newData.val() <= 100000)"
+          },
+          "studentNote": {
+            ".validate": "auth.uid === 'IjyqouYBDUg5KGzs3U27PUcs8Uj1' || (newData.isString() && newData.val().length <= 1000)"
+          }
+        }
       }
     },
     "bookings_by_phone": {
@@ -62,7 +126,22 @@
         "entries": {
           ".read": "auth != null",
           "$uid": {
-            ".write": "auth != null && (auth.uid === $uid || auth.uid === 'IjyqouYBDUg5KGzs3U27PUcs8Uj1')"
+            ".write": "auth != null && (auth.uid === 'IjyqouYBDUg5KGzs3U27PUcs8Uj1' || (auth.uid === $uid && (!newData.exists() || root.child('users/'+$uid+'/blocked').val() !== true)))",
+            "uid": {
+              ".validate": "auth.uid === 'IjyqouYBDUg5KGzs3U27PUcs8Uj1' || newData.val() === $uid"
+            },
+            "status": {
+              ".validate": "auth.uid === 'IjyqouYBDUg5KGzs3U27PUcs8Uj1' || newData.val() === data.val() || newData.val() === 'waiting' || newData.val() === 'booked'"
+            },
+            "durationHours": {
+              ".validate": "auth.uid === 'IjyqouYBDUg5KGzs3U27PUcs8Uj1' || (newData.isNumber() && newData.val() > 0 && newData.val() <= 12)"
+            },
+            "name": {
+              ".validate": "auth.uid === 'IjyqouYBDUg5KGzs3U27PUcs8Uj1' || (newData.isString() && newData.val().length <= 100)"
+            },
+            "phone": {
+              ".validate": "auth.uid === 'IjyqouYBDUg5KGzs3U27PUcs8Uj1' || (newData.isString() && newData.val().length <= 30)"
+            }
           }
         }
       }
@@ -77,14 +156,37 @@
       ".read": "auth != null && auth.uid === 'IjyqouYBDUg5KGzs3U27PUcs8Uj1'",
       "$uid": {
         ".read": "auth != null && (auth.uid === $uid || auth.uid === 'IjyqouYBDUg5KGzs3U27PUcs8Uj1')",
-        ".write": "auth != null && (auth.uid === $uid || auth.uid === 'IjyqouYBDUg5KGzs3U27PUcs8Uj1')",
-        "customPrice": { ".validate": "auth.uid === 'IjyqouYBDUg5KGzs3U27PUcs8Uj1' || newData.val() === data.val()" }
+        ".write": "auth != null && auth.uid === 'IjyqouYBDUg5KGzs3U27PUcs8Uj1'",
+        "profile": {
+          ".write": "auth != null && auth.uid === $uid"
+        },
+        "firstLoginAt": {
+          ".write": "auth != null && auth.uid === $uid && !data.exists()"
+        },
+        "fcmTokens": {
+          ".write": "auth != null && auth.uid === $uid"
+        },
+        "queueOffers": {
+          "$slotKey": {
+            ".write": "auth != null && auth.uid === $uid && !newData.exists()"
+          }
+        },
+        "customPrice": {
+          ".validate": "auth.uid === 'IjyqouYBDUg5KGzs3U27PUcs8Uj1' || newData.val() === data.val()"
+        }
       }
     },
     "chats": {
       "general": {
         ".read": "auth != null",
-        ".write": "auth != null"
+        ".write": "auth != null && auth.uid === 'IjyqouYBDUg5KGzs3U27PUcs8Uj1'",
+        "$msgId": {
+          ".write": "auth != null && !data.exists() && newData.exists()",
+          ".validate": "auth.uid === 'IjyqouYBDUg5KGzs3U27PUcs8Uj1' || (newData.hasChildren(['uid','text','ts']) && newData.child('uid').val() === auth.uid && newData.child('text').isString() && newData.child('text').val().length >= 1 && newData.child('text').val().length <= 1000 && (!newData.child('name').exists() || (newData.child('name').isString() && newData.child('name').val().length <= 100)) && (!newData.child('from').exists() || newData.child('from').val() === 'student') && newData.child('ts').isNumber() && newData.child('ts').val() <= now + 86400000 && newData.child('ts').val() >= now - 86400000)",
+          "$other": {
+            ".validate": "auth.uid === 'IjyqouYBDUg5KGzs3U27PUcs8Uj1' || $other === 'uid' || $other === 'name' || $other === 'from' || $other === 'text' || $other === 'time' || $other === 'ts'"
+          }
+        }
       },
       "$uid": {
         ".read": "auth != null && (auth.uid === $uid || auth.uid === 'IjyqouYBDUg5KGzs3U27PUcs8Uj1')",
@@ -93,8 +195,8 @@
     },
     "chatMeta": {
       "general": {
-        ".read": "auth != null",
-        ".write": "auth != null"
+        ".read": "auth != null && auth.uid === 'IjyqouYBDUg5KGzs3U27PUcs8Uj1'",
+        ".write": "auth != null && auth.uid === 'IjyqouYBDUg5KGzs3U27PUcs8Uj1'"
       },
       "$uid": {
         ".read": "auth != null && (auth.uid === $uid || auth.uid === 'IjyqouYBDUg5KGzs3U27PUcs8Uj1')",
@@ -121,7 +223,7 @@
     },
     "recentStudents": {
       ".read": "auth != null && auth.uid === 'IjyqouYBDUg5KGzs3U27PUcs8Uj1'",
-      ".write": "auth != null"
+      ".write": "auth != null && auth.uid === 'IjyqouYBDUg5KGzs3U27PUcs8Uj1'"
     },
     "slotBookings": {
       ".read": "auth != null && auth.uid === 'IjyqouYBDUg5KGzs3U27PUcs8Uj1'",
@@ -145,13 +247,20 @@
       }
     },
     "dayNotes": {
-      ".read": "auth != null",
+      ".read": "auth != null && auth.uid === 'IjyqouYBDUg5KGzs3U27PUcs8Uj1'",
       ".write": "auth != null && auth.uid === 'IjyqouYBDUg5KGzs3U27PUcs8Uj1'"
     },
     "reviews": {
       ".read": true,
       "$uid": {
-        ".write": "auth != null && (auth.uid === $uid || auth.uid === 'IjyqouYBDUg5KGzs3U27PUcs8Uj1')"
+        ".write": "auth != null && auth.uid === 'IjyqouYBDUg5KGzs3U27PUcs8Uj1'",
+        "$id": {
+          ".write": "auth != null && auth.uid === $uid && !data.exists() && root.child('users/'+$uid).exists() && root.child('bookings/'+$uid+'/'+newData.child('bookingId').val()).exists() && !root.child('bookings/'+$uid+'/'+newData.child('bookingId').val()+'/reviewed').exists()",
+          ".validate": "auth.uid === 'IjyqouYBDUg5KGzs3U27PUcs8Uj1' || (newData.hasChildren(['rating','text','studentName','createdAt','bookingId']) && newData.child('rating').isNumber() && newData.child('rating').val() >= 1 && newData.child('rating').val() <= 5 && newData.child('text').isString() && newData.child('text').val().length <= 500 && newData.child('studentName').isString() && newData.child('studentName').val().length <= 60 && newData.child('bookingId').isString() && newData.child('createdAt').isNumber() && newData.child('createdAt').val() <= now + 86400000 && newData.child('createdAt').val() >= now - 172800000 && (!newData.child('status').exists() || newData.child('status').val() === 'approved'))",
+          "$other": {
+            ".validate": "auth.uid === 'IjyqouYBDUg5KGzs3U27PUcs8Uj1' || $other === 'rating' || $other === 'text' || $other === 'studentName' || $other === 'createdAt' || $other === 'bookingId' || $other === 'status'"
+          }
+        }
       }
     },
     "invites": {
