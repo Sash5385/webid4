@@ -1,0 +1,25 @@
+name: Deploy Database Rules
+
+# ЛИШЕ вручну: Actions → «Deploy Database Rules» → Run workflow.
+# Правила виходять ОСТАННІМИ: спершу функції й хостинг адмінки (deploy.yml), хостинг клієнта
+# (webID4client), ~10 хв на заповнення queue_counts і оновлення PWA учнів — і лише тоді правила.
+# Інакше старі клієнти без bookedBy/queue_counts не зможуть записатись.
+on:
+  workflow_dispatch: {}
+
+jobs:
+  tests:
+    uses: ./.github/workflows/tests.yml
+
+  deploy-rules:
+    needs: tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Deploy Database Rules
+        run: npx --yes firebase-tools deploy --only database --token "${{ secrets.FIREBASE_TOKEN }}"

@@ -6,7 +6,11 @@ on:
       - master
 
 jobs:
+  tests:
+    uses: ./.github/workflows/tests.yml
+
   build-and-deploy:
+    needs: tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -26,8 +30,11 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Deploy to Firebase Hosting, Database Rules and all Cloud Functions
+      - name: Deploy to Firebase Hosting and all Cloud Functions
+        # Правила бази (database) тут НЕ деплояться: вони залежать від нових функцій і нових
+        # клієнтів (bookedBy, queue_counts), тому виходять ОКРЕМО і останніми — вручну через
+        # workflow «Deploy Database Rules» (Actions → Run workflow), коли клієнти вже оновились.
         # --force: non-interactive CI can't answer the "delete stale functions?" prompt,
         # so without it firebase-tools aborts the ENTIRE deploy (hosting release included)
         # whenever a function was removed from source but still exists in the project.
-        run: npx firebase-tools deploy --only hosting:admin,database,functions --force --token "${{ secrets.FIREBASE_TOKEN }}"
+        run: npx firebase-tools deploy --only hosting:admin,functions --force --token "${{ secrets.FIREBASE_TOKEN }}"
