@@ -19,16 +19,20 @@ const OFFER_WINDOW_MS = 30 * 60 * 1000; // 30 хвилин
 // (Київ — UTC+2 взимку, UTC+3 влітку).
 function kyivLocalToMs(dateStr, timeStr) {
   const guessMs = new Date(`${dateStr}T${timeStr}:00Z`).getTime();
-  const parts = new Intl.DateTimeFormat("en-US", {
+  const fmt = new Intl.DateTimeFormat("en-US", {
     timeZone: "Europe/Kiev", hour12: false,
     year: "numeric", month: "2-digit", day: "2-digit",
     hour: "2-digit", minute: "2-digit", second: "2-digit",
-  }).formatToParts(guessMs).reduce((acc, p) => { acc[p.type] = p.value; return acc; }, {});
-  const asUtcIfKyivPartsWereUtc = Date.UTC(
-    parts.year, parts.month - 1, parts.day, parts.hour === "24" ? 0 : parts.hour, parts.minute, parts.second
-  );
-  const offsetMs = asUtcIfKyivPartsWereUtc - guessMs;
-  return guessMs - offsetMs;
+  });
+  // Зсув Києва відносно UTC у момент ms (може бути різним до і після переходу DST)
+  const offsetAt = (ms) => {
+    const parts = fmt.formatToParts(ms).reduce((acc, p) => { acc[p.type] = p.value; return acc; }, {});
+    return Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour === "24" ? 0 : parts.hour, parts.minute, parts.second) - ms;
+  };
+  // Два проходи: зсув на «вгаданому» моменті міг бути з іншого боку переходу DST (у ніч переходу
+  // уроки 01:00–04:00 лічились на годину зміщеними), тому уточнюємо зсув на вже скоригованому часі.
+  const firstMs = guessMs - offsetAt(guessMs);
+  return guessMs - offsetAt(firstMs);
 }
 
 // Хелпер: зберегти сповіщення в RTDB для студента
