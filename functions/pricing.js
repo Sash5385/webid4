@@ -66,30 +66,24 @@ function computeExpectedBookingPrice({ booking, user, services: servicesVal, day
   }
 
   if (old) {
-    const svcActive = services.find((s) => s.id === old.serviceId && s.active && !s.archived)
-      || (services.some((s) => s.id === old.serviceId && s.active === undefined) ? services.find((s) => s.id === old.serviceId) : null);
     const svcAny = services.find((s) => s.id === old.serviceId) || null;
     if (b.serviceId && old.serviceId && b.serviceId !== old.serviceId) flags.push("service-changed");
     const discTot = (num(old.discountAmt) || 0) * hours;
     const newSurcharge = sumSurcharge(day, startMin, hours, true);
     const oldPrice = num(old.price);
-    // Формула клієнта (BookingsTab.jsx): тариф БЕЗ множення на години + надбавка − знижка
-    let clientFormula;
-    if (svcActive) clientFormula = Math.max(0, effectivePrice(svcActive, b.date) + newSurcharge - discTot);
-    else if (oldPrice != null) clientFormula = Math.max(0, oldPrice + (newSurcharge - (num(old.surcharge) || 0)));
-    else if (newSurcharge > 0) clientFormula = Math.max(0, newSurcharge - discTot);
-    else clientFormula = null;
-    // Коректна ціна для тривалості (тариф × години + надбавка − знижка)
+    // Коректна ціна для тривалості (тариф × години + надбавка − знижка). Приймаємо ЛИШЕ її:
+    // стара формула клієнта (тариф без множення на години) більше не допустима — сервер виправить.
     const proper = svcAny ? Math.max(0, Math.round(effectivePrice(svcAny, b.date) * hours) + newSurcharge - discTot) : null;
+    // Послуги вже немає — стара ціна + різниця надбавки (як у клієнта)
     const delta = oldPrice != null ? Math.max(0, oldPrice + (newSurcharge - (num(old.surcharge) || 0))) : null;
-    const accepted = [clientFormula, proper, delta, oldPrice].filter((x, i, a) => a.indexOf(x) === i);
-    const expectedPrice = proper != null ? proper : delta != null ? delta : oldPrice;
-    if (expectedPrice == null && clientFormula == null) return { ok: false, reason: "reschedule-no-price-basis" };
-    const price = expectedPrice != null ? expectedPrice : clientFormula;
+    const expectedPrice = proper != null ? proper : delta;
+    if (expectedPrice == null) return { ok: false, reason: "reschedule-no-price-basis" };
+    const price = expectedPrice;
+    const accepted = [price];
     return {
       ok: true,
       expected: { price, manualPrice: null, surcharge: newSurcharge || null, discountAmt: num(old.discountAmt) || null },
-      acceptedPrices: accepted.concat(price),
+      acceptedPrices: accepted,
       flags,
     };
   }

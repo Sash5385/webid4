@@ -28,11 +28,11 @@ assert.equal(c({ booking: mk({ serviceId: "zz" }), user: {}, services: svcs, day
 assert.equal(c({ booking: mk({ serviceType: "private" }), user: {}, services: svcs, day }).ok, false);
 // тривалість не відповідає слоту
 assert.ok(c({ booking: mk({ durationHours: 5, price: 3000 }), user: {}, services: svcs, day }).flags.includes("duration-mismatch"));
-// перенесення: стара ціна/формула клієнта допустимі, довільна — ні
+// перенесення: допустима лише коректна ціна (тариф × години + надбавка − знижка)
 const ub = { o1: { id: "o1", date: "2026-11-01", time: "09:00", status: "confirmed", serviceId: "sv1", price: 1200, durationHours: 2, createdAt: 1 } };
 const rb = (price) => mk({ durationHours: 2, price, rescheduledFrom: "2026-11-01 09:00" });
 r = c({ booking: rb(1200), user: {}, services: svcs, day: {}, userBookings: ub }); assert.deepEqual(p(rb(1200), r), {});
-assert.deepEqual(p(rb(600), r), {});                    // формула клієнта (без множення на години) — допустима
+assert.deepEqual(p(rb(600), r), { price: 1200 });       // стара формула клієнта (без множення на години) — виправляється
 assert.deepEqual(p(rb(1), r), { price: 1200 });
 // rescheduledFrom без реального старого запису -> як новий запис
 r = c({ booking: mk({ price: 1, rescheduledFrom: "x y" }), user: {}, services: svcs, day, userBookings: ub }); assert.deepEqual(p(mk({ price: 1, rescheduledFrom: "x y" }), r), { price: 600 });
