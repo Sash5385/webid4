@@ -4,6 +4,7 @@ const { onSchedule } = require("firebase-functions/v2/scheduler");
 const { onValueCreated, onValueUpdated, onValueWritten } = require("firebase-functions/v2/database");
 const admin = require("firebase-admin");
 const { blockRangeUpdates, restoreRangeUpdates } = require("./slotRules");
+const { computeExpectedBookingPrice, buildPricePatch } = require("./pricing");
 const {
   CALENDAR_SECRETS, getCalendarClient, buildEvent, getBookingSchedule, fromCalendarEvent, isIgnorableCalendarError,
 } = require("./googleCalendar");
@@ -194,6 +195,7 @@ async function autoBookFromQueue(next, date, time, slotKey, freedDurationHours =
     slotUpd[`timeslots/${date}/${sid}/available`] = false;
     slotUpd[`timeslots/${date}/${sid}/time`] = `${slotH}:${slotM}`;
     slotUpd[`timeslots/${date}/${sid}/bookingStart`] = min === bookStartMin;
+    slotUpd[`timeslots/${date}/${sid}/bookedBy`] = next.uid; // власник слота (правила БД)
   }
   slotUpd[`queue/${slotKey}/entries/${next.uid}/status`] = "booked";
   await db.ref("/").update(slotUpd);
@@ -365,26 +367,27 @@ async function readSlotDay(date) {
 // документа; звільнення видаляє phantom, справжні повертає вільними, а
 // відсутні НЕ створює — тому повторне/паралельне звільнення безпечне і день
 // повертається рівно до стану ДО запису.
-async function buildSlotUpdates(bookingData, available) {
+// bookedBy — uid учня-власника (правила БД: звільняти/змінювати зайнятий слот може лише він)
+async function buildSlotUpdates(bookingData, available, bookedBy = null) {
   const r = bookingRange(bookingData);
   if (!r) return {};
   const day = await readSlotDay(r.date);
   const prefix = `timeslots/${r.date}/`;
   return available
     ? restoreRangeUpdates(day, prefix, r.start, r.dur)
-    : blockRangeUpdates(day, prefix, r.start, r.dur);
+    : blockRangeUpdates(day, prefix, r.start, r.dur, bookedBy ? { extra: { bookedBy } } : {});
 }
 
 // Перенесення запису: заблокувати нове місце і звільнити старе (крім позицій,
 // що одразу знову блокуються новим місцем).
-async function buildRescheduleSlotUpdates(before, after) {
+async function buildRescheduleSlotUpdates(before, after, bookedBy = null) {
   const oldR = bookingRange(before);
   const newR = bookingRange(after);
   const updates = {};
   let newDay = null;
   if (newR) {
     newDay = await readSlotDay(newR.date);
-    Object.assign(updates, blockRangeUpdates(newDay, `timeslots/${newR.date}/`, newR.start, newR.dur));
+    Object.assign(updates, blockRangeUpdates(newDay, `timeslots/${newR.date}/`, newR.start, newR.dur, bookedBy ? { extra: { bookedBy } } : {}));
   }
   if (oldR) {
     const sameDay = newR && newR.date === oldR.date;
@@ -395,6 +398,9 @@ async function buildRescheduleSlotUpdates(before, after) {
   }
   return updates;
 }
+
+// uid власника слота для bookedBy: лише реальні акаунти (не особисті події адміна)
+const slotOwnerUid = (uid, b) => (uid && uid !== "personal" && uid !== "admin" && b?.status !== "personal") ? uid : null;
 
 // Всі зміни букінгу → push адміну або клієнту + синхронізація timeslots
 exports.onBookingChanged = onValueWritten(
@@ -411,7 +417,7 @@ exports.onBookingChanged = onValueWritten(
 
     // Новий запис (before = null) — блокуємо слоти
     if (before === null && after) {
-      const slotUpd = await buildSlotUpdates(after, false);
+      const slotUpd = await buildSlotUpdates(after, false, slotOwnerUid(uid, after));
       if (Object.keys(slotUpd).length) await db.ref("/").update(slotUpd).catch(() => {});
       await db.ref(`activeStudents/${uid}`).set(true).catch(() => {});
       await db.ref(`recentStudents/${uid}`).set(Date.now()).catch(() => {});
@@ -454,6 +460,26 @@ exports.onBookingChanged = onValueWritten(
         const freedDurationHours = before.durationHours || (before.durMin ? before.durMin / 60 : 1);
         await inviteNextInQueue(`${date}_${time}`, [], freedDurationHours).catch(() => {});
       }
+      return;
+    }
+
+    // Перенесення учнем: клієнт сам звільняє старі слоти, але правила БД не дозволяють йому чіпати слоти без
+    // bookedBy (записи до оновлення) — тоді весь його атомарний update відхилено і лишається лише скасований
+    // запис. Звільняємо тут, пропускаючи позиції, зайняті іншими активними записами цього учня того ж дня
+    // (нове місце перенесення). Ідемпотентно з клієнтським звільненням.
+    if (after.status === "cancelled" && after.cancelledBy === "reschedule" && before.cancelledBy !== "reschedule") {
+      const slotUpd = await buildSlotUpdates(before, true);
+      const mine = (await db.ref(`bookings/${uid}`).get().catch(() => null))?.val() || {};
+      const busy = Object.entries(mine)
+        .filter(([id, x]) => id !== bookingId && x && x.status !== "cancelled" && x.date === before.date)
+        .map(([, x]) => bookingRange(x)).filter(Boolean);
+      for (const key of Object.keys(slotUpd)) {
+        const m = /\/slot(\d{2})(\d{2})(\/|$)/.exec(key);
+        if (!m) continue;
+        const min = Number(m[1]) * 60 + Number(m[2]);
+        if (busy.some((r) => min >= r.start && min < r.start + r.dur)) delete slotUpd[key];
+      }
+      if (Object.keys(slotUpd).length) await db.ref("/").update(slotUpd).catch(() => {});
       return;
     }
 
@@ -510,7 +536,7 @@ exports.onBookingChanged = onValueWritten(
     const rescheduled = after.status !== "cancelled" &&
       (after.date !== before.date || after.time !== before.time);
     if (rescheduled) {
-      const blockUpd = await buildRescheduleSlotUpdates(before, after);
+      const blockUpd = await buildRescheduleSlotUpdates(before, after, slotOwnerUid(uid, after));
       if (Object.keys(blockUpd).length) await db.ref("/").update(blockUpd).catch(() => {});
       const oldDate = before.date || "—";
       const oldTime = before.time || "—";
@@ -532,6 +558,90 @@ exports.onBookingChanged = onValueWritten(
     }
   }
 );
+
+
+// ─── Ціна запису учня: сервер перераховує за формулою клієнта (див. pricing.js) ───
+// Правила БД не вміють перевіряти ціну, тому підроблену (price/manualPrice/surcharge/discountAmt)
+// перезаписуємо правильною і лишаємо слід: priceClientSent + priceCorrectedAt. Якщо надійно
+// перевірити не можна (невідома послуга тощо) — не чіпаємо ціну, але ставимо priceCheck:"mismatch".
+exports.enforceBookingPrice = onValueCreated(
+  { ref: "bookings/{uid}/{bookingId}", region: "europe-west1" },
+  async (event) => {
+    const b = event.data.val();
+    const { uid, bookingId } = event.params;
+    // Лише записи, створені самим учнем (правила забороняють йому createdBy; статус — pending)
+    if (!b || b.createdBy || b.status !== "pending") return;
+    if (uid === "personal" || uid === "admin" || uid.startsWith("guest_")) return;
+    const ref = db.ref(`bookings/${uid}/${bookingId}`);
+    try {
+      const [userSnap, svcSnap, daySnap, ubSnap] = await Promise.all([
+        db.ref(`users/${uid}`).get(),
+        db.ref("admin_data/services").get(),
+        db.ref(`timeslots/${b.date}`).get(),
+        b.rescheduledFrom ? db.ref(`bookings/${uid}`).get() : Promise.resolve(null),
+      ]);
+      const user = userSnap.val() || {};
+      if (!user.profile) return;
+      const res = computeExpectedBookingPrice({
+        booking: { ...b, id: bookingId }, user, services: svcSnap.val(), day: daySnap.val() || {}, userBookings: ubSnap?.val() || null,
+      });
+      if (!res.ok) {
+        console.warn(`enforceBookingPrice: unverifiable uid=${uid} booking=${bookingId} reason=${res.reason}`);
+        await ref.update({ priceCheck: "mismatch", priceCheckReason: res.reason });
+        return;
+      }
+      const patch = buildPricePatch(b, res);
+      if (Object.keys(patch).length) {
+        console.warn(`enforceBookingPrice: corrected uid=${uid} booking=${bookingId} client=${b.price} patch=${JSON.stringify(patch)}`);
+        await ref.update({ ...patch, priceClientSent: b.price != null ? b.price : "none", priceCorrectedAt: Date.now() });
+      }
+      if (res.flags.length) await ref.update({ priceCheck: "mismatch", priceCheckReason: res.flags.join(",") });
+    } catch (e) {
+      console.error(`enforceBookingPrice failed uid=${uid} booking=${bookingId}`, e);
+      await ref.update({ priceCheck: "mismatch", priceCheckReason: "error" }).catch(() => {});
+    }
+  }
+);
+
+// ─── Публічний агрегат черги (без ПІБ/телефонів) ───
+// queue/*/entries учням недоступні (правила БД), а BookTab потребує лише кількість очікуючих
+// і позицію → queue_counts/{date}/{time} = { n, at:[addedAt очікуючих, за зростанням] }.
+async function buildQueueCountsFor(slotKey) {
+  const snap = await db.ref(`queue/${slotKey}/entries`).get();
+  const at = Object.values(snap.val() || {}).filter((e) => e && e.status === "waiting").map((e) => e.addedAt || 0).sort((a, c) => a - c);
+  return at;
+}
+function splitSlotKey(slotKey) {
+  const sep = slotKey.lastIndexOf("_");
+  return { date: slotKey.slice(0, sep), time: slotKey.slice(sep + 1) };
+}
+exports.syncQueueCount = onValueWritten(
+  { ref: "queue/{slotKey}/entries/{uid}", region: "europe-west1" },
+  async (event) => {
+    const { slotKey } = event.params;
+    const { date, time } = splitSlotKey(slotKey);
+    if (!date || !time) return;
+    const at = await buildQueueCountsFor(slotKey);
+    const target = db.ref(`queue_counts/${date}/${time}`);
+    if (at.length) await target.set({ n: at.length, at });
+    else await target.remove();
+  }
+);
+
+// Раз на 10 хв повністю перебудовує queue_counts з queue (самовідновлення після гонок тригерів
+// і початкове заповнення для черг, що існували до впровадження).
+exports.reconcileQueueCounts = onSchedule({ schedule: "every 10 minutes", region: "europe-west1" }, async () => {
+  const snap = await db.ref("queue").get();
+  const out = {};
+  for (const [slotKey, node] of Object.entries(snap.val() || {})) {
+    const { date, time } = splitSlotKey(slotKey);
+    if (!date || !time) continue;
+    const at = Object.values(node?.entries || {}).filter((e) => e && e.status === "waiting").map((e) => e.addedAt || 0).sort((a, c) => a - c);
+    if (!at.length) continue;
+    (out[date] = out[date] || {})[time] = { n: at.length, at };
+  }
+  await db.ref("queue_counts").set(Object.keys(out).length ? out : null);
+});
 
 // Нормалізує телефон до того ж канонічного формату, що пише клієнт при
 // реєстрації (webID4client/src/utils/format.js normalizePhone) — порівняння

@@ -7052,8 +7052,14 @@ function StudentsView() {
     if (!editing || !editing.name.trim()) return;
     setSaving(true);
     try {
+      // Телефон у профілі завжди у вигляді +<цифри> (+380XXXXXXXXX): за ним правила БД
+      // дають учню доступ до bookings_by_phone/<цифри> — довільний формат закрив би цей доступ.
+      const phoneDigits = editing.phone.replace(/\D/g, "");
+      const phoneNorm = phoneDigits.length === 9 ? `+380${phoneDigits}`
+        : (phoneDigits.length === 10 && phoneDigits.startsWith("0")) ? `+380${phoneDigits.slice(1)}`
+        : phoneDigits.length >= 10 ? `+${phoneDigits}` : editing.phone.trim();
       await update(ref(db, `users/${editing.uid}/profile`), {
-        name: editing.name.trim(), phone: editing.phone.trim(),
+        name: editing.name.trim(), phone: phoneNorm,
       });
       const bSnap = await get(ref(db, `bookings/${editing.uid}`));
       if (bSnap.exists()) {

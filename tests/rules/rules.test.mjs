@@ -11,12 +11,16 @@ const NOW = Date.now(), DAY = 86400000, D = "2026-10-10";
 await env.withSecurityRulesDisabled(async (ctx) => {
   await set(ref(ctx.database(), "/"), {
     users: { stu1: { profile: { name: "S1", phone: "+380501234567" }, isVip: false, discount: 0, hoursOffset: 0, blocked: false, firstLoginAt: 1 },
-             stuB: { profile: { name: "B" }, blocked: true }, stu2: { profile: { name: "S2" } } },
+             stuB: { profile: { name: "B" }, blocked: true }, stu2: { profile: { name: "S2", phone: "+380679999999" } } },
     timeslots: { [D]: {
       slot1000: { time: "10:00", available: true },
+      slot0830: { time: "08:30", available: true },
       slot1100: { time: "11:00", available: false, adminBlocked: true },
-      slot1200: { time: "12:00", available: false, phantom: true },
-      slot1400: { time: "14:00", available: false, bookingStart: true },
+      slot1200: { time: "12:00", available: false, phantom: true, bookedBy: "stu1" },
+      slot1400: { time: "14:00", available: false, bookingStart: true, bookedBy: "stu1" },
+      slot1500: { time: "15:00", available: false, bookingStart: true, bookedBy: "stu2" },
+      slot1530: { time: "15:30", available: false, phantom: true, bookedBy: "stu2" },
+      slot1600: { time: "16:00", available: false, bookingStart: true },
       slot1300: { time: "13:00", available: true, vipOnly: true, surcharge: 100, durMin: 120, viewing: { stu2: 1 }, offeredTo: { stu1: { until: NOW + DAY }, stu2: { until: 1 } } },
       slot1700: { time: "17:00", available: true, reservedFor: "stu2", reservedUntil: NOW + DAY },
       slot1900: { time: "19:00", available: true, reservedFor: "stu1", reservedUntil: NOW + DAY, offeredTo: { stu1: { until: 1 } } },
@@ -25,6 +29,7 @@ await env.withSecurityRulesDisabled(async (ctx) => {
     bookings: { stu1: { b1: { id: "b1", date: D, time: "14:00", status: "confirmed", price: 600, durationHours: 1, serviceType: "school", studentName: "S1", phone: "+380501234567", createdAt: 1, debtAmount: 100 },
                         b0: { id: "b0", date: D, time: "09:00", status: "completed", price: 600, durationHours: 1 } } },
     queue: { [`${D}_14:00`]: { entries: { stu2: { uid: "stu2", status: "waiting", name: "S2", phone: "+38", addedAt: 1, durationHours: 1, studentType: "school" } } } },
+    queue_counts: { [D]: { "14:00": { n: 1, at: [1] } } },
     reviews: {}, chats: { general: {}, stu1: {} }, chatMeta: { stu1: {} }, dayNotes: { [D]: { text: "x" } }, bookings_by_phone: { "380501234567": { p1: { status: "confirmed" } } },
     admin_data: { services: [] }, license: { status: "trial" },
   });
@@ -41,15 +46,15 @@ const A = "ALLOW", X = "DENY", R = (db, p) => ref(db, p);
 const slotPath = (id) => `timeslots/${D}/${id}`;
 
 // ---- Потоки учня: запис (db.js: claimSlot -> createBooking -> markSlotsUnavailable)
-await t("claimSlot (transaction) on free real slot", A, () => runTransaction(R(S1, slotPath("slot1000")), c => ({ ...(c || {}), available: false, time: "10:00", bookingStart: true })));
-await t("claimSlot on slot with admin fields + viewing/offeredTo objects (full-node rewrite)", A, () => runTransaction(R(S1, slotPath("slot1300")), c => ({ ...c, available: false, time: "13:00", bookingStart: true })));
-await t("claimSlot on slot with unknown admin object field (full rewrite)", A, () => runTransaction(R(S1, slotPath("slot2000")), c => ({ ...c, available: false, time: "20:00", bookingStart: true })));
-await t("claimSlot on NEW slot -> phantom", A, () => runTransaction(R(S1, slotPath("slot0900")), c => ({ ...(c || {}), phantom: true, available: false, time: "09:00", bookingStart: true })));
-await t("claimSlot on slot reserved for other student", X, () => runTransaction(R(S1, slotPath("slot1700")), c => ({ ...c, available: false, bookingStart: true })));
-await t("unclaimSlot (available:true, bookingStart:null)", A, () => update(R(S1, slotPath("slot1000")), { available: true, bookingStart: null }));
+await t("claimSlot (transaction) on free real slot", A, () => runTransaction(R(S1, slotPath("slot1000")), c => ({ ...(c || {}), available: false, time: "10:00", bookingStart: true, bookedBy: "stu1" })));
+await t("claimSlot on slot with admin fields + viewing/offeredTo objects (full-node rewrite)", A, () => runTransaction(R(S1, slotPath("slot1300")), c => ({ ...c, available: false, time: "13:00", bookingStart: true, bookedBy: "stu1" })));
+await t("claimSlot on slot with unknown admin object field (full rewrite)", A, () => runTransaction(R(S1, slotPath("slot2000")), c => ({ ...c, available: false, time: "20:00", bookingStart: true, bookedBy: "stu1" })));
+await t("claimSlot on NEW slot -> phantom", A, () => runTransaction(R(S1, slotPath("slot0900")), c => ({ ...(c || {}), phantom: true, available: false, time: "09:00", bookingStart: true, bookedBy: "stu1" })));
+await t("claimSlot on slot reserved for other student", X, () => runTransaction(R(S1, slotPath("slot1700")), c => ({ ...c, available: false, bookingStart: true, bookedBy: "stu1" })));
+await t("unclaimSlot (available:true, bookingStart:null, bookedBy:null)", A, () => update(R(S1, slotPath("slot1000")), { available: true, bookingStart: null, bookedBy: null }));
 await t("markSlotsUnavailable multipath incl. new phantom", A, () => update(R(S1, "/"), {
-  [`${slotPath("slot1030")}/phantom`]: true, [`${slotPath("slot1030")}/available`]: false, [`${slotPath("slot1030")}/time`]: "10:30", [`${slotPath("slot1030")}/bookingStart`]: false,
-  [`${slotPath("slot1000")}/available`]: false, [`${slotPath("slot1000")}/time`]: "10:00", [`${slotPath("slot1000")}/bookingStart`]: true }));
+  [`${slotPath("slot1030")}/phantom`]: true, [`${slotPath("slot1030")}/available`]: false, [`${slotPath("slot1030")}/time`]: "10:30", [`${slotPath("slot1030")}/bookingStart`]: false, [`${slotPath("slot1030")}/bookedBy`]: "stu1",
+  [`${slotPath("slot1000")}/available`]: false, [`${slotPath("slot1000")}/time`]: "10:00", [`${slotPath("slot1000")}/bookingStart`]: true, [`${slotPath("slot1000")}/bookedBy`]: "stu1" }));
 await t("createBooking (pending, client payload)", A, () => set(R(S1, "bookings/stu1/n1"), { date: D, time: "10:00", serviceType: "school", serviceId: "sv1", serviceName: "Автошкола 1 год", price: 600, manualPrice: 500, surcharge: 50, discountAmt: 10, durationHours: 1, studentName: "S1", phone: "+380501234567", studentNote: "hi", id: "n1", status: "pending", createdAt: NOW }));
 await t("createBooking reschedule (rescheduledFrom)", A, () => set(R(S1, "bookings/stu1/n2"), { date: D, time: "15:00", price: 600, durationHours: 2, studentName: "S1", id: "n2", status: "pending", createdAt: NOW, rescheduledFrom: `${D} 14:00` }));
 await t("createBooking with status confirmed", X, () => set(R(S1, "bookings/stu1/bad1"), { date: D, time: "16:00", durationHours: 1, id: "bad1", status: "confirmed", createdAt: NOW }));
@@ -63,7 +68,7 @@ await t("createBooking by blocked student", X, () => set(R(SB, "bookings/stuB/ba
 // скасування
 await t("cancelBooking multipath: status/cancelledAt/cancelledBy + restore slot", A, () => update(R(S1, "/"), {
   "bookings/stu1/b1/status": "cancelled", "bookings/stu1/b1/cancelledAt": NOW, "bookings/stu1/b1/cancelledBy": "student",
-  [`${slotPath("slot1400")}/available`]: true, [`${slotPath("slot1400")}/time`]: "14:00", [`${slotPath("slot1400")}/phantom`]: null, [`${slotPath("slot1400")}/bookingStart`]: null,
+  [`${slotPath("slot1400")}/available`]: true, [`${slotPath("slot1400")}/time`]: "14:00", [`${slotPath("slot1400")}/phantom`]: null, [`${slotPath("slot1400")}/bookingStart`]: null, [`${slotPath("slot1400")}/bookedBy`]: null,
   [slotPath("slot1200")]: null }));
 await t("cancel reschedule (cancelledBy reschedule)", A, () => update(R(S1, "/"), { "bookings/stu1/n1/status": "cancelled", "bookings/stu1/n1/cancelledAt": NOW, "bookings/stu1/n1/cancelledBy": "reschedule" }));
 await t("cancel completed booking", X, () => update(R(S1, "bookings/stu1/b0"), { status: "cancelled", cancelledAt: NOW, cancelledBy: "student" }));
@@ -119,10 +124,28 @@ await t("[residual] viewing set for other uid", A, () => set(R(S1, `${slotPath("
 await t("viewing remove", A, () => remove(R(S1, `${slotPath("slot1300")}/viewing/stu2`)) .catch(e => { throw e }) ).catch(()=>{});
 await t("claimReservedSlot multipath (own reservation + offeredTo)", A, () => update(R(S1, "/"), {
   [`queue/${D}_19:00/entries/stu1/status`]: "booked", [`${slotPath("slot1900")}/offeredTo/stu1`]: null, [`${slotPath("slot1900")}/reservedFor`]: null, [`${slotPath("slot1900")}/reservedUntil`]: null,
-  [`${slotPath("slot1900")}/available`]: false }));
+  [`${slotPath("slot1900")}/available`]: false, [`${slotPath("slot1900")}/bookedBy`]: "stu1" }));
 await t("declineQueueOffer: remove own offeredTo", A, () => update(R(S1, "/"), { [`queue/${D}_13:00/entries/stu1`]: null, "userQueue/stu1/k": null, [`${slotPath("slot1300")}/offeredTo/stu1`]: null, "users/stu1/queueOffers/k": null }));
 await t("[residual] student adds own offeredTo", A, () => set(R(S1, `${slotPath("slot1000")}/offeredTo/stu1`), { until: NOW }));
 await t("[residual] student removes other's offeredTo", A, () => remove(R(S1, `${slotPath("slot1300")}/offeredTo/stu2`)));
+// ---- Власність слотів (bookedBy)
+await t("claim without bookedBy", X, () => update(R(S2, slotPath("slot1030")), { available: false, bookingStart: true }));
+await t("claim with bookedBy of someone else", X, () => runTransaction(R(S2, slotPath("slot0830")), c => ({ ...(c || {}), available: false, time: "08:30", bookingStart: true, bookedBy: "stu1" })));
+await t("claim own (bookedBy self) on free slot", A, () => runTransaction(R(S2, slotPath("slot0830")), c => ({ ...(c || {}), available: false, time: "08:30", bookingStart: true, bookedBy: "stu2" })));
+await t("claim of already taken slot by other student (overwrite)", X, () => update(R(S1, slotPath("slot0830")), { available: false, bookedBy: "stu1" }));
+await t("FREE other student's booked slot (available:true)", X, () => update(R(S1, slotPath("slot1500")), { available: true, bookingStart: null, bookedBy: null }));
+await t("free other's slot keeping bookedBy", X, () => update(R(S1, slotPath("slot1500")), { available: true }));
+await t("steal other's booked slot (bookedBy -> me)", X, () => update(R(S1, slotPath("slot1500")), { bookedBy: "stu1" }));
+await t("clear bookedBy on other's slot", X, () => update(R(S1, slotPath("slot1500")), { bookedBy: null }));
+await t("DELETE other student's phantom", X, () => remove(R(S1, slotPath("slot1530"))));
+await t("free LEGACY booked slot (no bookedBy)", X, () => update(R(S1, slotPath("slot1600")), { available: true, bookingStart: null }));
+await t("delete own phantom", A, () => remove(R(S2, slotPath("slot1530"))));
+await t("free admin-blocked slot", X, () => update(R(S1, slotPath("slot1100")), { available: true }));
+await t("free own slot (clears bookedBy)", A, () => update(R(S2, slotPath("slot1500")), { available: true, bookingStart: null, bookedBy: null }));
+await t("free slot but leave bookedBy behind", X, () => update(R(S1, slotPath("slot1000")), { bookedBy: "stu1", available: true }));
+await t("free slot sets bookedBy while available:true", X, () => update(R(S1, slotPath("slot2000")), { available: true, bookedBy: "stu1" }));
+await t("admin frees legacy slot", A, () => update(R(ADM, slotPath("slot1600")), { available: true, bookingStart: null }));
+await t("admin sets bookedBy for a student", A, () => update(R(ADM, slotPath("slot1000")), { available: false, bookedBy: "stu2" }));
 await t("anon reads timeslots", A, () => get(R(ANON, "timeslots")));
 await t("admin writes admin fields on slot", A, () => update(R(ADM, slotPath("slot1000")), { adminBlocked: true, vipOnly: true, surcharge: 5, fixedPrice: 1, durMin: 90, personal: true }));
 await t("admin deletes day", A, () => remove(R(ADM, `timeslots/${D}`)));
@@ -132,7 +155,16 @@ await t("joinQueue by blocked student", X, () => update(R(SB, "/"), { [`queue/${
 await t("queue entry with status offered", X, () => set(R(S1, `queue/${D}_10:00/entries/stu1/status`), "offered"));
 await t("queue entry for other uid", X, () => set(R(S1, `queue/${D}_10:00/entries/stu2`), { uid: "stu2", status: "waiting" }));
 await t("leaveQueue", A, () => update(R(S1, "/"), { [`queue/${D}_10:00/entries/stu1`]: null, "userQueue/stu1/k": null }));
-await t("read queue entries (authed)", A, () => get(R(S1, `queue/${D}_14:00/entries`)));
+await t("read queue entries list (authed student) -> hidden", X, () => get(R(S1, `queue/${D}_14:00/entries`)));
+await t("read OTHER student's queue entry", X, () => get(R(S1, `queue/${D}_14:00/entries/stu2`)));
+await t("read OWN queue entry", A, () => get(R(S2, `queue/${D}_14:00/entries/stu2`)));
+await t("admin reads whole queue", A, () => get(R(ADM, "queue")));
+await t("admin reads queue entries", A, () => get(R(ADM, `queue/${D}_14:00/entries`)));
+await t("read queue_counts (authed)", A, () => get(R(S1, `queue_counts/${D}`)));
+await t("anon read queue_counts", X, () => get(R(ANON, `queue_counts/${D}`)));
+await t("student writes queue_counts", X, () => set(R(S1, `queue_counts/${D}/14:00`, ), { n: 0, at: [] }));
+await t("student deletes queue_counts", X, () => remove(R(S1, "queue_counts")));
+await t("admin writes queue_counts", A, () => set(R(ADM, `queue_counts/${D}/15:00`), { n: 2, at: [1, 2] }));
 await t("anon read queue entries", X, () => get(R(ANON, `queue/${D}_14:00/entries`)));
 await t("read whole queue", X, () => get(R(S1, "queue")));
 // чати
@@ -151,7 +183,12 @@ await t("student reads chatMeta/general", X, () => get(R(S1, "chatMeta/general")
 await t("student reads dayNotes", X, () => get(R(S1, "dayNotes")));
 await t("admin reads dayNotes", A, () => get(R(ADM, "dayNotes")));
 await t("student writes recentStudents", X, () => set(R(S1, "recentStudents/stu1"), NOW));
-await t("student reads bookings_by_phone (kept: client needs it)", A, () => get(R(S1, "bookings_by_phone/380501234567")));
+await t("student reads bookings_by_phone of OWN profile phone", A, () => get(R(S1, "bookings_by_phone/380501234567")));
+await t("student reads bookings_by_phone of ANOTHER phone", X, () => get(R(S2, "bookings_by_phone/380501234567")));
+await t("student reads bookings_by_phone of unknown phone", X, () => get(R(S1, "bookings_by_phone/380000000000")));
+await t("student without profile phone reads bookings_by_phone", X, () => get(R(as("stuNew"), "bookings_by_phone/380501234567")));
+await t("student reads whole bookings_by_phone", X, () => get(R(S1, "bookings_by_phone")));
+await t("admin reads bookings_by_phone", A, () => get(R(ADM, "bookings_by_phone/380501234567")));
 await t("student writes bookings_by_phone", X, () => set(R(S1, "bookings_by_phone/380501234567/x"), { a: 1 }));
 await t("student reads admin_data/services", A, () => get(R(S1, "admin_data/services")));
 await t("anon reads admin_settings", A, () => get(R(ANON, "admin_settings")));
