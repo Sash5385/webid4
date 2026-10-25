@@ -1,4 +1,4 @@
-import { useState, useContext, useEffect, useRef, memo } from "react";
+import { useState, useContext, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { ref, get, update, remove, onValue, off } from "firebase/database";
 import { db } from "../firebase";
@@ -223,18 +223,19 @@ function Info({ title, text, color }) {
   );
 }
 
-function TimeInput({ value, onChange, min=0, max=24, compact=false }) {
+function TimeInput({ value, onChange, min=0, max=24, step=1/60, compact=false }) {
   const { BG_DEEP, TEXT, FAINT, SI, FOG, SURF_HI } = useContext(ThemeContext);
   const tm = Math.round((Number(value) || 0) * 60);        // хвилини від півночі — точність 1 хв
   const minM = Math.round(min * 60), maxM = Math.round(max * 60);
   const disp = `${String(Math.floor(tm / 60)).padStart(2,"0")}:${String(tm % 60).padStart(2,"0")}`;
   const setM = (n) => onChange(Math.min(maxM, Math.max(minM, n)) / 60);
   // Утримання ‹ › повторює крок із прискоренням: по одній хвилині тапати довго
+  const sm = Math.max(1, Math.round(step * 60));            // крок ‹ › у хвилинах (налаштовується в «Графіку»)
   const hold = useRef(null);
   const stop = () => { clearTimeout(hold.current); hold.current = null; };
   const start = (dir) => {
-    let cur = tm, n = 0;
-    const step = () => { cur = Math.min(maxM, Math.max(minM, cur + dir)); onChange(cur / 60); };
+    let cur = sm > 1 ? Math.round(tm / sm) * sm : tm, n = 0;
+    const step = () => { cur = Math.min(maxM, Math.max(minM, cur + dir * sm)); onChange(cur / 60); };
     const loop = () => { step(); n++; hold.current = setTimeout(loop, n > 12 ? 40 : 120); };
     step(); hold.current = setTimeout(loop, 400); // перший крок одразу, повтор — лише при утриманні
   };
@@ -261,81 +262,7 @@ function TimeInput({ value, onChange, min=0, max=24, compact=false }) {
   );
 }
 
-// ─── БАРАБАН ЧАСУ — крупний вибір часу прокруткою (scroll-snap) ──────────
-// Хвилини 00–59 (точність 1 хв): сітка розкладу вирівнюється по справжніх :00/:30, початок дня може бути будь-якою хвилиною.
-const STRIP_W = 84;
 const toMin = (x) => Math.round(Number(x) * 60);          // години (можуть бути дробові) → хвилини, без похибки float
-const stripLabel = (m) => `${String(Math.floor(m / 60)).padStart(2,"0")}:${String(m % 60).padStart(2,"0")}`;
-
-const StripItem = memo(function StripItem({ label, d, off, onClick }) {
-  const { TEXT, FAINT } = useContext(ThemeContext);
-  return (
-    <div onClick={onClick} style={{
-      flex:`0 0 ${STRIP_W}px`,scrollSnapAlign:"center",textAlign:"center",cursor:"pointer",userSelect:"none",
-      fontSize:d===0?26:d===1?19:16,fontWeight:800,fontVariantNumeric:"tabular-nums",
-      color:d===0?TEXT:FAINT,opacity:off?0.15:d===0?1:d===1?0.6:0.3,
-    }}>{label}</div>
-  );
-});
-
-// Горизонтальна стрічка часу (крок — з налаштувань). Вертикальний скрол сторінки не блокується.
-function TimeStrip({ label, value, onChange, min = 0, max = 24, step = 5, color }) {
-  const { TEXT, GREEN, BG_DEEP } = useContext(ThemeContext);
-  const c = color || GREEN;
-  const n = Math.floor(1440 / step) + 1;
-  const lo = toMin(min), hi = toMin(max);
-  const clamp = m => Math.min(hi, Math.max(lo, m));
-  const vMin = clamp(Math.round(toMin(value) / step) * step);
-  const index = Math.round(vMin / step);
-  const ref = useRef(null);
-  const timer = useRef(null);
-  const [live, setLive] = useState(index);
-  useEffect(() => {
-    const el = ref.current;
-    if (el && Math.abs(el.scrollLeft - index * STRIP_W) > 1) el.scrollTo({ left: index * STRIP_W });
-    setLive(index);
-  }, [index, step]);
-  useEffect(() => () => clearTimeout(timer.current), []);
-  const onScroll = () => {
-    const el = ref.current;
-    if (!el) return;
-    const i = Math.max(0, Math.min(n - 1, Math.round(el.scrollLeft / STRIP_W)));
-    setLive(i);
-    clearTimeout(timer.current);
-    timer.current = setTimeout(() => {
-      const m = clamp(i * step);
-      if (m !== vMin) onChange(m / 60);
-      const ci = Math.round(m / step);
-      if (ci !== i) el.scrollTo({ left: ci * STRIP_W, behavior: "smooth" });
-    }, 140);
-  };
-  const mask = "linear-gradient(90deg,transparent,#000 22%,#000 78%,transparent)";
-  const side = `0 0 calc(50% - ${STRIP_W / 2}px)`;
-  return (
-    <div style={{textAlign:"center"}}>
-      <div style={{display:"inline-block",fontSize:11,fontWeight:800,letterSpacing:1.2,color:`color-mix(in srgb,${c} 60%,#fff)`,marginBottom:6,
-        padding:"3px 12px",borderRadius:999,background:`color-mix(in srgb,${c} 14%,transparent)`}}>{label}</div>
-      <div style={{position:"relative",height:48}}>
-        <div style={{position:"absolute",left:"50%",top:0,bottom:0,width:STRIP_W-8,transform:"translateX(-50%)",pointerEvents:"none",borderRadius:14,
-          background:`linear-gradient(135deg,color-mix(in srgb,${c} 32%,${BG_DEEP}),color-mix(in srgb,${c} 10%,${BG_DEEP}))`,
-          border:`1px solid color-mix(in srgb,${c} 55%,transparent)`,
-          boxShadow:`0 0 18px color-mix(in srgb,${c} 28%,transparent), inset 0 1px 0 rgba(255,255,255,.12)`}}/>
-        <style>{`.strip-row::-webkit-scrollbar{display:none}`}</style>
-        <div ref={ref} className="strip-row" onScroll={onScroll} style={{
-          position:"relative",zIndex:1,height:"100%",display:"flex",alignItems:"center",overflowX:"scroll",scrollSnapType:"x mandatory",
-          scrollbarWidth:"none",overscrollBehaviorX:"contain",WebkitOverflowScrolling:"touch",maskImage:mask,WebkitMaskImage:mask,
-        }}>
-          <div style={{flex:side}}/>
-          {Array.from({length:n},(_,i)=>(
-            <StripItem key={i} label={stripLabel(i*step)} d={Math.min(2,Math.abs(i-live))} off={i*step<lo||i*step>hi}
-              onClick={()=>ref.current?.scrollTo({left:i*STRIP_W,behavior:"smooth"})}/>
-          ))}
-          <div style={{flex:side}}/>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 // Старти слотів дня — та сама логіка, що й у генерації слотів (id4drive-admin):
 // крок 60 хв, слот, що перетинає обід, пропускається, після обіду сітка йде від його кінця.
@@ -430,9 +357,9 @@ function WeekScheduleEditor({ weekSchedule, updDay, setWeek, step = 5, setStep }
                 color:step===v?"#0b1a08":TEXT,background:step===v?GREEN:BG_DEEP,border:`1px solid color-mix(in srgb,${GREEN} ${step===v?90:30}%,transparent)`}}>{v}</button>
             ))}
           </div>
-          <div style={{display:"flex",flexDirection:"column",gap:10,marginTop:10}}>
-            <TimeStrip label="ПОЧАТОК" value={day.start} onChange={v=>updDay(sel,{start:v})} min={0} max={day.end-step/60} step={step}/>
-            <TimeStrip label="КІНЕЦЬ" value={day.end} onChange={v=>updDay(sel,{end:v})} min={day.start+step/60} max={24} step={step}/>
+          <div style={{marginTop:10}}>
+            <Row compact label="Початок"><TimeInput value={day.start} onChange={v=>updDay(sel,{start:v})} min={0} max={day.end-step/60} step={step/60}/></Row>
+            <Row compact label="Кінець"><TimeInput value={day.end} onChange={v=>updDay(sel,{end:v})} min={day.start+step/60} max={24} step={step/60}/></Row>
           </div>
           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginTop:14,padding:"11px 12px",borderRadius:14,
             background:`linear-gradient(135deg,color-mix(in srgb,${GOLD} 22%,${BG_DEEP}),${BG_DEEP})`,border:`1px solid color-mix(in srgb,${GOLD} 35%,transparent)`}}>
@@ -440,9 +367,9 @@ function WeekScheduleEditor({ weekSchedule, updDay, setWeek, step = 5, setStep }
             <Toggle color={day.lunchEnabled?GREEN:RED} on={!!day.lunchEnabled} onChange={v=>updDay(sel,{lunchEnabled:v})}/>
           </div>
           {day.lunchEnabled && (
-            <div style={{display:"flex",flexDirection:"column",gap:10,marginTop:8}}>
-              <TimeStrip label="ПЕРЕРВА З" color={GOLD} value={lS} onChange={v=>updDay(sel,{lunchStart:v})} min={0} max={lE-step/60} step={step}/>
-              <TimeStrip label="ПЕРЕРВА ДО" color={GOLD} value={lE} onChange={v=>updDay(sel,{lunchEnd:v})} min={lS+step/60} max={24} step={step}/>
+            <div style={{marginTop:8}}>
+              <Row compact label="Перерва з" color={GOLD}><TimeInput value={lS} onChange={v=>updDay(sel,{lunchStart:v})} min={0} max={lE-step/60} step={step/60}/></Row>
+              <Row compact label="Перерва до" color={GOLD}><TimeInput value={lE} onChange={v=>updDay(sel,{lunchEnd:v})} min={lS+step/60} max={24} step={step/60}/></Row>
             </div>
           )}
           <div style={{marginTop:14,padding:"0 4px"}}>
