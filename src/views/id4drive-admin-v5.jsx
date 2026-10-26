@@ -2881,6 +2881,9 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   const [personalEventData, setPersonalEventData] = useState(null); // { dateStr, time }
   const [longTapMenu, setLongTapMenu] = useState(null); // { dateStr, startMin, clientX, clientY }
   const [ltmClosing, setLtmClosing] = useState(false);
+  // iOS: клік після відпускання пальця (довгий тап) не має закривати щойно відкриту модалку
+  const overlayOpenedAtRef = useRef(0);
+  useEffect(() => { if (longTapMenu || slotOptions) overlayOpenedAtRef.current = Date.now(); }, [!!longTapMenu, !!slotOptions]);
   const [ltmScatter, setLtmScatter] = useState(false);
   const [personalEventView, setPersonalEventView] = useState(null); // booking object for viewing
   // Поля форми редагування особистої події (заповнюються при відкритті personalEventView)
@@ -4306,7 +4309,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
           @keyframes _ltm-sc-r{from{transform:translate(0,0) rotate(0);opacity:1}to{transform:translate(180px,70px) rotate(22deg);opacity:0}}
           @keyframes _ltm-sc-chips{from{transform:translateY(0);opacity:1}to{transform:translateY(-50px);opacity:0}}
         `}</style>
-        <div onClick={_anyClose ? undefined : _closeLtm} style={{
+        <div onClick={_anyClose ? undefined : ()=>{ if (Date.now() - overlayOpenedAtRef.current < 700) return; _closeLtm(); }} style={{
           position:"fixed",inset:0,zIndex:200,
           background:`${shade(0.55)}`,
           display:"flex",alignItems:"flex-end",
@@ -4462,7 +4465,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
           @keyframes _so-bg-in{from{opacity:0}to{opacity:1}}
           @keyframes _so-bg-out{from{opacity:1}to{opacity:0}}
         `}</style>
-        <div onClick={slotClosing ? undefined : _closeSO} style={{
+        <div onClick={slotClosing ? undefined : ()=>{ if (Date.now() - overlayOpenedAtRef.current < 700) return; _closeSO(); }} style={{
           position:"fixed",inset:0,zIndex:200,
           background:`${shade(0.55)}`,
           display:"flex",alignItems:"flex-end",justifyContent:"center",
