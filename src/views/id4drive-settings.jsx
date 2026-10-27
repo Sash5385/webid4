@@ -5,7 +5,7 @@ import { db } from "../firebase";
 import { LangContext } from "../App";
 import { APP_VERSION } from "../version.js";
 import { UI_SCALES, readUiScale, setUiScale } from "../uiScale.js";
-import { ThemeContext } from "../theme.js";
+import { ThemeContext, plaqueInk } from "../theme.js";
 import { UICss, useFX } from "../ui";
 import { createT } from "../lang";
 import { useLicense } from "../hooks/useLicense";
@@ -138,6 +138,7 @@ function Radio({ on, onChange }) {
 }
 
 function Row({ label, hint, children, last, color, compact }) {
+  const PK = plaqueInk(useContext(ThemeContext));
   const { BG_DEEP, ACCENT, FOG, TEXT, DIM } = useContext(ThemeContext);
   const c = color || ACCENT;
   if (FOG) return (
@@ -159,8 +160,8 @@ function Row({ label, hint, children, last, color, compact }) {
       marginBottom: last ? 0 : (compact ? 4 : 6),
     }}>
       <div style={{flex:1,minWidth:0}}>
-        <div style={{fontSize:compact?12:13,fontWeight:700,color:"#fff"}}>{label}</div>
-        {hint && <div style={{fontSize:compact?9:10,color:"rgba(255,255,255,0.74)",marginTop:compact?1:2,lineHeight:1.35}}>{hint}</div>}
+        <div style={{fontSize:compact?12:13,fontWeight:700,color:PK.main}}>{label}</div>
+        {hint && <div style={{fontSize:compact?9:10,color:PK.sub,marginTop:compact?1:2,lineHeight:1.35}}>{hint}</div>}
       </div>
       <div style={{flexShrink:0}}>{children}</div>
     </div>
@@ -168,6 +169,7 @@ function Row({ label, hint, children, last, color, compact }) {
 }
 
 function RowBlock({ label, hint, children, last, color }) {
+  const PK = plaqueInk(useContext(ThemeContext));
   const { BG_DEEP, ACCENT, FOG, TEXT, DIM } = useContext(ThemeContext);
   const c = color || ACCENT;
   if (FOG) return (
@@ -185,8 +187,8 @@ function RowBlock({ label, hint, children, last, color }) {
       backgroundClip:"padding-box",
       marginBottom: last ? 0 : 6,
     }}>
-      <div style={{fontSize:13,fontWeight:700,color:"#fff",marginBottom:hint?2:8}}>{label}</div>
-      {hint && <div style={{fontSize:10,color:"rgba(255,255,255,0.6)",marginBottom:8,lineHeight:1.35}}>{hint}</div>}
+      <div style={{fontSize:13,fontWeight:700,color:PK.main,marginBottom:hint?2:8}}>{label}</div>
+      {hint && <div style={{fontSize:10,color:PK.sub,marginBottom:8,lineHeight:1.35}}>{hint}</div>}
       {children}
     </div>
   );
@@ -309,6 +311,7 @@ function daySlotStarts(d) {
 }
 
 function WeekScheduleEditor({ weekSchedule, updDay, setWeek, step = 5, setStep }) {
+  const PK = plaqueInk(useContext(ThemeContext));
   const { BG_DEEP, SURF_HI, SURFACE, TEXT, DIM, FAINT, GREEN, RED, GOLD, ACCENT, SI, SO } = useContext(ThemeContext);
   const [sel, setSel] = useState(0);
   const day = weekSchedule[sel];
@@ -332,7 +335,7 @@ function WeekScheduleEditor({ weekSchedule, updDay, setWeek, step = 5, setStep }
     : d));
   return (
     <div style={{paddingTop:10}}>
-      <div style={{fontSize:11,color:"#fff",letterSpacing:1.2,textTransform:"uppercase",marginBottom:10,textAlign:"center"}}>Тижневий шаблон</div>
+      <div style={{fontSize:11,color:PK.main,letterSpacing:1.2,textTransform:"uppercase",marginBottom:10,textAlign:"center"}}>Тижневий шаблон</div>
       <div style={{display:"flex",gap:5,marginBottom:10}}>
         {DAY_NAMES.map((n, i) => {
           const d = weekSchedule[i];
@@ -386,9 +389,9 @@ function WeekScheduleEditor({ weekSchedule, updDay, setWeek, step = 5, setStep }
           )}
           <div style={{marginTop:14,padding:"0 4px"}}>
             <div style={{fontSize:11,fontWeight:800,letterSpacing:1.2,color:DIM,marginBottom:6}}>СЛОТИ ДНЯ · {slots.length}</div>
-            <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(64px,1fr))",gap:5}}>
               {slots.map(m => (
-                <span key={m} style={{flex:"1 0 auto",textAlign:"center",fontSize:12,fontWeight:800,padding:"4px 8px",borderRadius:8,color:TEXT,
+                <span key={m} style={{textAlign:"center",fontSize:12,fontWeight:800,padding:"4px 8px",borderRadius:8,color:TEXT,
                   background:`color-mix(in srgb,${GREEN} 18%,${BG_DEEP})`,border:`1px solid color-mix(in srgb,${GREEN} 35%,transparent)`}}>{fmt(m/60)}</span>
               ))}
             </div>
