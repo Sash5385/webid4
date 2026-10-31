@@ -182,6 +182,56 @@
         },
         "customPrice": {
           ".validate": "auth.uid === 'IjyqouYBDUg5KGzs3U27PUcs8Uj1' || newData.val() === data.val()"
+        },
+        "trainerRuns": {
+          "$runId": {
+            ".write": "auth != null && auth.uid === $uid && !data.exists()",
+            ".validate": "newData.hasChildren(['route','mode','passed','time','at'])",
+            "route": {
+              ".validate": "newData.val() === 1 || newData.val() === 7"
+            },
+            "mode": {
+              ".validate": "newData.val() === 'learn' || newData.val() === 'exam'"
+            },
+            "passed": {
+              ".validate": "newData.isBoolean()"
+            },
+            "reason": {
+              ".validate": "newData.isString() && newData.val().length <= 160"
+            },
+            "time": {
+              ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 7200"
+            },
+            "minor": {
+              ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 99"
+            },
+            "at": {
+              ".validate": "newData.isNumber()"
+            },
+            "faults": {
+              "$i": {
+                ".validate": "newData.hasChildren(['code','severity','message','t'])",
+                "code": {
+                  ".validate": "newData.isString() && newData.val().length <= 40"
+                },
+                "severity": {
+                  ".validate": "newData.val() === 'serious' || newData.val() === 'minor'"
+                },
+                "message": {
+                  ".validate": "newData.isString() && newData.val().length <= 120"
+                },
+                "t": {
+                  ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 7200"
+                },
+                "$other": {
+                  ".validate": false
+                }
+              }
+            },
+            "$other": {
+              ".validate": false
+            }
+          }
         }
       }
     },

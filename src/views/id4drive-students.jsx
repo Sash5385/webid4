@@ -221,6 +221,53 @@ function StudentCard({ s, onSelect, settings }) {
 // ─── STUDENT DETAIL SHEET ────────────────────────────────────────
 const MANEUVER_LABELS = { rozvorot:"Розворот", parking90:"Паркування 90", parking45:"Паркування 45" };
 
+// Результати 3D-тренажера маршрутів (users/{uid}/trainerRuns, пише клієнтський застосунок)
+function TrainerRuns({ runs }) {
+  const { BORDER, TEXT, DIM, FAINT, GREEN, RED, GOLD } = useContext(ThemeContext);
+  const [open, setOpen] = useState(null);
+  const [all, setAll] = useState(false);
+  const list = useMemo(() => Object.entries(runs || {}).map(([k, r]) => ({ k, ...r })).sort((a, b) => (b.at || 0) - (a.at || 0)), [runs]);
+  if (!list.length) return null;
+  const passed = list.filter(r => r.passed).length;
+  const shown = all ? list : list.slice(0, 5);
+  const mmss = t => `${Math.floor((t || 0) / 60)}:${String((t || 0) % 60).padStart(2, "0")}`;
+  const fmtD = at => { const d = new Date(at || 0); const p = n => String(n).padStart(2, "0"); return `${p(d.getDate())}.${p(d.getMonth() + 1)} ${p(d.getHours())}:${p(d.getMinutes())}`; };
+  return (
+    <div style={{background:"rgba(255,255,255,0.04)",borderRadius:10,padding:"10px 12px",border:`1px solid ${BORDER}`}}>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
+        <div style={{fontSize:11,fontWeight:800,color:TEXT}}>🚦 3D-тренажер маршрутів</div>
+        <div style={{fontSize:10,color:DIM}}>Спроб: {list.length} · складено: <span style={{color:GREEN,fontWeight:800}}>{passed}</span></div>
+      </div>
+      <div style={{display:"flex",flexDirection:"column",gap:4}}>
+        {shown.map(r => (
+          <div key={r.k}>
+            <div onClick={() => setOpen(open === r.k ? null : r.k)} style={{display:"flex",alignItems:"center",gap:8,fontSize:11,cursor:"pointer",padding:"4px 2px"}}>
+              <span style={{width:14,textAlign:"center"}}>{r.passed ? "✅" : "❌"}</span>
+              <span style={{color:DIM,minWidth:74}}>{fmtD(r.at)}</span>
+              <span style={{color:TEXT,fontWeight:700}}>М{r.route}</span>
+              <span style={{color:FAINT}}>{r.mode === "exam" ? "іспит" : "навчання"}</span>
+              <span style={{color:FAINT,marginLeft:"auto"}}>{mmss(r.time)}</span>
+              <span style={{color:(r.faults||[]).some(f => f.severity === "serious") ? RED : (r.faults||[]).length ? GOLD : GREEN,fontWeight:800,minWidth:16,textAlign:"right"}}>{(r.faults||[]).length}</span>
+            </div>
+            {open === r.k && (
+              <div style={{margin:"2px 0 6px 22px",fontSize:10.5,color:DIM,display:"flex",flexDirection:"column",gap:3}}>
+                <div style={{color:r.passed ? GREEN : RED,fontWeight:700}}>{r.passed ? "Склав" : "Не склав"}: {r.reason}</div>
+                {(r.faults||[]).length === 0 && <div>Без зауважень</div>}
+                {(r.faults||[]).map((f, i) => (
+                  <div key={i}><span style={{color:FAINT}}>{mmss(f.t)}</span> — {f.message}{f.severity === "serious" ? <span style={{color:RED}}> (груба)</span> : null}</div>
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+      {list.length > 5 && (
+        <div onClick={() => setAll(!all)} style={{fontSize:10,color:DIM,marginTop:6,cursor:"pointer",textAlign:"center"}}>{all ? "Згорнути" : `Показати всі (${list.length})`}</div>
+      )}
+    </div>
+  );
+}
+
 function StudentDetailSheet({ s, onClose, onUpdate, onDelete, onBlock, onRemoveBadge, autoOpenHistory, slotColor, autoColors, onColorChange }) {
   const { BG_DEEP, SURF_HI, SURFACE, BORDER, TEXT, DIM, FAINT, ACCENT, ACC_HI, GREEN, BLUE, GOLD, RED, SO, SI } = useContext(ThemeContext);
   const { shade, glow, ink } = useFX();
@@ -540,6 +587,9 @@ function StudentDetailSheet({ s, onClose, onUpdate, onDelete, onBlock, onRemoveB
                   {s.type==="school" && <Progress hours={s.hours} offset={s.hoursOffset||0}/>}
                 </div>
 
+                {/* 3D-тренажер: результати спроб (пише клієнтський застосунок) */}
+                <TrainerRuns runs={s.trainerRuns}/>
+
                 {/* Driving experience — заповнюється учнем в анкеті реєстрації */}
                 {s.experience && (
                   <div style={{background:glow(0.04),borderRadius:10,padding:"9px 12px",border:`1px solid ${BORDER}`}}>
@@ -788,7 +838,7 @@ export default function StudentsView({ studentJump, onStudentJumpHandled, bookin
           experience:p.experience||u.experience||null,
           createdAt:p.createdAt||u.createdAt||null,
           maneuverCounts:u.maneuverCounts||{}, maneuverSuccessCounts:u.maneuverSuccessCounts||{},
-          badges:u.badges||{}, slotColor:u.slotColor||null,
+          badges:u.badges||{}, slotColor:u.slotColor||null, trainerRuns:u.trainerRuns||{},
         };
       }));
       setLoading(false);
