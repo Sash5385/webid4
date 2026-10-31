@@ -15,6 +15,7 @@ export const LangContext = createContext('uk');
 
 // ─── LAZY VIEWS
 const ScheduleView  = lazy(()=>import("./views/id4drive-admin-v5").then(m=>({default:m.ScheduleView})))
+const AutoSlots     = lazy(()=>import("./views/id4drive-admin-v5").then(m=>({default:m.AutoSlots})))
 const SettingsView  = lazy(()=>import("./views/id4drive-settings"))
 const BookingsView  = lazy(()=>import("./views/id4drive-bookings"))
 const StudentsView  = lazy(()=>import("./views/id4drive-students"))
@@ -466,7 +467,7 @@ const INITIAL_BOOKINGS = [];
 const DEFAULT_SETTINGS = {
   profile: { name:"Олександр", phone:"+380989225442", address:"Київ", experience:8, photo:null },
   workStart:7, workEnd:20, weekends:[6], daysShown:6, snapMin:30, slotCreateStep:30, hourHeightPx:60, autoHourHeight:false,
-  lunchEnabled:true, lunchStart:12, lunchEnd:13, customBlocks:[], pendingEnabled:false, lockPastBookings:false, uiFog:true,
+  lunchEnabled:true, lunchStart:12, lunchEnd:13, customBlocks:[], pendingEnabled:false, lockPastBookings:false, autoSlots:false, uiFog:true,
   theme:"dark", language:"uk", queueAutoFifo:true, queueBroadcast:false, queueManual:false,
   studentCanReschedule:true, studentCanCancel:true, bookCutoffHours:2, minChangeHours:24, calendarOpenDays:30, schoolCalendarOpenDays:14, slotGenDays:30,
   stickyTime:"both", notifLocation:"topbar", showCompleteBtn:true, showSlotTimes:true, autoStudentColors:true,
@@ -806,6 +807,7 @@ export default function App() {
         slotFreedPushEnabled: settings.slotFreedPushEnabled ?? true,
         paymentCard:     settings.paymentCard      ?? "",
         lockPastBookings: settings.lockPastBookings ?? false,
+        autoSlots:       settings.autoSlots       ?? false,
         uiFog:           settings.uiFog           ?? true,
       }).catch(() => {});
     }, 800);
@@ -1206,6 +1208,7 @@ const pendingDeletesRef = React.useRef(new Set());
           }
         </div>
       )}
+      {settingsLoaded && settings.autoSlots && adminUser && <Suspense fallback={null}><AutoSlots settings={settings} bookings={bookings}/></Suspense>}
       <InstallBanner theme={theme}/>
     </>
     </LangContext.Provider>
