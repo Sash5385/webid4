@@ -94,7 +94,7 @@ function Conversation({ contact, messages, onSend, onEdit, isBroadcast }) {
                   {m.editedAt ? `ред. ${new Date(m.editedAt).toLocaleTimeString("uk",{hour:"2-digit",minute:"2-digit"})} · ` : ""}{m.time}
                   {isMe && !m.broadcast && !isBroadcast && Date.now()-(m.ts||0) < 86400000 && (
                     <button onClick={()=>{setEditing(m.id);setText(m.text||"");taRef.current?.focus();}} aria-label="Редагувати"
-                      style={{background:"none",border:"none",cursor:"pointer",color:"inherit",opacity:.7,fontSize:11,padding:"0 0 0 8px"}}>✎</button>
+                      style={{background:"rgba(255,255,255,0.14)",border:"1px solid rgba(255,255,255,0.25)",borderRadius:99,cursor:"pointer",color:"inherit",fontSize:12,padding:"4px 12px",marginLeft:8,minHeight:28}}>Редагувати</button>
                   )}
                 </div>
               </div>
@@ -150,7 +150,7 @@ const BROADCAST_ID = "__broadcast__";
 const GENERAL_ID   = "__general__";
 
 export default function ChatsView() {
-  const { BG, BG_DEEP, SURFACE, SURF_HI, SURF_LO, BORDER, TEXT, DIM, FAINT, ACCENT, SO, SI } = useContext(ThemeContext);
+  const { BG, BG_DEEP, SURFACE, SURF_HI, SURF_LO, BORDER, TEXT, DIM, FAINT, ACCENT, SO, SI, FOG } = useContext(ThemeContext);
   const { shade, glow, ink } = useFX();
 
   const css = `
@@ -174,6 +174,11 @@ export default function ChatsView() {
   border-radius:16px 16px 3px 16px;
   border:1px solid rgba(168,85,247,0.3);
 }
+${FOG?`
+.bubble-out,.bubble-in,.bubble-broadcast{border-radius:99px !important;padding:10px 20px !important;text-align:center;max-width:none !important;flex:1;min-width:0}
+.bubble-out{background:linear-gradient(135deg,rgba(96,165,250,.28),rgba(129,140,248,.18)) !important;border:1px solid rgba(147,197,253,.4);box-shadow:0 6px 20px rgba(0,0,0,.25)}
+.bubble-out>div:last-child,.bubble-in>div:last-child,.bubble-broadcast>div:last-child{text-align:center !important}
+`:""}
 .chat-row{cursor:pointer;transition:background .12s;user-select:none}
 .chat-row:active{background:${ink(0.04)}}
 .chat-row.open{background:linear-gradient(135deg,rgba(91,155,255,0.1),rgba(91,155,255,0.04))}
