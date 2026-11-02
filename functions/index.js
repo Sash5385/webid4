@@ -914,6 +914,27 @@ exports.unlockVipSlots = onSchedule("every 1 hours", async () => {
   }
 });
 
+// «Автовідкриття слотів» на сервері: щодня заповнює дні в межах slotGenDays за тижневим шаблоном,
+// навіть якщо майстер не заходив в адмінку. Той самий алгоритм і позначки autoSlotsDone, що й у адмінці
+// (functions/autoSlots.js ↔ AutoSlots у id4drive-admin-v5.jsx), тож вони не конфліктують.
+const { planAutoSlots } = require("./autoSlots");
+exports.autoOpenSlots = onSchedule(
+  { schedule: "every day 04:30", timeZone: "Europe/Kyiv", timeoutSeconds: 300, memory: "512MiB" },
+  async () => {
+    const settings = (await db.ref("admin_settings").get()).val();
+    if (!settings || settings.autoSlots !== true) return;
+    if ((await db.ref("license/status").get()).val() === "suspended") return;
+    const bookingsData = (await db.ref("bookings").get()).val();
+    const today = new Date().toLocaleDateString("sv-SE", { timeZone: "Europe/Kyiv" });
+    const read = async (path) => (await db.ref(path).get()).val();
+    const { removals, all, marks } = await planAutoSlots({ settings, bookingsData, today, read });
+    const chunked = async (u) => { const e = Object.entries(u); for (let i = 0; i < e.length; i += 400) await db.ref().update(Object.fromEntries(e.slice(i, i + 400))); };
+    if (Object.keys(removals).length) await chunked(removals);
+    if (Object.keys(all).length) { await chunked(all); await db.ref().update(marks); }
+    console.log(`autoOpenSlots: днів ${Object.keys(marks).length}, прибрано ${Object.keys(removals).length}`);
+  }
+);
+
 // Слот у найближчі 10 днів звільнився → ставимо в чергу, пуш через 5 хв
 exports.onSlotFreed = onValueWritten(
   { ref: "timeslots/{date}/{slotId}", region: "europe-west1" },
