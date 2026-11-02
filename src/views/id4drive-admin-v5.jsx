@@ -1235,7 +1235,7 @@ export function AutoSlots({ settings, bookings }) {
   useEffect(() => {
     if (!settings.autoSlots) return;
     const run = async () => {
-      if (busyRef.current) { againRef.current = true; return null; }
+      if (busyRef.current) { againRef.current = true; return { busy: true }; }
       busyRef.current = true;
       try {
         const limit = settings.slotGenDays || 30;
@@ -1270,7 +1270,7 @@ export function AutoSlots({ settings, bookings }) {
         if (Object.keys(removals).length) await chunked(removals);
         if (Object.keys(all).length) { await chunked(all); await update(ref(db, "/"), marks); }
         return { days: Object.keys(marks).length, removed: Object.keys(removals).length };
-      } catch (e) { console.error("autoSlots", e); return null; }
+      } catch (e) { console.error("autoSlots", e); return { error: String(e?.code || e?.message || e).slice(0, 80) }; }
       finally {
         busyRef.current = false;
         if (againRef.current) { againRef.current = false; runRef.current?.(); }
