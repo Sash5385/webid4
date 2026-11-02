@@ -1287,7 +1287,7 @@ export function AutoSlots({ settings, bookings }) {
 }
 
 function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bookings, setBookings, activeDragIds, navTo, slotExistsRef, openSlotsRef, jumpTarget, setJumpTarget, onViewStudent }) {
-  const { BG, BG_DEEP, SURFACE, SURF_HI, SURF_LO, BORDER, TEXT, DIM, FAINT, ACCENT, ACC_HI, BLUE, GREEN, RED, SO, SI, STRIPE_A, STRIPE_B, GLOW, SHADE, INK, FOG } = useContext(ThemeContext);
+  const { BG, BG_DEEP, SURFACE, SURF_HI, SURF_LO, BORDER, TEXT, DIM, FAINT, ACCENT, ACC_HI, BLUE, GREEN, RED, SO, SI, STRIPE_A, STRIPE_B, GLOW, SHADE, INK, FOG, SHEET } = useContext(ThemeContext);
   const isLight = !FOG && BG !== "#1c1d21";
   const { glow, shade, ink } = useFX();
   const GRID_H      = isLight ? "rgba(0,0,0,0.09)"        : "rgba(255,255,255,0.07)";
@@ -4388,7 +4388,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
             style={{
               position:"relative",
               width:"100%",
-              background:`linear-gradient(180deg,${SURFACE},${BG_DEEP})`,
+              background: SHEET || `linear-gradient(180deg,${SURFACE},${BG_DEEP})`, // у «Тумані» SURFACE напівпрозорий — шторці потрібен суцільний фон
               borderRadius:"20px 20px 0 0",
               padding:"10px 16px 32px",
               boxShadow:`0 -8px 40px ${shade(0.6)},inset 0 1px 0 ${glow(0.08)}`,
