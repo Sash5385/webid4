@@ -2199,6 +2199,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
     blockSlotRange(dateStr, startMin, durMin, { bookingStart: true }).catch(() => {});
     copyRecentRef.current.push({ dateStr, startMin, durMin, t: Date.now() });
     navigator.vibrate?.(40);
+    copyPastedAtRef.current = Date.now();
     return true;
   };
   // Цільовий день/час за позицією пальця — та сама математика, що й у drag запису
@@ -2465,11 +2466,11 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
             let d = snap(drag.startDur + deltaMin);
             const nextStart = bs.filter(x=>!allDragIds.has(x.id)&&x.day===b.day&&x.startMin>b.startMin)
               .reduce((mn,x)=>Math.min(mn,x.startMin), workEnd*60);
-            d = Math.max(60, Math.min(d, nextStart - b.startMin));
+            d = Math.min(Math.max(30, d), nextStart - b.startMin); // мінімум 30 хв, але ніколи не наїжджаємо на наступний запис
             return {...b, durMin:d};
           } else if (drag.mode === "top") {
             let s = snap(drag.startMinutes + deltaMin);
-            const maxS = drag.startMinutes + drag.startDur - 60;
+            const maxS = drag.startMinutes + drag.startDur - 30;
             const floorStart = bs.filter(x=>!allDragIds.has(x.id)&&x.day===b.day&&x.startMin+x.durMin<=drag.startMinutes)
               .reduce((mx,x)=>Math.max(mx,x.startMin+x.durMin), workStart*60);
             s = Math.max(floorStart, Math.min(maxS, s));
@@ -3622,6 +3623,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                 return (
                   <div key={`os-${time}`}
                     onPointerDown={e=>{
+                      if (copySourceRef.current) return; // режим копіювання: тап обробляє батьківський фон (вставка)
                       // isClosedDay НЕ блокує тут: слот, який реально існує на
                       // закритому дні (адмін відкрив вручну через довгий тап →
                       // "Вільний слот"), має лишатись керованим — інакше його
@@ -4053,6 +4055,8 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                         if(xJustShownRef.current){ xJustShownRef.current=false; return; }
                         if(quickCancelId){ xVisibleRef.current=false; setQuickCancelId(null); return; }
                         if(dragEndedRef.current) return;
+                        // Режим копіювання / щойно вставлена копія під пальцем — «привидний» click не відкриває картку
+                        if(copySourceRef.current || Date.now() - copyPastedAtRef.current < 800) return;
                         if(isVipSlot){ setVipSlotModal(b); return; }
                         if(isBlock){ setBlockModal(b); return; }
                         if(isPersonal){
