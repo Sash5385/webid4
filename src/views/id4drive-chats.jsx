@@ -202,6 +202,10 @@ ${FOG?`
   const [loading,     setLoading]     = useState(true);
   const [unreadMeta,  setUnreadMeta]  = useState({});
   const msgUnsubs = useRef({});
+  // Відкриття конкретного чату з картки запису (віяло 💬): uid передається через window.__openChatUid
+  const pendingUidRef = useRef(null);
+  const toggleRef = useRef(null);
+  useEffect(() => { pendingUidRef.current = window.__openChatUid || null; window.__openChatUid = null; }, []);
 
   // Лічильник непрочитаних — з chatMeta/{uid}/unreadForAdmin (той самий
   // authoritative-джерело, що й бейдж у BottomNav). Раніше рахували локально
@@ -230,6 +234,8 @@ ${FOG?`
         })
         .filter(c => c.name || c.phone);
       setContacts(list);
+      const pu = pendingUidRef.current;
+      if (pu && list.some(c => c.id === pu)) { pendingUidRef.current = null; setTimeout(() => toggleRef.current?.(pu), 0); }
       setLoading(false);
     });
     return unsub;
@@ -305,6 +311,7 @@ ${FOG?`
       set(ref(db, `chatMeta/${id}/unreadForAdmin`), 0).catch(()=>{});
     }
   };
+  toggleRef.current = toggle;
 
   // Редагування власних повідомлень інструктора (до 24 год, з відміткою editedAt)
   const handleEdit = (contactId, msgId, text) => {
