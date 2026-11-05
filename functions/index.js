@@ -467,6 +467,15 @@ exports.onBookingChanged = onValueWritten(
 
     if (!before || !after) return;
 
+    // Адмін натиснув «Попросити відгук» — пуш учню з посиланням на форму відгуку саме цього уроку.
+    // Без return: зміна reviewRequestedAt/lessonRating/lessonNote не зачіпає інші гілки нижче.
+    if (after.reviewRequestedAt && before.reviewRequestedAt !== after.reviewRequestedAt && after.status !== "cancelled" && after.status !== "personal" && uid !== "admin" && uid !== "personal") {
+      console.log(`onBookingChanged: review requested uid=${uid} bookingId=${bookingId}`);
+      await pushStudent(uid, "⭐ Оцініть урок", `Як пройшов урок ${date} о ${time}? Залиште відгук`, {
+        url: `https://id4drive.pro/cabinet/bookings?review=${encodeURIComponent(bookingId)}`, date, time,
+      }).catch(() => {});
+    }
+
     // Учень скасував — звільняємо слоти
     if (after.cancelledBy === "student" && before.cancelledBy !== "student") {
       console.log(`onBookingChanged: student cancel uid=${uid}`);
