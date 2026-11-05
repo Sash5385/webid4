@@ -212,7 +212,7 @@ function buildEvents(data) {
   return evs.sort((a, b) => b.ts - a.ts);
 }
 
-const BY_LABEL = { admin: "адмін", client: "учень" };
+const BY_LABEL = { admin: "адмін", client: "учень", finddrive: "FindDrive", finddrive_client: "FindDrive · учень", finddrive_instructor: "FindDrive · інструктор", finddrive_system: "FindDrive · авто" };
 
 function EventDetailSheet({ ev, meta, onClose, theme }) {
   const [closing, setClosing] = useState(false);

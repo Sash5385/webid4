@@ -12,6 +12,9 @@ const {
 admin.initializeApp();
 const db = admin.database();
 
+// Синхронізація слотів/броней з FindDrive (fdClaimSlot, fdUpdateBooking, syncFdSlots, syncFdSlotsFull, onFdBookingChanged)
+Object.assign(exports, require("./finddriveSync"));
+
 const OFFER_WINDOW_MS = 30 * 60 * 1000; // 30 хвилин
 
 // Хелпер: перевести "YYYY-MM-DDTHH:MM" за київським часом у абсолютні мс.
@@ -421,10 +424,20 @@ exports.onBookingChanged = onValueWritten(
 
     // Новий запис (before = null) — блокуємо слоти
     if (before === null && after) {
-      const slotUpd = await buildSlotUpdates(after, false, slotOwnerUid(uid, after));
-      if (Object.keys(slotUpd).length) await db.ref("/").update(slotUpd).catch(() => {});
+      const fromFinddrive = after.createdBy === "finddrive";
+      // Бронь з FindDrive: слоти вже заблоковано атомарно в fdClaimSlot — вдруге не блокуємо
+      if (!fromFinddrive) {
+        const slotUpd = await buildSlotUpdates(after, false, slotOwnerUid(uid, after));
+        if (Object.keys(slotUpd).length) await db.ref("/").update(slotUpd).catch(() => {});
+      }
       await db.ref(`activeStudents/${uid}`).set(true).catch(() => {});
       await db.ref(`recentStudents/${uid}`).set(Date.now()).catch(() => {});
+      if (fromFinddrive) {
+        // Лише push адміну (учень-гість без акаунту; клієнта сповіщає сам FindDrive)
+        const note = after.status === "pending" ? "\n⏳ Потребує підтвердження в FindDrive" : "\n✅ Підтверджено";
+        await pushAdmin("📋 Новий запис · FindDrive", buildNewBookingBody(after, name, date, time) + note, { url: adminLink() });
+        return;
+      }
       if (after.createdBy === "queue_auto") {
         // Пуш учню й адміну вже надіслано напряму з autoBookFromQueue — не дублюємо.
         return;
@@ -487,9 +500,24 @@ exports.onBookingChanged = onValueWritten(
       return;
     }
 
+    // Скасовано з боку FindDrive (клієнт / інструктор / авто-протермінування): слоти вже звільнено
+    // в fdUpdateBooking одним update зі статусом — тут лише push адміну і черга очікування.
+    if (after.status === "cancelled" && before.status !== "cancelled" && String(after.cancelledBy || "").startsWith("finddrive_")) {
+      const who = { finddrive_client: "клієнт", finddrive_instructor: "інструктор", finddrive_system: "автоматично" }[after.cancelledBy] || "FindDrive";
+      console.log(`onBookingChanged: finddrive cancel uid=${uid} by=${after.cancelledBy}`);
+      await pushAdmin("❌ Скасовано · FindDrive", `${name} · ${date} о ${time}\n(${who})`, { url: adminLink() });
+      if (date !== "—" && time !== "—") {
+        const freedDurationHours = before.durationHours || (before.durMin ? before.durMin / 60 : 1);
+        await inviteNextInQueue(`${date}_${time}`, [], freedDurationHours).catch(() => {});
+      }
+      return;
+    }
+
     // Адмін підтвердив
     if (after.status === "confirmed" && before.status !== "confirmed") {
       console.log(`onBookingChanged: admin confirmed uid=${uid}`);
+      // Бронь з FindDrive: клієнта (гостя без акаунту) сповіщає сам FindDrive через id4BookingEvent
+      if (after.source === "finddrive") return;
       const vars = { "ім'я": name, "дата": date, "час": time, "послуга": after.serviceName || after.service || "", "ціна": after.price != null ? String(after.price) : "" };
       const usedTpl = await sendActiveTemplates(uid, "auto_confirm", vars).catch(() => false);
       if (!usedTpl) {
@@ -515,7 +543,8 @@ exports.onBookingChanged = onValueWritten(
       const slotUpd = await buildSlotUpdates(before, true);
       if (Object.keys(slotUpd).length) await db.ref("/").update(slotUpd).catch(() => {});
       const cancelVars = { "ім'я": name, "дата": date, "час": time };
-      const usedCancelTpl = await sendActiveTemplates(uid, "auto_cancel", cancelVars).catch(() => false);
+      // Бронь з FindDrive: клієнта сповіщає FindDrive (id4BookingEvent), а не чат/push гостя
+      const usedCancelTpl = after.source === "finddrive" ? true : await sendActiveTemplates(uid, "auto_cancel", cancelVars).catch(() => false);
       if (!usedCancelTpl) {
         await pushStudent(uid, "❌ Урок скасовано", `${date} о ${time}`, {
           url: "https://id4drive.pro/cabinet/bookings",
@@ -1173,6 +1202,7 @@ exports.sendLessonReminders = onSchedule(
 
       for (const [bookingId, b] of Object.entries(bookingsObj)) {
         if (!b || b.status === "cancelled" || b.cancelledBy) continue;
+        if (b.source === "finddrive") continue; // нагадування клієнту FindDrive шле сам FindDrive
         if (!b.date || !b.time) continue;
 
         const lessonMs = kyivLocalToMs(b.date, b.time);

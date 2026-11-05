@@ -119,7 +119,7 @@ function HoursChip({ h }) {
 }
 
 function BkCard({ b, st }) {
-  const { GOLD } = useContext(ThemeContext);
+  const { GOLD, BLUE } = useContext(ThemeContext);
   const { shade } = useFX();
   const d = (b.date || "").split("-");
   return (
@@ -145,6 +145,7 @@ function BkCard({ b, st }) {
         </div>
         <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:4,flexShrink:0}}>
           <Pill color={st.color}>{st.text}</Pill>
+          {b.source === "finddrive" && <Pill color={BLUE}>FindDrive</Pill>}
           {b.durationHours > 1 && <HoursChip h={b.durationHours}/>}
         </div>
       </div>
