@@ -188,7 +188,7 @@
             ".write": "auth != null && auth.uid === $uid && !data.exists()",
             ".validate": "newData.hasChildren(['route','mode','passed','time','at'])",
             "route": {
-              ".validate": "newData.val() === 1 || newData.val() === 7"
+              ".validate": "newData.val() === 1 || newData.val() === 3 || newData.val() === 4 || newData.val() === 5 || newData.val() === 6 || newData.val() === 7 || newData.val() === 9 || newData.val() === 10 || newData.val() === 14"
             },
             "mode": {
               ".validate": "newData.val() === 'learn' || newData.val() === 'exam'"
