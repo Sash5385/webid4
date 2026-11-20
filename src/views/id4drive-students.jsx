@@ -244,7 +244,7 @@ function TrainerRuns({ runs }) {
             <div onClick={() => setOpen(open === r.k ? null : r.k)} style={{display:"flex",alignItems:"center",gap:8,fontSize:11,cursor:"pointer",padding:"4px 2px"}}>
               <span style={{width:14,textAlign:"center"}}>{r.passed ? "✅" : "❌"}</span>
               <span style={{color:DIM,minWidth:74}}>{fmtD(r.at)}</span>
-              <span style={{color:TEXT,fontWeight:700}}>М{r.route}</span>
+              <span style={{color:TEXT,fontWeight:700}}>{r.route >= 8041 ? `ТСЦ8041·${Math.round((r.route - 8041) * 10)}` : `М${r.route}`}</span>
               <span style={{color:FAINT}}>{r.mode === "exam" ? "іспит" : "навчання"}</span>
               <span style={{color:FAINT,marginLeft:"auto"}}>{mmss(r.time)}</span>
               <span style={{color:(r.faults||[]).some(f => f.severity === "serious") ? RED : (r.faults||[]).length ? GOLD : GREEN,fontWeight:800,minWidth:16,textAlign:"right"}}>{(r.faults||[]).length}</span>
