@@ -809,6 +809,7 @@ export default function StudentsView({ studentJump, onStudentJumpHandled, bookin
   const [sortMode,     setSortMode]     = useState("name");
   const [loading,      setLoading]      = useState(true);
   const [showNew,      setShowNew]      = useState(false);
+  const [prefill,      setPrefill]      = useState(null);
   const [autoOpenHistory, setAutoOpenHistory] = useState(false);
   useBackClose(showNew, () => setShowNew(false));
 
@@ -890,6 +891,15 @@ export default function StudentsView({ studentJump, onStudentJumpHandled, bookin
   };
   const removeBadge = (id, badgeId) => {
     remove(ref(db,`users/${id}/badges/${badgeId}`)).catch(()=>{});
+  };
+  // Вибір учня з записної книги (Contact Picker API — лише Android Chrome)
+  const pickContact = async () => {
+    try {
+      const [c] = await navigator.contacts.select(["name","tel"],{multiple:false});
+      if (!c) return;
+      setPrefill({name:(c.name?.[0]||"").trim(), phone:normalizePhoneUA(c.tel?.[0]||"")||"+380"});
+      setShowNew(true);
+    } catch(e) { /* скасовано користувачем */ }
   };
   const createStudent = async (data) => {
     const newRef = await push(ref(db,"users"),{
@@ -991,8 +1001,18 @@ export default function StudentsView({ studentJump, onStudentJumpHandled, bookin
         )}
       </div>
 
+      {typeof navigator!=="undefined" && navigator.contacts?.select && createPortal(
+        <button onClick={pickContact} aria-label="З контактів" style={{
+          position:"fixed",right:122,bottom:104,zIndex:45,
+          width:46,height:46,borderRadius:"50%",border:`1px solid ${BORDER}`,cursor:"pointer",
+          background:BG_DEEP,fontSize:20,display:"flex",alignItems:"center",justifyContent:"center",
+          boxShadow:"0 4px 14px rgba(0,0,0,0.4)",
+        }}>📇</button>,
+        document.body
+      )}
+
       {createPortal(
-        <button onClick={()=>setShowNew(true)} aria-label="Додати учня" style={{
+        <button onClick={()=>{setPrefill(null);setShowNew(true);}} aria-label="Додати учня" style={{
           position:"fixed",right:18,bottom:104,zIndex:45,
           display:"flex",alignItems:"center",gap:6,
           background:`linear-gradient(145deg,#5b9bff,#2563eb)`,
@@ -1031,7 +1051,7 @@ export default function StudentsView({ studentJump, onStudentJumpHandled, bookin
             <div style={{width:38,height:4,borderRadius:2,background:ink(0.12),margin:"0 auto 14px"}}/>
             <div style={{fontSize:14,fontWeight:800,color:TEXT,marginBottom:12}}>Новий учень</div>
             <StudentForm
-              initial={{name:"",phone:"+380",discount:0,customPrice:"",notes:"",type:"private",isVip:false,noIntervalLimit:false}}
+              initial={{name:prefill?.name||"",phone:prefill?.phone||"+380",discount:0,customPrice:"",notes:"",type:"private",isVip:false,noIntervalLimit:false}}
               onSave={createStudent} onCancel={()=>setShowNew(false)} saveLabel="Додати"
             />
           </div>
