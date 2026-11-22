@@ -1184,6 +1184,7 @@ function computeDayUpdatesFor(settings, bookings, dateStr, existing, force = fal
     // без проміжного 18:00 — тільки старти, розведені рівно на годину.
     const step = 60;
     const updates = {};
+    const grid = []; // часи шаблонної сітки (без слотів під записи)
     let afterLunch = false;
     for (let min = start * 60; min < end * 60; min += step) {
       // Слот, що перетинає обід (навіть частково), не створюємо; сітка після
@@ -1201,6 +1202,7 @@ function computeDayUpdatesFor(settings, bookings, dateStr, existing, force = fal
       if (!existing[id]?.adminBlocked) {
         updates[`timeslots/${dateStr}/${id}/time`] = `${h}:${m}`;
         updates[`timeslots/${dateStr}/${id}/available`] = true;
+        grid.push(`${h}:${m}`);
       }
     }
     const intervalMin = settings.snapMin ?? 30;
@@ -1226,7 +1228,7 @@ function computeDayUpdatesFor(settings, bookings, dateStr, existing, force = fal
     Object.entries(updates).forEach(([k, v]) => {
       if (k.endsWith('/available')) { if (v === true) free++; else blocked++; }
     });
-    return { updates, free, blocked };
+    return { updates, free, blocked, grid };
 }
 
 const dateStrAhead = (absDay) => {
@@ -1262,9 +1264,13 @@ export function AutoSlots({ settings, bookings }) {
             return;
           }
           // Підпис сітки дня: змінився шаблон (обід, години) — день перебудовується
-          const sig = Object.entries(result.updates).filter(([k]) => k.endsWith("/time")).map(([, v]) => v).sort().join(",");
+          // (лише шаблонна сітка: слоти під записи не повинні перебудовувати день і повертати видалені вручну слоти)
+          const sig = [...result.grid].sort().join(",");
+          const gridSet = new Set(result.grid);
+          // Старі мітки містили й часи записів поза сіткою — відфільтровуємо їх перед порівнянням
+          const doneNorm = done.exists() ? String(done.val()).split(",").filter(t => gridSet.has(t)).sort().join(",") : null;
           if (!done.exists() && snap.exists()) return;           // слоти заводились вручну — не чіпаємо
-          if (!done.exists() || (done.val() !== sig && snap.exists())) {
+          if (!done.exists() || (doneNorm !== sig && snap.exists())) {
             // вільні слоти поза новою сіткою (напр. годину обіду, яку додали пізніше) прибираємо
             Object.entries(existing).forEach(([slotId, sl]) => {
               const inGrid = `timeslots/${dateStr}/${slotId}/time` in result.updates;

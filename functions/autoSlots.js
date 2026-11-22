@@ -27,6 +27,7 @@ function computeDayUpdatesFor(settings, bookings, dateStr, existing, root = "tim
   const lunchEnd = ov?.lunchEnd ?? ws.lunchEnd ?? settings.lunchEnd ?? 13;
   const step = 60;
   const updates = {};
+  const grid = []; // часи шаблонної сітки (без слотів під записи)
   let afterLunch = false;
   for (let min = Math.round(start * 60); min < Math.round(end * 60); min += step) {
     if (lunchEnabled && lunchEnd > lunchStart && min < lunchEnd * 60 && min + step > lunchStart * 60) {
@@ -40,6 +41,7 @@ function computeDayUpdatesFor(settings, bookings, dateStr, existing, root = "tim
     if (!existing[id]?.adminBlocked) {
       updates[`${root}/${dateStr}/${id}/time`] = `${h}:${m}`;
       updates[`${root}/${dateStr}/${id}/available`] = true;
+      grid.push(`${h}:${m}`);
     }
   }
   const intervalMin = settings.snapMin ?? 30;
@@ -55,7 +57,7 @@ function computeDayUpdatesFor(settings, bookings, dateStr, existing, root = "tim
       updates[`${root}/${dateStr}/${id}/bookingStart`] = cur === b.startMin;
     }
   });
-  return { updates };
+  return { updates, grid };
 }
 
 // bookings/{uid}/{id} → плоский список з startMin/durMin
@@ -94,10 +96,14 @@ async function planAutoSlots({ settings, bookingsData, today, read, root = "time
       if (done != null) removals[`autoSlotsDone/${dateStr}`] = null;
       continue;
     }
-    const sig = Object.entries(result.updates).filter(([k]) => k.endsWith("/time")).map(([, v]) => v).sort().join(",");
+    // Підпис — лише шаблонна сітка: слоти під записи не повинні перебудовувати день (повертали б видалені вручну слоти)
+    const sig = [...result.grid].sort().join(",");
+    const gridSet = new Set(result.grid);
+    // Старі мітки містили й часи записів поза сіткою — відфільтровуємо їх перед порівнянням
+    const doneNorm = done == null ? null : String(done).split(",").filter((t) => gridSet.has(t)).sort().join(",");
     const hasExisting = Object.keys(existing).length > 0;
     if (done == null && hasExisting) continue; // слоти заводились вручну — не чіпаємо
-    if (done == null || (done !== sig && hasExisting)) {
+    if (done == null || (doneNorm !== sig && hasExisting)) {
       Object.entries(existing).forEach(([slotId, sl]) => {
         if (!(`${root}/${dateStr}/${slotId}/time` in result.updates) && freeAuto(sl)) removals[`${root}/${dateStr}/${slotId}`] = null;
       });

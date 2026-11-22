@@ -29,6 +29,16 @@ test("позначений день не відновлює видалені в�
   assert.ok(!Object.keys(again.all).some((k) => k.includes("2026-11-02")));
 });
 
+test("запис поза сіткою не перебудовує день і не повертає видалений слот", async () => {
+  const day = "2026-11-02";
+  const first = await planAutoSlots({ settings: { weekSchedule: week, slotGenDays: 0 }, bookingsData: {}, today: day, read: mk({}) });
+  // стара мітка з часом запису (12:30) — як її писала попередня версія
+  const db = { [`autoSlotsDone/${day}`]: first.marks[`autoSlotsDone/${day}`] + ",12:30", [`timeslots/${day}`]: { slot1000: { time: "10:00", available: true } } };
+  const bk = { u: { b: { date: day, time: "12:30", durMin: 30, status: "confirmed" } } };
+  const again = await planAutoSlots({ settings: { weekSchedule: week, slotGenDays: 0 }, bookingsData: bk, today: day, read: mk(db) });
+  assert.ok(!Object.keys(again.all).some((k) => k.includes(day)));
+});
+
 test("запис блокує слот", () => {
   const r = computeDayUpdatesFor({ weekSchedule: week }, [{ date: "2026-11-02", startMin: 600, durMin: 60 }], "2026-11-02", {});
   assert.strictEqual(r.updates["timeslots/2026-11-02/slot1000/available"], false);
