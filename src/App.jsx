@@ -900,6 +900,12 @@ export default function App() {
 
   // Debounce map for move/resize saves (avoids Firebase write on every pointermove)
   const moveSaveTimers = React.useRef({});
+  // Запис переносу в журнал (rescheduledAt) — із затримкою 20 с: якщо за цей час запис повернули
+  // на початкове місце (↩️ або перетягуванням назад), у журнал нічого не пишемо.
+  const journalTimers = React.useRef({});
+  const journalOrig = React.useRef({});
+  const bookingsLiveRef = React.useRef([]);
+  useEffect(() => { bookingsLiveRef.current = bookings; }, [bookings]);
   // Original positions captured at drag start — used for slot restoration
   const moveOriginals = React.useRef({});
   // Tracks bookings currently being dragged/resized (set at onPointerDown, before first save timer)
@@ -1055,6 +1061,18 @@ const pendingDeletesRef = React.useRef(new Set());
           if (!moveSaveTimers.current[b.id]) {
             moveOriginals.current[b.id] = { startMin: p.startMin, durMin: p.durMin, day: p.day, date: p.date };
           }
+          // Журнал: початкове положення фіксуємо один раз, запис rescheduledAt — через 20 с тиші
+          if (!journalTimers.current[b.id]) journalOrig.current[b.id] = { day: p.day, startMin: p.startMin, durMin: p.durMin };
+          clearTimeout(journalTimers.current[b.id]);
+          journalTimers.current[b.id] = setTimeout(() => {
+            const o = journalOrig.current[b.id];
+            delete journalTimers.current[b.id];
+            delete journalOrig.current[b.id];
+            const cur = bookingsLiveRef.current.find(x => x.id === b.id);
+            if (!o || !cur || !cur.userId) return;
+            if (cur.day === o.day && cur.startMin === o.startMin && cur.durMin === o.durMin) return;
+            update(ref(db, `bookings/${cur.userId}/${cur._fbKey || cur.id}`), { rescheduledAt: Date.now() }).catch(() => {});
+          }, 20000);
           clearTimeout(moveSaveTimers.current[b.id]);
           const doSaveMove = () => {
             // Defer write until drag is fully released (activeDragIds cleared after 700ms)
@@ -1108,7 +1126,6 @@ const pendingDeletesRef = React.useRef(new Set());
             upd[`${bp}/day`]           = b.day;
             upd[`${bp}/date`]          = newDate;
             upd[`${bp}/time`]          = `${hh}:${mm}`;
-            upd[`${bp}/rescheduledAt`] = Date.now();
             // Завжди перераховуємо ціну під нову позицію (навіть якщо price
             // раніше не зберігався) і надбавку саме нового слоту (0, якщо
             // новий слот без надбавки, — стара надбавка не має «прилипати»).
