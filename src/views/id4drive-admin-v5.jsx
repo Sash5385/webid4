@@ -2425,6 +2425,33 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
 
   // Listeners always attached — dragRef gives instant access without useEffect re-fire
   useEffect(() => {
+    // Автоскрол сітки, коли урок перетягують до краю (вгору/вниз/вліво/вправо).
+    // Після кроку скролу повторно викликаємо onMove з останньою позицією пальця,
+    // щоб урок "доїхав" за сіткою навіть без руху пальця.
+    let autoRaf = 0;
+    const autoPt = { x: 0, y: 0 };
+    const autoTick = () => {
+      autoRaf = 0;
+      if (!dragRef.current) return;
+      const g = gridRef.current;
+      if (g) {
+        const r = g.getBoundingClientRect();
+        const Z = 60, MAX = 14; // зона біля краю (px) і макс. швидкість (px/кадр)
+        const sp = (d) => Math.min(MAX, Math.max(1, Math.round(((Z - Math.max(0, d)) / Z) * MAX)));
+        const topEdge = r.top + HEADER_H, leftEdge = r.left + TIME_COL_W;
+        let dx = 0, dy = 0;
+        if (autoPt.y < topEdge + Z) dy = -sp(autoPt.y - topEdge);
+        else if (autoPt.y > r.bottom - Z) dy = sp(r.bottom - autoPt.y);
+        if (autoPt.x < leftEdge + Z) dx = -sp(autoPt.x - leftEdge);
+        else if (autoPt.x > r.right - Z) dx = sp(r.right - autoPt.x);
+        if (dx || dy) {
+          const bt = g.scrollTop, bl = g.scrollLeft;
+          g.scrollTop = bt + dy; g.scrollLeft = bl + dx;
+          if (g.scrollTop !== bt || g.scrollLeft !== bl) onMove({ clientX: autoPt.x, clientY: autoPt.y });
+        }
+      }
+      autoRaf = requestAnimationFrame(autoTick);
+    };
     const onMove = (e) => {
       if (swipeRef.current) {
         // Швидкість пальця (px/ms, згладжена) — щоб на pointerup "докрутити" сітку
@@ -2564,7 +2591,11 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
       const drag = dragRef.current;
       const { PX_PER_MIN, snapMin, workStart, workEnd, COL_W, dayOffset, N_DAYS } = calcRef.current;
       const snap = (m) => Math.round(m / snapMin) * snapMin;
-      const dy = e.clientY - drag.startClientY;
+      // Вертикальний зсув враховує скрол сітки з початку перетягування (автоскрол біля краю)
+      if (drag.sT == null) drag.sT = gridRef.current?.scrollTop ?? 0;
+      autoPt.x = e.clientX; autoPt.y = e.clientY;
+      if (!autoRaf) autoRaf = requestAnimationFrame(autoTick);
+      const dy = e.clientY - drag.startClientY + ((gridRef.current?.scrollTop ?? 0) - drag.sT);
       const dxRaw = e.clientX - drag.startClientX;
       const deltaMin = dy / PX_PER_MIN;
       const setBookingsFn = setBookingsRef.current || setBookings;
@@ -2816,6 +2847,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
       window.removeEventListener("resize", onResize);
       window.visualViewport?.removeEventListener("resize", onResize);
       clearTimeout(holdTimerRef.current);
+      if (autoRaf) cancelAnimationFrame(autoRaf);
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
