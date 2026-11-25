@@ -149,8 +149,12 @@ ${FOG ? `/* «Туман»: скляні кольорові картки зам�
 .note-corner-glow { animation: note-corner-glow 2.6s ease-in-out infinite; }
 .note-corner-halo { animation: note-corner-halo 2.6s ease-in-out infinite; }
 .note-icon-glow   { animation: note-icon-glow 2.6s ease-in-out infinite; }
+/* плавне поява колонок днів і карток уроків (backwards — після кінця не перекриває inline-opacity) */
+@keyframes cal-fade-in { from { opacity: 0; } to { opacity: 1; } }
+.cal-col-in  { animation: cal-fade-in .28s ease-out backwards; }
+.cal-card-in { animation: cal-fade-in .3s ease-out backwards; }
 @media (prefers-reduced-motion: reduce) {
-  .note-corner-glow, .note-corner-halo, .note-icon-glow { animation: none; }
+  .note-corner-glow, .note-corner-halo, .note-icon-glow, .cal-col-in, .cal-card-in { animation: none; }
 }
 
 /* resize handles — invisible hit area, no visual bar */
@@ -3661,7 +3665,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
             const isWorkDay = _ov ? _ov.type !== 'closed' : (_ws.enabled !== false && !(!_ws.start && (settings.weekends || []).includes(_dow)));
             const isClosedDay = !isWorkDay;
             return (
-            <div key={absDay} style={{
+            <div key={absDay} className="cal-col-in" style={{
               display:"flex", flexDirection:"column", flexShrink:0,
               width:COL_W, marginRight:colIdx<N_DAYS-1?4:0,
             }}>
@@ -4272,7 +4276,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                 const textTop = _tagRoomy ? _textTopTagged : 11;
                 return (
                   /* Обгортка — overflow:visible щоб значок не обрізався */
-                  <div key={b.id} style={{
+                  <div key={b.id} className="cal-card-in" style={{
                     position:"absolute", top:top+1, left:0, right:0,
                     height:height-2, overflow:"visible",
                     zIndex: dragId===b.id?10:quickCancelId===b.id?20:2, // з ✕/📋 — над сусідніми картками
