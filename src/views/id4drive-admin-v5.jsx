@@ -2428,11 +2428,13 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
     // Автоскрол сітки, коли урок перетягують до краю (вгору/вниз/вліво/вправо).
     // Після кроку скролу повторно викликаємо onMove з останньою позицією пальця,
     // щоб урок "доїхав" за сіткою навіть без руху пальця.
-    let autoRaf = 0;
+    let autoRaf = 0, autoLastT = 0, autoRemX = 0;
     const autoPt = { x: 0, y: 0 };
-    const autoTick = () => {
+    const autoTick = (now) => {
       autoRaf = 0;
-      if (!dragRef.current) return;
+      if (!dragRef.current) { autoLastT = 0; autoRemX = 0; return; }
+      const dt = autoLastT ? Math.min(50, now - autoLastT) : 16;
+      autoLastT = now;
       const g = gridRef.current;
       if (g) {
         const r = g.getBoundingClientRect();
@@ -2442,8 +2444,11 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
         let dx = 0, dy = 0;
         if (autoPt.y < topEdge + Z) dy = -sp(autoPt.y - topEdge);
         else if (autoPt.y > r.bottom - Z) dy = sp(r.bottom - autoPt.y);
-        if (autoPt.x < leftEdge + Z) dx = -sp(autoPt.x - leftEdge);
-        else if (autoPt.x > r.right - Z) dx = sp(r.right - autoPt.x);
+        // Горизонталь: рівно 3 дні за секунду (за часом, не за кадрами)
+        const dayPx = (calcRef.current.COL_W + 4) * 3 * dt / 1000;
+        if (autoPt.x < leftEdge + Z) dx = -dayPx;
+        else if (autoPt.x > r.right - Z) dx = dayPx;
+        if (dx) { autoRemX += dx; dx = Math.trunc(autoRemX); autoRemX -= dx; } else autoRemX = 0;
         if (dx || dy) {
           const bt = g.scrollTop, bl = g.scrollLeft;
           g.scrollTop = bt + dy; g.scrollLeft = bl + dx;
