@@ -1571,6 +1571,23 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   const headersInnerRef = useRef(null);
   const holdTimerRef = useRef(null);
   const pendingDragRef = useRef(null);
+  // ── Відміна дії (↩️): стек до 10 останніх кроків (перенос запису, скасування запису) ──
+  const undoStackRef = useRef([]);
+  const [undoN, setUndoN] = useState(0);
+  const [undoMsg, setUndoMsg] = useState(null);
+  const pushUndo = (entry) => {
+    undoStackRef.current = [...undoStackRef.current.slice(-9), entry];
+    setUndoN(undoStackRef.current.length);
+  };
+  // Зберігає скасовані записи, щоб їх можна було повернути
+  const pushCancelUndo = (mbs, mainId) => {
+    const items = mbs.filter(mb => mb?.userId && mb.startMin !== undefined && mb.durMin).map(mb => ({
+      id: mb.id, userId: mb.userId, key: mb._fbKey || mb.id,
+      prev: mb.status && mb.status !== "cancelled" ? mb.status : "confirmed",
+      date: mb.date || absDayToDateStr(mb.day), startMin: mb.startMin, durMin: mb.durMin,
+    }));
+    if (items.length) pushUndo({ type: "cancel", mainId, items });
+  };
   const dragEndedRef = useRef(false);
   const resizeReadyRef = useRef(null);
   const swipeRef = useRef(null);
@@ -2745,6 +2762,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
           // не діє, інакше нагадування-будильник на новий час взагалі не
           // прийде (sendPersonalEventReminders пропускає reminderSent:true).
           update(ref(db, `bookings/personal/${key}`), { date: newDateStr, time: `${hh}:${mm}`, startMin: finalB.startMin, reminderSent: false }).catch(() => {});
+          pushUndo({ type: "move", personal: true, id: finalB.id, key, oldDay: draggedMeta.startDay, oldDate: oldDateStr, oldStart: draggedMeta.startMinutes, durMin: finalB.durMin });
         } else if (finalB && finalB.type !== "personal" &&
                    !(draggedMeta.mergedIds && draggedMeta.mergedIds.length)) {
           // Реальний одиночний запис учня (НЕ злитий merged-блок з кількох
@@ -2770,6 +2788,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
             update(ref(db, `bookings/${seg.userId}/${key}`), {
               date: newDateStr, time: fmtTime(seg.startMin), startMin: seg.startMin,
             }).catch(() => {});
+            pushUndo({ type: "move", personal: false, id: seg.id, userId: seg.userId, key, oldDay: draggedMeta.startDay, oldDate: absDayToDateStr(draggedMeta.startDay), oldStart: draggedMeta.startMinutes, durMin: seg.durMin });
           }
         }
       }
@@ -3159,6 +3178,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
       const allToCancel = b._mergedIds
         ? bookings.filter(x => b._mergedIds.includes(x.id))
         : [b];
+      pushCancelUndo(allToCancel, b.id);
       allToCancel.forEach(cancelOne);
       // Затемнення 2с → видалення з локального стану
       setCancellingSet(s=>new Set([...s, b.id, ...(b._mergedIds || [])]));
@@ -3247,6 +3267,49 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
   };
   const unblockPersonalSlots = (dateStr, startMin, durMin) => {
     return restoreSlotRange(dateStr, startMin, durMin, { personal: null }).catch(() => {});
+  };
+
+  // Відміна останньої дії: перенос (повертаємо на старе місце) або скасування запису (відновлюємо)
+  const undoLast = () => {
+    const e = undoStackRef.current[undoStackRef.current.length - 1];
+    if (!e) return;
+    const say = (m) => { setUndoMsg(m); setTimeout(() => setUndoMsg(null), 3000); };
+    const busy = (dateStr, start, dur, ids) => (bookingsRef.current || []).some(x =>
+      x.status !== "cancelled" && !ids.includes(x.id) && x.type !== "vip-slot" &&
+      (x.date || absDayToDateStr(x.day)) === dateStr && start < x.startMin + x.durMin && start + dur > x.startMin);
+    if (e.type === "move") {
+      const cur = (bookingsRef.current || []).find(x => x.id === e.id);
+      if (!cur) { undoStackRef.current.pop(); setUndoN(undoStackRef.current.length); say("Запис не знайдено"); return; }
+      if (busy(e.oldDate, e.oldStart, cur.durMin, [e.id])) { say("Не можна відмінити: місце зайняте"); return; }
+      const curDate = cur.date || absDayToDateStr(cur.day);
+      const curStart = cur.startMin;
+      (setBookingsRef.current || setBookings)(bs => bs.map(b => b.id === e.id ? { ...b, day: e.oldDay, startMin: e.oldStart } : b));
+      if (e.personal) {
+        const rm = {};
+        for (let i = 0; i < cur.durMin; i += 30) {
+          const m = curStart + i;
+          rm[`timeslots/${curDate}/slot${String(Math.floor(m / 60)).padStart(2, "0")}${String(m % 60).padStart(2, "0")}`] = null;
+        }
+        Promise.resolve(update(ref(db, "/"), rm)).then(() => blockPersonalSlots(e.oldDate, e.oldStart, cur.durMin)).catch(() => {});
+        update(ref(db, `bookings/personal/${e.key}`), { date: e.oldDate, time: fmtTime(e.oldStart), startMin: e.oldStart, reminderSent: false }).catch(() => {});
+      } else {
+        // слоти перебудовує бекенд (onBookingChanged) — як при звичайному переносі
+        update(ref(db, `bookings/${e.userId}/${e.key}`), { date: e.oldDate, time: fmtTime(e.oldStart), startMin: e.oldStart }).catch(() => {});
+      }
+    } else if (e.type === "cancel") {
+      const ids = e.items.map(it => it.id);
+      if (e.items.some(it => busy(it.date, it.startMin, it.durMin, ids))) { say("Не можна відмінити: місце зайняте"); return; }
+      clearTimeout(cancelTimers.current[e.mainId]);
+      delete cancelTimers.current[e.mainId];
+      setCancellingSet(st => { const ns = new Set(st); ids.forEach(i => ns.delete(i)); return ns; });
+      e.items.forEach(it => {
+        update(ref(db, `bookings/${it.userId}/${it.key}`), { status: it.prev, cancelledAt: null, cancelledBy: null }).catch(() => {});
+        blockSlotRange(it.date, it.startMin, it.durMin, { bookingStart: true }).catch(() => {});
+      });
+    }
+    undoStackRef.current.pop();
+    setUndoN(undoStackRef.current.length);
+    say("Дію відмінено");
   };
 
   const savePersonalEventEdit = () => {
@@ -3513,6 +3576,19 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
           </div>
         </div>
 
+        {(undoN > 0 || undoMsg) && createPortal(
+          <div style={{position:"fixed",left:14,bottom:104,zIndex:45,display:"flex",alignItems:"center",gap:8}}>
+            {undoN > 0 && (
+              <button onClick={undoLast} aria-label="Відмінити" style={{
+                width:46,height:46,borderRadius:"50%",border:"1px solid rgba(255,255,255,0.15)",cursor:"pointer",
+                background:"rgba(30,30,40,0.92)",color:"#fff",fontSize:22,display:"flex",alignItems:"center",justifyContent:"center",
+                boxShadow:"0 4px 14px rgba(0,0,0,0.4)",
+              }}>↩️</button>
+            )}
+            {undoMsg && <div style={{background:"rgba(30,30,40,0.92)",color:"#fff",fontSize:12,fontWeight:700,padding:"8px 12px",borderRadius:10}}>{undoMsg}</div>}
+          </div>,
+          document.body
+        )}
         {/* SCROLLABLE GRID — horizontal + vertical */}
         <div
           ref={gridRef}
@@ -4531,6 +4607,7 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
                           setQuickCancelId(null);
                           // Прямий запис cancelled у Firebase одразу (не покладаємось на 2с-таймер)
                           const idsCancel = b._mergedIds || [b.id];
+                          pushCancelUndo(idsCancel.map(id => bookingsRef.current?.find(x => x.id === id) || (id === b.id ? b : null)), b.id);
                           idsCancel.forEach(id => {
                             const mb = bookingsRef.current?.find(x => x.id === id) || (id === b.id ? b : null);
                             if (!mb?.userId) return;
