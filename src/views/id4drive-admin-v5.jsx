@@ -2461,8 +2461,8 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
         let dx = 0, dy = 0;
         if (autoPt.y < topEdge + Z) dy = -sp(autoPt.y - topEdge);
         else if (autoPt.y > r.bottom - Z) dy = sp(r.bottom - autoPt.y);
-        // Горизонталь: рівно 3 дні за секунду (за часом, не за кадрами)
-        const dayPx = (calcRef.current.COL_W + 4) * 3 * dt / 1000;
+        // Горизонталь: 1 день за секунду (за часом, не за кадрами)
+        const dayPx = (calcRef.current.COL_W + 4) * 1 * dt / 1000;
         if (autoPt.x < leftEdge + Z) dx = -dayPx;
         else if (autoPt.x > r.right - Z) dx = dayPx;
         if (dx) { autoRemX += dx; dx = Math.trunc(autoRemX); autoRemX -= dx; } else autoRemX = 0;
