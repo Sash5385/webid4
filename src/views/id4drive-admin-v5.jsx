@@ -3577,16 +3577,18 @@ function ScheduleView({ settings, setSettings, onSlotClick, onEmptySlotClick, bo
         </div>
 
         {(undoN > 0 || undoMsg) && createPortal(
-          <div style={{position:"fixed",left:14,bottom:104,zIndex:45,display:"flex",alignItems:"center",gap:8}}>
+          <>
             {undoN > 0 && (
               <button onClick={undoLast} aria-label="Відмінити" style={{
-                width:46,height:46,borderRadius:"50%",border:"1px solid rgba(255,255,255,0.15)",cursor:"pointer",
-                background:"rgba(30,30,40,0.92)",color:"#fff",fontSize:22,display:"flex",alignItems:"center",justifyContent:"center",
-                boxShadow:"0 4px 14px rgba(0,0,0,0.4)",
-              }}>↩️</button>
+                position:"fixed",bottom:118,right:90,zIndex:25,
+                width:60,height:60,borderRadius:30,border:"none",cursor:"pointer",
+                background:"linear-gradient(165deg,#4ade80,#16a34a)",color:"#fff",fontSize:28,
+                display:"flex",alignItems:"center",justifyContent:"center",
+                boxShadow:"0 8px 24px rgba(22,163,74,0.5),0 4px 8px rgba(0,0,0,0.3),inset 1px 1px 0 rgba(255,255,255,0.3)",
+              }}>↩</button>
             )}
-            {undoMsg && <div style={{background:"rgba(30,30,40,0.92)",color:"#fff",fontSize:12,fontWeight:700,padding:"8px 12px",borderRadius:10}}>{undoMsg}</div>}
-          </div>,
+            {undoMsg && <div style={{position:"fixed",right:18,bottom:188,zIndex:25,maxWidth:"calc(100vw - 36px)",background:"rgba(30,30,40,0.92)",color:"#fff",fontSize:12,fontWeight:700,padding:"8px 12px",borderRadius:10}}>{undoMsg}</div>}
+          </>,
           document.body
         )}
         {/* SCROLLABLE GRID — horizontal + vertical */}
