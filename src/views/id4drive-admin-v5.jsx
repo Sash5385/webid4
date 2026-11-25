@@ -151,8 +151,8 @@ ${FOG ? `/* «Туман»: скляні кольорові картки зам�
 .note-icon-glow   { animation: note-icon-glow 2.6s ease-in-out infinite; }
 /* плавне поява колонок днів і карток уроків (backwards — після кінця не перекриває inline-opacity) */
 @keyframes cal-fade-in { from { opacity: 0; } to { opacity: 1; } }
-.cal-col-in  { animation: cal-fade-in .28s ease-out backwards; }
-.cal-card-in { animation: cal-fade-in .3s ease-out backwards; }
+.cal-col-in  { animation: cal-fade-in 1s ease-out backwards; }
+.cal-card-in { animation: cal-fade-in 1s ease-out backwards; }
 @media (prefers-reduced-motion: reduce) {
   .note-corner-glow, .note-corner-halo, .note-icon-glow, .cal-col-in, .cal-card-in { animation: none; }
 }
